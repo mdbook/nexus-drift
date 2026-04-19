@@ -724,12 +724,15 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         return (
           <g key={scout.id}>
             <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
-            <circle cx={scout.x} cy={scout.y + bob} r="18" fill="rgba(80,200,255,0.12)" stroke="rgba(120,220,255,0.50)" strokeWidth="1.3" />
+            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(80,200,255,0.10)" stroke="rgba(120,220,255,0.42)" strokeWidth="1.1" />
             <path
-              d={`M ${scout.x - 8} ${scout.y + bob + 4} L ${scout.x} ${scout.y + bob - 10} L ${scout.x + 8} ${scout.y + bob + 4} Z`}
-              fill="rgba(160,235,255,0.95)"
-              opacity="0.95"
+              d={`M ${scout.x} ${scout.y + bob - 8} L ${scout.x + 5.5} ${scout.y + bob + 1.5} L ${scout.x} ${scout.y + bob + 8} L ${scout.x - 5.5} ${scout.y + bob + 1.5} Z`}
+              fill="rgba(160,235,255,0.86)"
+              stroke="rgba(210,248,255,0.82)"
+              strokeWidth="1"
+              opacity="0.94"
             />
+            <circle cx={scout.x} cy={scout.y + bob - 0.5} r="3" fill="rgba(120,255,210,0.6)" />
             <line
               x1={scout.x}
               y1={scout.y + bob}
