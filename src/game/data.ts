@@ -47,11 +47,11 @@ export const NODE_STYLE: Record<ResourceKey, NodeVisual> = {
     label: "rgba(255, 240, 180, 0.98)",
   },
   ore: {
-    fill: "rgba(130, 170, 255, 0.26)",
-    core: "rgba(200, 220, 255, 0.92)",
-    stroke: "rgba(160, 200, 255, 0.72)",
-    glow: "rgba(130, 170, 255, 0.26)",
-    label: "rgba(220, 235, 255, 0.98)",
+    fill: "rgba(118, 128, 140, 0.38)",
+    core: "rgba(175, 184, 194, 0.95)",
+    stroke: "rgba(145, 155, 168, 0.85)",
+    glow: "rgba(118, 128, 140, 0.28)",
+    label: "rgba(200, 208, 218, 0.98)",
   },
   gems: {
     fill: "rgba(80, 255, 210, 0.24)",
