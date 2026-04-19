@@ -90,6 +90,7 @@ export type Enemy = {
   targetNodeId: number | null;
   flash: number;
   corruptTicks: number;
+  trail: [number, number][];
 };
 
 export type Projectile = {

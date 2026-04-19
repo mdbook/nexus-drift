@@ -77,16 +77,16 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
 
         return (
           <g key={turret.id}>
-            <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(255,255,255,0.05)" strokeDasharray="7 9" />
-            <circle cx={turret.x} cy={turret.y} r="20" fill="rgba(255,255,255,0.06)" />
-            <circle cx={turret.x} cy={turret.y} r="14" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.42)" strokeWidth="1.5" />
+            <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
+            <circle cx={turret.x} cy={turret.y} r="22" fill="rgba(80,200,255,0.10)" />
+            <circle cx={turret.x} cy={turret.y} r="14" fill="rgba(40,120,200,0.55)" stroke="rgba(120,220,255,0.75)" strokeWidth="2" />
             <line
               x1={turret.x}
               y1={turret.y}
               x2={turret.x + Math.cos(turret.angle) * 21}
               y2={turret.y + Math.sin(turret.angle) * 21}
-              stroke="rgba(255,255,255,0.92)"
-              strokeWidth="3.2"
+              stroke="rgba(160,235,255,0.95)"
+              strokeWidth="3.5"
               strokeLinecap="round"
             />
           </g>
@@ -102,7 +102,10 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         return (
           <g key={node.id}>
             {node.corruption > 0 && (
-              <circle cx={node.x} cy={node.y} r={node.size + 20} fill="rgba(190,80,255,0.16)" opacity={toxicGlow} />
+              <>
+                <circle cx={node.x} cy={node.y} r={node.size + 22} fill="rgba(160,50,255,0.22)" opacity={toxicGlow * 1.4} />
+                <circle cx={node.x} cy={node.y} r={node.size + 8} fill="none" stroke={`rgba(200,80,255,${(toxicGlow * 1.8).toFixed(2)})`} strokeWidth="1.5" />
+              </>
             )}
             <circle
               cx={node.x}
@@ -182,14 +185,25 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         }
 
         const style = ENEMY_STYLE[enemy.kind as Exclude<typeof enemy.kind, "corruptor">];
+        const threatPulse = 0.12 + Math.sin((game.timers.tick + enemy.id * 7) / 10) * 0.07;
+        const threatRing = (
+          <circle cx={enemy.x} cy={enemy.y} r={style.radius + 18} fill={`rgba(220,30,30,${threatPulse.toFixed(2)})`} stroke="rgba(255,60,60,0.45)" strokeWidth="1.2" />
+        );
+
         if (enemy.kind === "raider") {
           return (
             <g key={enemy.id}>
-              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
-              <rect x={enemy.x - 12} y={enemy.y - 12} width="24" height="24" rx="6" fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.2" />
-              <line x1={enemy.x - 8} y1={enemy.y} x2={enemy.x + 8} y2={enemy.y} stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
-              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(255,140,140,0.95)" />
+              {threatRing}
+              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
+              {/* thick outer armour ring */}
+              <rect x={enemy.x - 20} y={enemy.y - 20} width="40" height="40" rx="5" fill="rgba(100,10,25,0.55)" stroke={style.stroke} strokeWidth="2.5" />
+              {/* inner body */}
+              <rect x={enemy.x - 14} y={enemy.y - 14} width="28" height="28" rx="3" fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke="rgba(255,100,120,0.5)" strokeWidth="1" />
+              {/* armour cross marks */}
+              <line x1={enemy.x - 10} y1={enemy.y} x2={enemy.x + 10} y2={enemy.y} stroke="rgba(255,180,190,0.7)" strokeWidth="2" />
+              <line x1={enemy.x} y1={enemy.y - 10} x2={enemy.x} y2={enemy.y + 10} stroke="rgba(255,180,190,0.7)" strokeWidth="2" />
+              <rect x={enemy.x - 18} y={enemy.y + style.radius + 10} rx="4" ry="4" width="36" height="5" fill="rgba(255,255,255,0.12)" />
+              <rect x={enemy.x - 18} y={enemy.y + style.radius + 10} rx="4" ry="4" width={(36 * hpPct) / 100} height="5" fill="rgba(255,100,130,0.95)" />
             </g>
           );
         }
@@ -197,27 +211,51 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         if (enemy.kind === "wisp") {
           return (
             <g key={enemy.id}>
-              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
+              {/* motion trail — diamonds fading out behind the wisp */}
+              {enemy.trail.map(([tx, ty], i) => {
+                const t = (i + 1) / enemy.trail.length;
+                const alpha = t * 0.75;
+                const size = style.radius * t;
+                return (
+                  <path
+                    key={i}
+                    d={`M ${tx} ${ty - size} L ${tx + size * 0.6} ${ty} L ${tx} ${ty + size} L ${tx - size * 0.6} ${ty} Z`}
+                    fill={`rgba(90,210,175,${alpha.toFixed(2)})`}
+                    stroke={`rgba(180,240,220,${(alpha * 0.6).toFixed(2)})`}
+                    strokeWidth="0.8"
+                  />
+                );
+              })}
+              {threatRing}
+              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
+              {/* elongated narrow diamond — tall and thin to signal speed */}
               <path
-                d={`M ${enemy.x} ${enemy.y - 12} L ${enemy.x + 10} ${enemy.y} L ${enemy.x} ${enemy.y + 12} L ${enemy.x - 10} ${enemy.y} Z`}
+                d={`M ${enemy.x} ${enemy.y - 15} L ${enemy.x + 7} ${enemy.y} L ${enemy.x} ${enemy.y + 15} L ${enemy.x - 7} ${enemy.y} Z`}
                 fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill}
                 stroke={style.stroke}
-                strokeWidth="1.2"
+                strokeWidth="1.4"
               />
+              {/* inner bright core */}
+              <circle cx={enemy.x} cy={enemy.y} r="3" fill="rgba(200,245,230,0.9)" />
               <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
-              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(152,220,255,0.95)" />
+              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(90,210,175,0.95)" />
             </g>
           );
         }
 
+        // mite — small fast circle with sharp antenna spikes
         return (
           <g key={enemy.id}>
+            {threatRing}
             <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
-            <circle cx={enemy.x} cy={enemy.y} r={style.radius} fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.2" />
-            <line x1={enemy.x - 6} y1={enemy.y - 8} x2={enemy.x - 11} y2={enemy.y - 14} stroke="rgba(255,255,255,0.4)" />
-            <line x1={enemy.x + 6} y1={enemy.y - 8} x2={enemy.x + 11} y2={enemy.y - 14} stroke="rgba(255,255,255,0.4)" />
+            <circle cx={enemy.x} cy={enemy.y} r={style.radius} fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.5" />
+            {/* sharp antenna spikes */}
+            <line x1={enemy.x - 5} y1={enemy.y - 7} x2={enemy.x - 10} y2={enemy.y - 16} stroke="rgba(255,200,100,0.75)" strokeWidth="1.5" />
+            <line x1={enemy.x + 5} y1={enemy.y - 7} x2={enemy.x + 10} y2={enemy.y - 16} stroke="rgba(255,200,100,0.75)" strokeWidth="1.5" />
+            <circle cx={enemy.x - 10} cy={enemy.y - 16} r="1.5" fill="rgba(255,230,160,0.9)" />
+            <circle cx={enemy.x + 10} cy={enemy.y - 16} r="1.5" fill="rgba(255,230,160,0.9)" />
             <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
-            <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(255,176,145,0.95)" />
+            <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(255,165,60,0.95)" />
           </g>
         );
       })}
@@ -230,19 +268,19 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
 
         return (
           <g key={scout.id}>
-            <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(220,180,255,0.12)" strokeDasharray="4 4" />
-            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(205,155,255,0.14)" stroke="rgba(240,210,255,0.55)" strokeWidth="1.3" />
+            <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
+            <circle cx={scout.x} cy={scout.y + bob} r="18" fill="rgba(80,200,255,0.12)" stroke="rgba(120,220,255,0.50)" strokeWidth="1.3" />
             <path
               d={`M ${scout.x - 8} ${scout.y + bob + 4} L ${scout.x} ${scout.y + bob - 10} L ${scout.x + 8} ${scout.y + bob + 4} Z`}
-              fill="rgba(245,220,255,0.95)"
-              opacity="0.92"
+              fill="rgba(160,235,255,0.95)"
+              opacity="0.95"
             />
             <line
               x1={scout.x}
               y1={scout.y + bob}
               x2={scout.x + Math.cos(scout.angle) * 18}
               y2={scout.y + bob + Math.sin(scout.angle) * 18}
-              stroke="rgba(220,180,255,0.82)"
+              stroke="rgba(120,220,255,0.90)"
               strokeWidth="2.5"
               strokeLinecap="round"
             />
@@ -257,6 +295,17 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         const armAngle = (agent.swing / 24) * Math.PI * 2;
         const armX = agent.x + 8 + Math.cos(armAngle) * 5;
         const armY = agent.y + bob - 7 + Math.sin(armAngle) * 5;
+        const dotColor = AGENT_STYLE[agent.kind];
+        const damaged = agent.hp < 35;
+        const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";
+        const bodyStroke = damaged ? "rgba(255,150,150,0.75)" : "rgba(120,220,255,0.80)";
+
+        // hexagon points helper
+        const hex = (cx: number, cy: number, r: number) =>
+          Array.from({ length: 6 }, (_, i) => {
+            const a = (Math.PI / 3) * i - Math.PI / 6;
+            return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+          }).join(" ");
 
         return (
           <g key={agent.id}>
@@ -267,17 +316,90 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
             {shieldActive && (
               <circle cx={agent.x} cy={agent.y + bob} r={19 + game.upgrades.shield * 1.5} fill="none" stroke="rgba(150,220,255,0.22)" strokeWidth="2" />
             )}
-            <circle
-              cx={agent.x}
-              cy={agent.y + bob}
-              r="13"
-              fill={agent.hp < 35 ? "rgba(255,160,160,0.28)" : "rgba(255,255,255,0.14)"}
-              stroke="rgba(255,255,255,0.55)"
-              strokeWidth="1.5"
-            />
-            <circle cx={agent.x} cy={agent.y + bob} r="4.2" fill={AGENT_STYLE[agent.kind]} />
-            <path d={`M ${agent.x + 4} ${agent.y + bob - 4} L ${armX} ${armY}`} stroke="rgba(255,255,255,0.82)" strokeWidth="2" opacity={agent.swing ? 0.92 : 0.25} />
-            <circle cx={agent.x} cy={agent.y + bob} r="24" fill="none" stroke="rgba(255,255,255,0.08)" />
+            <circle cx={agent.x} cy={agent.y + bob} r="22" fill="rgba(80,200,255,0.08)" stroke="rgba(80,200,255,0.18)" strokeWidth="1" />
+
+            {agent.kind === "miner" && (() => {
+              // swing goes 0-23; map to raise→strike arc
+              const swingT = agent.swing / 24;
+              // eased: slow raise, fast strike — peak at t=0.45
+              const swingProgress = Math.pow(Math.max(0, Math.sin(swingT * Math.PI)), 0.55);
+              // arm pivots from right shoulder, sweeps from raised (-2.0 rad) to strike (-0.35 rad)
+              const pickAngle = -2.0 + swingProgress * 1.65;
+              const shoulderX = agent.x + 7;
+              const shoulderY = agent.y + bob - 4;
+              const armLen = 17;
+              const tipX = shoulderX + Math.cos(pickAngle) * armLen;
+              const tipY = shoulderY + Math.sin(pickAngle) * armLen;
+              // pickaxe head — small cross perpendicular to arm
+              const headAngle = pickAngle + Math.PI / 2;
+              const h1x = tipX + Math.cos(headAngle) * 5;
+              const h1y = tipY + Math.sin(headAngle) * 5;
+              const h2x = tipX - Math.cos(headAngle) * 3;
+              const h2y = tipY - Math.sin(headAngle) * 3;
+              const isStriking = agent.swing > 0 && swingProgress > 0.88;
+              return (
+                // hexagon — sturdy, industrial
+                <>
+                  <polygon points={hex(agent.x, agent.y + bob, 13)} fill={bodyFill} stroke={bodyStroke} strokeWidth="2" />
+                  <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+                  {agent.swing > 0 && (
+                    <>
+                      {/* arm */}
+                      <line x1={shoulderX} y1={shoulderY} x2={tipX} y2={tipY} stroke="rgba(160,235,255,0.90)" strokeWidth="2.5" strokeLinecap="round" />
+                      {/* pickaxe head */}
+                      <line x1={h1x} y1={h1y} x2={h2x} y2={h2y} stroke={dotColor} strokeWidth="3" strokeLinecap="round" />
+                      {/* impact spark at strike */}
+                      {isStriking && (
+                        <circle cx={tipX} cy={tipY} r="4" fill="none" stroke={dotColor} strokeWidth="1.2" opacity="0.85" />
+                      )}
+                    </>
+                  )}
+                </>
+              );
+            })()}
+
+            {agent.kind === "runner" && (() => {
+              // compute tail direction — opposite of travel
+              const tdx = agent.tx - agent.x;
+              const tdy = agent.ty - agent.y;
+              const td = Math.hypot(tdx, tdy) || 1;
+              // unit vector pointing away from target (the tail direction)
+              const tailX = -(tdx / td);
+              const tailY = -(tdy / td);
+              // perpendicular for offset streaks
+              const perpX = -tailY;
+              const perpY = tailX;
+              return (
+                // wide diamond — low profile, fast
+                <>
+                  <path
+                    d={`M ${agent.x} ${agent.y + bob - 11} L ${agent.x + 15} ${agent.y + bob} L ${agent.x} ${agent.y + bob + 11} L ${agent.x - 15} ${agent.y + bob} Z`}
+                    fill={bodyFill} stroke={bodyStroke} strokeWidth="2"
+                  />
+                  <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+                  {/* speed streaks trailing opposite to movement */}
+                  <line
+                    x1={agent.x + perpX * 4} y1={agent.y + bob + perpY * 4}
+                    x2={agent.x + tailX * 20 + perpX * 4} y2={agent.y + bob + tailY * 20 + perpY * 4}
+                    stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.60"
+                  />
+                  <line
+                    x1={agent.x - perpX * 4} y1={agent.y + bob - perpY * 4}
+                    x2={agent.x + tailX * 14 - perpX * 4} y2={agent.y + bob + tailY * 14 - perpY * 4}
+                    stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.35"
+                  />
+                </>
+              );
+            })()}
+
+            {agent.kind === "drone" && (
+              // circle with orbit ring — aerial
+              <>
+                <circle cx={agent.x} cy={agent.y + bob} r="13" fill={bodyFill} stroke={bodyStroke} strokeWidth="2" />
+                <ellipse cx={agent.x} cy={agent.y + bob} rx="19" ry="5" fill="none" stroke={dotColor} strokeWidth="1.2" opacity="0.55" />
+                <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+              </>
+            )}
           </g>
         );
       })}
