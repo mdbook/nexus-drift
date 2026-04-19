@@ -8,6 +8,189 @@ type FieldSvgProps = {
   derived: DerivedState;
 };
 
+const CITY_PALETTE = [
+  { stroke: "rgba(127, 222, 255, 0.82)", fill: "rgba(114, 198, 255, 0.2)", accent: "rgba(220, 248, 255, 0.92)" },
+  { stroke: "rgba(153, 238, 255, 0.82)", fill: "rgba(121, 222, 255, 0.22)", accent: "rgba(228, 252, 255, 0.94)" },
+  { stroke: "rgba(99, 204, 255, 0.82)", fill: "rgba(80, 170, 245, 0.22)", accent: "rgba(197, 237, 255, 0.92)" },
+  { stroke: "rgba(140, 255, 204, 0.8)", fill: "rgba(90, 226, 185, 0.22)", accent: "rgba(220, 255, 240, 0.94)" },
+  { stroke: "rgba(105, 212, 255, 0.82)", fill: "rgba(80, 188, 255, 0.2)", accent: "rgba(210, 245, 255, 0.92)" },
+  { stroke: "rgba(152, 235, 255, 0.8)", fill: "rgba(118, 215, 255, 0.22)", accent: "rgba(226, 249, 255, 0.94)" },
+  { stroke: "rgba(151, 255, 195, 0.8)", fill: "rgba(114, 232, 165, 0.22)", accent: "rgba(224, 255, 234, 0.94)" },
+  { stroke: "rgba(102, 220, 255, 0.82)", fill: "rgba(84, 194, 245, 0.22)", accent: "rgba(206, 242, 255, 0.92)" },
+  { stroke: "rgba(170, 246, 255, 0.82)", fill: "rgba(138, 226, 255, 0.22)", accent: "rgba(232, 251, 255, 0.94)" },
+  { stroke: "rgba(130, 255, 212, 0.8)", fill: "rgba(102, 228, 190, 0.22)", accent: "rgba(225, 255, 241, 0.92)" },
+  { stroke: "rgba(110, 208, 255, 0.82)", fill: "rgba(76, 182, 245, 0.22)", accent: "rgba(205, 240, 255, 0.92)" },
+  { stroke: "rgba(191, 247, 255, 0.84)", fill: "rgba(146, 229, 255, 0.22)", accent: "rgba(239, 252, 255, 0.95)" },
+  { stroke: "rgba(144, 255, 198, 0.82)", fill: "rgba(100, 232, 176, 0.22)", accent: "rgba(228, 255, 238, 0.94)" },
+  { stroke: "rgba(255, 213, 143, 0.8)", fill: "rgba(248, 186, 108, 0.2)", accent: "rgba(255, 244, 214, 0.94)" },
+  { stroke: "rgba(255, 189, 174, 0.78)", fill: "rgba(246, 155, 138, 0.2)", accent: "rgba(255, 236, 230, 0.94)" },
+  { stroke: "rgba(255, 168, 211, 0.76)", fill: "rgba(240, 130, 183, 0.18)", accent: "rgba(255, 230, 244, 0.92)" },
+  { stroke: "rgba(215, 176, 255, 0.8)", fill: "rgba(176, 130, 242, 0.2)", accent: "rgba(241, 228, 255, 0.94)" },
+  { stroke: "rgba(178, 190, 255, 0.8)", fill: "rgba(136, 146, 242, 0.2)", accent: "rgba(229, 233, 255, 0.94)" },
+  { stroke: "rgba(177, 255, 233, 0.8)", fill: "rgba(126, 232, 215, 0.2)", accent: "rgba(232, 255, 247, 0.94)" },
+  { stroke: "rgba(245, 228, 176, 0.78)", fill: "rgba(220, 197, 122, 0.2)", accent: "rgba(255, 249, 226, 0.94)" },
+];
+
+function renderHomeDistrict(derived: DerivedState) {
+  if (derived.cityStage === 0) return null;
+
+  const progress = clamp(derived.cityProgress, 0, 1);
+  const stage = derived.cityStage;
+  const chromatic = stage >= 5 && progress >= 1;
+  const paletteDrift = chromatic ? 0.018 : 0;
+  const districtOpacity = 0.36 + stage * 0.1;
+  const towerScale = 0.76 + stage * 0.08;
+  const buildingSpecs = [
+    { x: 270, w: 18, h: 24, stage: 1, paletteIndex: 0 },
+    { x: 296, w: 24, h: 34, stage: 1, paletteIndex: 1 },
+    { x: 328, w: 20, h: 29, stage: 1, paletteIndex: 2 },
+    { x: 418, w: 28, h: 48, stage: 2, paletteIndex: 3 },
+    { x: 454, w: 22, h: 40, stage: 2, paletteIndex: 4 },
+    { x: 516, w: 24, h: 44, stage: 2, paletteIndex: 5 },
+    { x: 566, w: 26, h: 64, stage: 3, paletteIndex: 6 },
+    { x: 600, w: 18, h: 58, stage: 3, paletteIndex: 7 },
+    { x: 650, w: 20, h: 68, stage: 4, paletteIndex: 8 },
+    { x: 680, w: 34, h: 82, stage: 4, paletteIndex: 9 },
+    { x: 726, w: 18, h: 70, stage: 4, paletteIndex: 10 },
+    { x: 758, w: 26, h: 96, stage: 5, paletteIndex: 11 },
+    { x: 792, w: 16, h: 88, stage: 5, paletteIndex: 12 },
+  ];
+
+  const activeBuildings = buildingSpecs.filter((building) => building.stage <= stage);
+
+  return (
+    <g>
+      <path
+        d="M130 555 L170 538 L220 548 L290 520 L352 532 L426 505 L500 520 L572 486 L635 498 L708 466 L790 494 L858 478 L888 495"
+        fill="none"
+        stroke={`rgba(120,220,255,${(0.08 + stage * 0.022).toFixed(2)})`}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M122 566 L164 549 L222 558 L286 530 L352 542 L430 515 L500 530 L572 497 L634 508 L708 477 L790 505 L858 488 L894 504"
+        fill="none"
+        stroke={`rgba(170,255,215,${(0.06 + stage * 0.018).toFixed(2)})`}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {Array.from({ length: Math.min(stage + 2, 7) }, (_, index) => {
+        const x = 212 + index * 92;
+        const towerHeight = (18 + index * 5 + progress * 12) * towerScale;
+        const y = 548 - towerHeight;
+        const palette =
+          CITY_PALETTE[
+            chromatic
+              ? Math.floor((index * 1.7 + derived.homeDevelopment * paletteDrift + index * 0.6) % CITY_PALETTE.length)
+              : index % CITY_PALETTE.length
+          ];
+        return (
+          <g key={`spire-${index}`} opacity={districtOpacity * 0.72}>
+            <line x1={x} y1="552" x2={x} y2={y + 8} stroke={palette.stroke} strokeWidth="1.5" opacity={0.45} />
+            <circle cx={x} cy={y} r={3 + (index % 2)} fill={palette.accent} />
+            <circle cx={x} cy={y} r={9 + (index % 3) * 2} fill={palette.fill} />
+          </g>
+        );
+      })}
+
+      {activeBuildings.map((building, index) => {
+        const growthPct = building.stage === stage ? progress : 1;
+        const height = building.h * (0.2 + growthPct * 0.8);
+        const y = 552 - height;
+        const lightRows = Math.max(1, Math.floor(height / 12));
+        const palette =
+          CITY_PALETTE[
+            chromatic
+              ? Math.floor((building.paletteIndex + derived.homeDevelopment * paletteDrift + index * 0.85) % CITY_PALETTE.length)
+              : building.paletteIndex % CITY_PALETTE.length
+          ];
+        return (
+          <g key={`building-${building.x}`}>
+            <rect
+              x={building.x}
+              y={y}
+              width={building.w}
+              height={height}
+              rx="4"
+              fill="rgba(18,34,56,0.74)"
+              stroke={palette.stroke}
+              strokeWidth="1"
+              opacity={districtOpacity}
+            />
+            <rect
+              x={building.x + 2}
+              y={y + 2}
+              width={building.w - 4}
+              height={Math.max(4, height * 0.22)}
+              rx="3"
+              fill={palette.fill}
+              opacity={0.65}
+            />
+            {Array.from({ length: lightRows }, (_, lightIndex) => (
+              <line
+                key={`window-${index}-${lightIndex}`}
+                x1={building.x + 4}
+                y1={y + 8 + lightIndex * 10}
+                x2={building.x + building.w - 4}
+                y2={y + 8 + lightIndex * 10}
+                stroke={lightIndex % 2 === 0 ? palette.accent : palette.stroke}
+                strokeWidth="1"
+                opacity={0.65}
+              />
+            ))}
+            {building.w >= 20 && (
+              <line
+                x1={building.x + building.w / 2}
+                y1={y}
+                x2={building.x + building.w / 2}
+                y2={y - 8 - building.stage * 2}
+                stroke={palette.accent}
+                strokeWidth="1"
+                opacity={0.6}
+              />
+            )}
+          </g>
+        );
+      })}
+
+      {stage >= 2 && (
+        <g opacity={0.48 + progress * 0.16}>
+          <path
+            d="M252 552 C320 542, 390 532, 458 520 S602 504, 742 490"
+            fill="none"
+            stroke="rgba(110,215,255,0.4)"
+            strokeWidth="2"
+            strokeDasharray="6 7"
+          />
+          <path
+            d="M246 560 C318 550, 386 541, 460 528 S603 512, 748 500"
+            fill="none"
+            stroke="rgba(154,255,210,0.28)"
+            strokeWidth="1.4"
+            strokeDasharray="4 8"
+          />
+        </g>
+      )}
+
+      {stage >= 4 && (
+        <g opacity={0.68}>
+          <path
+            d="M686 458 L700 438 L714 458 Z"
+            fill="rgba(180,248,255,0.8)"
+            stroke="rgba(220,250,255,0.9)"
+            strokeWidth="1"
+          />
+          <circle cx="700" cy="430" r="5" fill="rgba(214,255,225,0.92)" />
+          <circle cx="700" cy="430" r="16" fill="rgba(120,220,255,0.12)" />
+        </g>
+      )}
+    </g>
+  );
+}
+
 export function FieldSvg({ game, derived }: FieldSvgProps) {
   return (
     <svg
@@ -48,6 +231,8 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         fill="rgba(255,255,255,0.03)"
         stroke="rgba(255,255,255,0.1)"
       />
+
+      {renderHomeDistrict(derived)}
 
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;

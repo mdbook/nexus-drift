@@ -13,6 +13,41 @@ function runTicks(state: GameState, ticks: number): GameState {
 }
 
 describe("advanceGame simulation invariants", () => {
+  it("starts with no visible home district development", () => {
+    const derived = computeDerived(createInitialGameState());
+    expect(derived.cityStage).toBe(0);
+  });
+
+  it("home district development increases with progression", () => {
+    const early = createInitialGameState();
+    const mid = createInitialGameState();
+    const late = createInitialGameState();
+
+    mid.level = 6;
+    mid.upgrades.miner = 2;
+    mid.upgrades.drill = 1;
+    mid.upgrades.turret = 1;
+    mid.upgrades.scout = 1;
+
+    late.level = 14;
+    late.prestige = 1;
+    late.upgrades.miner = 4;
+    late.upgrades.drill = 3;
+    late.upgrades.reactor = 3;
+    late.upgrades.turret = 2;
+    late.upgrades.shield = 2;
+    late.upgrades.scout = 2;
+    late.upgrades.arsenal = 1;
+
+    const earlyDerived = computeDerived(early);
+    const midDerived = computeDerived(mid);
+    const lateDerived = computeDerived(late);
+
+    expect(midDerived.cityStage).toBeGreaterThan(earlyDerived.cityStage);
+    expect(lateDerived.cityStage).toBeGreaterThan(midDerived.cityStage);
+    expect(lateDerived.homeDevelopment).toBeGreaterThan(midDerived.homeDevelopment);
+  });
+
   it("never produces NaN resources over a long run", () => {
     const final = runTicks(createInitialGameState(), 2_000);
     for (const key of Object.keys(final.resources) as Array<keyof GameState["resources"]>) {

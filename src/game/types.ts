@@ -188,4 +188,7 @@ export type DerivedState = {
   activeScouts: number;
   hostilePressure: boolean;
   corruptionPressure: boolean;
+  homeDevelopment: number;
+  cityStage: number;
+  cityProgress: number;
 };

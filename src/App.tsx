@@ -59,6 +59,10 @@ export default function App() {
   const { game, derived } = useGameLoop(speed);
   const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
   const stabilityPct = clamp((derived.defenseScore / Math.max(2, derived.threatScore + 2)) * 100, 0, 100);
+  const averageUnitHealth =
+    game.agents.length > 0
+      ? Math.round(game.agents.reduce((sum, agent) => sum + agent.hp, 0) / game.agents.length)
+      : 100;
 
   return (
     <div className="relative min-h-screen bg-[#050814] text-white xl:h-screen xl:overflow-hidden">
@@ -140,15 +144,16 @@ export default function App() {
               <FieldSvg game={game} derived={derived} />
             </div>
 
-            <div className="grid shrink-0 grid-cols-3 gap-2 px-4 pb-4 pt-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-4 pt-2 text-[10px] uppercase tracking-[0.18em] text-white/42">
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
+                Crews {game.agents.length}
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
+                Avg Integrity {averageUnitHealth}%
+              </div>
               {game.agents.map((agent) => (
-                <div key={agent.id} className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 backdrop-blur-md">
-                  <div className="text-[9px] uppercase tracking-[0.18em] text-white/40">Unit {agent.id}</div>
-                  <div className="mt-0.5 flex items-center justify-between gap-1 text-xs font-medium text-white">
-                    <span className="truncate">{agent.kind}</span>
-                    <span className="shrink-0 text-[10px] text-white/50">{Math.round(agent.hp)}%</span>
-                  </div>
-                  <div className="mt-0.5 truncate text-[10px] text-white/50">{agent.task}</div>
+                <div key={agent.id} className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
+                  {agent.kind} // {agent.task}
                 </div>
               ))}
             </div>

@@ -1,5 +1,7 @@
 import type { DerivedState, GameState } from "@/game/types";
 
+const CITY_STAGE_THRESHOLDS = [8, 16, 27, 40, 56];
+
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length;
   const p = 1 + state.prestige * 0.12;
@@ -54,6 +56,29 @@ export function computeDerived(state: GameState): DerivedState {
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout);
   const hostilePressure = combatThreats >= 4 || colonyHealth < 72;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
+  const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
+  const homeDevelopment =
+    state.level * 1.35 +
+    totalUpgrades * 2.4 +
+    activeTurrets * 1.8 +
+    activeScouts * 1.55 +
+    state.prestige * 7 +
+    totalIncome * 0.22;
+
+  let cityStage = 0;
+  while (
+    cityStage < CITY_STAGE_THRESHOLDS.length &&
+    homeDevelopment >= CITY_STAGE_THRESHOLDS[cityStage]
+  ) {
+    cityStage += 1;
+  }
+
+  const previousThreshold = cityStage === 0 ? 0 : CITY_STAGE_THRESHOLDS[cityStage - 1];
+  const nextThreshold = CITY_STAGE_THRESHOLDS[cityStage] ?? previousThreshold + 16;
+  const cityProgress = Math.max(
+    0,
+    Math.min(1, (homeDevelopment - previousThreshold) / Math.max(1, nextThreshold - previousThreshold))
+  );
 
   return {
     rates,
@@ -71,5 +96,8 @@ export function computeDerived(state: GameState): DerivedState {
     activeScouts,
     hostilePressure,
     corruptionPressure,
+    homeDevelopment,
+    cityStage,
+    cityProgress,
   };
 }
