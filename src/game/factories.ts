@@ -12,14 +12,14 @@ import type {
 } from "@/game/types";
 import { dist, pick, rand } from "@/game/utils";
 
-export function makeNode(id: number): ResourceNode {
+export function makeNode(id: number, x: number, y: number, size: number): ResourceNode {
   const hp = rand(25, 80);
   return {
     id,
     kind: pick<ResourceKey>(["gold", "ore", "ore", "gems", "energy"]),
-    x: rand(80, WORLD_W - 80),
-    y: rand(100, WORLD_H - 170),
-    size: rand(18, 48),
+    x,
+    y,
+    size,
     hp,
     maxHp: hp,
     pulse: rand(0, Math.PI * 2),
@@ -29,8 +29,47 @@ export function makeNode(id: number): ResourceNode {
   };
 }
 
+export function respawnNode(id: number, existing: ResourceNode[]): ResourceNode {
+  const GAP = 12;
+  const MAX_ATTEMPTS = 60;
+  let x = 0, y = 0, size = 0, attempts = 0;
+
+  do {
+    size = rand(18, 48);
+    x = rand(80, WORLD_W - 80);
+    y = rand(100, WORLD_H - 170);
+    attempts++;
+  } while (
+    attempts < MAX_ATTEMPTS &&
+    existing.some((n) => n.id !== id && dist(x, y, n.x, n.y) < size + n.size + GAP)
+  );
+
+  return makeNode(id, x, y, size);
+}
+
 export function makeNodes() {
-  return Array.from({ length: 14 }, (_, index) => makeNode(index));
+  const GAP = 12;
+  const MAX_ATTEMPTS = 60;
+  const placed: ResourceNode[] = [];
+
+  for (let index = 0; index < 14; index++) {
+    let x = 0, y = 0, size = 0;
+    let attempts = 0;
+
+    do {
+      size = rand(18, 48);
+      x = rand(80, WORLD_W - 80);
+      y = rand(100, WORLD_H - 170);
+      attempts++;
+    } while (
+      attempts < MAX_ATTEMPTS &&
+      placed.some((n) => dist(x, y, n.x, n.y) < size + n.size + GAP)
+    );
+
+    placed.push(makeNode(index, x, y, size));
+  }
+
+  return placed;
 }
 
 export function makeAgents(): Agent[] {

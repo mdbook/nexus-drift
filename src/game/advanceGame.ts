@@ -14,7 +14,7 @@ import {
   WORLD_W,
 } from "@/game/constants";
 import { upgradeDefs } from "@/game/data";
-import { addProjectile, chooseWorkerTarget, cloneGameState, makeNode, spawnEnemy } from "@/game/factories";
+import { addProjectile, chooseWorkerTarget, cloneGameState, respawnNode, spawnEnemy } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { chance, clamp, dist, nextUpgradeCost, normalize, pick, pushLog, rand } from "@/game/utils";
@@ -568,7 +568,7 @@ function stepMining(state: GameState) {
         state.log = pushLog(state.log, `Critical haul on ${node.kind} node.`);
       }
 
-      Object.assign(node, makeNode(node.id));
+      Object.assign(node, respawnNode(node.id, state.nodes));
     } else {
       node.pulse = (node.pulse + 0.2 + node.corruption * 0.003) % (Math.PI * 2);
     }
