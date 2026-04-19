@@ -103,9 +103,9 @@ export function makeAgents(): Agent[] {
 
 export function makeTurrets(): Turret[] {
   return [
-    { id: 1, x: 220, y: 520, range: 135, cooldown: 0, angle: -1.2 },
+    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2 },
     { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57 },
-    { id: 3, x: 790, y: 515, range: 135, cooldown: 0, angle: -1.9 },
+    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9 },
   ];
 }
 
