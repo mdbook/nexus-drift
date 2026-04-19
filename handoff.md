@@ -2,96 +2,115 @@
 
 ## Overview
 
-Nexus Drift is a React + TypeScript + Vite app that runs a sci-fi "ambient autonomous RTS wallpaper" entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx` for regression comparison; the working app lives under `src/`.
+Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Core architecture:
+The current build also exposes release history inside the game itself. Click the version badge beside `Autonomous Colony Sim` in the header to open the in-game changelog.
 
-- one centralized `advanceGame(prev)` step
-- immutable-ish state cloning at the top of each tick
-- helper step functions for each simulation subsystem
-- React rendering layered on top of the simulation state
+## Core Architecture
+
+- `advanceGame(prev)` is still the single simulation orchestrator, but it is now intentionally thin.
+- Simulation logic is split across focused modules in `src/game/subsystems/`.
+- `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts.
+- Presentation-only calculations live in selectors and are exposed to React as derived state.
+- React rendering is layered on top of the sim through `useGameLoop()`, which uses `requestAnimationFrame` plus a fixed-tick accumulator.
 
 ## Project Structure
 
-- `src/App.tsx` — top-level layout and composition
-- `src/components/Background.tsx` — animated starfield / atmospheric background
-- `src/components/FieldSvg.tsx` — main battlefield SVG rendering
-- `src/components/Sidebar.tsx` — economy / automation / threat panels
+- `src/App.tsx` — top-level layout, header, release-history modal, and hidden admin speed panel
+- `src/changelog.ts` — structured in-game release notes
+- `src/components/Background.tsx` — animated starfield and atmosphere layers
+- `src/components/FieldSvg.tsx` — battlefield SVG rendering
+- `src/components/Sidebar.tsx` — economy, automation, and threat panels
 - `src/components/HudPrimitives.tsx` — shared HUD widgets
-- `src/components/ui/` — minimal local card/progress primitives
+- `src/components/ui/` — local card and progress primitives
 - `src/hooks/useGameLoop.ts` — rAF-driven simulation loop
-- `src/game/constants.ts` — tick/world/system constants
-- `src/game/types.ts` — core entity/state types
-- `src/game/data.ts` — visual defs + upgrade/resource data
-- `src/game/utils.ts` — shared math/formatting helpers
-- `src/game/factories.ts` — initial state + entity factories
-- `src/game/selectors.ts` — derived economy and UI-facing computed state
-- `src/game/advanceGame.ts` — main simulation step and subsystem helpers
-- `src/game/__tests__/advanceGame.test.ts` — simulation invariant tests (Vitest)
-- `docker/nginx.conf` — SPA fallback HTTP serving config
-- `Dockerfile` — multi-stage build for static hosting
+- `src/game/advanceGame.ts` — thin orchestrator over subsystem steps
+- `src/game/subsystems/` — economy, spawns, movement, corruption, turrets, scouts, combat, mining, autobuy, projectiles, and events
+- `src/game/balance.ts` — single source of truth for tuning constants
+- `src/game/rng.ts` — deterministic Mulberry32 PRNG
+- `src/game/targeting.ts` — shared targeting helpers
+- `src/game/factories.ts` — initial state and entity construction
+- `src/game/selectors.ts` — UI-facing derived state
+- `src/game/__tests__/advanceGame.test.ts` — simulation invariants
+- `.gitlab-ci.yml` — verify and container-build pipeline
+- `docker/nginx.conf` — SPA serving config with security headers
+- `Dockerfile` — multi-stage production image build
 
 ## Core Game Mechanics
 
 ### Economy
 
-Resources: **Gold, Ore, Gems, Energy**. Gold is the upgrade currency. Derived economy lives in `computeDerived()` and includes prestige scaling, combat pressure penalty, corruption penalties for ore/gems/energy, and colony health / threat / defense readouts.
+Resources: **Gold, Ore, Gems, Energy**. Gold funds upgrades. Derived economy includes prestige scaling, combat pressure penalties, corruption penalties, income rates, and colony health / threat / defense readouts.
 
 ### Workers
 
-Kinds: `miner`, `runner`, `drone`. Workers pick target nodes, move smoothly, enter sticky evade mode around combat enemies, recover when damaged, reboot from home positions if destroyed, and mark corrupted nodes as "purging residue" while working.
+Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously, evade combat threats with sticky enter/exit behavior, recover when damaged, and reboot from home pads when destroyed.
 
 ### Enemies
 
-Combat enemies (`mite`, `raider`, `wisp`) chase workers, create pressure, damage them in melee, and are targeted by turrets.
+Combat enemies (`mite`, `raider`, `wisp`) pursue workers, apply pressure, and are the only targets turrets will engage.
 
 ### Corrupters
 
-Corrupters do **not** attack workers, **never** target gold nodes, prefer lower-corruption ore/gems/energy nodes, stay attached while corrupting, and reduce economic performance.
+Corrupters do not attack workers. They never target gold nodes, prefer ore/gems/energy, attach while corrupting, and reduce effective economic output.
 
 ### Turrets
 
-Static base defense. Activate by upgrade count (one is always live as starter defense). Only target combat enemies — **never** corrupters.
+Static base defense. One is live from the start, with more unlocked by upgrades. Turrets only target combat enemies.
 
 ### Scouts
 
-Activate through the `scout` upgrade. Prioritize live corrupters, otherwise sweep high-corruption nodes, otherwise patrol home pads. Dedicated anti-corrupter layer — **not** mobile turrets.
+Dedicated anti-corruption units. They prioritize live corrupters, then sweep high-corruption nodes, then patrol home. They are not mobile turrets. There are four physical scout units in state, with activation still gated by upgrade level.
 
-### Mining / Harvesting
+### Mining And Harvesting
 
-Workers near their assigned node mine it down. On break: resources granted by kind, crits possible, corrupted nodes yield less, node respawns as a new random node.
+Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefit from crits. Corrupted nodes yield less and respawn through the seeded RNG path when depleted.
 
-### Autobuy / Prestige
+### Autobuy And Prestige
 
-Autobuy uses threat- and corruption-sensitive weights with soft gating between upgrade tiers. Prestige auto-triggers when the colony is rich, low-threat, and clear of active corruption.
+Autobuy reacts to threat, corruption, and upgrade weighting. Prestige still auto-triggers when the colony is rich, stable, and clear enough to justify a reset.
 
-## Invariants (do not accidentally break)
+### City / Home District
 
-- `advanceGame()` remains the single orchestrator.
+The home district skyline evolves as the colony grows. Its cadence and visual growth are tied to progression and upgrade investment rather than being purely decorative.
+
+## Invariants
+
+- `advanceGame()` remains the single orchestrator for the simulation tick.
+- Step order inside `advanceGame()` is important; do not reshuffle casually.
 - Presentation-only derivations belong in selectors, not simulation steps.
-- Worker evasion uses small enter radius, larger exit radius, multi-tick persistence, and vector-sums from multiple threats.
-- Corrupters never attack workers; corrupters never target gold nodes.
-- Turrets never target corrupters; scouts always get first crack at them.
-- Scouts stay visually distinct from turrets.
-- Wallpaper feel beats simulation purity — readable > perfect.
+- All gameplay randomness should flow through the seeded `Rng`, not direct `Math.random()` calls.
+- Worker evasion keeps the small enter radius, larger exit radius, multi-tick persistence, and vector-summed escape behavior.
+- Corrupters never attack workers and never target gold nodes.
+- Turrets never target corrupters.
+- Scouts stay visually distinct from turrets and keep first crack at corruption cleanup.
+- Wallpaper feel still beats perfect simulation purity.
+
+## Current Operational Notes
+
+- The header version badge opens the in-game release history.
+- The hidden admin speed panel toggles after pressing `Space` five times while focus is on the page body.
+- `package.json` version and `src/changelog.ts` should stay in sync whenever a release is being cut.
 
 ## Remaining Work
 
-### High priority
+### High Priority
 
-- Long-duration soak testing in a real browser.
-- Verify Docker image build and container serving end-to-end.
-- Extend the Vitest suite (seeded RNG + more subsystems).
+- Long-duration soak testing in a real browser session.
+- Broaden the Vitest suite beyond invariants into more seeded subsystem edge cases.
+- Verify Docker image serving and the GitLab registry flow end-to-end.
 
-### Medium priority
+### Medium Priority
 
-- Add deterministic seeded RNG for reproducible runs.
-- Small dev overlay: tick count, enemy counts, corrupted node counts, autobuy choice.
-- Soak-test utility to simulate many ticks headlessly.
+- Small dev overlay for tick counts, enemy counts, corruption state, and autobuy choice.
+- Headless soak-test utility for large deterministic runs.
+- Release workflow cleanup so package versioning and changelog maintenance are less manual.
 
-### Nice-to-have
+### Nice To Have
 
-- More enemy variants, scout formations, weather/day-night layers, better log categories, sound hooks, replay/snapshot export, theme variants.
+- More enemy variants and scout behaviors.
+- Replay or save/load support.
+- Weather, day-night, sound hooks, and alternate visual themes.
 
 ## Local Commands
 
@@ -99,35 +118,48 @@ Autobuy uses threat- and corruption-sensitive weights with soft gating between u
 - `npm run dev`
 - `npm run typecheck`
 - `npm test`
+- `npm run lint`
 - `npm run build`
 - `npm run preview`
+- `npm run format:check`
 
-## Docker
+## CI And Docker
 
-Production model: Vite build → Nginx serves `dist/` over HTTP → reverse proxy adds TLS.
+Pipeline model:
+
+- `verify` stage runs `npm ci`, `npm run typecheck`, and `npm test`
+- `build` stage uses Kaniko to build and publish the production image
+- notification stages report pipeline success or failure
+
+Production model: Vite build -> Nginx serves `dist/` over HTTP -> reverse proxy handles TLS.
 
 Local verification:
 
 1. `npm ci`
-2. `npm run build`
-3. `docker build -t nexus-drift .`
-4. `docker run --rm -p 8080:80 nexus-drift`
-5. open `http://localhost:8080`
+2. `npm run typecheck`
+3. `npm test`
+4. `npm run build`
+5. `docker build -t nexus-drift .`
+6. `docker run --rm -p 8080:80 nexus-drift`
+7. open `http://localhost:8080`
 
 ## Known Gaps / Risks
 
-- No deterministic RNG yet.
-- No save/load system.
+- No save/load system yet.
 - No explicit performance instrumentation.
-- Test suite covers invariants but not visual balance.
+- No automated release tagging flow beyond manual version and changelog updates.
+- Tests cover invariants better than they cover balance regressions or visuals.
 
 ## Reading Order For New Contributors
 
 1. `src/App.tsx`
-2. `src/hooks/useGameLoop.ts`
-3. `src/game/advanceGame.ts`
-4. `src/game/selectors.ts`
-5. `src/components/FieldSvg.tsx`
-6. `src/components/Sidebar.tsx`
+2. `src/changelog.ts`
+3. `src/hooks/useGameLoop.ts`
+4. `src/game/advanceGame.ts`
+5. `src/game/balance.ts`
+6. `src/game/subsystems/`
+7. `src/game/selectors.ts`
+8. `src/components/FieldSvg.tsx`
+9. `src/components/Sidebar.tsx`
 
-Compare against `reference/idle_wallpaper_game.reference.jsx` when in doubt about intended behavior.
+Compare against `reference/idle_wallpaper_game.reference.jsx` when you need to recover the original intended behavior or feel.

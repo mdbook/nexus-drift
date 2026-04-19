@@ -6,6 +6,7 @@ import { FieldSvg } from "@/components/FieldSvg";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { Card } from "@/components/ui/card";
+import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { Progress } from "@/components/ui/progress";
 import { resourceDefs } from "@/game/data";
 import type { ResourceKey, UpgradeKey } from "@/game/types";
@@ -55,6 +56,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
 
 export default function App() {
   const [speed, setSpeed] = useState(1);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived } = useGameLoop(speed);
   const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
@@ -64,6 +66,17 @@ export default function App() {
       ? Math.round(game.agents.reduce((sum, agent) => sum + agent.hp, 0) / game.agents.length)
       : 100;
 
+  useEffect(() => {
+    if (!changelogOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Escape") setChangelogOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [changelogOpen]);
+
   return (
     <div className="relative min-h-screen bg-[#050814] text-white xl:h-screen xl:overflow-hidden">
       <Background />
@@ -71,7 +84,19 @@ export default function App() {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 xl:h-screen">
         <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="mb-2 text-xs uppercase tracking-[0.35em] text-white/40">Autonomous Colony Sim</div>
+            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
+              <span>Autonomous Colony Sim</span>
+              <button
+                type="button"
+                onClick={() => setChangelogOpen(true)}
+                className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
+                aria-expanded={changelogOpen}
+                aria-haspopup="dialog"
+                aria-label={`Open changelog for version ${CURRENT_VERSION}`}
+              >
+                v{CURRENT_VERSION}
+              </button>
+            </div>
             <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">NEXUS DRIFT // purge wing online</h1>
             <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base">
               Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the grid, raiders push the perimeter. The colony runs itself — your job is to keep it that way.
@@ -182,6 +207,66 @@ export default function App() {
               ✕
             </button>
           </div>
+        </div>
+      )}
+      {changelogOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-[#02050f]/75 px-3 py-6 backdrop-blur-sm md:px-6"
+          onClick={() => setChangelogOpen(false)}
+        >
+          <Card
+            role="dialog"
+            aria-modal="true"
+            aria-label="Project changelog"
+            className={`${PANEL_CLASS} max-h-[min(720px,92vh)] w-full max-w-3xl overflow-hidden border-cyan-300/15 bg-slate-950/90`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-6">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-cyan-100/55">Release History</div>
+                <div className="mt-2 text-2xl font-semibold text-white md:text-3xl">Nexus Drift // v{CURRENT_VERSION}</div>
+                <p className="mt-2 max-w-2xl text-sm text-white/55 md:text-base">
+                  Release notes rebuilt from the repo history, from the first rough prototype to the current build.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChangelogOpen(false)}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-white/55 transition hover:bg-white/10 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[calc(min(720px,92vh)-112px)] space-y-4 overflow-y-auto px-5 py-4 md:px-6 md:py-5">
+              {CHANGELOG.map((entry) => (
+                <section key={entry.version} className="rounded-[28px] border border-white/10 bg-black/20 p-4 md:p-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="text-xl font-semibold text-white md:text-2xl">v{entry.version}</div>
+                    <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-cyan-100/75">
+                      {entry.badge}
+                    </div>
+                  </div>
+                  <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">{entry.summary}</p>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {entry.sections.map((section) => (
+                      <div key={section.title} className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">{section.title}</div>
+                        <div className="mt-3 space-y-2 text-sm text-white/72">
+                          {section.items.map((item) => (
+                            <p key={item} className="leading-6">
+                              {item}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </Card>
         </div>
       )}
     </div>

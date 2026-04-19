@@ -1,44 +1,80 @@
 # Nexus Drift
 
-Nexus Drift is an autonomous sci-fi colony sim wallpaper that runs as a React app. Workers mine, raiders harass the colony, turrets defend the perimeter, and scout craft purge toxic corrupters before they rot the economy.
+Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
+
+## Highlights
+
+- Fully browser-run simulation with no network gameplay dependency.
+- Deterministic seeded RNG in the simulation layer for reproducible runs.
+- In-game release history: click the version badge next to `Autonomous Colony Sim`.
+- Hidden admin speed panel for tuning and quick checks: press `Space` five times.
 
 ## Development
 
+Install dependencies and start the dev server:
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-The app uses Vite, React, TypeScript, Tailwind, Framer Motion, and local shadcn-style UI primitives.
+Useful commands:
 
-## Build
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run build
+npm run preview
+npm run format:check
+```
+
+## Architecture
+
+- `src/App.tsx`: top-level shell, HUD framing, admin panel, and release-history modal
+- `src/changelog.ts`: in-game release notes sourced from repo milestones
+- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop and derived-state snapshots
+- `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
+- `src/game/subsystems/`: focused simulation modules for economy, spawns, movement, combat, scouts, turrets, corruption, mining, autobuy, projectiles, and events
+- `src/game/balance.ts`: central tuning constants
+- `src/game/rng.ts`: seeded Mulberry32 PRNG used by simulation paths
+- `src/game/targeting.ts`: shared targeting helpers
+- `src/components/`: battlefield rendering, HUD widgets, and sidebar panels
+- `reference/`: preserved single-file reference artifact
+
+## Build And Delivery
+
+Production build:
 
 ```bash
 npm run build
 ```
 
-## Docker
-
-Build and run the HTTP container:
+Docker:
 
 ```bash
 docker build -t nexus-drift .
 docker run --rm -p 8080:80 nexus-drift
 ```
 
-Or use compose:
+Or with compose:
 
 ```bash
 docker compose up --build
 ```
 
-The production image serves the static build with Nginx on port `80`. TLS can sit in front of it via your reverse proxy.
+The production image serves the static Vite build with Nginx on port `80`.
 
-## Project Layout
+## CI
 
-- `reference/`: preserved single-file reference artifact
-- `src/game/`: simulation types, constants, factories, selectors, and step functions
-- `src/components/`: SVG field renderer, sidebar panels, and HUD primitives
-- `src/hooks/`: React loop glue around the simulation engine
-- `docker/`: Nginx configuration for SPA serving
+GitLab CI currently runs:
 
+- a `verify` stage with `npm ci`, `npm run typecheck`, and `npm test`
+- a Kaniko-based image build stage that publishes the container image
+- success and failure notifications after the pipeline completes
+
+## Notes For Contributors
+
+- Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
+- If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
+- Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
