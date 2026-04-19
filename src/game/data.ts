@@ -27,10 +27,6 @@ export const resourceDefs: ResourceDef[] = [
   },
 ];
 
-export const resourceLabelByKey: Record<ResourceKey, string> = Object.fromEntries(
-  resourceDefs.map((resource) => [resource.key, resource.label])
-) as Record<ResourceKey, string>;
-
 export const upgradeDefs: UpgradeDef[] = [
   { key: "miner", label: "Auto Miner", baseCost: 12, growth: 1.18, effectText: "+ Gold + Ore" },
   { key: "drill", label: "Deep Drill", baseCost: 80, growth: 1.22, effectText: "+ Ore + Gems" },

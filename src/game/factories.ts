@@ -1,20 +1,18 @@
-import { CORRUPTIBLE_KINDS, WORKER_KIND_PREFERENCES } from "@/game/constants";
+import { WORKER_KIND_PREFERENCES, WORLD_H, WORLD_W } from "@/game/constants";
 import { resourceDefs } from "@/game/data";
 import type {
   Agent,
   Enemy,
   EnemyKind,
   GameState,
-  Node,
-  Projectile,
+  ResourceNode,
   ResourceKey,
   Scout,
   Turret,
 } from "@/game/types";
 import { dist, pick, rand } from "@/game/utils";
-import { WORLD_H, WORLD_W } from "@/game/constants";
 
-export function makeNode(id: number): Node {
+export function makeNode(id: number): ResourceNode {
   const hp = rand(25, 80);
   return {
     id,

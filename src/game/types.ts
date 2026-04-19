@@ -16,7 +16,7 @@ export type StatusTone = "danger" | "toxic" | "ready" | "calm";
 export type ResourceMap = Record<ResourceKey, number>;
 export type UpgradeMap = Record<UpgradeKey, number>;
 
-export type Node = {
+export type ResourceNode = {
   id: number;
   kind: ResourceKey;
   x: number;
@@ -129,7 +129,7 @@ export type GameState = {
   level: number;
   xp: number;
   prestige: number;
-  nodes: Node[];
+  nodes: ResourceNode[];
   agents: Agent[];
   turrets: Turret[];
   scouts: Scout[];

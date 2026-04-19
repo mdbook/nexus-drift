@@ -1,0 +1,107 @@
+import { describe, expect, it } from "vitest";
+import { advanceGame } from "@/game/advanceGame";
+import { createInitialGameState, spawnEnemy } from "@/game/factories";
+import { computeDerived } from "@/game/selectors";
+import type { GameState } from "@/game/types";
+
+function runTicks(state: GameState, ticks: number): GameState {
+  let current = state;
+  for (let i = 0; i < ticks; i += 1) {
+    current = advanceGame(current);
+  }
+  return current;
+}
+
+describe("advanceGame simulation invariants", () => {
+  it("never produces NaN resources over a long run", () => {
+    const final = runTicks(createInitialGameState(), 2_000);
+    for (const key of Object.keys(final.resources) as Array<keyof GameState["resources"]>) {
+      expect(Number.isFinite(final.resources[key])).toBe(true);
+      expect(final.resources[key]).toBeGreaterThanOrEqual(0);
+    }
+    expect(Number.isFinite(final.xp)).toBe(true);
+    expect(Number.isFinite(final.combo)).toBe(true);
+  });
+
+  it("keeps node corruption clamped to 0..100", () => {
+    const seeded = createInitialGameState();
+    seeded.enemies.push(spawnEnemy(seeded.nextEnemyId++, 0, "corruptor"));
+    const final = runTicks(seeded, 1_500);
+    for (const node of final.nodes) {
+      expect(node.corruption).toBeGreaterThanOrEqual(0);
+      expect(node.corruption).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("never corrupts gold nodes", () => {
+    const seeded = createInitialGameState();
+    for (let i = 0; i < 4; i += 1) {
+      seeded.enemies.push(spawnEnemy(seeded.nextEnemyId++, 0, "corruptor"));
+    }
+    const final = runTicks(seeded, 2_000);
+    const corruptedGold = final.nodes.filter((node) => node.kind === "gold" && (node.corrupted || node.corruption > 0));
+    expect(corruptedGold).toHaveLength(0);
+  });
+
+  it("turret targeting excludes corruptors", () => {
+    const seeded = createInitialGameState();
+    seeded.upgrades.turret = 2;
+    const seededCorruptors = new Map<number, number>();
+    for (let i = 0; i < 3; i += 1) {
+      const enemy = spawnEnemy(seeded.nextEnemyId++, 0, "corruptor");
+      enemy.x = seeded.turrets[0].x + 30;
+      enemy.y = seeded.turrets[0].y;
+      seeded.enemies.push(enemy);
+      seededCorruptors.set(enemy.id, enemy.hp);
+    }
+    const after = runTicks(seeded, 40);
+    for (const [id, startHp] of seededCorruptors) {
+      const alive = after.enemies.find((enemy) => enemy.id === id);
+      if (!alive) continue;
+      expect(alive.hp).toBeGreaterThanOrEqual(startHp);
+      expect(alive.flash).toBe(0);
+    }
+  });
+
+  it("scouts prefer corruptors over sweep targets", () => {
+    const seeded = createInitialGameState();
+    seeded.upgrades.scout = 2;
+    const corruptor = spawnEnemy(seeded.nextEnemyId++, 0, "corruptor");
+    corruptor.x = 400;
+    corruptor.y = 300;
+    seeded.enemies.push(corruptor);
+    seeded.nodes[0].corruption = 40;
+    seeded.nodes[0].kind = "ore";
+    const after = runTicks(seeded, 10);
+    const liveScouts = after.scouts.slice(0, 2);
+    const anyTargeting = liveScouts.some((scout) => scout.targetId === corruptor.id);
+    expect(anyTargeting).toBe(true);
+  });
+
+  it("worker evade persists across multiple ticks once triggered", () => {
+    const seeded = createInitialGameState();
+    const agent = seeded.agents[0];
+    const enemy = spawnEnemy(seeded.nextEnemyId++, 0);
+    enemy.x = agent.x + 10;
+    enemy.y = agent.y + 10;
+    seeded.enemies.push(enemy);
+    const afterTrigger = advanceGame(seeded);
+    const triggeredAgent = afterTrigger.agents[0];
+    expect(triggeredAgent.evadeTicks).toBeGreaterThan(1);
+    const enemyIndex = afterTrigger.enemies.findIndex((item) => item.id === enemy.id);
+    if (enemyIndex >= 0) {
+      afterTrigger.enemies.splice(enemyIndex, 1);
+    }
+    const later = advanceGame(afterTrigger);
+    expect(later.agents[0].evadeTicks).toBeGreaterThan(0);
+  });
+
+  it("derived state stays consistent with simulation", () => {
+    const final = runTicks(createInitialGameState(), 500);
+    const derived = computeDerived(final);
+    expect(Number.isFinite(derived.totalIncome)).toBe(true);
+    expect(derived.colonyHealth).toBeGreaterThanOrEqual(0);
+    expect(derived.colonyHealth).toBeLessThanOrEqual(100);
+    expect(derived.corruptedNodes).toBe(final.nodes.filter((node) => node.corrupted).length);
+  });
+});
