@@ -376,9 +376,10 @@ function stepScouts(state: GameState) {
   const corruptedNodes = [...state.nodes]
     .filter((node) => node.corruption > 8 && node.kind !== "gold")
     .sort((a, b) => b.corruption - a.corruption || a.id - b.id);
+  const liveScouts = Math.min(state.scouts.length, state.upgrades.scout, 3);
 
   state.scouts.forEach((scout, index) => {
-    const live = index < Math.min(state.scouts.length, state.upgrades.scout);
+    const live = index < liveScouts;
     scout.pulse = (scout.pulse + 0.08) % (Math.PI * 2);
     scout.cooldown = Math.max(0, scout.cooldown - 1);
 

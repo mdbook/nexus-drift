@@ -65,6 +65,16 @@ describe("advanceGame simulation invariants", () => {
     expect(upgradedDerived.cityBuildProgress).toBeGreaterThan(baseDerived.cityBuildProgress);
   });
 
+  it("caps active corruption-killer drones at three", () => {
+    const seeded = createInitialGameState();
+    seeded.upgrades.scout = 9;
+
+    const derived = computeDerived(seeded);
+
+    expect(seeded.scouts).toHaveLength(3);
+    expect(derived.activeScouts).toBe(3);
+  });
+
   it("never produces NaN resources over a long run", () => {
     const final = runTicks(createInitialGameState(), 2_000);
     for (const key of Object.keys(final.resources) as Array<keyof GameState["resources"]>) {

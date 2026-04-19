@@ -3,6 +3,7 @@ import type { DerivedState, GameState } from "@/game/types";
 const CITY_GROWTH_START = 8;
 const CITY_GROWTH_SPAN = 118;
 const CITY_STAGE_THRESHOLDS = [0.14, 0.32, 0.54, 0.78, 1];
+const MAX_ACTIVE_SCOUTS = 3;
 
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length;
@@ -55,7 +56,7 @@ export function computeDerived(state: GameState): DerivedState {
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
   const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
-  const activeScouts = Math.min(state.scouts.length, state.upgrades.scout);
+  const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, MAX_ACTIVE_SCOUTS);
   const hostilePressure = combatThreats >= 4 || colonyHealth < 72;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
