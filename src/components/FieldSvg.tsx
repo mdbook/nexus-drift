@@ -292,9 +292,6 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         const bob = Math.sin((game.timers.tick + agent.id * 8) / 7) * 2;
         const shieldActive = game.upgrades.shield > 0;
         const panicOpacity = clamp(agent.panic / 100, 0, 1) * 0.22;
-        const armAngle = (agent.swing / 24) * Math.PI * 2;
-        const armX = agent.x + 8 + Math.cos(armAngle) * 5;
-        const armY = agent.y + bob - 7 + Math.sin(armAngle) * 5;
         const dotColor = AGENT_STYLE[agent.kind];
         const damaged = agent.hp < 35;
         const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";

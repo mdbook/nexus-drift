@@ -83,7 +83,7 @@ function stepWorkers(state: GameState) {
       state.timers.tick % (210 + index * 30) === 0;
 
     if (needsTarget) {
-      agent.target = chooseWorkerTarget(state, agent, index);
+      agent.target = chooseWorkerTarget(state, agent);
     }
 
     const node =
@@ -567,7 +567,7 @@ function stepCombat(state: GameState) {
       agent.evadeDx = 0;
       agent.evadeDy = -1;
       agent.damageTicks = 30;
-      agent.target = chooseWorkerTarget(state, agent, agent.id - 1);
+      agent.target = chooseWorkerTarget(state, agent);
       agent.task = "Rebooting";
       state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`);
       return;

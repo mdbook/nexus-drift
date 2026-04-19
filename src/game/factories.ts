@@ -1,5 +1,4 @@
-import { WORKER_KIND_PREFERENCES, WORLD_H, WORLD_W } from "@/game/constants";
-import { resourceDefs } from "@/game/data";
+import { WORLD_H, WORLD_W } from "@/game/constants";
 import type {
   Agent,
   Enemy,
@@ -318,7 +317,7 @@ const WORKER_TIER2: Record<Agent["kind"], string[]> = {
   drone: [],
 };
 
-export function chooseWorkerTarget(state: GameState, agent: Agent, index: number) {
+export function chooseWorkerTarget(state: GameState, agent: Agent) {
   if (!state.nodes.length) return null;
 
   const ranked = state.nodes
@@ -354,4 +353,3 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, index: number
 
   return ranked[0]?.id ?? state.nodes[0].id;
 }
-
