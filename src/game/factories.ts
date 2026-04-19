@@ -263,7 +263,10 @@ export function cloneGameState(prev: GameState): GameState {
     agents: prev.agents.map((agent) => ({ ...agent })),
     turrets: prev.turrets.map((turret) => ({ ...turret })),
     scouts: prev.scouts.map((scout) => ({ ...scout })),
-    enemies: prev.enemies.map((enemy) => ({ ...enemy })),
+    enemies: prev.enemies.map((enemy) => ({
+      ...enemy,
+      trail: enemy.trail.map(([x, y]) => [x, y] as [number, number]),
+    })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
   };
 }

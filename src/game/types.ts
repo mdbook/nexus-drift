@@ -173,12 +173,24 @@ export type EnemyVisual = {
   radius: number;
 };
 
+export type ProgressionDirector = {
+  score: number;
+  tier: number;
+  label: string;
+  spawnIntervalTicks: number;
+  waveBudget: number;
+  enemyCap: number;
+  recoveryMode: boolean;
+  powerBalance: number;
+};
+
 export type DerivedState = {
   rates: ResourceMap;
   totalIncome: number;
   targetXp: number;
   defenseScore: number;
   threatScore: number;
+  enemyCounts: Record<EnemyKind, number>;
   colonyHealth: number;
   corruptedByType: Record<"ore" | "gems" | "energy", number>;
   corruptorCount: number;
@@ -193,4 +205,5 @@ export type DerivedState = {
   cityStage: number;
   cityProgress: number;
   cityBuildProgress: number;
+  progression: ProgressionDirector;
 };

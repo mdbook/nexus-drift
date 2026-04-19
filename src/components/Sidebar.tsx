@@ -3,6 +3,7 @@ import { AlertTriangle, Bot, TrendingUp } from "lucide-react";
 import { StatTile, UpgradeTile } from "@/components/HudPrimitives";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { TICK_MS } from "@/game/constants";
 import { resourceDefs, upgradeDefs } from "@/game/data";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { nextUpgradeCost, fmt, stateSafe } from "@/game/utils";
@@ -16,6 +17,8 @@ type SidebarProps = {
 };
 
 export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
+  const spawnCadenceSeconds = (derived.progression.spawnIntervalTicks * TICK_MS) / 1000;
+
   return (
     <div className="flex flex-col gap-3 xl:h-full xl:overflow-y-auto">
       <Card className={`${PANEL_CLASS} shrink-0 p-3`}>
@@ -114,6 +117,27 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           <StatTile label="Hostiles Cleared" value={game.stats.hostileKills} tint="rgba(255,220,180,0.95)" />
           <StatTile label="Purges" value={game.stats.purges} tint="rgba(220,190,255,0.95)" />
         </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <StatTile
+            label="Threat Tier"
+            value={`T${derived.progression.tier} ${derived.progression.label}`}
+            tint="rgba(255,235,185,0.95)"
+          />
+          <StatTile
+            label="Spawn Cadence"
+            value={`${spawnCadenceSeconds.toFixed(1)}s`}
+            tint={derived.progression.recoveryMode ? "rgba(255,205,205,0.95)" : "rgba(180,235,255,0.95)"}
+          />
+          <StatTile label="Wave Budget" value={derived.progression.waveBudget.toFixed(1)} tint="rgba(255,190,150,0.95)" />
+          <StatTile label="Enemy Cap" value={derived.progression.enemyCap} tint="rgba(210,220,255,0.95)" />
+        </div>
+
+        {derived.progression.recoveryMode && (
+          <div className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/10 px-3 py-2 text-xs text-rose-100/85">
+            Threat director is slowing wave pacing while the colony absorbs pressure.
+          </div>
+        )}
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">

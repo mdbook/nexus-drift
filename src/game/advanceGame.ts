@@ -15,9 +15,60 @@ import {
 } from "@/game/constants";
 import { upgradeDefs } from "@/game/data";
 import { addProjectile, chooseWorkerTarget, cloneGameState, respawnNode, spawnEnemy } from "@/game/factories";
+import {
+  ENEMY_BUDGET_COST,
+  ENEMY_CONTACT_DAMAGE,
+  getCombatEnemyWeights,
+  getCorruptorSpawnChance,
+  getEnemyWavePower,
+} from "@/game/progression";
 import { computeDerived } from "@/game/selectors";
-import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import { chance, clamp, dist, nextUpgradeCost, normalize, pick, pushLog, rand } from "@/game/utils";
+import type { DerivedState, EnemyKind, GameState, UpgradeKey } from "@/game/types";
+import { chance, clamp, dist, nextUpgradeCost, normalize, pick, pickWeighted, pushLog, rand } from "@/game/utils";
+
+const upgradeDefByKey = Object.fromEntries(upgradeDefs.map((def) => [def.key, def])) as Record<
+  UpgradeKey,
+  (typeof upgradeDefs)[number]
+>;
+
+type EmergencyUpgradeChoice = { key: UpgradeKey; reason: string };
+
+function pluralize(label: string, count: number) {
+  return count === 1 ? label : `${label}s`;
+}
+
+function describeSpawnWave(spawned: EnemyKind[], derived: DerivedState) {
+  const counts = { mite: 0, raider: 0, wisp: 0, corruptor: 0 };
+  spawned.forEach((kind) => {
+    counts[kind] += 1;
+  });
+
+  const segments = (Object.keys(counts) as EnemyKind[])
+    .filter((kind) => counts[kind] > 0)
+    .map((kind) => `${counts[kind]} ${pluralize(kind, counts[kind])}`);
+
+  if (!segments.length) return null;
+
+  const prefix = derived.progression.recoveryMode
+    ? "Threat director easing the next wave:"
+    : derived.progression.tier >= 4
+      ? `${derived.progression.label} wave inbound:`
+      : "Perimeter contact:";
+
+  return `${prefix} ${segments.join(", ")}.`;
+}
+
+function getTurretTargetScore(state: GameState, turret: GameState["turrets"][number], enemy: GameState["enemies"][number]) {
+  const distanceScore = dist(enemy.x, enemy.y, turret.x, turret.y);
+  const threatWeight =
+    enemy.kind === "raider"
+      ? 1.75 + state.upgrades.reactor * 0.22
+      : enemy.kind === "wisp"
+        ? 1.45 + state.upgrades.turret * 0.18
+        : 1.1;
+
+  return distanceScore / threatWeight + enemy.hp * 0.1;
+}
 
 function stepEconomy(state: GameState) {
   const derived = computeDerived(state);
@@ -44,32 +95,66 @@ function stepEconomy(state: GameState) {
 }
 
 function stepSpawns(state: GameState) {
-  const spawnThreshold = Math.max(80, 220 - state.level * 2 - state.upgrades.bot * 6);
-  if (state.timers.enemy < spawnThreshold) return;
+  const derived = computeDerived(state);
+  if (state.timers.enemy < derived.progression.spawnIntervalTicks) return;
+  if (state.enemies.length >= derived.progression.enemyCap) return;
+
+  const corruptibleNodes = state.nodes.filter((node) => node.kind !== "gold");
+  const openSlots = derived.progression.enemyCap - state.enemies.length;
+  const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
+  const spawned: EnemyKind[] = [];
+  let remainingBudget =
+    derived.progression.waveBudget * clamp(openSlots / 3, 0.7, derived.progression.recoveryMode ? 1.05 : 1.3);
+  let remainingSlots = openSlots;
+
+  const corruptorChance = getCorruptorSpawnChance(
+    derived.progression,
+    derived.activeCorruptionNodes,
+    derived.corruptorCount,
+    corruptibleNodes.length
+  );
+
+  if (remainingSlots > 0 && chance(corruptorChance)) {
+    spawned.push("corruptor");
+    remainingBudget -= ENEMY_BUDGET_COST.corruptor;
+    remainingSlots -= 1;
+  }
+
+  const combatWeights = getCombatEnemyWeights(derived.progression);
+  while (remainingSlots > 0 && remainingBudget >= 0.85) {
+    const candidates = (Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor">, number]>)
+      .filter(([kind, weight]) => weight > 0 && ENEMY_BUDGET_COST[kind] <= remainingBudget + 0.15)
+      .map(([kind, weight]) => ({ item: kind, weight }));
+
+    if (!candidates.length) {
+      if (!spawned.length) {
+        spawned.push("mite");
+      }
+      break;
+    }
+
+    const kind = pickWeighted(candidates);
+    if (!kind) break;
+
+    spawned.push(kind);
+    remainingBudget -= ENEMY_BUDGET_COST[kind];
+    remainingSlots -= 1;
+
+    if (derived.progression.recoveryMode && spawned.length >= 2 && chance(0.45)) break;
+    if (spawned.length >= 4 && chance(0.4)) break;
+  }
+
+  if (!spawned.length) return;
 
   state.timers.enemy = 0;
-  if (state.enemies.length > 10 + state.upgrades.turret + state.upgrades.scout) return;
-
-  const wave = Math.floor(state.level / 3) + state.prestige;
-  const corruptibleNodes = state.nodes.filter((node) => node.kind !== "gold");
-  const existingCorruptors = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
-  const shouldSpawnCorruptor =
-    corruptibleNodes.length > 0 &&
-    state.level >= 3 &&
-    existingCorruptors < Math.max(1, Math.ceil(state.level / 8)) &&
-    chance(clamp(0.2 + state.level * 0.004, 0.2, 0.45));
-
-  if (shouldSpawnCorruptor) {
-    state.enemies.push(spawnEnemy(state.nextEnemyId++, wave, "corruptor"));
-    state.log = pushLog(state.log, "Toxic corrupter drifting toward resource lanes.");
-    return;
+  for (const kind of spawned) {
+    state.enemies.push(spawnEnemy(state.nextEnemyId++, wavePower, kind));
   }
 
-  const count = chance(0.22 + state.level * 0.003) ? 2 : 1;
-  for (let index = 0; index < count; index += 1) {
-    state.enemies.push(spawnEnemy(state.nextEnemyId++, wave));
+  const message = describeSpawnWave(spawned, derived);
+  if (message) {
+    state.log = pushLog(state.log, message);
   }
-  state.log = pushLog(state.log, "Hostile contact detected on perimeter.");
 }
 
 function stepWorkers(state: GameState) {
@@ -330,13 +415,13 @@ function stepTurrets(state: GameState) {
       return;
     }
 
-    turret.range = 125 + state.upgrades.turret * 18;
+    turret.range = 125 + state.upgrades.turret * 15 + state.upgrades.reactor * 6;
     turret.cooldown = Math.max(0, turret.cooldown - 1);
     const target = [...state.enemies]
       .filter(
         (enemy) => enemy.role !== "corruptor" && dist(enemy.x, enemy.y, turret.x, turret.y) <= turret.range
       )
-      .sort((a, b) => dist(a.x, a.y, turret.x, turret.y) - dist(b.x, b.y, turret.x, turret.y))[0];
+      .sort((a, b) => getTurretTargetScore(state, turret, a) - getTurretTargetScore(state, turret, b))[0];
 
     if (target) {
       turret.angle = Math.atan2(target.y - turret.y, target.x - turret.x);
@@ -345,9 +430,23 @@ function stepTurrets(state: GameState) {
     }
 
     if (target && turret.cooldown <= 0) {
-      const damage = 16 + state.upgrades.turret * 6 + state.upgrades.reactor * 2;
-      turret.cooldown = Math.max(8, 20 - state.upgrades.turret);
-      addProjectile(state, turret.x, turret.y, target.x, target.y, "rgba(255, 255, 255, 0.95)", 2.2, 7);
+      const damage =
+        13 +
+        state.upgrades.turret * 4 +
+        state.upgrades.reactor * 3 +
+        (target.kind === "wisp" ? 4 + state.upgrades.turret * 2 : 0) +
+        (target.kind === "raider" ? 5 + state.upgrades.reactor * 4 : 0);
+      turret.cooldown = Math.max(7, Math.round(21 - state.upgrades.turret * 1.4 - state.upgrades.reactor * 0.45));
+      addProjectile(
+        state,
+        turret.x,
+        turret.y,
+        target.x,
+        target.y,
+        "rgba(255, 255, 255, 0.95)",
+        target.kind === "raider" ? 2.8 : 2.2,
+        7
+      );
       target.hp -= damage;
       target.flash = 6;
     }
@@ -422,11 +521,11 @@ function stepScouts(state: GameState) {
       const dy = interceptTarget.y - scout.y;
       const d = Math.max(1, Math.hypot(dx, dy));
       scout.angle = Math.atan2(dy, dx);
-      const preferredRange = 70 + state.upgrades.arsenal * 8;
+      const preferredRange = 68 + state.upgrades.scout * 4 + state.upgrades.arsenal * 8;
 
       if (d > preferredRange) {
-        scout.x += (dx / d) * (scout.speed + state.upgrades.arsenal * 0.14);
-        scout.y += (dy / d) * (scout.speed + state.upgrades.arsenal * 0.14);
+        scout.x += (dx / d) * (scout.speed + state.upgrades.scout * 0.08 + state.upgrades.arsenal * 0.16);
+        scout.y += (dy / d) * (scout.speed + state.upgrades.scout * 0.08 + state.upgrades.arsenal * 0.16);
         scout.task = "Intercepting";
       } else {
         const orbit = Math.sin((state.timers.tick + scout.id * 19) / 14) * 0.9;
@@ -436,8 +535,8 @@ function stepScouts(state: GameState) {
       }
 
       if (d <= preferredRange + 10 && scout.cooldown <= 0) {
-        const damage = 11 + state.upgrades.scout * 2 + state.upgrades.arsenal * 8;
-        scout.cooldown = Math.max(7, 18 - state.upgrades.arsenal * 2);
+        const damage = 10 + state.upgrades.scout * 2.5 + state.upgrades.arsenal * 7;
+        scout.cooldown = Math.max(6, Math.round(18 - state.upgrades.scout * 0.5 - state.upgrades.arsenal * 2));
         addProjectile(
           state,
           scout.x,
@@ -543,17 +642,28 @@ function stepCombat(state: GameState) {
   state.agents.forEach((agent) => {
     const attackers = state.enemies.filter(
       (enemy) => enemy.role !== "corruptor" && dist(enemy.x, enemy.y, agent.x, agent.y) < 26
-    ).length;
+    );
 
-    if (!attackers) return;
+    if (!attackers.length) return;
 
-    const mitigation = state.upgrades.shield * 1.8 + state.upgrades.turret * 0.25;
-    const incoming = Math.max(0.8, attackers * 4.2 - mitigation);
-    const blocked = Math.max(0, attackers * 4.2 - incoming);
+    const rawIncoming = attackers.reduce((sum, enemy) => sum + ENEMY_CONTACT_DAMAGE[enemy.kind], 0);
+    const mitigation = attackers.reduce((sum, enemy) => {
+      const baseline = state.upgrades.shield * 0.95 + state.upgrades.turret * 0.12;
+      const counterMitigation =
+        enemy.kind === "mite"
+          ? state.upgrades.shield * 0.55
+          : enemy.kind === "wisp"
+            ? state.upgrades.turret * 0.45 + state.upgrades.shield * 0.15
+            : state.upgrades.reactor * 0.55 + state.upgrades.shield * 0.22;
+
+      return sum + baseline + counterMitigation;
+    }, 0);
+    const incoming = Math.max(attackers.length * 0.6, rawIncoming - mitigation);
+    const blocked = Math.max(0, rawIncoming - incoming);
     state.stats.blocked += blocked;
 
     const nextHp = clamp(agent.hp - incoming, 0, agent.maxHp);
-    if (nextHp <= 20 && agent.hp > 20) {
+    if (nextHp <= 24 && agent.hp > 24) {
       state.log = pushLog(state.log, `${agent.kind} drone taking heavy fire.`);
     }
 
@@ -627,27 +737,90 @@ function stepMining(state: GameState) {
 function getAutobuyWeight(state: GameState, derived: DerivedState, key: UpgradeKey) {
   let weight = 1;
 
-  if (state.level < 3 && (key === "miner" || key === "drill")) weight *= 0.8;
-  if (state.resources.energy < 10 && key === "reactor") weight *= 0.86;
-  if (state.upgrades.turret === 0 && derived.hostilePressure && key === "turret") weight *= 0.45;
-  if (state.upgrades.scout === 0 && derived.corruptionPressure && key === "scout") weight *= 0.3;
+  if (state.level < 3 && (key === "miner" || key === "drill")) weight *= 0.72;
+  if (derived.totalIncome < 6 && (key === "miner" || key === "drill")) weight *= 0.86;
+  if (state.resources.energy < 10 && key === "reactor") weight *= 0.82;
+  if (derived.progression.tier >= 2 && key === "turret" && state.upgrades.turret < 1) weight *= 0.52;
+  if (derived.progression.tier >= 2 && key === "reactor" && state.upgrades.reactor < 1) weight *= 0.62;
+  if (derived.progression.tier >= 3 && key === "shield" && state.upgrades.shield < 1) weight *= 0.68;
 
   if (derived.hostilePressure) {
-    if (key === "turret") weight *= 0.52;
-    else if (key === "shield") weight *= 0.62;
-    else if (key === "reactor") weight *= 0.88;
-    else weight *= 1.15;
+    if (key === "turret") weight *= 0.62;
+    else if (key === "shield") weight *= 0.72;
+    else if (key === "reactor") weight *= 0.82;
+    else if (key === "miner" || key === "drill") weight *= 1.18;
+  }
+
+  if (derived.enemyCounts.wisp > 0) {
+    if (key === "turret") weight *= 0.36;
+    else if (key === "reactor") weight *= 0.76;
+  }
+
+  if (derived.enemyCounts.raider > 0) {
+    if (key === "reactor") weight *= 0.32;
+    else if (key === "shield") weight *= 0.55;
+    else if (key === "turret") weight *= 0.78;
   }
 
   if (derived.corruptionPressure) {
-    if (key === "scout") weight *= 0.45;
-    else if (key === "arsenal") weight *= 0.54;
+    if (key === "scout") weight *= state.upgrades.scout === 0 ? 0.12 : 0.42;
+    else if (key === "arsenal") weight *= state.upgrades.scout > 0 ? 0.28 : 0.9;
     else if (key === "shield") weight *= 0.9;
     else if (key === "turret") weight *= 1.08;
   }
 
-  if (key === "bot" && state.upgrades.bot > state.prestige + 2) weight *= 1.2;
+  if (derived.progression.recoveryMode && (key === "miner" || key === "drill")) weight *= 1.18;
+  if (key === "bot" && state.upgrades.bot > Math.max(2, state.prestige + 1)) weight *= 1.25;
+  if (key === "arsenal" && state.upgrades.scout === 0) weight *= 1.25;
+
   return weight;
+}
+
+function getEmergencyUpgradeChoice(state: GameState, derived: DerivedState): EmergencyUpgradeChoice | null {
+  const canAfford = (key: UpgradeKey) => state.resources.gold >= nextUpgradeCost(upgradeDefByKey[key], state.upgrades[key]);
+
+  if (
+    (derived.corruptorCount > 0 || derived.activeCorruptionNodes > 0 || derived.progression.tier >= 3) &&
+    state.upgrades.scout < 1 &&
+    canAfford("scout")
+  ) {
+    return { key: "scout", reason: "corrupter pressure" };
+  }
+
+  if (
+    (derived.corruptorCount > 0 || derived.activeCorruptionNodes > 1) &&
+    state.upgrades.scout > 0 &&
+    state.upgrades.arsenal < state.upgrades.scout + 1 &&
+    canAfford("arsenal")
+  ) {
+    return { key: "arsenal", reason: "purge cleanup" };
+  }
+
+  if (
+    (derived.enemyCounts.raider > 0 || derived.progression.tier >= 4) &&
+    state.upgrades.reactor < Math.max(1, Math.ceil(derived.progression.tier / 2)) &&
+    canAfford("reactor")
+  ) {
+    return { key: "reactor", reason: "heavy-contact pressure" };
+  }
+
+  if (
+    (derived.enemyCounts.wisp > 0 || derived.combatThreats >= 4) &&
+    state.upgrades.turret < Math.max(1, Math.ceil(derived.progression.tier / 2)) &&
+    canAfford("turret")
+  ) {
+    return { key: "turret", reason: "fast-contact pressure" };
+  }
+
+  if (
+    (derived.enemyCounts.mite + derived.enemyCounts.raider >= 4 || derived.colonyHealth < 70) &&
+    state.upgrades.shield < Math.max(1, Math.ceil(derived.progression.tier / 3)) &&
+    canAfford("shield")
+  ) {
+    return { key: "shield", reason: "worker attrition" };
+  }
+
+  return null;
 }
 
 function stepAutobuy(state: GameState) {
@@ -655,6 +828,20 @@ function stepAutobuy(state: GameState) {
   state.timers.auto = 0;
 
   const derived = computeDerived(state);
+  const emergencyChoice = getEmergencyUpgradeChoice(state, derived);
+  if (emergencyChoice) {
+    const def = upgradeDefByKey[emergencyChoice.key];
+    const cost = nextUpgradeCost(def, state.upgrades[def.key]);
+    state.resources.gold = Math.max(0, state.resources.gold - cost);
+    state.upgrades[def.key] += 1;
+    state.stats.spent += cost;
+    state.log = pushLog(
+      state.log,
+      `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`
+    );
+    return;
+  }
+
   const candidates = upgradeDefs
     .map((def) => ({
       def,
@@ -663,9 +850,9 @@ function stepAutobuy(state: GameState) {
     .filter(({ def, cost }) => {
       const smartGate =
         (def.key !== "bot" || state.upgrades.drill >= 2) &&
-        (def.key !== "shield" || state.upgrades.turret >= 1) &&
-        (def.key !== "turret" || state.upgrades.reactor >= 1 || state.level >= 3) &&
-        (def.key !== "scout" || state.upgrades.reactor >= 1 || state.level >= 4) &&
+        (def.key !== "shield" || state.upgrades.turret >= 1 || derived.progression.tier >= 3) &&
+        (def.key !== "turret" || state.upgrades.reactor >= 1 || state.level >= 3 || derived.progression.tier >= 2) &&
+        (def.key !== "scout" || state.upgrades.reactor >= 1 || state.level >= 4 || derived.progression.tier >= 3) &&
         (def.key !== "arsenal" || state.upgrades.scout >= 1);
 
       return smartGate && state.resources.gold >= cost;

@@ -1,3 +1,4 @@
+import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
 
 const CITY_GROWTH_START = 8;
@@ -8,9 +9,15 @@ const MAX_ACTIVE_SCOUTS = 3;
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length;
   const p = 1 + state.prestige * 0.12;
-  const combatThreats = state.enemies.filter((enemy) => enemy.role !== "corruptor").length;
-  const corruptorCount = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
+  const enemyCounts = { mite: 0, raider: 0, wisp: 0, corruptor: 0 };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
+
+  state.enemies.forEach((enemy) => {
+    enemyCounts[enemy.kind] += 1;
+  });
+
+  const combatThreats = enemyCounts.mite + enemyCounts.raider + enemyCounts.wisp;
+  const corruptorCount = enemyCounts.corruptor;
 
   state.nodes.forEach((node) => {
     if (node.corrupted && node.kind in corruptedByType) {
@@ -94,6 +101,22 @@ export function computeDerived(state: GameState): DerivedState {
     0,
     Math.min(1, (cityBuildProgress - previousThreshold) / Math.max(0.001, nextThreshold - previousThreshold))
   );
+  const progression = computeProgressionDirector({
+    level: state.level,
+    prestige: state.prestige,
+    totalUpgrades,
+    weightedUpgradeScore,
+    totalIncome,
+    defenseScore,
+    threatScore,
+    colonyHealth,
+    combatThreats,
+    corruptorCount,
+    activeCorruptionNodes,
+    activeTurrets,
+    activeScouts,
+    cityStage,
+  });
 
   return {
     rates,
@@ -101,6 +124,7 @@ export function computeDerived(state: GameState): DerivedState {
     targetXp,
     defenseScore,
     threatScore,
+    enemyCounts,
     colonyHealth,
     corruptedByType,
     corruptorCount,
@@ -115,5 +139,6 @@ export function computeDerived(state: GameState): DerivedState {
     cityStage,
     cityProgress,
     cityBuildProgress,
+    progression,
   };
 }

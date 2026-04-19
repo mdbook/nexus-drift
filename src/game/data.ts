@@ -28,14 +28,14 @@ export const resourceDefs: ResourceDef[] = [
 ];
 
 export const upgradeDefs: UpgradeDef[] = [
-  { key: "miner", label: "Auto Miner", baseCost: 12, growth: 1.18, effectText: "+ Gold + Ore" },
-  { key: "drill", label: "Deep Drill", baseCost: 80, growth: 1.22, effectText: "+ Ore + Gems" },
-  { key: "reactor", label: "Reactor", baseCost: 240, growth: 1.25, effectText: "+ Energy + turrets" },
-  { key: "bot", label: "Ops Bot", baseCost: 1100, growth: 1.3, effectText: "Smarter autobuy" },
-  { key: "turret", label: "Defense Turret", baseCost: 180, growth: 1.23, effectText: "Perimeter defense" },
-  { key: "shield", label: "Shield Grid", baseCost: 420, growth: 1.26, effectText: "Worker mitigation" },
-  { key: "scout", label: "Assault Scout", baseCost: 280, growth: 1.24, effectText: "Hunts corrupters" },
-  { key: "arsenal", label: "Scout Arsenal", baseCost: 540, growth: 1.27, effectText: "Purge damage + cleanse" },
+  { key: "miner", label: "Auto Miner", baseCost: 12, growth: 1.18, effectText: "+ Gold + Ore flow" },
+  { key: "drill", label: "Deep Drill", baseCost: 80, growth: 1.22, effectText: "+ Ore + Gems extraction" },
+  { key: "reactor", label: "Reactor", baseCost: 240, growth: 1.25, effectText: "+ Energy + anti-raider gun power" },
+  { key: "bot", label: "Ops Bot", baseCost: 1100, growth: 1.3, effectText: "Adaptive counter-build logic" },
+  { key: "turret", label: "Defense Turret", baseCost: 180, growth: 1.23, effectText: "+ Range + fire rate, anti-wisp" },
+  { key: "shield", label: "Shield Grid", baseCost: 420, growth: 1.26, effectText: "Swarm mitigation + recovery" },
+  { key: "scout", label: "Assault Scout", baseCost: 280, growth: 1.24, effectText: "Intercepts corrupters" },
+  { key: "arsenal", label: "Scout Arsenal", baseCost: 540, growth: 1.27, effectText: "Purge burst + field cleanse" },
 ];
 
 export const NODE_STYLE: Record<ResourceKey, NodeVisual> = {
@@ -95,4 +95,3 @@ export const AGENT_STYLE: Record<WorkerKind, string> = {
   runner: "rgba(100, 200, 255, 1.0)",
   drone: "rgba(120, 255, 190, 1.0)",
 };
-

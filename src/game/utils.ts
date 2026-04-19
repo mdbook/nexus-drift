@@ -7,6 +7,19 @@ export const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.l
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 export const chance = (value: number) => Math.random() < value;
 
+export function pickWeighted<T>(items: Array<{ item: T; weight: number }>) {
+  const total = items.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
+  if (total <= 0) return null;
+
+  let threshold = Math.random() * total;
+  for (const entry of items) {
+    threshold -= Math.max(0, entry.weight);
+    if (threshold <= 0) return entry.item;
+  }
+
+  return items[items.length - 1]?.item ?? null;
+}
+
 export function normalize(dx: number, dy: number, fallbackX = 0, fallbackY = -1) {
   const magnitude = Math.hypot(dx, dy);
   if (magnitude < 0.001) {
@@ -55,4 +68,3 @@ export function makeStars(count: number) {
 export function stateSafe(value: number) {
   return Number.isFinite(value) ? value : 0;
 }
-
