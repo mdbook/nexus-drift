@@ -1,3 +1,4 @@
+import { UPGRADES } from "@/game/balance";
 import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, ResourceKey, UpgradeDef, WorkerKind } from "@/game/types";
 
 export const resourceDefs: ResourceDef[] = [
@@ -28,14 +29,14 @@ export const resourceDefs: ResourceDef[] = [
 ];
 
 export const upgradeDefs: UpgradeDef[] = [
-  { key: "miner", label: "Auto Miner", baseCost: 12, growth: 1.18, effectText: "+ Gold + Ore flow" },
-  { key: "drill", label: "Deep Drill", baseCost: 80, growth: 1.22, effectText: "+ Ore + Gems extraction" },
-  { key: "reactor", label: "Reactor", baseCost: 240, growth: 1.25, effectText: "+ Energy + anti-raider gun power" },
-  { key: "bot", label: "Ops Bot", baseCost: 1100, growth: 1.3, effectText: "Adaptive counter-build logic" },
-  { key: "turret", label: "Defense Turret", baseCost: 180, growth: 1.23, effectText: "+ Range + fire rate, anti-wisp" },
-  { key: "shield", label: "Shield Grid", baseCost: 420, growth: 1.26, effectText: "Swarm mitigation + recovery" },
-  { key: "scout", label: "Assault Scout", baseCost: 280, growth: 1.24, effectText: "Intercepts corrupters" },
-  { key: "arsenal", label: "Scout Arsenal", baseCost: 540, growth: 1.27, effectText: "Purge burst + field cleanse" },
+  { key: "miner", label: "Auto Miner", baseCost: UPGRADES.miner.baseCost, growth: UPGRADES.miner.growth, effectText: "+ Gold + Ore flow" },
+  { key: "drill", label: "Deep Drill", baseCost: UPGRADES.drill.baseCost, growth: UPGRADES.drill.growth, effectText: "+ Ore + Gems extraction" },
+  { key: "reactor", label: "Reactor", baseCost: UPGRADES.reactor.baseCost, growth: UPGRADES.reactor.growth, effectText: "+ Energy + anti-raider gun power" },
+  { key: "bot", label: "Ops Bot", baseCost: UPGRADES.bot.baseCost, growth: UPGRADES.bot.growth, effectText: "Adaptive counter-build logic" },
+  { key: "turret", label: "Defense Turret", baseCost: UPGRADES.turret.baseCost, growth: UPGRADES.turret.growth, effectText: "+ Range + fire rate, anti-wisp" },
+  { key: "shield", label: "Shield Grid", baseCost: UPGRADES.shield.baseCost, growth: UPGRADES.shield.growth, effectText: "Swarm mitigation + recovery" },
+  { key: "scout", label: "Assault Scout", baseCost: UPGRADES.scout.baseCost, growth: UPGRADES.scout.growth, effectText: "Intercepts corrupters" },
+  { key: "arsenal", label: "Scout Arsenal", baseCost: UPGRADES.arsenal.baseCost, growth: UPGRADES.arsenal.growth, effectText: "Purge burst + field cleanse" },
 ];
 
 export const NODE_STYLE: Record<ResourceKey, NodeVisual> = {

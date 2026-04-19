@@ -1,4 +1,5 @@
-import type { EnemyKind, ProgressionDirector } from "@/game/types";
+import { PROGRESSION } from "@/game/balance";
+import type { ProgressionDirector } from "@/game/types";
 import { clamp } from "@/game/utils";
 
 type ProgressionMetrics = {
@@ -20,60 +21,46 @@ type ProgressionMetrics = {
 
 const THREAT_LABELS = ["Settling", "Probe", "Skirmish", "Raid", "Siege", "Cataclysm"] as const;
 
-export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
-  mite: 1,
-  wisp: 1.25,
-  raider: 2.35,
-  corruptor: 2.7,
-};
-
-export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
-  mite: 3.4,
-  wisp: 2.6,
-  raider: 6.8,
-  corruptor: 0,
-};
-
 export function computeProgressionDirector(metrics: ProgressionMetrics): ProgressionDirector {
   const score =
-    metrics.level * 1.35 +
-    metrics.prestige * 8 +
-    metrics.totalUpgrades * 0.95 +
-    metrics.weightedUpgradeScore * 0.9 +
-    metrics.cityStage * 3.5 +
-    metrics.totalIncome * 0.035;
+    metrics.level * PROGRESSION.scoreCoeffs.level +
+    metrics.prestige * PROGRESSION.scoreCoeffs.prestige +
+    metrics.totalUpgrades * PROGRESSION.scoreCoeffs.totalUpgrades +
+    metrics.weightedUpgradeScore * PROGRESSION.scoreCoeffs.weightedUpgrade +
+    metrics.cityStage * PROGRESSION.scoreCoeffs.cityStage +
+    metrics.totalIncome * PROGRESSION.scoreCoeffs.totalIncome;
 
-  const tier = Math.min(THREAT_LABELS.length - 1, Math.floor(score / 11));
+  const tier = Math.min(THREAT_LABELS.length - 1, Math.floor(score / PROGRESSION.tiersPerScore));
   const powerBalance =
     metrics.defenseScore -
-    (metrics.threatScore * 1.08 + metrics.activeCorruptionNodes * 0.75 + metrics.corruptorCount * 0.4);
+    (metrics.threatScore * PROGRESSION.powerBalance.threatWeight + metrics.activeCorruptionNodes * PROGRESSION.powerBalance.corruptionNodeWeight + metrics.corruptorCount * PROGRESSION.powerBalance.corruptorWeight);
 
   const pressure = Math.max(0, -powerBalance);
   const dominance = Math.max(0, powerBalance);
   const baselineInterval =
-    232 - score * 3.4 - metrics.activeTurrets * 4 - metrics.activeScouts * 3 - metrics.prestige * 4;
+    PROGRESSION.spawn.baselineInterval - score * PROGRESSION.spawn.intervalPerScore - metrics.activeTurrets * PROGRESSION.spawn.intervalPerTurret - metrics.activeScouts * PROGRESSION.spawn.intervalPerScout - metrics.prestige * PROGRESSION.spawn.intervalPerPrestige;
   const recoveryPenalty =
-    pressure * 8 +
-    Math.max(0, 74 - metrics.colonyHealth) * 1.1 +
-    Math.max(0, metrics.combatThreats - (metrics.activeTurrets + 2)) * 11 +
-    Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) * 9;
-  const momentumBonus = dominance * 6 + Math.max(0, metrics.colonyHealth - 88) * 0.65;
-  const nominalIntervalTicks = Math.round(clamp(baselineInterval - momentumBonus, 72, 260));
-  const spawnIntervalTicks = Math.round(clamp(baselineInterval + recoveryPenalty - momentumBonus, 72, 260));
+    pressure * PROGRESSION.spawn.recoveryPressureMultiplier +
+    Math.max(0, PROGRESSION.spawn.recoveryColonyHealthRef - metrics.colonyHealth) * PROGRESSION.spawn.recoveryColonyHealthMultiplier +
+    Math.max(0, metrics.combatThreats - (metrics.activeTurrets + 2)) * PROGRESSION.spawn.recoveryThreatSurplusMultiplier +
+    Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) * PROGRESSION.spawn.recoveryCorruptionSurplusMultiplier;
+  const momentumBonus = dominance * PROGRESSION.spawn.momentumDominanceBonus + Math.max(0, metrics.colonyHealth - PROGRESSION.spawn.momentumHealthRef) * PROGRESSION.spawn.momentumHealthBonus;
+  const nominalIntervalTicks = Math.round(clamp(baselineInterval - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
+  const spawnIntervalTicks = Math.round(clamp(baselineInterval + recoveryPenalty - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
 
   const waveBudget = clamp(
-    1.15 +
-      score * 0.058 +
-      tier * 0.33 +
-      dominance * 0.11 -
-      pressure * 0.07 +
-      Math.max(0, metrics.activeTurrets + metrics.activeScouts - 2) * 0.08,
-    1.1,
-    7.2
+    PROGRESSION.wave.budgetBase +
+      score * PROGRESSION.wave.budgetPerScore +
+      tier * PROGRESSION.wave.budgetPerTier +
+      dominance * PROGRESSION.wave.budgetPerDominance +
+      pressure * PROGRESSION.wave.budgetPerPressure +
+      Math.max(0, metrics.activeTurrets + metrics.activeScouts - 2) * PROGRESSION.wave.budgetPerExtraDefender,
+    PROGRESSION.wave.budgetMin,
+    PROGRESSION.wave.budgetMax
   );
 
   const enemyCap = Math.round(
-    clamp(6 + tier * 2.1 + metrics.level * 0.16 + metrics.activeTurrets + metrics.activeScouts, 6, 24)
+    clamp(PROGRESSION.wave.capBase + tier * PROGRESSION.wave.capPerTier + metrics.level * PROGRESSION.wave.capPerLevel + metrics.activeTurrets + metrics.activeScouts, PROGRESSION.wave.capMin, PROGRESSION.wave.capMax)
   );
 
   return {
@@ -83,7 +70,7 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     spawnIntervalTicks,
     waveBudget,
     enemyCap,
-    recoveryMode: spawnIntervalTicks > nominalIntervalTicks + 16,
+    recoveryMode: spawnIntervalTicks > nominalIntervalTicks + PROGRESSION.spawn.recoveryThreshold,
     powerBalance,
   };
 }
@@ -91,16 +78,19 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
 export function getCombatEnemyWeights(director: ProgressionDirector) {
   const dominance = Math.max(0, director.powerBalance);
   const pressure = Math.max(0, -director.powerBalance);
+  const mw = PROGRESSION.combatWeights.mite;
+  const ww = PROGRESSION.combatWeights.wisp;
+  const rw = PROGRESSION.combatWeights.raider;
 
   return {
-    mite: clamp(2.2 - director.tier * 0.26 + pressure * 0.08, 0.45, 2.4),
+    mite: clamp(mw.base + director.tier * mw.tier + pressure * mw.pressure, mw.min, mw.max),
     wisp:
-      director.tier >= 1
-        ? clamp(0.6 + director.tier * 0.32 + dominance * 0.08 - pressure * 0.02, 0.35, 3.2)
+      director.tier >= ww.minTier
+        ? clamp(ww.base + director.tier * ww.tier + dominance * ww.dominance + pressure * ww.pressure, ww.min, ww.max)
         : 0,
     raider:
-      director.tier >= 2
-        ? clamp(0.28 + (director.tier - 1) * 0.36 + dominance * 0.12 - pressure * 0.1, 0.15, 2.8)
+      director.tier >= rw.minTier
+        ? clamp(rw.base + (director.tier - 1) * rw.tier + dominance * rw.dominance + pressure * rw.pressure, rw.min, rw.max)
         : 0,
   };
 }
@@ -111,24 +101,26 @@ export function getCorruptorSpawnChance(
   existingCorruptors: number,
   corruptibleNodeCount: number
 ) {
-  if (director.tier < 2 || corruptibleNodeCount <= 0) return 0;
+  const c = PROGRESSION.corruptor;
+  if (director.tier < c.minTier || corruptibleNodeCount <= 0) return 0;
 
   const pressure = Math.max(0, -director.powerBalance);
   const dominance = Math.max(0, director.powerBalance);
-  const cap = director.tier >= 4 ? 3 : director.tier >= 2 ? 2 : 1;
+  const cap = director.tier >= c.highTierThreshold ? c.capHighTier : director.tier >= c.minTier ? c.capLowTier : 1;
   if (existingCorruptors >= cap) return 0;
 
   return clamp(
-    0.05 +
-      (director.tier - 1) * 0.07 +
-      activeCorruptionNodes * 0.06 +
-      dominance * 0.02 -
-      pressure * 0.03,
-    0.04,
-    0.6
+    c.chanceBase +
+      (director.tier - 1) * c.chancePerTier +
+      activeCorruptionNodes * c.chancePerActiveNode +
+      dominance * c.chancePerDominance -
+      pressure * c.chancePerPressure,
+    c.chanceMin,
+    c.chanceMax
   );
 }
 
 export function getEnemyWavePower(level: number, prestige: number, director: ProgressionDirector) {
-  return level / 3 + prestige * 1.5 + director.tier * 0.65 + Math.max(0, director.powerBalance) * 0.18;
+  const wp = PROGRESSION.wavePower;
+  return level * wp.perLevel + prestige * wp.perPrestige + director.tier * wp.perTier + Math.max(0, director.powerBalance) * wp.perDominance;
 }
