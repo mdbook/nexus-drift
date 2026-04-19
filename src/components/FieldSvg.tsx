@@ -359,18 +359,29 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
             })()}
 
             {agent.kind === "runner" && (() => {
-              // compute tail direction — opposite of travel
               const tdx = agent.tx - agent.x;
               const tdy = agent.ty - agent.y;
               const td = Math.hypot(tdx, tdy) || 1;
-              // unit vector pointing away from target (the tail direction)
-              const tailX = -(tdx / td);
-              const tailY = -(tdy / td);
-              // perpendicular for offset streaks
+              const towardX = tdx / td;
+              const towardY = tdy / td;
+              const tailX = -towardX;
+              const tailY = -towardY;
               const perpX = -tailY;
               const perpY = tailX;
+
+              // grabber arm when collecting: fast shoot-out, slow retract
+              const swingT = agent.swing / 24;
+              const reach = agent.swing > 0 ? Math.abs(Math.sin(swingT * Math.PI * 2)) * 14 : 0;
+              const armTipX = agent.x + towardX * (13 + reach);
+              const armTipY = agent.y + bob + towardY * (13 + reach);
+              // claw prongs perpendicular to arm at tip
+              const clawPerp = reach > 4 ? 4 : 0;
+              const c1x = armTipX + perpX * clawPerp;
+              const c1y = armTipY + perpY * clawPerp;
+              const c2x = armTipX - perpX * clawPerp;
+              const c2y = armTipY - perpY * clawPerp;
+
               return (
-                // wide diamond — low profile, fast
                 <>
                   <path
                     d={`M ${agent.x} ${agent.y + bob - 11} L ${agent.x + 15} ${agent.y + bob} L ${agent.x} ${agent.y + bob + 11} L ${agent.x - 15} ${agent.y + bob} Z`}
@@ -388,18 +399,60 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
                     x2={agent.x + tailX * 14 - perpX * 4} y2={agent.y + bob + tailY * 14 - perpY * 4}
                     stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.35"
                   />
+                  {/* grabber arm */}
+                  {agent.swing > 0 && reach > 1 && (
+                    <>
+                      <line x1={agent.x} y1={agent.y + bob} x2={armTipX} y2={armTipY} stroke="rgba(160,235,255,0.85)" strokeWidth="2" strokeLinecap="round" />
+                      <line x1={armTipX} y1={armTipY} x2={c1x} y2={c1y} stroke={dotColor} strokeWidth="2" strokeLinecap="round" />
+                      <line x1={armTipX} y1={armTipY} x2={c2x} y2={c2y} stroke={dotColor} strokeWidth="2" strokeLinecap="round" />
+                    </>
+                  )}
                 </>
               );
             })()}
 
-            {agent.kind === "drone" && (
-              // circle with orbit ring — aerial
-              <>
-                <circle cx={agent.x} cy={agent.y + bob} r="13" fill={bodyFill} stroke={bodyStroke} strokeWidth="2" />
-                <ellipse cx={agent.x} cy={agent.y + bob} rx="19" ry="5" fill="none" stroke={dotColor} strokeWidth="1.2" opacity="0.55" />
-                <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
-              </>
-            )}
+            {agent.kind === "drone" && (() => {
+              const swingT = agent.swing / 24;
+              // tractor beam toward node
+              const tdx = agent.tx - agent.x;
+              const tdy = agent.ty - agent.y;
+              const td = Math.hypot(tdx, tdy) || 1;
+              const beamDirX = tdx / td;
+              const beamDirY = tdy / td;
+              const beamLen = agent.swing > 0 ? 18 + Math.sin(swingT * Math.PI * 4) * 4 : 0;
+              const beamOpacity = agent.swing > 0 ? 0.25 + Math.sin(swingT * Math.PI * 2) * 0.15 : 0;
+              // particle rides up the beam toward drone
+              const particleT = 1 - (swingT % 0.5) * 2; // 1→0 twice per cycle
+              const particleX = agent.x + beamDirX * beamLen * particleT;
+              const particleY = agent.y + bob + beamDirY * beamLen * particleT;
+              // orbit ring rotation from swing
+              const orbitAngle = (agent.swing / 24) * Math.PI * 2;
+
+              return (
+                <>
+                  {/* tractor beam */}
+                  {agent.swing > 0 && (
+                    <>
+                      <line
+                        x1={agent.x} y1={agent.y + bob}
+                        x2={agent.x + beamDirX * beamLen} y2={agent.y + bob + beamDirY * beamLen}
+                        stroke={dotColor} strokeWidth="3" strokeLinecap="round"
+                        opacity={beamOpacity}
+                      />
+                      <circle cx={particleX} cy={particleY} r="2.5" fill={dotColor} opacity="0.85" />
+                    </>
+                  )}
+                  <circle cx={agent.x} cy={agent.y + bob} r="13" fill={bodyFill} stroke={bodyStroke} strokeWidth="2" />
+                  {/* rotating orbit ring */}
+                  <ellipse
+                    cx={agent.x} cy={agent.y + bob} rx="19" ry="5"
+                    fill="none" stroke={dotColor} strokeWidth="1.2" opacity="0.55"
+                    transform={`rotate(${(orbitAngle * 180) / Math.PI}, ${agent.x}, ${agent.y + bob})`}
+                  />
+                  <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+                </>
+              );
+            })()}
           </g>
         );
       })}
