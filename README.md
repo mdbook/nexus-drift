@@ -7,10 +7,12 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Fully browser-run simulation with no network gameplay dependency.
 - Deterministic seeded RNG in the simulation layer for reproducible runs.
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
-- Hidden admin speed panel for tuning and quick checks: press `Space` five times.
+- Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
 - Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, and phantoms.
 - Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns.
 - Flux and Cores now feed multi-resource upgrades, including Foundry, Data Archive, and Sentinel Mechs.
+- Long runs now autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden.
+- Achievement tracking, a day/night field cycle, veteran workers, and a few hidden easter eggs now support longer idle sessions.
 
 ## Development
 
@@ -34,10 +36,12 @@ npm run format:check
 
 ## Architecture
 
-- `src/App.tsx`: top-level shell, HUD framing, admin panel, event test triggers, and release-history modal
+- `src/App.tsx`: top-level shell, save bootstrap, speed presets, achievement UI, admin panel, event test triggers, and release-history modal
 - `src/changelog.ts`: in-game release notes sourced from repo milestones
-- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop and derived-state snapshots
+- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop, pause-on-hidden handling, autosave cadence, and derived-state snapshots
 - `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
+- `src/game/achievements.ts`: achievement definitions and unlock helper
+- `src/game/persistence.ts`: localStorage save/load bootstrap and migration entry point
 - `src/game/subsystems/`: focused simulation modules for economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, and events
 - `src/game/balance.ts`: central tuning constants
 - `src/game/events/eventDefs.ts`: seeded mechanical event definitions and event activation helpers

@@ -16,6 +16,46 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.4",
+    badge: "Long Watch",
+    summary: "Save persistence, day/night cycle, achievements, easter eggs, and idle-friendly UX polish.",
+    sections: [
+      {
+        title: "Idle-Friendly",
+        items: [
+          "Colony state now saves to localStorage every 30 seconds and restores on reload.",
+          "The simulation pauses cleanly when the tab is hidden, so returning does not trigger a catch-up burst.",
+          "Speed presets (1x, 2x, 4x) are now visible in the main HUD instead of living only in the hidden admin panel.",
+          "A 30-minute day/night cycle now shifts the battlefield sky over long runs.",
+        ],
+      },
+      {
+        title: "Achievements",
+        items: [
+          "Added 12 tracked achievements covering prestige, combat milestones, event coverage, and long-run survival.",
+          "Unlocked achievements now appear in a ribbon under the resource bar and expand into a dedicated panel.",
+          "Achievement state persists through save/load, including hidden unlocks.",
+        ],
+      },
+      {
+        title: "Easter Eggs",
+        items: [
+          "Konami code toggles a synthwave presentation mode.",
+          "Typing drift anywhere in the app now wakes a hidden message in the log.",
+          "A tourist drone can wander through mature colonies after a long enough real-time run.",
+          "At high threat tiers, a lost drone can emerge from the outer zone and permanently join the roster.",
+        ],
+      },
+      {
+        title: "Polish",
+        items: [
+          "Workers now accumulate veteran ranks from nearby kills, gaining subtle movement speed bonuses and chevrons.",
+          "Save migration backfills newly added fields so older local runs still load.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.3",
     badge: "Deep Reserves",
     summary: "Two new resources, three new upgrade tracks, and Sentinel Mechs for the late-game.",

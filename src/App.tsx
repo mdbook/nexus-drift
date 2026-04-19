@@ -20,14 +20,16 @@ import { FieldSvg } from "@/components/FieldSvg";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { Card } from "@/components/ui/card";
-import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { Progress } from "@/components/ui/progress";
+import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
+import { PANEL_CLASS } from "@/theme";
+import { ACHIEVEMENT_DEFS, unlockAchievement } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
-import { clamp, fmt } from "@/game/utils";
+import { clamp, fmt, pushLog } from "@/game/utils";
 import { useGameLoop } from "@/hooks/useGameLoop";
-import { PANEL_CLASS } from "@/theme";
 
 function useAdminPanel() {
   const [open, setOpen] = useState(false);
@@ -76,11 +78,32 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   archive: Bot,
 };
 
+const PUBLIC_SPEEDS = [1, 2, 4];
+const KONAMI = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
+
 export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [synthwave, setSynthwave] = useState(false);
+  const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
-  const { game, derived, mutateGame } = useGameLoop(speed);
+  const { game, derived, mutateGame } = useGameLoop(initialGame, speed);
+  const konamiRef = useRef<string[]>([]);
+  const driftRef = useRef("");
+  const synthwaveRef = useRef(synthwave);
+  useEffect(() => { synthwaveRef.current = synthwave; }, [synthwave]);
   const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
   const stabilityPct = clamp((derived.defenseScore / Math.max(2, derived.threatScore + 2)) * 100, 0, 100);
   const averageUnitHealth =
@@ -89,18 +112,55 @@ export default function App() {
       : 100;
 
   useEffect(() => {
-    if (!changelogOpen) return;
+    if (!changelogOpen && !achievementsOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Escape") setChangelogOpen(false);
+      if (event.code !== "Escape") return;
+      setChangelogOpen(false);
+      setAchievementsOpen(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [changelogOpen]);
+  }, [achievementsOpen, changelogOpen]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      konamiRef.current = [...konamiRef.current, event.key].slice(-KONAMI.length);
+      driftRef.current = (driftRef.current + event.key).slice(-5).toLowerCase();
+
+      if (driftRef.current === "drift") {
+        mutateGame((next) => {
+          next.log = pushLog(next.log, "The drift remembers.");
+          unlockAchievement(next, "drift_heard");
+        });
+        driftRef.current = "";
+      }
+
+      if (konamiRef.current.join(",") === KONAMI.join(",")) {
+        const nextSynthwave = !synthwaveRef.current;
+        setSynthwave(nextSynthwave);
+        mutateGame((next) => {
+          next.log = pushLog(
+            next.log,
+            nextSynthwave ? "Synthwave protocol engaged." : "Synthwave protocol disengaged."
+          );
+          unlockAchievement(next, "drift_heard");
+        });
+        konamiRef.current = [];
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mutateGame]);
 
   return (
-    <div className="relative min-h-screen bg-[#050814] text-white xl:h-screen xl:overflow-hidden">
+    <div
+      className={`relative min-h-screen bg-[#050814] text-white xl:h-screen xl:overflow-hidden ${
+        synthwave ? "synthwave" : ""
+      }`}
+    >
       <Background />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 xl:h-screen">
@@ -152,6 +212,35 @@ export default function App() {
           </Card>
         </div>
 
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
+            {PUBLIC_SPEEDS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setSpeed(value)}
+                className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+                  speed === value
+                    ? "border-cyan-200/30 bg-white/12 text-white"
+                    : "border-transparent text-white/45 hover:text-white"
+                }`}
+              >
+                {value}x
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="text-xs text-white/40 transition-colors hover:text-white/75"
+            onClick={() => {
+              localStorage.removeItem(SAVE_KEY);
+              window.location.reload();
+            }}
+          >
+            New Game
+          </button>
+        </div>
+
         <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           {resourceDefs.map((resource) => {
             const Icon = resourceIcons[resource.key];
@@ -188,6 +277,26 @@ export default function App() {
             />
           )}
         </div>
+
+        {Object.keys(game.achievements).length > 0 && (
+          <div
+            className="mb-3 flex cursor-pointer gap-1.5 overflow-x-auto px-1 py-1"
+            onClick={() => setAchievementsOpen(true)}
+            title="View achievements"
+          >
+            {Object.keys(game.achievements).map((id) => {
+              const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
+              return (
+                <span
+                  key={id}
+                  className="whitespace-nowrap rounded-full border border-indigo-700/30 bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-200"
+                >
+                  {def?.label ?? id}
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">
           <Card className={`${PANEL_CLASS} flex flex-col overflow-hidden p-0`}>
@@ -381,6 +490,55 @@ export default function App() {
                   </div>
                 </section>
               ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {achievementsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          onClick={() => setAchievementsOpen(false)}
+        >
+          <Card
+            className={`${PANEL_CLASS} w-full max-w-md border-indigo-400/20 bg-slate-950/95 p-6`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Achievements</h2>
+                <p className="mt-1 text-xs text-white/45">
+                  {Object.keys(game.achievements).length} / {ACHIEVEMENT_DEFS.length} unlocked
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAchievementsOpen(false)}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/55 transition hover:bg-white/10 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
+              {ACHIEVEMENT_DEFS.map((def) => {
+                const unlocked = !!game.achievements[def.id];
+                return (
+                  <div
+                    key={def.id}
+                    className={`flex items-start gap-3 rounded-2xl p-3 ${
+                      unlocked
+                        ? "border border-indigo-400/20 bg-indigo-900/25 text-white"
+                        : "border border-white/8 bg-white/5 text-white/35"
+                    }`}
+                  >
+                    <span className="text-lg">{unlocked ? "✓" : "○"}</span>
+                    <div>
+                      <div className="text-sm font-medium">{def.label}</div>
+                      <div className="text-xs text-white/45">{def.description}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </div>

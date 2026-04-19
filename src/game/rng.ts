@@ -1,6 +1,12 @@
 export class Rng {
   private state: number;
   constructor(seed: number) { this.state = seed >>> 0 || 1; }
+  static fromState(state: number) {
+    const rng = new Rng(1);
+    rng.state = state >>> 0 || 1;
+    return rng;
+  }
+  getState(): number { return this.state; }
   next(): number {
     // Mulberry32
     this.state = (this.state + 0x6D2B79F5) >>> 0;

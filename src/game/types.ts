@@ -1,3 +1,6 @@
+import type { AchievementId } from "@/game/achievements";
+import type { Rng } from "@/game/rng";
+
 export type ResourceKey = "gold" | "ore" | "gems" | "energy" | "cores" | "flux";
 export type VisibleResourceKey = "gold" | "ore" | "gems" | "energy";
 export type WorkerKind = "miner" | "runner" | "drone";
@@ -66,6 +69,8 @@ export type Agent = {
   evadeDx: number;
   evadeDy: number;
   damageTicks: number;
+  killsNearby: number;
+  veteranRank: 0 | 1 | 2 | 3;
 };
 
 export type Turret = {
@@ -145,10 +150,13 @@ export type Stats = {
   spent: number;
   crits: number;
   hostileKills: number;
+  totalEnemiesKilled: number;
   brutesKilled: number;
   blocked: number;
   corruptions: number;
   purges: number;
+  eventsExperienced: string[];
+  runtimeMs: number;
 };
 
 export type Timers = {
@@ -165,7 +173,13 @@ export type ActiveEvent = {
   ticksRemaining: number;
 };
 
-import type { Rng } from "@/game/rng";
+export type TouristWorker = {
+  x: number;
+  y: number;
+  angle: number;
+  active: boolean;
+  spotted: boolean;
+};
 
 export type GameState = {
   citySeed: number;
@@ -177,6 +191,7 @@ export type GameState = {
   level: number;
   xp: number;
   prestige: number;
+  achievements: Partial<Record<AchievementId, true>>;
   nodes: ResourceNode[];
   agents: Agent[];
   turrets: Turret[];
@@ -186,6 +201,8 @@ export type GameState = {
   projectiles: Projectile[];
   stats: Stats;
   timers: Timers;
+  touristWorker: TouristWorker | null;
+  lostWorkerFound: boolean;
   activeEvents: ActiveEvent[];
   eventModifiers: {
     yieldMultiplier: number;

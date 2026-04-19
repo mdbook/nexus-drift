@@ -4,20 +4,20 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-The current build exposes release history inside the game itself. Click the version badge beside `Autonomous Colony Sim` in the header to open the in-game changelog. The hidden admin panel now includes event trigger buttons in addition to the speed controls.
+The current build exposes release history inside the game itself. Click the version badge beside `Autonomous Colony Sim` in the header to open the in-game changelog. Public speed presets live in the main HUD, and the hidden admin panel still includes event trigger buttons plus extended speed controls.
 
 ## Core Architecture
 
 - `advanceGame(prev)` remains the single simulation orchestrator, and the step order still matters.
 - Simulation logic is split across focused modules in `src/game/subsystems/`.
 - `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts.
-- `GameState` also carries timed `activeEvents`, event modifiers, live `cores` / `flux` resource slots, sentinel mech state, and the next big-event interval.
+- `GameState` also carries timed `activeEvents`, event modifiers, live `cores` / `flux` resource slots, sentinel mech state, achievement progress, runtime stats, cosmetic tourist state, and the next big-event interval.
 - Presentation-only calculations live in selectors and are exposed to React as derived state.
-- React rendering is layered on top of the sim through `useGameLoop()`, which uses `requestAnimationFrame` plus a fixed-tick accumulator.
+- React rendering is layered on top of the sim through `useGameLoop()`, which uses `requestAnimationFrame` plus a fixed-tick accumulator, pauses cleanly on hidden tabs, and autosaves every 30 seconds.
 
 ## Project Structure
 
-- `src/App.tsx` - top-level layout, header, event banners, admin panel, and release-history modal
+- `src/App.tsx` - top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
 - `src/changelog.ts` - structured in-game release notes
 - `src/components/Background.tsx` - animated starfield and atmosphere layers
 - `src/components/FieldSvg.tsx` - battlefield SVG rendering
@@ -26,6 +26,8 @@ The current build exposes release history inside the game itself. Click the vers
 - `src/components/ui/` - local card and progress primitives
 - `src/hooks/useGameLoop.ts` - rAF-driven simulation loop plus direct state mutation hook for admin controls
 - `src/game/advanceGame.ts` - thin orchestrator over subsystem steps
+- `src/game/achievements.ts` - achievement definitions and unlock helper
+- `src/game/persistence.ts` - localStorage save/load helpers and migration
 - `src/game/subsystems/` - economy, spawns, movement, corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, and events
 - `src/game/events/eventDefs.ts` - seeded random-event definitions and activation helper
 - `src/game/balance.ts` - single source of truth for tuning constants
@@ -46,7 +48,7 @@ Resources: **Gold, Ore, Gems, Energy, Cores, Flux**. Gold still anchors the earl
 
 ### Workers
 
-Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously, evade combat threats with sticky enter/exit behavior, recover when damaged, and reboot from home pads when destroyed.
+Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously, evade combat threats with sticky enter/exit behavior, recover when damaged, reboot from home pads when destroyed, and now accumulate veteran ranks from nearby kills for small movement bonuses.
 
 ### Enemies
 
@@ -74,7 +76,7 @@ Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefi
 
 ### Random Events
 
-Ambient log chatter still fires on its original timer, but a second seeded event timer now rolls mechanical events between roughly 30 and 90 seconds. Timed events write into `state.activeEvents`, push multiplier changes into `state.eventModifiers`, and render countdown banners in the HUD. Instant events can add temporary nodes or inject off-schedule enemy spawns.
+Ambient log chatter still fires on its original timer, but a second seeded event timer now rolls mechanical events between roughly 30 and 90 seconds. Timed events write into `state.activeEvents`, push multiplier changes into `state.eventModifiers`, and render countdown banners in the HUD. Instant events can add temporary nodes or inject off-schedule enemy spawns, and night-time rolls slightly bias toward harsher outcomes.
 
 ### Autobuy And Prestige
 
@@ -82,7 +84,15 @@ Autobuy reacts to threat, corruption, multi-resource affordability, and upgrade 
 
 ### City / Home District
 
-The home district skyline evolves as the colony grows. Its cadence and visual growth are tied to progression and upgrade investment rather than being purely decorative.
+The home district skyline evolves as the colony grows. Its cadence and visual growth are tied to progression and upgrade investment rather than being purely decorative. Mature colonies can also attract a wandering tourist drone after enough real-time uptime.
+
+### Persistence And Idle UX
+
+The colony autosaves to localStorage every 30 seconds and restores on reload through a migration step that backfills newly added fields. Hidden tabs pause accumulator growth, so refocusing does not fast-forward a large burst of simulation all at once.
+
+### Achievements And Easter Eggs
+
+Twelve achievements track prestige, enemy kills, event coverage, progression tiers, long survival, and hidden discoveries. The HUD shows unlocked achievements in a ribbon and expands into a modal panel. Konami code toggles a synthwave theme, typing `drift` writes a hidden log message, and high-tier long runs can recruit a lost drone.
 
 ## Invariants
 
@@ -90,6 +100,7 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 - Step order inside `advanceGame()` is important; do not reshuffle casually.
 - Presentation-only derivations belong in selectors, not simulation steps.
 - All gameplay randomness should flow through the seeded `Rng`, not direct `Math.random()` calls.
+- Save migration must restore the serialized RNG state, not just the original seed, or long-run determinism breaks after reload.
 - Worker evasion keeps the small enter radius, larger exit radius, multi-tick persistence, and vector-summed escape behavior.
 - Corrupters never attack workers and never target gold nodes.
 - Turrets never target corrupters and also ignore cloaked phantoms.
@@ -99,8 +110,9 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 ## Current Operational Notes
 
 - The header version badge opens the in-game release history.
-- The hidden admin speed panel toggles after pressing `Space` five times while focus is on the page body.
+- Public speed presets live under the header, while the hidden admin speed panel still toggles after pressing `Space` five times while focus is on the page body.
 - The admin panel can manually fire any defined event, which is the fastest way to verify event banners and event-modifier effects in-browser.
+- `localStorage["nexusDriftSave"]` is the active save slot.
 - `package.json` version and `src/changelog.ts` should stay in sync whenever a release is being cut.
 
 ## Remaining Work
@@ -119,8 +131,8 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 
 ### Nice To Have
 
-- Replay or save/load support.
-- Weather, day-night, sound hooks, and alternate visual themes.
+- Replay support beyond the current save/load snapshot.
+- Weather, sound hooks, and alternate visual themes beyond the synthwave easter egg.
 
 ## Local Commands
 
@@ -155,7 +167,7 @@ Local verification:
 
 ## Known Gaps / Risks
 
-- No save/load system yet.
+- Save/load exists, but there is still only one local save slot and no export/import flow.
 - No explicit performance instrumentation.
 - No automated release tagging flow beyond manual version and changelog updates.
 - Tests cover invariants better than they cover balance regressions or visuals.

@@ -83,26 +83,27 @@ export function makeNodes(rng: Rng) {
 
 export function makeAgents(): Agent[] {
   const kinds = ["miner", "runner", "drone"] as const;
-  const homes = kinds.map((kind, index) => ({
-    id: index + 1,
-    homeX: WORKERS_AT_HOME[kind].x,
-    homeY: WORKERS_AT_HOME[kind].y,
-    speed: WORKERS_AT_HOME[kind].speed,
-    kind,
-    task: WORKERS_AT_HOME[kind].task,
-  }));
+  return kinds.map((kind, index) => {
+    const agent = makeWorker(kind, index + 1);
+    agent.target = index;
+    return agent;
+  });
+}
 
-  return homes.map((home, index) => ({
-    id: home.id,
-    x: home.homeX,
-    y: home.homeY,
-    tx: home.homeX,
-    ty: home.homeY,
-    homeX: home.homeX,
-    homeY: home.homeY,
+export function makeWorker(kind: Agent["kind"], id: number): Agent {
+  const home = WORKERS_AT_HOME[kind];
+
+  return {
+    id,
+    x: home.x,
+    y: home.y,
+    tx: home.x,
+    ty: home.y,
+    homeX: home.x,
+    homeY: home.y,
     speed: home.speed,
-    kind: home.kind,
-    target: index,
+    kind,
+    target: null,
     swing: 0,
     task: home.task,
     hp: 100,
@@ -112,7 +113,9 @@ export function makeAgents(): Agent[] {
     evadeDx: 0,
     evadeDy: -1,
     damageTicks: 0,
-  }));
+    killsNearby: 0,
+    veteranRank: 0,
+  };
 }
 
 export function makeTurrets(): Turret[] {
@@ -284,6 +287,7 @@ export function createInitialGameState(seed?: number): GameState {
     level: 1,
     xp: 8,
     prestige: 0,
+    achievements: {},
     nodes: makeNodes(rng),
     agents: makeAgents(),
     turrets: makeTurrets(),
@@ -296,10 +300,13 @@ export function createInitialGameState(seed?: number): GameState {
       spent: 0,
       crits: 0,
       hostileKills: 0,
+      totalEnemiesKilled: 0,
       brutesKilled: 0,
       blocked: 0,
       corruptions: 0,
       purges: 0,
+      eventsExperienced: [],
+      runtimeMs: 0,
     },
     timers: {
       tick: 0,
@@ -308,6 +315,8 @@ export function createInitialGameState(seed?: number): GameState {
       enemy: 0,
       bigEvent: 0,
     },
+    touristWorker: null,
+    lostWorkerFound: false,
     activeEvents: [],
     eventModifiers: {
       yieldMultiplier: 1,
@@ -330,8 +339,13 @@ export function cloneGameState(prev: GameState): GameState {
     ...prev,
     resources: { ...prev.resources },
     upgrades: { ...prev.upgrades },
-    stats: { ...prev.stats },
+    achievements: { ...prev.achievements },
+    stats: {
+      ...prev.stats,
+      eventsExperienced: [...prev.stats.eventsExperienced],
+    },
     timers: { ...prev.timers },
+    touristWorker: prev.touristWorker ? { ...prev.touristWorker } : null,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
     log: [...prev.log],
@@ -345,6 +359,81 @@ export function cloneGameState(prev: GameState): GameState {
       trail: enemy.trail.map(([x, y]) => [x, y] as [number, number]),
     })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
+  };
+}
+
+type SerializedGameState = Partial<GameState> & {
+  rng?: GameState["rng"] | { state?: number };
+};
+
+export function migrateGameState(raw: SerializedGameState): GameState {
+  const base = createInitialGameState(
+    typeof raw.citySeed === "number" ? raw.citySeed : Date.now()
+  );
+  const rawRngState =
+    typeof (raw as { rng?: { state?: number } }).rng?.state === "number"
+      ? (raw as { rng?: { state?: number } }).rng?.state
+      : undefined;
+
+  return {
+    ...base,
+    ...raw,
+    rng: rawRngState !== undefined ? Rng.fromState(rawRngState) : base.rng,
+    resources: { ...base.resources, ...raw.resources },
+    upgrades: { ...base.upgrades, ...raw.upgrades },
+    achievements: { ...raw.achievements },
+    stats: {
+      ...base.stats,
+      ...raw.stats,
+      eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
+        ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
+        : base.stats.eventsExperienced,
+    },
+    timers: { ...base.timers, ...raw.timers },
+    touristWorker: raw.touristWorker
+      ? {
+          x: raw.touristWorker.x ?? -30,
+          y: raw.touristWorker.y ?? 300,
+          angle: raw.touristWorker.angle ?? 0,
+          active: raw.touristWorker.active ?? true,
+          spotted: raw.touristWorker.spotted ?? false,
+        }
+      : null,
+    lostWorkerFound: raw.lostWorkerFound ?? false,
+    activeEvents: Array.isArray(raw.activeEvents)
+      ? raw.activeEvents.map((event) => ({ ...event }))
+      : base.activeEvents,
+    eventModifiers: { ...base.eventModifiers, ...raw.eventModifiers },
+    log: Array.isArray(raw.log) ? [...raw.log] : base.log,
+    nodes: Array.isArray(raw.nodes)
+      ? raw.nodes.map((node) => ({ ...node }))
+      : base.nodes,
+    agents: Array.isArray(raw.agents)
+      ? raw.agents.map((agent) => ({
+          ...makeWorker(agent.kind, agent.id),
+          ...agent,
+          killsNearby: agent.killsNearby ?? 0,
+          veteranRank: agent.veteranRank ?? 0,
+        }))
+      : base.agents,
+    turrets: Array.isArray(raw.turrets)
+      ? raw.turrets.map((turret) => ({ ...turret }))
+      : base.turrets,
+    scouts: Array.isArray(raw.scouts)
+      ? raw.scouts.map((scout) => ({ ...scout }))
+      : base.scouts,
+    sentinels: Array.isArray(raw.sentinels)
+      ? raw.sentinels.map((sentinel) => ({ ...sentinel }))
+      : base.sentinels,
+    enemies: Array.isArray(raw.enemies)
+      ? raw.enemies.map((enemy) => ({
+          ...enemy,
+          trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
+        }))
+      : base.enemies,
+    projectiles: Array.isArray(raw.projectiles)
+      ? raw.projectiles.map((projectile) => ({ ...projectile }))
+      : base.projectiles,
   };
 }
 

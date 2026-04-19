@@ -136,7 +136,7 @@ function buildDistrict(seed: number, turretXs: number[]) {
   return buildings.sort((a, b) => a.x - b.x);
 }
 
-function renderHomeDistrict(game: GameState, derived: DerivedState) {
+function renderHomeDistrict(game: GameState, derived: DerivedState, dayFactor: number) {
   if (derived.cityStage === 0) return null;
 
   const progress = clamp(derived.cityProgress, 0, 1);
@@ -337,7 +337,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                       height="2"
                       rx="1"
                       fill={lightIndex % 2 === 0 ? palette.accent : palette.stroke}
-                      opacity={(0.4 + ((columnIndex + lightIndex) % 3) * 0.08) * revealProgress}
+                      opacity={(0.4 + ((columnIndex + lightIndex) % 3) * 0.08) * revealProgress * (0.15 + dayFactor * 0.85)}
                     />
                   );
                 })}
@@ -435,6 +435,13 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
 }
 
 export function FieldSvg({ game, derived }: FieldSvgProps) {
+  const dayCycleMs = 30 * 60 * 1000;
+  const dayPhase = (game.stats.runtimeMs % dayCycleMs) / dayCycleMs;
+  const dayFactor = Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5;
+  const skyLight = Math.round(dayFactor * 18);
+  const skyColor = `rgb(${skyLight}, ${skyLight + 4}, ${skyLight + 10})`;
+  const nightOverlayOpacity = dayFactor < 0.5 ? 1 - dayFactor * 2 : 0;
+
   return (
     <svg
       viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
@@ -453,6 +460,8 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
         </filter>
       </defs>
+
+      <rect width={WORLD_W} height={WORLD_H} fill={skyColor} />
 
       <path
         d="M0 485 C170 430, 300 540, 420 505 S690 420, 795 468 S940 525, 1000 462 L1000 620 L0 620 Z"
@@ -504,7 +513,17 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         strokeWidth="1"
       />
 
-      {renderHomeDistrict(game, derived)}
+      {nightOverlayOpacity > 0 && (
+        <rect
+          width={WORLD_W}
+          height={WORLD_H}
+          fill="rgba(15, 20, 60, 0.4)"
+          opacity={nightOverlayOpacity}
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+
+      {renderHomeDistrict(game, derived, dayFactor)}
 
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;
@@ -802,6 +821,17 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         );
       })}
 
+      {game.touristWorker?.active && (
+        <g
+          transform={`translate(${game.touristWorker.x}, ${game.touristWorker.y}) rotate(${(game.touristWorker.angle * 180) / Math.PI})`}
+        >
+          <circle r="8" fill="rgba(253, 230, 138, 0.16)" />
+          <circle r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1" />
+          <rect x="5" y="-3" width="6" height="4" rx="1" fill="#374151" />
+          <circle cx="8" cy="-1" r="1.5" fill="#60a5fa" />
+        </g>
+      )}
+
       {game.agents.map((agent) => {
         const bob = Math.sin((game.timers.tick + agent.id * 8) / 7) * 2;
         const shieldActive = game.upgrades.shield > 0;
@@ -821,6 +851,17 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         return (
           <g key={agent.id}>
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
+            {agent.veteranRank > 0 &&
+              Array.from({ length: agent.veteranRank }, (_, index) => (
+                <path
+                  key={`rank-${agent.id}-${index}`}
+                  d={`M ${agent.x - 6 + index * 5} ${agent.y - 14} l 2 -3 l 2 3`}
+                  stroke="#fde68a"
+                  strokeWidth="0.8"
+                  fill="none"
+                  opacity="0.8"
+                />
+              ))}
             {panicOpacity > 0 && (
               <circle cx={agent.x} cy={agent.y + bob} r={20 + agent.panic * 0.04} fill={`rgba(255, 120, 120, ${panicOpacity})`} />
             )}

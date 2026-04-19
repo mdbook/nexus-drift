@@ -1,12 +1,13 @@
 import { TICK_WRAP } from "@/game/constants";
 import { cloneGameState } from "@/game/factories";
 import { stepAutobuy } from "@/game/subsystems/autobuy";
+import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat, resolveEnemyDeaths } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
 import { stepMining } from "@/game/subsystems/mining";
-import { stepEnemies, stepWorkers } from "@/game/subsystems/movement";
+import { stepEnemies, stepTourist, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -24,6 +25,7 @@ export function advanceGame(prev: GameState): GameState {
   stepEconomy(state);
   stepSpawns(state);
   stepWorkers(state);
+  stepTourist(state);
   stepEnemies(state);
   stepCorruption(state);
   stepTurrets(state);
@@ -36,6 +38,7 @@ export function advanceGame(prev: GameState): GameState {
   stepAutobuy(state);
   stepProjectiles(state);
   stepEvents(state);
+  stepAchievements(state);
 
   return state;
 }

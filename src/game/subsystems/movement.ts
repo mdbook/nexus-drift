@@ -9,6 +9,7 @@ import {
 } from "@/game/constants";
 import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, ENEMY_SPECIAL, WORKER } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
+import { computeDerived } from "@/game/selectors";
 import { findClosestAgent } from "@/game/targeting";
 import type { GameState } from "@/game/types";
 import { clamp, dist, normalize, pushLog } from "@/game/utils";
@@ -70,7 +71,11 @@ export function stepWorkers(state: GameState) {
     }
 
     if (agent.evadeTicks > 0) {
-      const evadeSpeed = agent.speed * (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor));
+      const veteranBonus = 1 + agent.veteranRank * 0.05;
+      const evadeSpeed =
+        agent.speed *
+        veteranBonus *
+        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor));
       agent.x = clamp(agent.x + agent.evadeDx * evadeSpeed, 20, WORLD_W - 20);
       agent.y = clamp(agent.y + agent.evadeDy * evadeSpeed, 50, WORLD_H - 32);
       agent.tx = clamp(agent.x + agent.evadeDx * 84, 20, WORLD_W - 20);
@@ -111,8 +116,9 @@ export function stepWorkers(state: GameState) {
     }
 
     const speedMultiplier = recovering ? WORKER.recoverySpeed : agent.damageTicks > 0 ? WORKER.damagedSpeed : WORKER.traversingSpeed;
-    agent.x += (dx / d) * agent.speed * speedMultiplier;
-    agent.y += (dy / d) * agent.speed * speedMultiplier;
+    const veteranBonus = 1 + agent.veteranRank * 0.05;
+    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus;
+    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus;
     agent.tx = destination.x;
     agent.ty = destination.y;
     agent.swing = 0;
@@ -141,6 +147,26 @@ export function stepWorkers(state: GameState) {
         b.y += ny;
       }
     }
+  }
+}
+
+export function stepTourist(state: GameState) {
+  const derived = computeDerived(state);
+  const minutesAlive = state.stats.runtimeMs / 60_000;
+
+  if (!state.touristWorker && derived.cityStage >= 5 && minutesAlive >= 15) {
+    state.touristWorker = { x: -30, y: 300, angle: 0, active: true, spotted: false };
+  }
+
+  if (!state.touristWorker?.active) return;
+
+  const tourist = state.touristWorker;
+  tourist.x += 0.3;
+  tourist.y = 300 + Math.sin(state.timers.tick / 45) * 80;
+  tourist.angle = Math.atan2((Math.cos(state.timers.tick / 45) * 80) / 45, 0.3);
+
+  if (tourist.x > 1050) {
+    tourist.x = -30;
   }
 }
 

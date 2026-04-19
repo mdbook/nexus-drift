@@ -18,9 +18,18 @@ export function resolveEnemyDeaths(state: GameState) {
   let energyReward = 0;
 
   state.stats.hostileKills += killed.length;
+  state.stats.totalEnemiesKilled += killed.length;
   state.stats.purges += purged;
 
   killed.forEach((enemy) => {
+    if (enemy.role !== "corruptor") {
+      state.agents.forEach((agent) => {
+        if (dist(agent.x, agent.y, enemy.x, enemy.y) < 120) {
+          agent.killsNearby += 1;
+        }
+      });
+    }
+
     if (enemy.role === "corruptor") {
       goldReward += REWARDS.goldPerPurgeBase + state.upgrades.scout * REWARDS.goldPerPurgePerScout;
       energyReward += REWARDS.energyPerPurgeBase + state.upgrades.arsenal * REWARDS.energyPerPurgePerArsenal;

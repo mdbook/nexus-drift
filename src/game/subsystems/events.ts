@@ -1,5 +1,6 @@
 import { EVENT_TICK } from "@/game/constants";
 import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import { makeWorker } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { pushLog } from "@/game/utils";
@@ -9,6 +10,12 @@ const BIG_EVENT_TICK_MAX = 90 * 30;
 
 function rollBigEventInterval(state: GameState) {
   return Math.floor(BIG_EVENT_TICK_MIN + state.rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
+}
+
+function getNightFactor(runtimeMs: number) {
+  const cycleMs = 30 * 60_000;
+  const dayPhase = (runtimeMs % cycleMs) / cycleMs;
+  return Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5;
 }
 
 function stepAmbientMessages(state: GameState) {
@@ -81,12 +88,17 @@ export function stepEvents(state: GameState) {
   const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.tier && !activeIds.has(def.id));
   if (!eligible.length) return;
 
-  const totalWeight = eligible.reduce((sum, def) => sum + def.weight, 0);
+  const isNight = getNightFactor(state.stats.runtimeMs) < 0.5;
+  const adjustedWeight = (id: string, weight: number) => {
+    if (isNight && (id === "xeno_bloom" || id === "dust_storm")) return weight * 1.8;
+    return weight;
+  };
+  const totalWeight = eligible.reduce((sum, def) => sum + adjustedWeight(def.id, def.weight), 0);
   let threshold = state.rng.next() * totalWeight;
   let chosen = eligible[eligible.length - 1];
 
   for (const eventDef of eligible) {
-    threshold -= eventDef.weight;
+    threshold -= adjustedWeight(eventDef.id, eventDef.weight);
     if (threshold <= 0) {
       chosen = eventDef;
       break;
@@ -94,4 +106,17 @@ export function stepEvents(state: GameState) {
   }
 
   activateEvent(state, chosen);
+  state.stats.eventsExperienced = [...new Set([...state.stats.eventsExperienced, chosen.id])];
+
+  if (!state.lostWorkerFound && derived.progression.tier >= 9 && state.rng.chance(0.01)) {
+    state.lostWorkerFound = true;
+    const lostWorker = makeWorker("drone", state.agents.length + 1);
+    lostWorker.x = -30;
+    lostWorker.y = 300;
+    lostWorker.tx = lostWorker.homeX;
+    lostWorker.ty = lostWorker.homeY;
+    lostWorker.task = "Traversing";
+    state.agents.push(lostWorker);
+    state.log = pushLog(state.log, "A damaged drone emerged from the outer zone - folded into the roster.");
+  }
 }
