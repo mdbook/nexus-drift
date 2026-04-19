@@ -50,6 +50,21 @@ describe("advanceGame simulation invariants", () => {
     expect(lateDerived.cityBuildProgress).toBeGreaterThan(midDerived.cityBuildProgress);
   });
 
+  it("upgrade investment nudges city growth forward", () => {
+    const base = createInitialGameState();
+    const upgraded = createInitialGameState();
+
+    upgraded.level = base.level;
+    upgraded.upgrades.turret = 1;
+    upgraded.upgrades.shield = 1;
+    upgraded.upgrades.scout = 1;
+
+    const baseDerived = computeDerived(base);
+    const upgradedDerived = computeDerived(upgraded);
+
+    expect(upgradedDerived.cityBuildProgress).toBeGreaterThan(baseDerived.cityBuildProgress);
+  });
+
   it("never produces NaN resources over a long run", () => {
     const final = runTicks(createInitialGameState(), 2_000);
     for (const key of Object.keys(final.resources) as Array<keyof GameState["resources"]>) {

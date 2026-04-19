@@ -45,6 +45,7 @@ type DistrictBuilding = {
   beaconCount: number;
   windowColumns: number;
   bridge: boolean;
+  turretIndex: number;
 };
 
 const CITY_MAX_STAGE = 5;
@@ -54,42 +55,83 @@ function seededNoise(seed: number, salt: number) {
   return value - Math.floor(value);
 }
 
-function buildDistrict(seed: number) {
+function buildDistrict(seed: number, turretXs: number[]) {
   const buildings: DistrictBuilding[] = [];
-  let cursor = 214 + seededNoise(seed, 1) * 18;
   let index = 0;
 
-  while (cursor < 814) {
-    const width = 13 + Math.floor(seededNoise(seed, index + 2) * 24);
-    const gap = 8 + Math.floor(seededNoise(seed, index + 30) * 16);
-    const heightBias = index / 14;
-    const baseHeight = 24 + Math.round(seededNoise(seed, index + 60) * 34 + heightBias * 52);
-    const unlockStage = Math.min(
-      CITY_MAX_STAGE,
-      Math.max(1, Math.floor(seededNoise(seed, index + 90) * CITY_MAX_STAGE) + 1 - Math.floor(heightBias * 1.3))
-    );
-
-    buildings.push({
-      x: cursor,
-      width,
-      baseHeight,
-      unlockStage,
-      paletteIndex: Math.floor(seededNoise(seed, index + 120) * CITY_PALETTE.length),
-      bodyStyle: Math.floor(seededNoise(seed, index + 150) * 4),
-      crownHeight: 4 + Math.floor(seededNoise(seed, index + 180) * 18),
-      crownWidth: 0.3 + seededNoise(seed, index + 210) * 0.5,
-      sidecarWidth: seededNoise(seed, index + 240) > 0.56 ? 4 + Math.floor(seededNoise(seed, index + 241) * 9) : 0,
-      inset: 2 + Math.floor(seededNoise(seed, index + 270) * 5),
-      beaconCount: 1 + Math.floor(seededNoise(seed, index + 300) * 3),
-      windowColumns: 1 + Math.floor(seededNoise(seed, index + 330) * 3),
-      bridge: seededNoise(seed, index + 360) > 0.72,
+  turretXs.forEach((turretX, turretIndex) => {
+    const clusterCount = 4 + Math.floor(seededNoise(seed, 20 + turretIndex) * 3);
+    const exclusionRadius = 42 + seededNoise(seed, 55 + turretIndex) * 12;
+    const rawSpecs = Array.from({ length: clusterCount }, (_, localIndex) => {
+      const width = 13 + Math.floor(seededNoise(seed, index + localIndex + 2) * 24);
+      const gap = 8 + Math.floor(seededNoise(seed, index + localIndex + 30) * 14);
+      const heightBias = localIndex / Math.max(1, clusterCount - 1);
+      return {
+        width,
+        gap,
+        baseHeight: 24 + Math.round(seededNoise(seed, index + localIndex + 60) * 30 + heightBias * 48),
+        unlockStage: Math.min(
+          CITY_MAX_STAGE,
+          Math.max(1, Math.floor(seededNoise(seed, index + localIndex + 90) * CITY_MAX_STAGE) + 1 - Math.floor(heightBias))
+        ),
+      };
     });
 
-    cursor += width + gap;
-    index += 1;
-  }
+    const leftSpecs = rawSpecs.slice(0, Math.ceil(clusterCount / 2));
+    const rightSpecs = rawSpecs.slice(Math.ceil(clusterCount / 2));
+    const leftSpan = leftSpecs.reduce(
+      (sum, spec, localIndex) => sum + spec.width + (localIndex < leftSpecs.length - 1 ? spec.gap : 0),
+      0
+    );
 
-  return buildings;
+    let leftCursor = turretX - exclusionRadius - leftSpan;
+    leftSpecs.forEach((spec, localIndex) => {
+      const jitter = (seededNoise(seed, index + 15) - 0.5) * 8;
+      buildings.push({
+        x: leftCursor + jitter,
+        width: spec.width,
+        baseHeight: spec.baseHeight,
+        unlockStage: spec.unlockStage,
+        paletteIndex: Math.floor(seededNoise(seed, index + 120) * CITY_PALETTE.length),
+        bodyStyle: Math.floor(seededNoise(seed, index + 150) * 4),
+        crownHeight: 4 + Math.floor(seededNoise(seed, index + 180) * 18),
+        crownWidth: 0.3 + seededNoise(seed, index + 210) * 0.5,
+        sidecarWidth: seededNoise(seed, index + 240) > 0.56 ? 4 + Math.floor(seededNoise(seed, index + 241) * 9) : 0,
+        inset: 2 + Math.floor(seededNoise(seed, index + 270) * 5),
+        beaconCount: 1 + Math.floor(seededNoise(seed, index + 300) * 3),
+        windowColumns: 1 + Math.floor(seededNoise(seed, index + 330) * 3),
+        bridge: localIndex < leftSpecs.length - 1 && seededNoise(seed, index + 360) > 0.66,
+        turretIndex,
+      });
+      leftCursor += spec.width + spec.gap;
+      index += 1;
+    });
+
+    let rightCursor = turretX + exclusionRadius;
+    rightSpecs.forEach((spec, localIndex) => {
+      const jitter = (seededNoise(seed, index + 15) - 0.5) * 8;
+      buildings.push({
+        x: rightCursor + jitter,
+        width: spec.width,
+        baseHeight: spec.baseHeight,
+        unlockStage: spec.unlockStage,
+        paletteIndex: Math.floor(seededNoise(seed, index + 120) * CITY_PALETTE.length),
+        bodyStyle: Math.floor(seededNoise(seed, index + 150) * 4),
+        crownHeight: 4 + Math.floor(seededNoise(seed, index + 180) * 18),
+        crownWidth: 0.3 + seededNoise(seed, index + 210) * 0.5,
+        sidecarWidth: seededNoise(seed, index + 240) > 0.56 ? 4 + Math.floor(seededNoise(seed, index + 241) * 9) : 0,
+        inset: 2 + Math.floor(seededNoise(seed, index + 270) * 5),
+        beaconCount: 1 + Math.floor(seededNoise(seed, index + 300) * 3),
+        windowColumns: 1 + Math.floor(seededNoise(seed, index + 330) * 3),
+        bridge: localIndex < rightSpecs.length - 1 && seededNoise(seed, index + 360) > 0.66,
+        turretIndex,
+      });
+      rightCursor += spec.width + spec.gap;
+      index += 1;
+    });
+  });
+
+  return buildings.sort((a, b) => a.x - b.x);
 }
 
 function renderHomeDistrict(game: GameState, derived: DerivedState) {
@@ -102,16 +144,42 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
   const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
   const districtOpacity = 0.36 + stage * 0.1;
   const towerScale = 0.76 + stage * 0.08;
-  const buildings = buildDistrict(game.citySeed);
+  const activeTurretXs = game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x);
+  const buildings = buildDistrict(game.citySeed, activeTurretXs);
+  if (!buildings.length) return null;
   const sequentialCursor = buildProgress * buildings.length;
   const fullyBuiltCount = Math.floor(sequentialCursor);
   const activeBuildIndex = Math.min(buildings.length - 1, fullyBuiltCount);
   const activeBuildings = buildings.filter((_, index) => index <= activeBuildIndex);
-  const districtSpines = Math.min(8, 3 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2));
+  const districtSpines = Math.min(
+    9,
+    activeTurretXs.length * 2 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2)
+  );
   const activePalette = chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12);
 
   return (
     <g>
+      {activeTurretXs.map((turretX, index) => (
+        <g key={`district-zone-${turretX}`}>
+          <ellipse
+            cx={turretX}
+            cy="552"
+            rx={78 + index * 6}
+            ry="20"
+            fill="rgba(105, 210, 255, 0.06)"
+            stroke="rgba(150, 235, 255, 0.14)"
+            strokeWidth="1"
+          />
+          <path
+            d={`M ${turretX - 88} 558 C ${turretX - 36} 538, ${turretX + 34} 538, ${turretX + 88} 558`}
+            fill="none"
+            stroke="rgba(130, 220, 255, 0.14)"
+            strokeWidth="1.1"
+            strokeDasharray="4 7"
+          />
+        </g>
+      ))}
+
       <path
         d="M130 555 L170 538 L220 548 L290 520 L352 532 L426 505 L500 520 L572 486 L635 498 L708 466 L790 494 L858 478 L888 495"
         fill="none"
@@ -130,7 +198,11 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
       />
 
       {Array.from({ length: districtSpines }, (_, index) => {
-        const x = 182 + index * (74 + seededNoise(game.citySeed, 420 + index) * 18);
+        const lane = activeTurretXs[index % activeTurretXs.length] ?? 500;
+        const rawOffset = (seededNoise(game.citySeed, 420 + index) - 0.5) * 110;
+        const laneOffset =
+          Math.abs(rawOffset) < 42 ? (rawOffset < 0 ? -42 : 42) : rawOffset;
+        const x = lane + laneOffset;
         const towerHeight =
           (20 + seededNoise(game.citySeed, 450 + index) * 18 + index * 4 + progress * 10) * towerScale;
         const y = 548 - towerHeight;
@@ -330,6 +402,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
         if (nextProgress < 1) return null;
         const startY = 552 - building.baseHeight * 0.46;
         const endY = 552 - nextBuilding.baseHeight * 0.42;
+        if (building.turretIndex !== nextBuilding.turretIndex) return null;
         return (
           <path
             key={`bridge-${building.x}`}
@@ -397,7 +470,36 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         height="82"
         rx="24"
         fill="rgba(255,255,255,0.03)"
-        stroke="rgba(255,255,255,0.1)"
+        stroke="rgba(185,232,255,0.22)"
+        strokeWidth="1.4"
+      />
+      <rect
+        x="113"
+        y="506"
+        width="774"
+        height="66"
+        rx="18"
+        fill="none"
+        stroke="rgba(120,215,255,0.14)"
+        strokeWidth="1"
+        strokeDasharray="8 8"
+      />
+      {[
+        { x: 122, y: 507 },
+        { x: 860, y: 507 },
+        { x: 122, y: 563 },
+        { x: 860, y: 563 },
+      ].map((corner) => (
+        <g key={`corner-${corner.x}-${corner.y}`}>
+          <line x1={corner.x} y1={corner.y} x2={corner.x + (corner.x < 500 ? 20 : -20)} y2={corner.y} stroke="rgba(190,240,255,0.55)" strokeWidth="2" />
+          <line x1={corner.x} y1={corner.y} x2={corner.x} y2={corner.y + (corner.y < 540 ? 20 : -20)} stroke="rgba(190,240,255,0.55)" strokeWidth="2" />
+        </g>
+      ))}
+      <path
+        d="M118 538 H882"
+        fill="none"
+        stroke="rgba(120, 215, 255, 0.12)"
+        strokeWidth="1"
       />
 
       {renderHomeDistrict(game, derived)}

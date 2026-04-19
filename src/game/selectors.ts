@@ -59,13 +59,23 @@ export function computeDerived(state: GameState): DerivedState {
   const hostilePressure = combatThreats >= 4 || colonyHealth < 72;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
+  const weightedUpgradeScore =
+    state.upgrades.miner * 0.9 +
+    state.upgrades.drill * 1.15 +
+    state.upgrades.reactor * 1.3 +
+    state.upgrades.bot * 0.7 +
+    state.upgrades.turret * 1.8 +
+    state.upgrades.shield * 1.25 +
+    state.upgrades.scout * 1.35 +
+    state.upgrades.arsenal * 1.45;
   const homeDevelopment =
-    state.level * 1.35 +
-    totalUpgrades * 2.4 +
-    activeTurrets * 1.8 +
-    activeScouts * 1.55 +
-    state.prestige * 7 +
-    totalIncome * 0.22;
+    state.level * 1.05 +
+    totalUpgrades * 1.45 +
+    weightedUpgradeScore * 1.1 +
+    activeTurrets * 2.1 +
+    activeScouts * 1.3 +
+    state.prestige * 6.8 +
+    totalIncome * 0.16;
 
   const cityBuildProgress = Math.max(0, Math.min(1, (homeDevelopment - CITY_GROWTH_START) / CITY_GROWTH_SPAN));
 
