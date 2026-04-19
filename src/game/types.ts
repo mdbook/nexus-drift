@@ -21,7 +21,10 @@ export type UpgradeKey =
   | "turret"
   | "shield"
   | "scout"
-  | "arsenal";
+  | "arsenal"
+  | "foundry"
+  | "sentinel"
+  | "archive";
 export type StatusTone = "danger" | "toxic" | "ready" | "calm";
 
 export type ResourceMap = Record<ResourceKey, number>;
@@ -90,6 +93,22 @@ export type Scout = {
   targetId: number | null;
 };
 
+export type Sentinel = {
+  id: number;
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  speed: number;
+  cooldown: number;
+  angle: number;
+  task: string;
+  pulse: number;
+  homeX: number;
+  homeY: number;
+  targetId: number | null;
+};
+
 export type Enemy = {
   id: number;
   kind: EnemyKind;
@@ -126,6 +145,7 @@ export type Stats = {
   spent: number;
   crits: number;
   hostileKills: number;
+  brutesKilled: number;
   blocked: number;
   corruptions: number;
   purges: number;
@@ -161,6 +181,7 @@ export type GameState = {
   agents: Agent[];
   turrets: Turret[];
   scouts: Scout[];
+  sentinels: Sentinel[];
   enemies: Enemy[];
   projectiles: Projectile[];
   stats: Stats;
@@ -184,9 +205,10 @@ export type GameState = {
 export type UpgradeDef = {
   key: UpgradeKey;
   label: string;
-  baseCost: number;
+  baseCost: number | Partial<Record<ResourceKey, number>>;
   growth: number;
   effectText: string;
+  minTier?: number;
 };
 
 export type ResourceDef = {
@@ -223,7 +245,9 @@ export type ProgressionDirector = {
 };
 
 export type DerivedState = {
+  resources: ResourceMap;
   rates: ResourceMap;
+  fluxRate: number;
   totalIncome: number;
   targetXp: number;
   defenseScore: number;
@@ -238,11 +262,13 @@ export type DerivedState = {
   combatThreats: number;
   activeTurrets: number;
   activeScouts: number;
+  activeSentinels: number;
   hostilePressure: boolean;
   corruptionPressure: boolean;
   homeDevelopment: number;
   cityStage: number;
   cityProgress: number;
   cityBuildProgress: number;
+  prestigeComboBonus: number;
   progression: ProgressionDirector;
 };

@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { TICK_MS } from "@/game/constants";
 import { resourceDefs, upgradeDefs } from "@/game/data";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import { nextUpgradeCost, fmt, stateSafe } from "@/game/utils";
+import { canAffordUpgrade, nextUpgradeCost, fmt, stateSafe } from "@/game/utils";
 import { PANEL_CLASS } from "@/theme";
 
 type SidebarProps = {
@@ -18,6 +18,11 @@ type SidebarProps = {
 
 export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
   const spawnCadenceSeconds = (derived.progression.spawnIntervalTicks * TICK_MS) / 1000;
+  const visibleUpgrades = upgradeDefs.filter((def) => {
+    if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
+    if (def.key === "sentinel" && game.stats.brutesKilled === 0) return false;
+    return true;
+  });
 
   return (
     <div className="flex flex-col gap-3 xl:h-full xl:overflow-y-auto">
@@ -76,21 +81,23 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <StatTile label="Active Turrets" value={derived.activeTurrets} tint="rgba(255,255,255,0.95)" />
           <StatTile label="Active Scouts" value={derived.activeScouts} tint="rgba(220,180,255,0.95)" />
+          <StatTile label="Sentinels" value={derived.activeSentinels} tint="rgba(251,191,36,0.95)" />
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {upgradeDefs.map((def) => {
+          {visibleUpgrades.map((def) => {
             const Icon = upgradeIcons[def.key];
+            const cost = nextUpgradeCost(def, game.upgrades[def.key]);
             return (
               <UpgradeTile
                 key={def.key}
                 def={def}
                 level={game.upgrades[def.key]}
-                cost={nextUpgradeCost(def, game.upgrades[def.key])}
-                canAfford={game.resources.gold >= nextUpgradeCost(def, game.upgrades[def.key])}
+                cost={cost}
+                canAfford={canAffordUpgrade(game.resources, cost)}
                 icon={Icon}
               />
             );

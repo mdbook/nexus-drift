@@ -1,14 +1,9 @@
 import { AUTO_TICK } from "@/game/constants";
-import { ECONOMY, PRESTIGE } from "@/game/balance";
-import { upgradeDefs } from "@/game/data";
+import { ECONOMY, FLUX, PRESTIGE } from "@/game/balance";
+import { getUpgradeDef, upgradeDefs } from "@/game/data";
 import { computeDerived } from "@/game/selectors";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import { nextUpgradeCost, pushLog } from "@/game/utils";
-
-const upgradeDefByKey = Object.fromEntries(upgradeDefs.map((def) => [def.key, def])) as Record<
-  UpgradeKey,
-  (typeof upgradeDefs)[number]
->;
+import { canAffordUpgrade, deductUpgradeCost, getUpgradeCostTotal, nextUpgradeCost, pushLog } from "@/game/utils";
 
 type EmergencyUpgradeChoice = { key: UpgradeKey; reason: string };
 
@@ -55,7 +50,8 @@ export function getAutobuyWeight(state: GameState, derived: DerivedState, key: U
 }
 
 export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedState): EmergencyUpgradeChoice | null {
-  const canAfford = (key: UpgradeKey) => state.resources.gold >= nextUpgradeCost(upgradeDefByKey[key], state.upgrades[key]);
+  const canAfford = (key: UpgradeKey) =>
+    canAffordUpgrade(state.resources, nextUpgradeCost(getUpgradeDef(key), state.upgrades[key]));
 
   if (
     (derived.corruptorCount > 0 || derived.activeCorruptionNodes > 0 || derived.progression.tier >= 3) &&
@@ -95,7 +91,21 @@ export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedStat
     state.upgrades.shield < Math.max(1, Math.ceil(derived.progression.tier / 3)) &&
     canAfford("shield")
   ) {
-    return { key: "shield", reason: "worker attrition" };
+      return { key: "shield", reason: "worker attrition" };
+  }
+
+  if (derived.progression.tier >= 3 && state.upgrades.foundry === 0 && canAfford("foundry")) {
+    return { key: "foundry", reason: "yield ramp" };
+  }
+
+  if (
+    derived.progression.tier >= 5 &&
+    state.stats.brutesKilled > 0 &&
+    derived.enemyCounts.brute >= 2 &&
+    state.upgrades.sentinel < state.sentinels.length &&
+    canAfford("sentinel")
+  ) {
+    return { key: "sentinel", reason: "heavy-contact pressure" };
   }
 
   return null;
@@ -108,11 +118,11 @@ export function stepAutobuy(state: GameState) {
   const derived = computeDerived(state);
   const emergencyChoice = getEmergencyUpgradeChoice(state, derived);
   if (emergencyChoice) {
-    const def = upgradeDefByKey[emergencyChoice.key];
+    const def = getUpgradeDef(emergencyChoice.key);
     const cost = nextUpgradeCost(def, state.upgrades[def.key]);
-    state.resources.gold = Math.max(0, state.resources.gold - cost);
+    deductUpgradeCost(state.resources, cost);
     state.upgrades[def.key] += 1;
-    state.stats.spent += cost;
+    state.stats.spent += getUpgradeCostTotal(cost);
     state.log = pushLog(
       state.log,
       `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`
@@ -126,26 +136,32 @@ export function stepAutobuy(state: GameState) {
       cost: nextUpgradeCost(def, state.upgrades[def.key]),
     }))
     .filter(({ def, cost }) => {
+      if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
+
       const smartGate =
         (def.key !== "bot" || state.upgrades.drill >= 2) &&
         (def.key !== "shield" || state.upgrades.turret >= 1 || derived.progression.tier >= 3) &&
         (def.key !== "turret" || state.upgrades.reactor >= 1 || state.level >= 3 || derived.progression.tier >= 2) &&
         (def.key !== "scout" || state.upgrades.reactor >= 1 || state.level >= 4 || derived.progression.tier >= 3) &&
-        (def.key !== "arsenal" || state.upgrades.scout >= 1);
+        (def.key !== "arsenal" || state.upgrades.scout >= 1) &&
+        (def.key !== "sentinel" || state.stats.brutesKilled > 0) &&
+        (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length);
 
-      return smartGate && state.resources.gold >= cost;
+      return smartGate && canAffordUpgrade(state.resources, cost);
     })
     .sort((a, b) => {
-      const weightedA = a.cost * getAutobuyWeight(state, derived, a.def.key);
-      const weightedB = b.cost * getAutobuyWeight(state, derived, b.def.key);
-      return weightedA - weightedB || a.cost - b.cost;
+      const totalA = getUpgradeCostTotal(a.cost);
+      const totalB = getUpgradeCostTotal(b.cost);
+      const weightedA = totalA * getAutobuyWeight(state, derived, a.def.key);
+      const weightedB = totalB * getAutobuyWeight(state, derived, b.def.key);
+      return weightedA - weightedB || totalA - totalB;
     });
 
   const chosen = candidates[0];
   if (chosen) {
-    state.resources.gold = Math.max(0, state.resources.gold - chosen.cost);
+    deductUpgradeCost(state.resources, chosen.cost);
     state.upgrades[chosen.def.key] += 1;
-    state.stats.spent += chosen.cost;
+    state.stats.spent += getUpgradeCostTotal(chosen.cost);
     state.log = pushLog(state.log, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`);
     return;
   }
@@ -160,8 +176,10 @@ export function stepAutobuy(state: GameState) {
     state.resources.ore *= PRESTIGE.resetMultipliers.ore;
     state.resources.gems *= PRESTIGE.resetMultipliers.gems;
     state.resources.energy *= PRESTIGE.resetMultipliers.energy;
+    state.resources.cores *= PRESTIGE.resetMultipliers.cores;
+    state.resources.flux *= FLUX.prestigeResetMultiplier;
     state.prestige += 1;
-    state.combo = Math.min(state.combo + PRESTIGE.comboBonus, ECONOMY.comboMax);
+    state.combo = Math.min(state.combo + derived.prestigeComboBonus, ECONOMY.comboMax);
     state.log = pushLog(state.log, "Quantum reset complete. Prestige +1.");
   }
 }

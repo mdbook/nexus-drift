@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
 import { createInitialGameState, spawnEnemy } from "@/game/factories";
+import { resolveEnemyDeaths } from "@/game/subsystems/combat";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
@@ -328,5 +329,59 @@ describe("advanceGame simulation invariants", () => {
     const after = advanceGame(seeded);
 
     expect(after.upgrades.scout).toBe(1);
+  });
+
+  it("awards flux when corruptors or blights die", () => {
+    const seeded = createInitialGameState();
+    const corruptor = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor");
+    const blight = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "blight");
+    corruptor.hp = 0;
+    blight.hp = 0;
+    seeded.enemies.push(corruptor, blight);
+
+    resolveEnemyDeaths(seeded);
+
+    expect(seeded.resources.flux).toBeGreaterThanOrEqual(3.5);
+  });
+
+  it("can autobuy foundry using ore and flux costs", () => {
+    const seeded = createInitialGameState();
+    seeded.level = 14;
+    seeded.resources.gold = 0;
+    seeded.resources.ore = 300;
+    seeded.resources.flux = 10;
+    seeded.upgrades.miner = 4;
+    seeded.upgrades.drill = 4;
+    seeded.upgrades.reactor = 3;
+    seeded.upgrades.turret = 3;
+    seeded.upgrades.shield = 2;
+    seeded.upgrades.scout = 2;
+    seeded.upgrades.arsenal = 1;
+    seeded.timers.auto = AUTO_TICK;
+
+    const after = advanceGame(seeded);
+
+    expect(after.upgrades.foundry).toBe(1);
+    expect(after.resources.ore).toBeLessThan(seeded.resources.ore);
+    expect(after.resources.flux).toBeLessThan(seeded.resources.flux);
+  });
+
+  it("sentinels prioritize brutes over nearby mites", () => {
+    const seeded = createInitialGameState();
+    seeded.upgrades.sentinel = 1;
+
+    const brute = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "brute");
+    brute.x = seeded.sentinels[0].x + 120;
+    brute.y = seeded.sentinels[0].y - 40;
+
+    const mite = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "mite");
+    mite.x = seeded.sentinels[0].x + 50;
+    mite.y = seeded.sentinels[0].y - 20;
+
+    seeded.enemies.push(mite, brute);
+
+    const after = runTicks(seeded, 12);
+
+    expect(after.sentinels[0].targetId).toBe(brute.id);
   });
 });

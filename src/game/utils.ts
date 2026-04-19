@@ -1,5 +1,5 @@
 import { MAX_LOG } from "@/game/constants";
-import type { UpgradeDef } from "@/game/types";
+import type { ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
 
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 export const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -51,8 +51,47 @@ export function pushLog(log: string[], message: string) {
   return [message, ...log].slice(0, MAX_LOG);
 }
 
-export function nextUpgradeCost(def: UpgradeDef, level: number) {
-  return Math.floor(def.baseCost * Math.pow(def.growth, level));
+export function nextUpgradeCost(def: UpgradeDef, level: number): Partial<Record<ResourceKey, number>> {
+  const multiplier = Math.pow(def.growth, level);
+  if (typeof def.baseCost === "number") {
+    return { gold: Math.round(def.baseCost * multiplier) };
+  }
+
+  const cost: Partial<Record<ResourceKey, number>> = {};
+  for (const [key, value] of Object.entries(def.baseCost)) {
+    cost[key as ResourceKey] = Math.round(value * multiplier);
+  }
+  return cost;
+}
+
+export function canAffordUpgrade(resources: ResourceMap, cost: Partial<Record<ResourceKey, number>>) {
+  return Object.entries(cost).every(([key, value]) => resources[key as ResourceKey] >= (value ?? 0));
+}
+
+export function deductUpgradeCost(resources: ResourceMap, cost: Partial<Record<ResourceKey, number>>) {
+  for (const [key, value] of Object.entries(cost)) {
+    resources[key as ResourceKey] = Math.max(0, resources[key as ResourceKey] - (value ?? 0));
+  }
+}
+
+export function getUpgradeCostTotal(cost: Partial<Record<ResourceKey, number>>) {
+  return Object.values(cost).reduce((sum, value) => sum + (value ?? 0), 0);
+}
+
+export function formatUpgradeCost(cost: Partial<Record<ResourceKey, number>>) {
+  const labels: Record<ResourceKey, string> = {
+    gold: "G",
+    ore: "O",
+    gems: "GM",
+    energy: "E",
+    cores: "C",
+    flux: "F",
+  };
+
+  return (Object.entries(cost) as Array<[ResourceKey, number | undefined]>)
+    .filter(([, value]) => (value ?? 0) > 0)
+    .map(([key, value]) => `${fmt(value ?? 0)} ${labels[key]}`)
+    .join(" + ");
 }
 
 export function makeStars(count: number) {

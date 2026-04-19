@@ -1,5 +1,5 @@
 import { UPGRADES } from "@/game/balance";
-import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, UpgradeDef, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, ResourceKey, UpgradeDef, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 export const resourceDefs: ResourceDef[] = [
   {
@@ -37,7 +37,35 @@ export const upgradeDefs: UpgradeDef[] = [
   { key: "shield", label: "Shield Grid", baseCost: UPGRADES.shield.baseCost, growth: UPGRADES.shield.growth, effectText: "Swarm mitigation + recovery" },
   { key: "scout", label: "Assault Scout", baseCost: UPGRADES.scout.baseCost, growth: UPGRADES.scout.growth, effectText: "Intercepts corrupters" },
   { key: "arsenal", label: "Scout Arsenal", baseCost: UPGRADES.arsenal.baseCost, growth: UPGRADES.arsenal.growth, effectText: "Purge burst + field cleanse" },
+  {
+    key: "foundry",
+    label: "Foundry",
+    baseCost: { ore: 200, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.foundry.growth,
+    effectText: "+12% node yield, +8% node respawn rate per level",
+    minTier: 3,
+  },
+  {
+    key: "sentinel",
+    label: "Sentinel Mech",
+    baseCost: { gold: 800, cores: 3 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.sentinel.growth,
+    effectText: "Deploys a heavy combat mech (cap 2). Hunts Brutes, Sappers, Leeches.",
+    minTier: 5,
+  },
+  {
+    key: "archive",
+    label: "Data Archive",
+    baseCost: { flux: 6, cores: 1 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.archive.growth,
+    effectText: "+8% XP rate, +0.05 prestige combo per level",
+    minTier: 4,
+  },
 ];
+
+export function getUpgradeDef(key: UpgradeDef["key"]) {
+  return upgradeDefs.find((def) => def.key === key)!;
+}
 
 export const NODE_STYLE: Record<VisibleResourceKey, NodeVisual> = {
   gold: {

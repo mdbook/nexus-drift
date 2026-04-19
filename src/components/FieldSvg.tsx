@@ -1,4 +1,5 @@
 import { WORLD_H, WORLD_W } from "@/game/constants";
+import { SENTINEL } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -756,6 +757,46 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
               stroke="rgba(120,220,255,0.90)"
               strokeWidth="2.5"
               strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
+
+      {game.sentinels.map((sentinel, index) => {
+        const live = index < derived.activeSentinels;
+        if (!live) return null;
+
+        const pulse = Math.sin(sentinel.pulse) * 0.15 + 0.85;
+        const size = 9;
+        const points = [
+          `${sentinel.x},${sentinel.y - size}`,
+          `${sentinel.x + size * 0.7},${sentinel.y}`,
+          `${sentinel.x},${sentinel.y + size}`,
+          `${sentinel.x - size * 0.7},${sentinel.y}`,
+        ].join(" ");
+
+        return (
+          <g
+            key={sentinel.id}
+            transform={`rotate(${(sentinel.angle * 180) / Math.PI + 90}, ${sentinel.x}, ${sentinel.y})`}
+          >
+            {sentinel.task === "Engaging" && (
+              <circle
+                cx={sentinel.x}
+                cy={sentinel.y}
+                r={SENTINEL.rangeBase}
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth="0.4"
+                opacity="0.15"
+              />
+            )}
+            <polygon
+              points={points}
+              fill="#fbbf24"
+              opacity={pulse}
+              stroke="#f59e0b"
+              strokeWidth="1.5"
             />
           </g>
         );

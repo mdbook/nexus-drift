@@ -35,8 +35,10 @@ export function stepMining(state: GameState) {
     if (node.hp <= 0) {
       const crit = state.rng.chance(MINING.critChanceBase + state.upgrades.bot * MINING.critChancePerBot);
       const baseAmount = MINING.yield[node.kind];
+      const foundryBonus = 1 + state.upgrades.foundry * 0.12;
       const amount =
         baseAmount *
+        foundryBonus *
         state.eventModifiers.yieldMultiplier *
         Math.max(CORRUPTION.yieldFloor, 1 - node.corruption / CORRUPTION.yieldDivisor);
 

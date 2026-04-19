@@ -16,6 +16,36 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.3",
+    badge: "Deep Reserves",
+    summary: "Two new resources, three new upgrade tracks, and Sentinel Mechs for the late-game.",
+    sections: [
+      {
+        title: "New Resources",
+        items: [
+          "Flux: earned by cleansing corrupted nodes and killing Corruptors or Blights. Soft-caps at 200.",
+          "Cores: dropped by Brutes, Phantoms, and Echo Signal elites. Spent on Sentinel and Archive upgrades.",
+        ],
+      },
+      {
+        title: "New Upgrades",
+        items: [
+          "Foundry (tier 3): boosts node yield by 12% per level. Costs Ore + Flux.",
+          "Sentinel Mech (tier 5): deploys a heavy ground unit that hunts Brutes, Sappers, and Leeches. Costs Gold + Cores.",
+          "Data Archive (tier 4): accelerates XP gain and increases prestige combo gain. Costs Flux + Cores.",
+        ],
+      },
+      {
+        title: "Economy",
+        items: [
+          "Flux now comes from scout cleanse ticks, node purge completions, and corruptor kills.",
+          "Upgrade costs can now require multiple resource types instead of gold only.",
+          "Autobuy now evaluates Flux and Cores affordability and can unlock Foundry and Sentinel paths.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.2",
     badge: "Strange Tides",
     summary: "Six new enemy types, Cores drops, and a live random-event system reshape the mid-game.",

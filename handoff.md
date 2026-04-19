@@ -11,7 +11,7 @@ The current build exposes release history inside the game itself. Click the vers
 - `advanceGame(prev)` remains the single simulation orchestrator, and the step order still matters.
 - Simulation logic is split across focused modules in `src/game/subsystems/`.
 - `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts.
-- `GameState` also carries timed `activeEvents`, event modifiers, dormant `cores` / `flux` resource slots, and the next big-event interval.
+- `GameState` also carries timed `activeEvents`, event modifiers, live `cores` / `flux` resource slots, sentinel mech state, and the next big-event interval.
 - Presentation-only calculations live in selectors and are exposed to React as derived state.
 - React rendering is layered on top of the sim through `useGameLoop()`, which uses `requestAnimationFrame` plus a fixed-tick accumulator.
 
@@ -26,7 +26,7 @@ The current build exposes release history inside the game itself. Click the vers
 - `src/components/ui/` - local card and progress primitives
 - `src/hooks/useGameLoop.ts` - rAF-driven simulation loop plus direct state mutation hook for admin controls
 - `src/game/advanceGame.ts` - thin orchestrator over subsystem steps
-- `src/game/subsystems/` - economy, spawns, movement, corruption, turrets, scouts, combat, mining, autobuy, projectiles, and events
+- `src/game/subsystems/` - economy, spawns, movement, corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, and events
 - `src/game/events/eventDefs.ts` - seeded random-event definitions and activation helper
 - `src/game/balance.ts` - single source of truth for tuning constants
 - `src/game/rng.ts` - deterministic Mulberry32 PRNG
@@ -42,7 +42,7 @@ The current build exposes release history inside the game itself. Click the vers
 
 ### Economy
 
-Resources: **Gold, Ore, Gems, Energy**, with **Cores** now tracked in state as rare combat drops and **Flux** reserved for a later milestone. Gold funds upgrades. Derived economy includes prestige scaling, combat pressure penalties, corruption penalties, income rates, and colony health / threat / defense readouts.
+Resources: **Gold, Ore, Gems, Energy, Cores, Flux**. Gold still anchors the early economy, Cores come from elite combat kills, and Flux comes from anti-corruption play. Upgrade costs can now consume multiple resource types instead of gold only.
 
 ### Workers
 
@@ -64,9 +64,13 @@ Static base defense. One is live from the start, with more unlocked by upgrades.
 
 Dedicated anti-corruption units. They prioritize live corrupters, then sweep high-corruption nodes, then patrol home. They are not mobile turrets. There are four physical scout units in state, with activation still gated by upgrade level.
 
+### Sentinels
+
+Heavy late-game ground mechs. They patrol the midfield when idle, then prioritize leeches, brutes, and sappers before falling back to general combat targets. Two physical sentinel slots exist in state, with activation gated by upgrade level.
+
 ### Mining And Harvesting
 
-Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefit from crits. Corrupted nodes yield less, timed events can boost yield, and temporary cache nodes disappear instead of respawning when exhausted.
+Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefit from crits. Corrupted nodes yield less, Foundry upgrades increase harvest yield, timed events can boost yield, and temporary cache nodes disappear instead of respawning when exhausted.
 
 ### Random Events
 
@@ -74,7 +78,7 @@ Ambient log chatter still fires on its original timer, but a second seeded event
 
 ### Autobuy And Prestige
 
-Autobuy reacts to threat, corruption, and upgrade weighting. Prestige still auto-triggers when the colony is rich, stable, and clear enough to justify a reset.
+Autobuy reacts to threat, corruption, multi-resource affordability, and upgrade weighting. Prestige still auto-triggers when the colony is rich, stable, and clear enough to justify a reset.
 
 ### City / Home District
 
@@ -111,7 +115,7 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 
 - Small dev overlay for tick counts, enemy counts, corruption state, and autobuy choice.
 - Headless soak-test utility for large deterministic runs.
-- Late-game systems that consume `cores` and `flux`, which are now present in state and event modifiers.
+- More late-game sinks and interactions for `cores` and `flux` now that both resources are fully live.
 
 ### Nice To Have
 

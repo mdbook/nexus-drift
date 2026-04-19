@@ -5,8 +5,10 @@ import {
   Coins,
   Cpu,
   Crosshair,
+  Diamond,
   Gem,
   Hammer,
+  Hexagon,
   Pickaxe,
   Radar,
   Shield,
@@ -69,6 +71,9 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   shield: Shield,
   scout: Radar,
   arsenal: Swords,
+  foundry: Cpu,
+  sentinel: Crosshair,
+  archive: Bot,
 };
 
 export default function App() {
@@ -147,14 +152,14 @@ export default function App() {
           </Card>
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           {resourceDefs.map((resource) => {
             const Icon = resourceIcons[resource.key];
             return (
               <ResourcePill
                 key={resource.key}
                 label={resource.label}
-                value={game.resources[resource.key]}
+                value={derived.resources[resource.key]}
                 rate={derived.rates[resource.key]}
                 icon={Icon}
                 tint={resource.tint}
@@ -162,6 +167,26 @@ export default function App() {
               />
             );
           })}
+          {game.upgrades.scout >= 1 && (
+            <ResourcePill
+              label="Flux"
+              value={derived.resources.flux}
+              rate={derived.fluxRate}
+              icon={Hexagon}
+              tint="rgba(216, 180, 255, 0.95)"
+              glow="rgba(168, 85, 247, 0.24)"
+            />
+          )}
+          {derived.progression.tier >= 4 && (
+            <ResourcePill
+              label="Cores"
+              value={derived.resources.cores}
+              rate={0}
+              icon={Diamond}
+              tint="rgba(251, 191, 36, 0.95)"
+              glow="rgba(245, 158, 11, 0.24)"
+            />
+          )}
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">

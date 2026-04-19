@@ -1,7 +1,7 @@
-import { ENEMY_SPECIAL, SCOUT } from "@/game/balance";
+import { ENEMY_SPECIAL, FLUX, SCOUT } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import type { GameState } from "@/game/types";
-import { clamp, dist } from "@/game/utils";
+import { clamp, dist, pushLog } from "@/game/utils";
 
 function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number; ay: number } {
   let ax = 0, ay = 0;
@@ -151,14 +151,30 @@ export function stepScouts(state: GameState) {
         scout.x += (dx / d) * (0.6 + scout.speed * 0.55);
         scout.y += (dy / d) * (0.6 + scout.speed * 0.55);
       } else {
+        const tickFlux =
+          FLUX.cleanseTickReward *
+          (state.eventModifiers.fluxPurgeMultiplier ?? 1) *
+          (1 + state.upgrades.arsenal * FLUX.arsenalTickBonus);
+        state.resources.flux = Math.min(
+          FLUX.softCap + FLUX.overCapBuffer,
+          state.resources.flux + tickFlux
+        );
+
         const baseCleanseRate = SCOUT.cleanseRateBase + state.upgrades.arsenal * SCOUT.cleanseRatePerArsenal;
         // Synergy: each additional scout on the same node adds 60% of base cleanse rate.
         const assignedCount = nodeAssignCounts.get(sweepNode.id) ?? 1;
         const synergy = 1 + (assignedCount - 1) * SCOUT.cleanseSynergyPerExtra;
+        const wasActiveCorruption =
+          sweepNode.corrupted || sweepNode.corruptedBy != null || sweepNode.corruption > 3;
         sweepNode.corruption = clamp(sweepNode.corruption - baseCleanseRate * synergy, 0, 100);
-        if (sweepNode.corruption <= 3) {
+        if (wasActiveCorruption && sweepNode.corruption <= 3) {
           sweepNode.corrupted = false;
           sweepNode.corruptedBy = null;
+          state.resources.flux = Math.min(
+            FLUX.softCap,
+            state.resources.flux + FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
+          );
+          state.log = pushLog(state.log, "Node cleansed. Flux recovered.");
         }
       }
 

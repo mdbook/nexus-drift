@@ -9,6 +9,9 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
   shield: { baseCost: 420, growth: 1.28 },
   scout: { baseCost: 280, growth: 1.26 },
   arsenal: { baseCost: 540, growth: 1.29 },
+  foundry: { baseCost: 200, growth: 1.26 },
+  sentinel: { baseCost: 800, growth: 1.35 },
+  archive: { baseCost: 0, growth: 1.30 },
 };
 
 export const WORKER = {
@@ -170,6 +173,32 @@ export const SCOUT = {
   capBoostThreshold: 8,
   capBoostAmount: 1,
   cleanseSynergyPerExtra: 0.6,
+} as const;
+
+export const FLUX = {
+  softCap: 200,
+  overCapBuffer: 50,
+  cleanseTickReward: 0.5,
+  cleanseCompletionBonus: 3.0,
+  corruptorKillReward: 1.0,
+  blightKillReward: 2.5,
+  arsenalTickBonus: 0.1,
+  prestigeResetMultiplier: 0.25,
+} as const;
+
+export const SENTINEL = {
+  damageBase: 22,
+  damagePerSentinel: 5,
+  cooldownBase: 28,
+  cooldownFloor: 14,
+  rangeBase: 140,
+  speedBase: 0.70,
+  projectileColor: "rgba(251, 191, 36, 0.9)",
+  projectileWidth: 3.2,
+  projectileLife: 9,
+  capPerUpgrade: 1,
+  patrolRadius: 120,
+  patrolY: 350,
 } as const;
 
 export const CORRUPTION = {
@@ -365,6 +394,7 @@ export const DEFENSE = {
     shield: 1.9,
     scout: 1.6,
     arsenal: 1.2,
+    sentinel: 2.1,
   },
   threat: {
     corruptorMultiplier: 1.3,
@@ -378,6 +408,9 @@ export const DEFENSE = {
     shield: 1.25,
     scout: 1.35,
     arsenal: 1.45,
+    foundry: 1.15,
+    sentinel: 1.9,
+    archive: 1.2,
   },
   hostilePressureEnemyThreshold: 4,
   hostilePressureColonyHealth: 72,

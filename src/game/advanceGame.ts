@@ -9,6 +9,7 @@ import { stepMining } from "@/game/subsystems/mining";
 import { stepEnemies, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
+import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepSpawns } from "@/game/subsystems/spawns";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import type { GameState } from "@/game/types";
@@ -27,6 +28,7 @@ export function advanceGame(prev: GameState): GameState {
   stepCorruption(state);
   stepTurrets(state);
   stepScouts(state);
+  stepSentinels(state);
   resolveEnemyDeaths(state);
   stepCombat(state);
   resolveEnemyDeaths(state);

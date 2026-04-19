@@ -1,4 +1,4 @@
-import { ENEMY_STATS, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_STATS, SENTINEL, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -8,6 +8,7 @@ import type {
   GameState,
   ResourceNode,
   Scout,
+  Sentinel,
   Turret,
   VisibleResourceKey,
 } from "@/game/types";
@@ -187,6 +188,41 @@ export function makeScouts(): Scout[] {
   ];
 }
 
+export function makeSentinels(): Sentinel[] {
+  return [
+    {
+      id: 1,
+      x: 300,
+      y: 500,
+      tx: 300,
+      ty: 500,
+      speed: SENTINEL.speedBase + 0.02,
+      cooldown: 0,
+      angle: 0,
+      task: "Standby",
+      pulse: 0,
+      homeX: 300,
+      homeY: 500,
+      targetId: null,
+    },
+    {
+      id: 2,
+      x: 660,
+      y: 500,
+      tx: 660,
+      ty: 500,
+      speed: SENTINEL.speedBase - 0.02,
+      cooldown: 0,
+      angle: 0,
+      task: "Standby",
+      pulse: 0,
+      homeX: 660,
+      homeY: 500,
+      targetId: null,
+    },
+  ];
+}
+
 export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null): Enemy {
   const side = rng.next() < 0.5 ? "left" : "right";
   const x = side === "left" ? -30 : WORLD_W + 30;
@@ -235,6 +271,9 @@ export function createInitialGameState(seed?: number): GameState {
       shield: 0,
       scout: 0,
       arsenal: 0,
+      foundry: 0,
+      sentinel: 0,
+      archive: 0,
     },
     log: [
       "Boot sequence complete.",
@@ -249,6 +288,7 @@ export function createInitialGameState(seed?: number): GameState {
     agents: makeAgents(),
     turrets: makeTurrets(),
     scouts: makeScouts(),
+    sentinels: makeSentinels(),
     enemies: [],
     projectiles: [],
     stats: {
@@ -256,6 +296,7 @@ export function createInitialGameState(seed?: number): GameState {
       spent: 0,
       crits: 0,
       hostileKills: 0,
+      brutesKilled: 0,
       blocked: 0,
       corruptions: 0,
       purges: 0,
@@ -298,6 +339,7 @@ export function cloneGameState(prev: GameState): GameState {
     agents: prev.agents.map((agent) => ({ ...agent })),
     turrets: prev.turrets.map((turret) => ({ ...turret })),
     scouts: prev.scouts.map((scout) => ({ ...scout })),
+    sentinels: prev.sentinels.map((sentinel) => ({ ...sentinel })),
     enemies: prev.enemies.map((enemy) => ({
       ...enemy,
       trail: enemy.trail.map(([x, y]) => [x, y] as [number, number]),

@@ -1,7 +1,7 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import type { StatusTone, UpgradeDef } from "@/game/types";
-import { fmt } from "@/game/utils";
+import type { ResourceKey, StatusTone, UpgradeDef } from "@/game/types";
+import { fmt, formatUpgradeCost } from "@/game/utils";
 import { cn } from "@/lib/cn";
 
 export function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
@@ -54,7 +54,8 @@ export function ResourcePill({
       <div className="text-right">
         <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">rate</div>
         <div className="text-sm font-medium" style={{ color: tint }}>
-          +{rate.toFixed(2)}/s
+          {rate >= 0 ? "+" : ""}
+          {rate.toFixed(2)}/s
         </div>
       </div>
     </Card>
@@ -81,7 +82,7 @@ export function UpgradeTile({
 }: {
   def: UpgradeDef;
   level: number;
-  cost: number;
+  cost: Partial<Record<ResourceKey, number>>;
   canAfford: boolean;
   icon: ComponentType<{ className?: string }>;
 }) {
@@ -102,7 +103,7 @@ export function UpgradeTile({
       <div className="mt-1 text-[11px] leading-relaxed text-white/45">{def.effectText}</div>
       <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.18em]">
         <span className={canAfford ? "text-emerald-200" : "text-white/35"}>{canAfford ? "Ready" : "Queue"}</span>
-        <span className="text-white/55">{fmt(cost)} G</span>
+        <span className="text-right text-white/55">{formatUpgradeCost(cost)}</span>
       </div>
     </div>
   );

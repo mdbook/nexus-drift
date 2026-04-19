@@ -1,5 +1,5 @@
 import { TICK_MS } from "@/game/constants";
-import { ECONOMY } from "@/game/balance";
+import { ECONOMY, FLUX } from "@/game/balance";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { clamp, pushLog } from "@/game/utils";
@@ -11,7 +11,7 @@ export function stepEconomy(state: GameState) {
     state.resources[key] += derived.rates[key] * (TICK_MS / 1000);
   });
 
-  state.xp +=
+  let xpGain =
     (ECONOMY.xpRate.base +
       state.upgrades.reactor * ECONOMY.xpRate.perReactor +
       state.prestige * ECONOMY.xpRate.perPrestige +
@@ -19,6 +19,15 @@ export function stepEconomy(state: GameState) {
       state.upgrades.scout * ECONOMY.xpRate.perScout) *
     (TICK_MS / 1000) *
     ECONOMY.xpRate.scale;
+  xpGain *= 1 + state.upgrades.archive * 0.08;
+  state.xp += xpGain;
+
+  if (state.resources.flux > FLUX.softCap) {
+    state.resources.flux = Math.max(
+      FLUX.softCap,
+      state.resources.flux - (state.resources.flux - FLUX.softCap) * 0.002
+    );
+  }
 
   while (state.xp >= ECONOMY.levelXpBase + state.level * ECONOMY.levelXpPerLevel) {
     state.xp -= ECONOMY.levelXpBase + state.level * ECONOMY.levelXpPerLevel;

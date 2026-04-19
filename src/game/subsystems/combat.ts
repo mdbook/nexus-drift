@@ -1,5 +1,5 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, REWARDS, WORKER } from "@/game/balance";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, WORKER } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
@@ -24,12 +24,22 @@ export function resolveEnemyDeaths(state: GameState) {
     if (enemy.role === "corruptor") {
       goldReward += REWARDS.goldPerPurgeBase + state.upgrades.scout * REWARDS.goldPerPurgePerScout;
       energyReward += REWARDS.energyPerPurgeBase + state.upgrades.arsenal * REWARDS.energyPerPurgePerArsenal;
+      const fluxReward = enemy.kind === "blight" ? FLUX.blightKillReward : FLUX.corruptorKillReward;
+      const fluxMultiplier = state.eventModifiers.fluxPurgeMultiplier ?? 1;
+      state.resources.flux = Math.min(
+        FLUX.softCap + FLUX.overCapBuffer,
+        state.resources.flux + fluxReward * fluxMultiplier
+      );
     } else {
       const rewardBonus = enemy.goldRewardBonus ?? 1;
       goldReward +=
         (REWARDS.goldPerKillBase + state.upgrades.turret * REWARDS.goldPerKillPerTurret) * rewardBonus;
       energyReward +=
         (REWARDS.energyPerKillBase + state.upgrades.shield * REWARDS.energyPerKillPerShield) * rewardBonus;
+    }
+
+    if (enemy.kind === "brute") {
+      state.stats.brutesKilled += 1;
     }
 
     const coreDrop =

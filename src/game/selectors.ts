@@ -1,4 +1,5 @@
-import { CITY, CORRUPTION, DEFENSE, ECONOMY, SCOUT } from "@/game/balance";
+import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL } from "@/game/balance";
+import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
 
@@ -58,6 +59,11 @@ export function computeDerived(state: GameState): DerivedState {
     cores: 0,
     flux: 0,
   };
+  const resources = { ...state.resources };
+  const fluxRate =
+    state.resources.flux > FLUX.softCap
+      ? -((state.resources.flux - FLUX.softCap) * 0.002 * 1000) / TICK_MS
+      : 0;
 
   const totalIncome = rates.gold + rates.ore * 2 + rates.gems * 18 + rates.energy * 12;
   const targetXp = 80 + state.level * 25;
@@ -65,7 +71,8 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.turret * DEFENSE.score.turret +
     state.upgrades.shield * DEFENSE.score.shield +
     state.upgrades.scout * DEFENSE.score.scout +
-    state.upgrades.arsenal * DEFENSE.score.arsenal;
+    state.upgrades.arsenal * DEFENSE.score.arsenal +
+    state.upgrades.sentinel * DEFENSE.score.sentinel;
   const threatScore =
     combatThreats + corruptorCount * DEFENSE.threat.corruptorMultiplier + corruptedByType.ore + corruptedByType.gems + corruptedByType.energy;
   const colonyHealth = state.agents.length
@@ -74,6 +81,7 @@ export function computeDerived(state: GameState): DerivedState {
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
   const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
+  const activeSentinels = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
   const hostilePressure = combatThreats >= DEFENSE.hostilePressureEnemyThreshold || colonyHealth < DEFENSE.hostilePressureColonyHealth;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
@@ -85,15 +93,20 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.turret * DEFENSE.weightedUpgrade.turret +
     state.upgrades.shield * DEFENSE.weightedUpgrade.shield +
     state.upgrades.scout * DEFENSE.weightedUpgrade.scout +
-    state.upgrades.arsenal * DEFENSE.weightedUpgrade.arsenal;
+    state.upgrades.arsenal * DEFENSE.weightedUpgrade.arsenal +
+    state.upgrades.foundry * DEFENSE.weightedUpgrade.foundry +
+    state.upgrades.sentinel * DEFENSE.weightedUpgrade.sentinel +
+    state.upgrades.archive * DEFENSE.weightedUpgrade.archive;
   const homeDevelopment =
     state.level * CITY.developmentWeights.level +
     totalUpgrades * CITY.developmentWeights.totalUpgrades +
     weightedUpgradeScore * CITY.developmentWeights.weightedUpgrade +
     activeTurrets * CITY.developmentWeights.activeTurrets +
     activeScouts * CITY.developmentWeights.activeScouts +
+    activeSentinels * CITY.developmentWeights.activeTurrets +
     state.prestige * CITY.developmentWeights.prestige +
     totalIncome * CITY.developmentWeights.totalIncome;
+  const prestigeComboBonus = PRESTIGE.comboBonus + state.upgrades.archive * 0.05;
 
   const cityBuildProgress = Math.max(0, Math.min(1, (homeDevelopment - CITY.growthStart) / CITY.growthSpan));
 
@@ -129,7 +142,9 @@ export function computeDerived(state: GameState): DerivedState {
   });
 
   return {
+    resources,
     rates,
+    fluxRate,
     totalIncome,
     targetXp,
     defenseScore,
@@ -144,12 +159,14 @@ export function computeDerived(state: GameState): DerivedState {
     combatThreats,
     activeTurrets,
     activeScouts,
+    activeSentinels,
     hostilePressure,
     corruptionPressure,
     homeDevelopment,
     cityStage,
     cityProgress,
     cityBuildProgress,
+    prestigeComboBonus,
     progression,
   };
 }
