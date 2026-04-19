@@ -73,9 +73,9 @@ export function makeNodes() {
 
 export function makeAgents(): Agent[] {
   const homes = [
-    { id: 1, homeX: 160, homeY: 260, speed: 1.1, kind: "miner" as const, task: "Surveying" },
+    { id: 1, homeX: 160, homeY: 440, speed: 1.1, kind: "miner" as const, task: "Surveying" },
     { id: 2, homeX: 320, homeY: 440, speed: 1.28, kind: "runner" as const, task: "Hauling" },
-    { id: 3, homeX: 700, homeY: 180, speed: 1.02, kind: "drone" as const, task: "Optimizing" },
+    { id: 3, homeX: 700, homeY: 440, speed: 1.02, kind: "drone" as const, task: "Optimizing" },
   ];
 
   return homes.map((home, index) => ({
