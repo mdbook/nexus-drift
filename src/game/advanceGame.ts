@@ -306,6 +306,23 @@ function stepTurrets(state: GameState) {
   });
 }
 
+function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number; ay: number } {
+  const AVOID_RADIUS = 90;
+  let ax = 0, ay = 0;
+  for (const enemy of state.enemies) {
+    if (enemy.role === "corruptor") continue;
+    const dx = sx - enemy.x;
+    const dy = sy - enemy.y;
+    const d = Math.hypot(dx, dy);
+    if (d < AVOID_RADIUS && d > 0) {
+      const strength = (AVOID_RADIUS - d) / AVOID_RADIUS;
+      ax += (dx / d) * strength;
+      ay += (dy / d) * strength;
+    }
+  }
+  return { ax, ay };
+}
+
 function stepScouts(state: GameState) {
   const corruptors = state.enemies.filter((enemy) => enemy.role === "corruptor");
   const corruptedNodes = [...state.nodes]
@@ -321,9 +338,19 @@ function stepScouts(state: GameState) {
       scout.targetId = null;
       scout.tx = scout.homeX;
       scout.ty = scout.homeY;
-      scout.x += (scout.homeX - scout.x) * 0.08;
-      scout.y += (scout.homeY - scout.y) * 0.08;
-      scout.angle += (-1.2 - scout.angle) * 0.08;
+      const sdx = scout.homeX - scout.x;
+      const sdy = scout.homeY - scout.y;
+      const sd = Math.hypot(sdx, sdy);
+      if (sd > 1) {
+        const { ax, ay } = scoutAvoidance(state, scout.x, scout.y);
+        const mx = sdx / sd + ax * 1.2;
+        const my = sdy / sd + ay * 1.2;
+        const ml = Math.max(1, Math.hypot(mx, my));
+        const s = Math.min(sd, scout.speed * 0.8);
+        scout.x += (mx / ml) * s;
+        scout.y += (my / ml) * s;
+        scout.angle = Math.atan2(my, mx);
+      }
       scout.task = "Standby";
       return;
     }
@@ -410,9 +437,19 @@ function stepScouts(state: GameState) {
     scout.targetId = null;
     scout.tx = patrolX;
     scout.ty = patrolY;
-    scout.x += (patrolX - scout.x) * 0.12;
-    scout.y += (patrolY - scout.y) * 0.12;
-    scout.angle = Math.atan2(patrolY - scout.y, patrolX - scout.x);
+    const pdx = patrolX - scout.x;
+    const pdy = patrolY - scout.y;
+    const pd = Math.hypot(pdx, pdy);
+    if (pd > 1) {
+      const { ax, ay } = scoutAvoidance(state, scout.x, scout.y);
+      const mx = pdx / pd + ax * 1.2;
+      const my = pdy / pd + ay * 1.2;
+      const ml = Math.max(1, Math.hypot(mx, my));
+      const s = Math.min(pd, scout.speed * 0.9);
+      scout.x += (mx / ml) * s;
+      scout.y += (my / ml) * s;
+      scout.angle = Math.atan2(my, mx);
+    }
     scout.task = "Patrolling";
   });
 }

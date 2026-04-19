@@ -23,6 +23,9 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
         </linearGradient>
+        <filter id="textBlur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+        </filter>
       </defs>
 
       <path
@@ -130,7 +133,10 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
                 <rect x={node.x - 22} y={node.y + node.size + 18} rx="4" ry="4" width={(44 * corruptionPct) / 100} height="4" fill="rgba(195,120,255,0.92)" />
               </>
             )}
-            <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill={style.label} style={{ letterSpacing: 1.5 }}>
+            <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,1)" fontWeight="bold" style={{ letterSpacing: 1.5 }} filter="url(#textBlur)">
+              {node.kind.toUpperCase()}
+            </text>
+            <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill={style.label} fontWeight="bold" style={{ letterSpacing: 1.5 }}>
               {node.kind.toUpperCase()}
             </text>
           </g>
