@@ -144,17 +144,13 @@ export default function App() {
               <FieldSvg game={game} derived={derived} />
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-4 pt-2 text-[10px] uppercase tracking-[0.18em] text-white/42">
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
-                Crews {game.agents.length}
-              </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
-                Avg Integrity {averageUnitHealth}%
-              </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-4 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/38">
+              <span>Crews {game.agents.length}</span>
+              <span>Avg Integrity {averageUnitHealth}%</span>
               {game.agents.map((agent) => (
-                <div key={agent.id} className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 backdrop-blur-md">
+                <span key={agent.id}>
                   {agent.kind} // {agent.task}
-                </div>
+                </span>
               ))}
             </div>
           </Card>
