@@ -1,6 +1,8 @@
 import type { DerivedState, GameState } from "@/game/types";
 
-const CITY_STAGE_THRESHOLDS = [8, 16, 27, 40, 56];
+const CITY_GROWTH_START = 8;
+const CITY_GROWTH_SPAN = 118;
+const CITY_STAGE_THRESHOLDS = [0.14, 0.32, 0.54, 0.78, 1];
 
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length;
@@ -65,19 +67,21 @@ export function computeDerived(state: GameState): DerivedState {
     state.prestige * 7 +
     totalIncome * 0.22;
 
+  const cityBuildProgress = Math.max(0, Math.min(1, (homeDevelopment - CITY_GROWTH_START) / CITY_GROWTH_SPAN));
+
   let cityStage = 0;
   while (
     cityStage < CITY_STAGE_THRESHOLDS.length &&
-    homeDevelopment >= CITY_STAGE_THRESHOLDS[cityStage]
+    cityBuildProgress >= CITY_STAGE_THRESHOLDS[cityStage]
   ) {
     cityStage += 1;
   }
 
   const previousThreshold = cityStage === 0 ? 0 : CITY_STAGE_THRESHOLDS[cityStage - 1];
-  const nextThreshold = CITY_STAGE_THRESHOLDS[cityStage] ?? previousThreshold + 16;
+  const nextThreshold = CITY_STAGE_THRESHOLDS[cityStage] ?? 1;
   const cityProgress = Math.max(
     0,
-    Math.min(1, (homeDevelopment - previousThreshold) / Math.max(1, nextThreshold - previousThreshold))
+    Math.min(1, (cityBuildProgress - previousThreshold) / Math.max(0.001, nextThreshold - previousThreshold))
   );
 
   return {
@@ -99,5 +103,6 @@ export function computeDerived(state: GameState): DerivedState {
     homeDevelopment,
     cityStage,
     cityProgress,
+    cityBuildProgress,
   };
 }

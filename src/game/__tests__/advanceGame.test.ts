@@ -46,6 +46,8 @@ describe("advanceGame simulation invariants", () => {
     expect(midDerived.cityStage).toBeGreaterThan(earlyDerived.cityStage);
     expect(lateDerived.cityStage).toBeGreaterThan(midDerived.cityStage);
     expect(lateDerived.homeDevelopment).toBeGreaterThan(midDerived.homeDevelopment);
+    expect(midDerived.cityBuildProgress).toBeGreaterThan(earlyDerived.cityBuildProgress);
+    expect(lateDerived.cityBuildProgress).toBeGreaterThan(midDerived.cityBuildProgress);
   });
 
   it("never produces NaN resources over a long run", () => {

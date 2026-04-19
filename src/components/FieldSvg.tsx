@@ -97,12 +97,16 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
 
   const progress = clamp(derived.cityProgress, 0, 1);
   const stage = derived.cityStage;
-  const chromatic = stage >= 5 && progress >= 1;
+  const buildProgress = clamp(derived.cityBuildProgress, 0, 1);
+  const chromatic = stage >= 5 && buildProgress >= 1;
   const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
   const districtOpacity = 0.36 + stage * 0.1;
   const towerScale = 0.76 + stage * 0.08;
   const buildings = buildDistrict(game.citySeed);
-  const activeBuildings = buildings.filter((building) => building.unlockStage <= stage);
+  const sequentialCursor = buildProgress * buildings.length;
+  const fullyBuiltCount = Math.floor(sequentialCursor);
+  const activeBuildIndex = Math.min(buildings.length - 1, fullyBuiltCount);
+  const activeBuildings = buildings.filter((_, index) => index <= activeBuildIndex);
   const districtSpines = Math.min(8, 3 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2));
   const activePalette = chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12);
 
@@ -146,8 +150,19 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
       })}
 
       {activeBuildings.map((building, index) => {
-        const growthPct = building.unlockStage === stage ? progress : 1;
-        const height = building.baseHeight * (0.18 + growthPct * 0.82);
+        const buildingProgress =
+          buildProgress >= 1
+            ? 1
+            : index < fullyBuiltCount
+              ? 1
+              : index === activeBuildIndex
+                ? clamp(sequentialCursor - fullyBuiltCount, 0, 1)
+                : 0;
+        if (buildingProgress <= 0.001) return null;
+
+        const revealProgress = clamp(buildingProgress, 0, 1);
+        const grownHeightFactor = 0.08 + revealProgress * 0.92;
+        const height = building.baseHeight * grownHeightFactor;
         const y = 552 - height;
         const lightRows = Math.max(1, Math.floor(height / 11));
         const palette =
@@ -159,9 +174,9 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
         const insetWidth = Math.max(6, building.width - building.inset * 2);
         const crownWidth = Math.max(6, building.width * building.crownWidth);
         const crownX = building.x + (building.width - crownWidth) / 2;
-        const crownY = y - building.crownHeight;
+        const crownY = y - building.crownHeight * revealProgress;
         const sidecarX = building.sidecarWidth > 0 ? building.x - building.sidecarWidth + 2 : building.x;
-        const bodyGlow = building.bodyStyle === 3 ? 0.22 : 0.12;
+        const bodyGlow = (building.bodyStyle === 3 ? 0.22 : 0.12) * (0.35 + revealProgress * 0.65);
         return (
           <g key={`building-${building.x}`}>
             <rect
@@ -182,7 +197,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
               fill="rgba(18,34,56,0.74)"
               stroke={palette.stroke}
               strokeWidth="1"
-              opacity={districtOpacity}
+              opacity={districtOpacity * (0.38 + revealProgress * 0.62)}
             />
             <rect
               x={building.x + building.inset}
@@ -191,9 +206,9 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
               height={Math.max(4, height * 0.22)}
               rx="3"
               fill={palette.fill}
-              opacity={0.65}
+              opacity={0.28 + revealProgress * 0.37}
             />
-            {building.bodyStyle >= 1 && (
+            {building.bodyStyle >= 1 && revealProgress >= 0.35 && (
               <rect
                 x={building.x + 3}
                 y={y + Math.max(8, height * 0.3)}
@@ -206,12 +221,12 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                 opacity={0.55}
               />
             )}
-            {building.bodyStyle >= 2 && (
+            {building.bodyStyle >= 2 && revealProgress >= 0.55 && (
               <rect
                 x={crownX}
                 y={crownY}
                 width={crownWidth}
-                height={building.crownHeight}
+                height={building.crownHeight * revealProgress}
                 rx="3"
                 fill="rgba(20,40,62,0.86)"
                 stroke={palette.accent}
@@ -219,7 +234,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                 opacity={0.8}
               />
             )}
-            {building.bodyStyle === 3 && building.sidecarWidth > 0 && (
+            {building.bodyStyle === 3 && building.sidecarWidth > 0 && revealProgress >= 0.68 && (
               <rect
                 x={sidecarX}
                 y={y + Math.max(10, height * 0.22)}
@@ -232,7 +247,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                 opacity={0.78}
               />
             )}
-            {Array.from({ length: lightRows }, (_, lightIndex) => (
+            {Array.from({ length: Math.max(1, Math.floor(lightRows * revealProgress)) }, (_, lightIndex) => (
               <g key={`window-${index}-${lightIndex}`}>
                 {Array.from({ length: building.windowColumns }, (_, columnIndex) => {
                   const gutter = (building.width - 8) / building.windowColumns;
@@ -248,13 +263,13 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                       height="2"
                       rx="1"
                       fill={lightIndex % 2 === 0 ? palette.accent : palette.stroke}
-                      opacity={0.58 + ((columnIndex + lightIndex) % 3) * 0.08}
+                      opacity={(0.4 + ((columnIndex + lightIndex) % 3) * 0.08) * revealProgress}
                     />
                   );
                 })}
               </g>
             ))}
-            {building.width >= 18 && (
+            {building.width >= 18 && revealProgress >= 0.6 && (
               <line
                 x1={building.x + building.width / 2}
                 y1={crownY + (building.bodyStyle >= 2 ? 0 : building.crownHeight)}
@@ -265,7 +280,7 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
                 opacity={0.6}
               />
             )}
-            {Array.from({ length: building.beaconCount }, (_, beaconIndex) => {
+            {Array.from({ length: revealProgress >= 0.78 ? building.beaconCount : 0 }, (_, beaconIndex) => {
               const bx = building.x + 4 + ((building.width - 8) * beaconIndex) / Math.max(1, building.beaconCount - 1);
               const by = crownY - 6 - beaconIndex * 2;
               return <circle key={`beacon-${index}-${beaconIndex}`} cx={bx} cy={by} r="1.3" fill={palette.accent} opacity={0.88} />;
@@ -294,8 +309,25 @@ function renderHomeDistrict(game: GameState, derived: DerivedState) {
       )}
 
       {activeBuildings.map((building, index) => {
-        if (!building.bridge || index === activeBuildings.length - 1) return null;
+        const buildingProgress =
+          buildProgress >= 1
+            ? 1
+            : index < fullyBuiltCount
+              ? 1
+              : index === activeBuildIndex
+                ? clamp(sequentialCursor - fullyBuiltCount, 0, 1)
+                : 0;
+        if (!building.bridge || buildingProgress < 1 || index === activeBuildings.length - 1) return null;
         const nextBuilding = activeBuildings[index + 1];
+        const nextProgress =
+          buildProgress >= 1
+            ? 1
+            : index + 1 < fullyBuiltCount
+              ? 1
+              : index + 1 === activeBuildIndex
+                ? clamp(sequentialCursor - fullyBuiltCount, 0, 1)
+                : 0;
+        if (nextProgress < 1) return null;
         const startY = 552 - building.baseHeight * 0.46;
         const endY = 552 - nextBuilding.baseHeight * 0.42;
         return (

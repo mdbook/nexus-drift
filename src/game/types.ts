@@ -192,4 +192,5 @@ export type DerivedState = {
   homeDevelopment: number;
   cityStage: number;
   cityProgress: number;
+  cityBuildProgress: number;
 };
