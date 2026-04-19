@@ -89,6 +89,25 @@ describe("advanceGame simulation invariants", () => {
     expect(lateDerived.progression.spawnIntervalTicks).toBeLessThan(earlyDerived.progression.spawnIntervalTicks);
   });
 
+  it("does not mark a dominant late-game colony as recovering at the cadence floor", () => {
+    const dominant = createInitialGameState();
+
+    dominant.level = 18;
+    dominant.prestige = 1;
+    dominant.upgrades.miner = 4;
+    dominant.upgrades.drill = 4;
+    dominant.upgrades.reactor = 3;
+    dominant.upgrades.turret = 3;
+    dominant.upgrades.shield = 2;
+    dominant.upgrades.scout = 2;
+    dominant.upgrades.arsenal = 2;
+
+    const derived = computeDerived(dominant);
+
+    expect(derived.progression.spawnIntervalTicks).toBe(72);
+    expect(derived.progression.recoveryMode).toBe(false);
+  });
+
   it("threat director slows down when the colony is under pressure", () => {
     const stable = createInitialGameState();
     const stressed = createInitialGameState();
@@ -205,6 +224,33 @@ describe("advanceGame simulation invariants", () => {
     const boostedAfter = advanceGame(boosted);
 
     expect(boostedAfter.enemies[0].hp).toBeLessThan(baselineAfter.enemies[0].hp);
+  });
+
+  it("resets the spawn timer instead of banking spawn debt while enemy cap is full", () => {
+    const seeded = createInitialGameState();
+    seeded.level = 12;
+    seeded.prestige = 1;
+    seeded.upgrades.reactor = 2;
+    seeded.upgrades.turret = 2;
+    seeded.upgrades.shield = 1;
+    seeded.upgrades.scout = 2;
+
+    const initialDerived = computeDerived(seeded);
+    for (let i = 0; i < initialDerived.progression.enemyCap; i += 1) {
+      const enemy = spawnEnemy(seeded.nextEnemyId++, 0, "mite");
+      enemy.x = -60 - i * 10;
+      enemy.y = 140 + i * 8;
+      seeded.enemies.push(enemy);
+    }
+    const cappedDerived = computeDerived(seeded);
+    seeded.timers.enemy = cappedDerived.progression.spawnIntervalTicks;
+
+    const afterBlockedSpawn = advanceGame(seeded);
+    const afterNextTick = advanceGame(afterBlockedSpawn);
+
+    expect(afterBlockedSpawn.enemies).toHaveLength(initialDerived.progression.enemyCap);
+    expect(afterBlockedSpawn.timers.enemy).toBe(0);
+    expect(afterNextTick.timers.enemy).toBe(1);
   });
 
   it("scouts prefer corruptors over sweep targets", () => {

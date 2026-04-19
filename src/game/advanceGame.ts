@@ -97,6 +97,7 @@ function stepEconomy(state: GameState) {
 function stepSpawns(state: GameState) {
   const derived = computeDerived(state);
   if (state.timers.enemy < derived.progression.spawnIntervalTicks) return;
+  state.timers.enemy = 0;
   if (state.enemies.length >= derived.progression.enemyCap) return;
 
   const corruptibleNodes = state.nodes.filter((node) => node.kind !== "gold");
@@ -146,7 +147,6 @@ function stepSpawns(state: GameState) {
 
   if (!spawned.length) return;
 
-  state.timers.enemy = 0;
   for (const kind of spawned) {
     state.enemies.push(spawnEnemy(state.nextEnemyId++, wavePower, kind));
   }

@@ -58,6 +58,7 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     Math.max(0, metrics.combatThreats - (metrics.activeTurrets + 2)) * 11 +
     Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) * 9;
   const momentumBonus = dominance * 6 + Math.max(0, metrics.colonyHealth - 88) * 0.65;
+  const nominalIntervalTicks = Math.round(clamp(baselineInterval - momentumBonus, 72, 260));
   const spawnIntervalTicks = Math.round(clamp(baselineInterval + recoveryPenalty - momentumBonus, 72, 260));
 
   const waveBudget = clamp(
@@ -82,7 +83,7 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     spawnIntervalTicks,
     waveBudget,
     enemyCap,
-    recoveryMode: spawnIntervalTicks > baselineInterval + 16,
+    recoveryMode: spawnIntervalTicks > nominalIntervalTicks + 16,
     powerBalance,
   };
 }
