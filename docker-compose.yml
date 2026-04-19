@@ -1,0 +1,6 @@
+services:
+  nexus-drift:
+    build: .
+    ports:
+      - "8080:80"
+
