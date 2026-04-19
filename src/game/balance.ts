@@ -1,14 +1,14 @@
 import type { EnemyKind, ResourceKey, UpgradeKey, WorkerKind } from "@/game/types";
 
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
-  miner: { baseCost: 10, growth: 1.18 },
-  drill: { baseCost: 80, growth: 1.22 },
-  reactor: { baseCost: 200, growth: 1.25 },
-  bot: { baseCost: 1100, growth: 1.3 },
-  turret: { baseCost: 180, growth: 1.23 },
-  shield: { baseCost: 420, growth: 1.26 },
-  scout: { baseCost: 280, growth: 1.24 },
-  arsenal: { baseCost: 540, growth: 1.27 },
+  miner: { baseCost: 10, growth: 1.20 },
+  drill: { baseCost: 80, growth: 1.24 },
+  reactor: { baseCost: 200, growth: 1.27 },
+  bot: { baseCost: 1100, growth: 1.32 },
+  turret: { baseCost: 180, growth: 1.25 },
+  shield: { baseCost: 420, growth: 1.28 },
+  scout: { baseCost: 280, growth: 1.26 },
+  arsenal: { baseCost: 540, growth: 1.29 },
 };
 
 export const WORKER = {
@@ -107,24 +107,25 @@ export const TURRET = {
 } as const;
 
 export const SCOUT = {
-  damageBase: 10,
-  damagePerScout: 2.5,
+  damageBase: 6,
+  damagePerScout: 2.0,
   damagePerArsenal: 7,
-  cooldownBase: 18,
+  cooldownBase: 24,
   cooldownPerScout: 0.5,
   cooldownPerArsenal: 2,
-  cooldownFloor: 6,
-  preferredRangeBase: 68,
+  cooldownFloor: 8,
+  preferredRangeBase: 56,
   preferredRangePerScout: 4,
   preferredRangePerArsenal: 8,
-  speedPerScout: 0.08,
-  speedPerArsenal: 0.16,
-  cleanseRateBase: 0.2,
+  speedPerScout: 0.05,
+  speedPerArsenal: 0.10,
+  cleanseRateBase: 0.10,
   cleanseRatePerArsenal: 0.08,
   avoidRadius: 90,
-  capBase: 3,
-  capBoostThreshold: 5,
+  capBase: 2,
+  capBoostThreshold: 8,
   capBoostAmount: 1,
+  cleanseSynergyPerExtra: 0.6,
 } as const;
 
 export const CORRUPTION = {
@@ -162,10 +163,10 @@ export const ECONOMY = {
   threatPenaltyPerShield: 0.015,
   rates: {
     goldBase: 1,
-    goldPerMiner: 0.9,
+    goldPerMiner: 0.78,
     goldPerDrill: 0.1,
-    oreBase: 0.4,
-    orePerMiner: 0.35,
+    oreBase: 0.32,
+    orePerMiner: 0.30,
     orePerDrill: 1.0,
     gemsBase: 0.02,
     gemsPerDrill: 0.08,
@@ -180,7 +181,7 @@ export const ECONOMY = {
     perPrestige: 0.05,
     perTurret: 0.015,
     perScout: 0.018,
-    scale: 12,
+    scale: 9.5,
   },
   levelComboBonus: 0.15,
   comboMax: 9.9,
@@ -213,8 +214,8 @@ export const MINING = {
 } as const;
 
 export const PRESTIGE = {
-  goldGate: 5200,
-  gemsGate: 36,
+  goldGate: 9800,
+  gemsGate: 70,
   maxEnemies: 3,
   resetMultipliers: { gold: 0.18, ore: 0.15, gems: 0.2, energy: 0.2 },
   comboBonus: 0.6,
@@ -229,15 +230,15 @@ export const PROGRESSION = {
     cityStage: 3.5,
     totalIncome: 0.035,
   },
-  tiersPerScore: 11,
+  tiersPerScore: 14,
   powerBalance: {
     threatWeight: 1.08,
     corruptionNodeWeight: 0.75,
     corruptorWeight: 0.4,
   },
   spawn: {
-    baselineInterval: 232,
-    intervalPerScore: 3.4,
+    baselineInterval: 280,
+    intervalPerScore: 2.1,
     intervalPerTurret: 4,
     intervalPerScout: 3,
     intervalPerPrestige: 4,
@@ -255,8 +256,8 @@ export const PROGRESSION = {
   },
   wave: {
     budgetBase: 1.15,
-    budgetPerScore: 0.058,
-    budgetPerTier: 0.33,
+    budgetPerScore: 0.038,
+    budgetPerTier: 0.24,
     budgetPerDominance: 0.11,
     budgetPerPressure: -0.07,
     budgetPerExtraDefender: 0.08,

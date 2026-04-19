@@ -16,6 +16,31 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.1",
+    badge: "Slow Burn",
+    summary: "Economy and drone rebalance. Slower pacing, weaker early drones, and cooperative cleanse synergy.",
+    sections: [
+      {
+        title: "Balance",
+        items: [
+          "All upgrade growth rates increased — costs compound harder past level 15",
+          "Ore income reduced; XP gain rate lowered for a longer mid-game",
+          "Spawn intervals and wave budgets reduced — early game is calmer",
+          "Prestige gates raised — prestige is now a meaningful milestone",
+        ],
+      },
+      {
+        title: "Anti-Corruption Drones",
+        items: [
+          "Drone movement speed roughly halved — they drift rather than zip",
+          "Base cleanse rate halved; arsenal upgrades matter more",
+          "Active drone cap starts at 2 (was 3); 4th active unlocks at scout level 8",
+          "Multiple drones on the same corrupted node now cleanse faster (cooperative synergy)",
+        ],
+      },
+    ],
+  },
+  {
     version: CURRENT_VERSION,
     badge: "Current",
     summary:

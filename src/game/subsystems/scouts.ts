@@ -24,7 +24,24 @@ export function stepScouts(state: GameState) {
   const corruptedNodes = [...state.nodes]
     .filter((node) => node.corruption > 8 && node.kind !== "gold")
     .sort((a, b) => b.corruption - a.corruption || a.id - b.id);
-  const liveScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
+  const liveScouts = Math.min(
+    state.scouts.length,
+    state.upgrades.scout,
+    SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0)
+  );
+
+  // Pre-pass: determine which corrupted node each active scout without a corruptor target would sweep.
+  // This lets us compute synergy multipliers before the main loop applies cleanse.
+  const nodeAssignCounts = new Map<number, number>(); // nodeId → number of scouts assigned
+  if (corruptors.length === 0 && corruptedNodes.length > 0) {
+    for (let i = 0; i < liveScouts; i++) {
+      // Mirror the assignment logic below: scouts without a prior corruptor target get a node.
+      // If there are fewer corrupted nodes than live scouts, extra scouts pile onto the last node.
+      const nodeIndex = Math.min(i, corruptedNodes.length - 1);
+      const nodeId = corruptedNodes[nodeIndex].id;
+      nodeAssignCounts.set(nodeId, (nodeAssignCounts.get(nodeId) ?? 0) + 1);
+    }
+  }
 
   state.scouts.forEach((scout, index) => {
     const live = index < liveScouts;
@@ -70,11 +87,15 @@ export function stepScouts(state: GameState) {
       const dy = interceptTarget.y - scout.y;
       const d = Math.max(1, Math.hypot(dx, dy));
       scout.angle = Math.atan2(dy, dx);
-      const preferredRange = SCOUT.preferredRangeBase + state.upgrades.scout * SCOUT.preferredRangePerScout + state.upgrades.arsenal * SCOUT.preferredRangePerArsenal;
+      const preferredRange =
+        SCOUT.preferredRangeBase +
+        state.upgrades.scout * SCOUT.preferredRangePerScout +
+        state.upgrades.arsenal * SCOUT.preferredRangePerArsenal;
 
       if (d > preferredRange) {
-        scout.x += (dx / d) * (scout.speed + state.upgrades.scout * SCOUT.speedPerScout + state.upgrades.arsenal * SCOUT.speedPerArsenal);
-        scout.y += (dy / d) * (scout.speed + state.upgrades.scout * SCOUT.speedPerScout + state.upgrades.arsenal * SCOUT.speedPerArsenal);
+        const spd = scout.speed + state.upgrades.scout * SCOUT.speedPerScout + state.upgrades.arsenal * SCOUT.speedPerArsenal;
+        scout.x += (dx / d) * spd;
+        scout.y += (dy / d) * spd;
         scout.task = "Intercepting";
       } else {
         const orbit = Math.sin((state.timers.tick + scout.id * 19) / 14) * 0.9;
@@ -84,18 +105,19 @@ export function stepScouts(state: GameState) {
       }
 
       if (d <= preferredRange + 10 && scout.cooldown <= 0) {
-        const damage = SCOUT.damageBase + state.upgrades.scout * SCOUT.damagePerScout + state.upgrades.arsenal * SCOUT.damagePerArsenal;
-        scout.cooldown = Math.max(SCOUT.cooldownFloor, Math.round(SCOUT.cooldownBase - state.upgrades.scout * SCOUT.cooldownPerScout - state.upgrades.arsenal * SCOUT.cooldownPerArsenal));
-        addProjectile(
-          state,
-          scout.x,
-          scout.y,
-          interceptTarget.x,
-          interceptTarget.y,
-          "rgba(220, 170, 255, 0.95)",
-          2.4,
-          8
+        const damage =
+          SCOUT.damageBase +
+          state.upgrades.scout * SCOUT.damagePerScout +
+          state.upgrades.arsenal * SCOUT.damagePerArsenal;
+        scout.cooldown = Math.max(
+          SCOUT.cooldownFloor,
+          Math.round(
+            SCOUT.cooldownBase -
+            state.upgrades.scout * SCOUT.cooldownPerScout -
+            state.upgrades.arsenal * SCOUT.cooldownPerArsenal
+          )
         );
+        addProjectile(state, scout.x, scout.y, interceptTarget.x, interceptTarget.y, "rgba(220, 170, 255, 0.95)", 2.4, 8);
         interceptTarget.hp -= damage;
         interceptTarget.flash = 7;
       }
@@ -103,7 +125,12 @@ export function stepScouts(state: GameState) {
       return;
     }
 
-    const sweepNode = corruptedNodes[Math.min(index, Math.max(0, corruptedNodes.length - 1))];
+    // Route to corrupted node. If no uncontested node exists, double-up on the most-corrupted one
+    // rather than patrolling — cooperative cleanse is intentional.
+    const sweepNode = corruptedNodes.length > 0
+      ? corruptedNodes[Math.min(index, corruptedNodes.length - 1)]
+      : null;
+
     if (sweepNode) {
       scout.targetId = null;
       scout.tx = sweepNode.x;
@@ -117,8 +144,11 @@ export function stepScouts(state: GameState) {
         scout.x += (dx / d) * (0.6 + scout.speed * 0.55);
         scout.y += (dy / d) * (0.6 + scout.speed * 0.55);
       } else {
-        const cleanseRate = SCOUT.cleanseRateBase + state.upgrades.arsenal * SCOUT.cleanseRatePerArsenal;
-        sweepNode.corruption = clamp(sweepNode.corruption - cleanseRate, 0, 100);
+        const baseCleanseRate = SCOUT.cleanseRateBase + state.upgrades.arsenal * SCOUT.cleanseRatePerArsenal;
+        // Synergy: each additional scout on the same node adds 60% of base cleanse rate.
+        const assignedCount = nodeAssignCounts.get(sweepNode.id) ?? 1;
+        const synergy = 1 + (assignedCount - 1) * SCOUT.cleanseSynergyPerExtra;
+        sweepNode.corruption = clamp(sweepNode.corruption - baseCleanseRate * synergy, 0, 100);
         if (sweepNode.corruption <= 3) {
           sweepNode.corrupted = false;
           sweepNode.corruptedBy = null;
@@ -129,6 +159,7 @@ export function stepScouts(state: GameState) {
       return;
     }
 
+    // Patrol — no threats, no corrupted nodes.
     const patrolX = scout.homeX + Math.cos((state.timers.tick + scout.id * 21) / 20) * 18;
     const patrolY = scout.homeY - 10 + Math.sin((state.timers.tick + scout.id * 15) / 24) * 12;
     scout.targetId = null;
