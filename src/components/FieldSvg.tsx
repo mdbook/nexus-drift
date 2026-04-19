@@ -369,17 +369,30 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
               const perpX = -tailY;
               const perpY = tailX;
 
-              // grabber arm when collecting: fast shoot-out, slow retract
+              // jointed arm sweeps in an arc perpendicular to travel direction
+              // upper arm is fixed; forearm hinges at elbow to sweep toward node
               const swingT = agent.swing / 24;
-              const reach = agent.swing > 0 ? Math.abs(Math.sin(swingT * Math.PI * 2)) * 14 : 0;
-              const armTipX = agent.x + towardX * (13 + reach);
-              const armTipY = agent.y + bob + towardY * (13 + reach);
-              // claw prongs perpendicular to arm at tip
-              const clawPerp = reach > 4 ? 4 : 0;
-              const c1x = armTipX + perpX * clawPerp;
-              const c1y = armTipY + perpY * clawPerp;
-              const c2x = armTipX - perpX * clawPerp;
-              const c2y = armTipY - perpY * clawPerp;
+              // sweep: 0 = arm folded back, 1 = arm fully extended scooping inward
+              const sweep = agent.swing > 0 ? Math.pow(Math.sin(swingT * Math.PI), 0.6) : 0;
+              const upperLen = 9;
+              const foreLen = 9;
+              // shoulder: offset perpendicular to travel so the arm swings from the side
+              const shoulderX = agent.x + perpX * 10;
+              const shoulderY = agent.y + bob + perpY * 10;
+              // elbow: upper arm points outward from shoulder
+              const elbowX = shoulderX + perpX * upperLen;
+              const elbowY = shoulderY + perpY * upperLen;
+              // forearm hinges from elbow, sweeping from outward toward the node
+              const foreAngle = Math.atan2(towardY, towardX) + (1 - sweep) * (Math.PI * 0.7);
+              const tipX = elbowX + Math.cos(foreAngle) * foreLen;
+              const tipY = elbowY + Math.sin(foreAngle) * foreLen;
+              // pincher: two prongs angled inward (closing), gap closes as sweep increases
+              const clawOpen = (1 - sweep) * 5 + 1;
+              const clawAngle = foreAngle + Math.PI * 0.5;
+              const p1x = tipX + Math.cos(clawAngle + 0.5) * clawOpen;
+              const p1y = tipY + Math.sin(clawAngle + 0.5) * clawOpen;
+              const p2x = tipX + Math.cos(clawAngle - 0.5) * clawOpen;
+              const p2y = tipY + Math.sin(clawAngle - 0.5) * clawOpen;
 
               return (
                 <>
@@ -399,12 +412,13 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
                     x2={agent.x + tailX * 14 - perpX * 4} y2={agent.y + bob + tailY * 14 - perpY * 4}
                     stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.35"
                   />
-                  {/* grabber arm */}
-                  {agent.swing > 0 && reach > 1 && (
+                  {/* jointed grabber arm */}
+                  {agent.swing > 0 && (
                     <>
-                      <line x1={agent.x} y1={agent.y + bob} x2={armTipX} y2={armTipY} stroke="rgba(160,235,255,0.85)" strokeWidth="2" strokeLinecap="round" />
-                      <line x1={armTipX} y1={armTipY} x2={c1x} y2={c1y} stroke={dotColor} strokeWidth="2" strokeLinecap="round" />
-                      <line x1={armTipX} y1={armTipY} x2={c2x} y2={c2y} stroke={dotColor} strokeWidth="2" strokeLinecap="round" />
+                      <line x1={shoulderX} y1={shoulderY} x2={elbowX} y2={elbowY} stroke="rgba(160,235,255,0.80)" strokeWidth="2" strokeLinecap="round" />
+                      <line x1={elbowX} y1={elbowY} x2={tipX} y2={tipY} stroke="rgba(160,235,255,0.80)" strokeWidth="2" strokeLinecap="round" />
+                      <line x1={tipX} y1={tipY} x2={p1x} y2={p1y} stroke={dotColor} strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1={tipX} y1={tipY} x2={p2x} y2={p2y} stroke={dotColor} strokeWidth="2.5" strokeLinecap="round" />
                     </>
                   )}
                 </>
