@@ -102,6 +102,20 @@ describe("advanceGame simulation invariants", () => {
     expect(Number.isFinite(derived.totalIncome)).toBe(true);
     expect(derived.colonyHealth).toBeGreaterThanOrEqual(0);
     expect(derived.colonyHealth).toBeLessThanOrEqual(100);
+    expect(derived.activeCorruptionNodes).toBe(final.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length);
     expect(derived.corruptedNodes).toBe(final.nodes.filter((node) => node.corrupted).length);
+  });
+
+  it("treats lingering corruption residue as active corruption pressure", () => {
+    const seeded = createInitialGameState();
+    seeded.nodes[0].kind = "ore";
+    seeded.nodes[0].corruption = 40;
+    seeded.nodes[0].corrupted = false;
+
+    const derived = computeDerived(seeded);
+
+    expect(derived.activeCorruptionNodes).toBe(1);
+    expect(derived.corruptedNodes).toBe(0);
+    expect(derived.corruptionPressure).toBe(true);
   });
 });

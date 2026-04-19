@@ -1,6 +1,7 @@
 import type { DerivedState, GameState } from "@/game/types";
 
 export function computeDerived(state: GameState): DerivedState {
+  const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length;
   const p = 1 + state.prestige * 0.12;
   const combatThreats = state.enemies.filter((enemy) => enemy.role !== "corruptor").length;
   const corruptorCount = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
@@ -52,7 +53,7 @@ export function computeDerived(state: GameState): DerivedState {
   const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout);
   const hostilePressure = combatThreats >= 4 || colonyHealth < 72;
-  const corruptionPressure = corruptorCount > 0 || corruptedNodes > 0;
+  const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
 
   return {
     rates,
@@ -63,6 +64,7 @@ export function computeDerived(state: GameState): DerivedState {
     colonyHealth,
     corruptedByType,
     corruptorCount,
+    activeCorruptionNodes,
     corruptedNodes,
     combatThreats,
     activeTurrets,
@@ -71,4 +73,3 @@ export function computeDerived(state: GameState): DerivedState {
     corruptionPressure,
   };
 }
-

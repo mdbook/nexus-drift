@@ -130,7 +130,9 @@ export default function App() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>Combat {derived.combatThreats}</StatusBadge>
-                <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>Corruption {derived.corruptedNodes}</StatusBadge>
+                <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
+                  Corruption {derived.activeCorruptionNodes}
+                </StatusBadge>
               </div>
             </div>
 

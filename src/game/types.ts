@@ -181,6 +181,7 @@ export type DerivedState = {
   colonyHealth: number;
   corruptedByType: Record<"ore" | "gems" | "energy", number>;
   corruptorCount: number;
+  activeCorruptionNodes: number;
   corruptedNodes: number;
   combatThreats: number;
   activeTurrets: number;
@@ -188,4 +189,3 @@ export type DerivedState = {
   hostilePressure: boolean;
   corruptionPressure: boolean;
 };
-
