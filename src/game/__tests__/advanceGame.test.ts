@@ -126,7 +126,7 @@ describe("advanceGame simulation invariants", () => {
       agent.hp = 42;
     });
     for (let i = 0; i < 4; i += 1) {
-      const raider = spawnEnemy(stressed.nextEnemyId++, 0, "raider");
+      const raider = spawnEnemy(stressed.rng, stressed.nextEnemyId++, 0, "raider");
       raider.x = stressed.agents[0].x + 12 + i * 8;
       raider.y = stressed.agents[0].y + 4;
       stressed.enemies.push(raider);
@@ -142,14 +142,19 @@ describe("advanceGame simulation invariants", () => {
     expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
   });
 
-  it("caps active corruption-killer drones at three", () => {
+  it("caps active corruption-killer drones at three by default and four when upgrade is 5+", () => {
     const seeded = createInitialGameState();
     seeded.upgrades.scout = 9;
 
     const derived = computeDerived(seeded);
 
-    expect(seeded.scouts).toHaveLength(3);
-    expect(derived.activeScouts).toBe(3);
+    expect(seeded.scouts).toHaveLength(4);
+    expect(derived.activeScouts).toBe(4);
+
+    const low = createInitialGameState();
+    low.upgrades.scout = 2;
+    const lowDerived = computeDerived(low);
+    expect(lowDerived.activeScouts).toBe(2);
   });
 
   it("never produces NaN resources over a long run", () => {
@@ -164,7 +169,7 @@ describe("advanceGame simulation invariants", () => {
 
   it("keeps node corruption clamped to 0..100", () => {
     const seeded = createInitialGameState();
-    seeded.enemies.push(spawnEnemy(seeded.nextEnemyId++, 0, "corruptor"));
+    seeded.enemies.push(spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor"));
     const final = runTicks(seeded, 1_500);
     for (const node of final.nodes) {
       expect(node.corruption).toBeGreaterThanOrEqual(0);
@@ -175,7 +180,7 @@ describe("advanceGame simulation invariants", () => {
   it("never corrupts gold nodes", () => {
     const seeded = createInitialGameState();
     for (let i = 0; i < 4; i += 1) {
-      seeded.enemies.push(spawnEnemy(seeded.nextEnemyId++, 0, "corruptor"));
+      seeded.enemies.push(spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor"));
     }
     const final = runTicks(seeded, 2_000);
     const corruptedGold = final.nodes.filter((node) => node.kind === "gold" && (node.corrupted || node.corruption > 0));
@@ -187,7 +192,7 @@ describe("advanceGame simulation invariants", () => {
     seeded.upgrades.turret = 2;
     const seededCorruptors = new Map<number, number>();
     for (let i = 0; i < 3; i += 1) {
-      const enemy = spawnEnemy(seeded.nextEnemyId++, 0, "corruptor");
+      const enemy = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor");
       enemy.x = seeded.turrets[0].x + 30;
       enemy.y = seeded.turrets[0].y;
       seeded.enemies.push(enemy);
@@ -210,12 +215,12 @@ describe("advanceGame simulation invariants", () => {
     boosted.upgrades.turret = 1;
     boosted.upgrades.reactor = 2;
 
-    const baselineRaider = spawnEnemy(baseline.nextEnemyId++, 0, "raider");
+    const baselineRaider = spawnEnemy(baseline.rng, baseline.nextEnemyId++, 0, "raider");
     baselineRaider.x = baseline.turrets[0].x + 30;
     baselineRaider.y = baseline.turrets[0].y - 10;
     baseline.enemies.push(baselineRaider);
 
-    const boostedRaider = spawnEnemy(boosted.nextEnemyId++, 0, "raider");
+    const boostedRaider = spawnEnemy(boosted.rng, boosted.nextEnemyId++, 0, "raider");
     boostedRaider.x = boosted.turrets[0].x + 30;
     boostedRaider.y = boosted.turrets[0].y - 10;
     boosted.enemies.push(boostedRaider);
@@ -237,7 +242,7 @@ describe("advanceGame simulation invariants", () => {
 
     const initialDerived = computeDerived(seeded);
     for (let i = 0; i < initialDerived.progression.enemyCap; i += 1) {
-      const enemy = spawnEnemy(seeded.nextEnemyId++, 0, "mite");
+      const enemy = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "mite");
       enemy.x = -60 - i * 10;
       enemy.y = 140 + i * 8;
       seeded.enemies.push(enemy);
@@ -256,7 +261,7 @@ describe("advanceGame simulation invariants", () => {
   it("scouts prefer corruptors over sweep targets", () => {
     const seeded = createInitialGameState();
     seeded.upgrades.scout = 2;
-    const corruptor = spawnEnemy(seeded.nextEnemyId++, 0, "corruptor");
+    const corruptor = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor");
     corruptor.x = 400;
     corruptor.y = 300;
     seeded.enemies.push(corruptor);
@@ -271,7 +276,7 @@ describe("advanceGame simulation invariants", () => {
   it("worker evade persists across multiple ticks once triggered", () => {
     const seeded = createInitialGameState();
     const agent = seeded.agents[0];
-    const enemy = spawnEnemy(seeded.nextEnemyId++, 0);
+    const enemy = spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0);
     enemy.x = agent.x + 10;
     enemy.y = agent.y + 10;
     seeded.enemies.push(enemy);
@@ -318,7 +323,7 @@ describe("advanceGame simulation invariants", () => {
     seeded.upgrades.turret = 1;
     seeded.resources.gold = 1500;
     seeded.timers.auto = AUTO_TICK;
-    seeded.enemies.push(spawnEnemy(seeded.nextEnemyId++, 0, "corruptor"));
+    seeded.enemies.push(spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor"));
 
     const after = advanceGame(seeded);
 
