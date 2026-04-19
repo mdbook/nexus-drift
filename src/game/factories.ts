@@ -1,4 +1,6 @@
+import { ENEMY_STATS, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
+import { Rng } from "@/game/rng";
 import type {
   Agent,
   Enemy,
@@ -9,44 +11,44 @@ import type {
   Scout,
   Turret,
 } from "@/game/types";
-import { dist, pick, rand } from "@/game/utils";
+import { dist } from "@/game/utils";
 
-export function makeNode(id: number, x: number, y: number, size: number): ResourceNode {
-  const hp = rand(25, 80);
+export function makeNode(rng: Rng, id: number, x: number, y: number, size: number): ResourceNode {
+  const hp = rng.range(25, 80);
   return {
     id,
-    kind: pick<ResourceKey>(["gold", "ore", "ore", "gems", "energy"]),
+    kind: rng.pick<ResourceKey>(["gold", "ore", "ore", "gems", "energy"]),
     x,
     y,
     size,
     hp,
     maxHp: hp,
-    pulse: rand(0, Math.PI * 2),
+    pulse: rng.range(0, Math.PI * 2),
     corruption: 0,
     corrupted: false,
     corruptedBy: null,
   };
 }
 
-export function respawnNode(id: number, existing: ResourceNode[]): ResourceNode {
+export function respawnNode(rng: Rng, id: number, existing: ResourceNode[]): ResourceNode {
   const GAP = 12;
   const MAX_ATTEMPTS = 60;
   let x = 0, y = 0, size = 0, attempts = 0;
 
   do {
-    size = rand(18, 48);
-    x = rand(80, WORLD_W - 80);
-    y = rand(100, WORLD_H - 170);
+    size = rng.range(18, 48);
+    x = rng.range(80, WORLD_W - 80);
+    y = rng.range(100, WORLD_H - 170);
     attempts++;
   } while (
     attempts < MAX_ATTEMPTS &&
     existing.some((n) => n.id !== id && dist(x, y, n.x, n.y) < size + n.size + GAP)
   );
 
-  return makeNode(id, x, y, size);
+  return makeNode(rng, id, x, y, size);
 }
 
-export function makeNodes() {
+export function makeNodes(rng: Rng) {
   const GAP = 12;
   const MAX_ATTEMPTS = 60;
   const placed: ResourceNode[] = [];
@@ -56,27 +58,31 @@ export function makeNodes() {
     let attempts = 0;
 
     do {
-      size = rand(18, 48);
-      x = rand(80, WORLD_W - 80);
-      y = rand(100, WORLD_H - 170);
+      size = rng.range(18, 48);
+      x = rng.range(80, WORLD_W - 80);
+      y = rng.range(100, WORLD_H - 170);
       attempts++;
     } while (
       attempts < MAX_ATTEMPTS &&
       placed.some((n) => dist(x, y, n.x, n.y) < size + n.size + GAP)
     );
 
-    placed.push(makeNode(index, x, y, size));
+    placed.push(makeNode(rng, index, x, y, size));
   }
 
   return placed;
 }
 
 export function makeAgents(): Agent[] {
-  const homes = [
-    { id: 1, homeX: 160, homeY: 440, speed: 1.1, kind: "miner" as const, task: "Surveying" },
-    { id: 2, homeX: 320, homeY: 440, speed: 1.28, kind: "runner" as const, task: "Hauling" },
-    { id: 3, homeX: 700, homeY: 440, speed: 1.02, kind: "drone" as const, task: "Optimizing" },
-  ];
+  const kinds = ["miner", "runner", "drone"] as const;
+  const homes = kinds.map((kind, index) => ({
+    id: index + 1,
+    homeX: WORKERS_AT_HOME[kind].x,
+    homeY: WORKERS_AT_HOME[kind].y,
+    speed: WORKERS_AT_HOME[kind].speed,
+    kind,
+    task: WORKERS_AT_HOME[kind].task,
+  }));
 
   return homes.map((home, index) => ({
     id: home.id,
@@ -156,44 +162,42 @@ export function makeScouts(): Scout[] {
       homeY: 575,
       targetId: null,
     },
+    {
+      id: 4,
+      x: 355,
+      y: 575,
+      tx: 355,
+      ty: 575,
+      speed: 1.48,
+      cooldown: 0,
+      angle: -1.12,
+      task: "Standby",
+      pulse: 0.7,
+      homeX: 355,
+      homeY: 575,
+      targetId: null,
+    },
   ];
 }
 
-export function spawnEnemy(id: number, wave = 0, forcedKind: EnemyKind | null = null): Enemy {
-  const side = Math.random() < 0.5 ? "left" : "right";
+export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null): Enemy {
+  const side = rng.next() < 0.5 ? "left" : "right";
   const x = side === "left" ? -30 : WORLD_W + 30;
-  const y = rand(120, WORLD_H - 100);
-  const kind = forcedKind ?? pick<EnemyKind>(["mite", "raider", "wisp"]);
+  const y = rng.range(120, WORLD_H - 100);
+  const kind = forcedKind ?? rng.pick<EnemyKind>(["mite", "raider", "wisp"]);
 
-  if (kind === "corruptor") {
-    return {
-      id,
-      kind,
-      role: "corruptor",
-      x,
-      y,
-      hp: 52 + wave * 5,
-      maxHp: 52 + wave * 5,
-      speed: 1 + wave * 0.015,
-      targetId: null,
-      targetNodeId: null,
-      flash: 0,
-      corruptTicks: 0,
-      trail: [],
-    };
-  }
-
-  const hpBase = kind === "mite" ? 40 : kind === "raider" ? 65 : 30;
-  const speedBase = kind === "mite" ? 1.1 : kind === "raider" ? 0.9 : 1.45;
+  const stats = ENEMY_STATS[kind];
+  const hp = stats.hpBase + wave * stats.hpWave;
+  const speed = stats.speedBase + wave * stats.speedWave;
   return {
     id,
     kind,
-    role: "combat",
+    role: kind === "corruptor" ? "corruptor" : "combat",
     x,
     y,
-    hp: hpBase + wave * 6,
-    maxHp: hpBase + wave * 6,
-    speed: speedBase + wave * 0.02,
+    hp,
+    maxHp: hp,
+    speed,
     targetId: null,
     targetNodeId: null,
     flash: 0,
@@ -202,9 +206,12 @@ export function spawnEnemy(id: number, wave = 0, forcedKind: EnemyKind | null = 
   };
 }
 
-export function createInitialGameState(): GameState {
+export function createInitialGameState(seed?: number): GameState {
+  const citySeed = seed ?? Date.now();
+  const rng = new Rng(citySeed);
   return {
-    citySeed: rand(1, 100_000),
+    citySeed,
+    rng,
     resources: { gold: 24, ore: 8, gems: 0, energy: 0 },
     upgrades: {
       miner: 0,
@@ -225,7 +232,7 @@ export function createInitialGameState(): GameState {
     level: 1,
     xp: 8,
     prestige: 0,
-    nodes: makeNodes(),
+    nodes: makeNodes(rng),
     agents: makeAgents(),
     turrets: makeTurrets(),
     scouts: makeScouts(),

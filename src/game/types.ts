@@ -122,8 +122,11 @@ export type Timers = {
   enemy: number;
 };
 
+import type { Rng } from "@/game/rng";
+
 export type GameState = {
   citySeed: number;
+  rng: Rng;
   resources: ResourceMap;
   upgrades: UpgradeMap;
   log: string[];
