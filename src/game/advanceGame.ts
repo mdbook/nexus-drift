@@ -16,7 +16,7 @@ import {
 import { upgradeDefs } from "@/game/data";
 import { addProjectile, chooseWorkerTarget, cloneGameState, makeNode, spawnEnemy } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
-import type { Agent, DerivedState, GameState, UpgradeKey } from "@/game/types";
+import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { chance, clamp, dist, nextUpgradeCost, normalize, pick, pushLog, rand } from "@/game/utils";
 
 function stepEconomy(state: GameState) {
