@@ -31,32 +31,80 @@ const CITY_PALETTE = [
   { stroke: "rgba(245, 228, 176, 0.78)", fill: "rgba(220, 197, 122, 0.2)", accent: "rgba(255, 249, 226, 0.94)" },
 ];
 
-function renderHomeDistrict(derived: DerivedState) {
+type DistrictBuilding = {
+  x: number;
+  width: number;
+  baseHeight: number;
+  unlockStage: number;
+  paletteIndex: number;
+  bodyStyle: number;
+  crownHeight: number;
+  crownWidth: number;
+  sidecarWidth: number;
+  inset: number;
+  beaconCount: number;
+  windowColumns: number;
+  bridge: boolean;
+};
+
+const CITY_MAX_STAGE = 5;
+
+function seededNoise(seed: number, salt: number) {
+  const value = Math.sin(seed * 12.9898 + salt * 78.233) * 43758.5453123;
+  return value - Math.floor(value);
+}
+
+function buildDistrict(seed: number) {
+  const buildings: DistrictBuilding[] = [];
+  let cursor = 214 + seededNoise(seed, 1) * 18;
+  let index = 0;
+
+  while (cursor < 814) {
+    const width = 13 + Math.floor(seededNoise(seed, index + 2) * 24);
+    const gap = 8 + Math.floor(seededNoise(seed, index + 30) * 16);
+    const heightBias = index / 14;
+    const baseHeight = 24 + Math.round(seededNoise(seed, index + 60) * 34 + heightBias * 52);
+    const unlockStage = Math.min(
+      CITY_MAX_STAGE,
+      Math.max(1, Math.floor(seededNoise(seed, index + 90) * CITY_MAX_STAGE) + 1 - Math.floor(heightBias * 1.3))
+    );
+
+    buildings.push({
+      x: cursor,
+      width,
+      baseHeight,
+      unlockStage,
+      paletteIndex: Math.floor(seededNoise(seed, index + 120) * CITY_PALETTE.length),
+      bodyStyle: Math.floor(seededNoise(seed, index + 150) * 4),
+      crownHeight: 4 + Math.floor(seededNoise(seed, index + 180) * 18),
+      crownWidth: 0.3 + seededNoise(seed, index + 210) * 0.5,
+      sidecarWidth: seededNoise(seed, index + 240) > 0.56 ? 4 + Math.floor(seededNoise(seed, index + 241) * 9) : 0,
+      inset: 2 + Math.floor(seededNoise(seed, index + 270) * 5),
+      beaconCount: 1 + Math.floor(seededNoise(seed, index + 300) * 3),
+      windowColumns: 1 + Math.floor(seededNoise(seed, index + 330) * 3),
+      bridge: seededNoise(seed, index + 360) > 0.72,
+    });
+
+    cursor += width + gap;
+    index += 1;
+  }
+
+  return buildings;
+}
+
+function renderHomeDistrict(game: GameState, derived: DerivedState) {
   if (derived.cityStage === 0) return null;
 
   const progress = clamp(derived.cityProgress, 0, 1);
   const stage = derived.cityStage;
   const chromatic = stage >= 5 && progress >= 1;
-  const paletteDrift = chromatic ? 0.018 : 0;
+  const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
   const districtOpacity = 0.36 + stage * 0.1;
   const towerScale = 0.76 + stage * 0.08;
-  const buildingSpecs = [
-    { x: 270, w: 18, h: 24, stage: 1, paletteIndex: 0 },
-    { x: 296, w: 24, h: 34, stage: 1, paletteIndex: 1 },
-    { x: 328, w: 20, h: 29, stage: 1, paletteIndex: 2 },
-    { x: 418, w: 28, h: 48, stage: 2, paletteIndex: 3 },
-    { x: 454, w: 22, h: 40, stage: 2, paletteIndex: 4 },
-    { x: 516, w: 24, h: 44, stage: 2, paletteIndex: 5 },
-    { x: 566, w: 26, h: 64, stage: 3, paletteIndex: 6 },
-    { x: 600, w: 18, h: 58, stage: 3, paletteIndex: 7 },
-    { x: 650, w: 20, h: 68, stage: 4, paletteIndex: 8 },
-    { x: 680, w: 34, h: 82, stage: 4, paletteIndex: 9 },
-    { x: 726, w: 18, h: 70, stage: 4, paletteIndex: 10 },
-    { x: 758, w: 26, h: 96, stage: 5, paletteIndex: 11 },
-    { x: 792, w: 16, h: 88, stage: 5, paletteIndex: 12 },
-  ];
-
-  const activeBuildings = buildingSpecs.filter((building) => building.stage <= stage);
+  const buildings = buildDistrict(game.citySeed);
+  const activeBuildings = buildings.filter((building) => building.unlockStage <= stage);
+  const districtSpines = Math.min(8, 3 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2));
+  const activePalette = chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12);
 
   return (
     <g>
@@ -77,15 +125,16 @@ function renderHomeDistrict(derived: DerivedState) {
         strokeLinejoin="round"
       />
 
-      {Array.from({ length: Math.min(stage + 2, 7) }, (_, index) => {
-        const x = 212 + index * 92;
-        const towerHeight = (18 + index * 5 + progress * 12) * towerScale;
+      {Array.from({ length: districtSpines }, (_, index) => {
+        const x = 182 + index * (74 + seededNoise(game.citySeed, 420 + index) * 18);
+        const towerHeight =
+          (20 + seededNoise(game.citySeed, 450 + index) * 18 + index * 4 + progress * 10) * towerScale;
         const y = 548 - towerHeight;
         const palette =
-          CITY_PALETTE[
+          activePalette[
             chromatic
-              ? Math.floor((index * 1.7 + derived.homeDevelopment * paletteDrift + index * 0.6) % CITY_PALETTE.length)
-              : index % CITY_PALETTE.length
+              ? Math.floor((index * 1.7 + paletteDrift + index * 0.6) % activePalette.length)
+              : index % activePalette.length
           ];
         return (
           <g key={`spire-${index}`} opacity={districtOpacity * 0.72}>
@@ -97,22 +146,37 @@ function renderHomeDistrict(derived: DerivedState) {
       })}
 
       {activeBuildings.map((building, index) => {
-        const growthPct = building.stage === stage ? progress : 1;
-        const height = building.h * (0.2 + growthPct * 0.8);
+        const growthPct = building.unlockStage === stage ? progress : 1;
+        const height = building.baseHeight * (0.18 + growthPct * 0.82);
         const y = 552 - height;
-        const lightRows = Math.max(1, Math.floor(height / 12));
+        const lightRows = Math.max(1, Math.floor(height / 11));
         const palette =
-          CITY_PALETTE[
+          activePalette[
             chromatic
-              ? Math.floor((building.paletteIndex + derived.homeDevelopment * paletteDrift + index * 0.85) % CITY_PALETTE.length)
-              : building.paletteIndex % CITY_PALETTE.length
+              ? Math.floor((building.paletteIndex + paletteDrift + index * 0.85) % activePalette.length)
+              : building.paletteIndex % activePalette.length
           ];
+        const insetWidth = Math.max(6, building.width - building.inset * 2);
+        const crownWidth = Math.max(6, building.width * building.crownWidth);
+        const crownX = building.x + (building.width - crownWidth) / 2;
+        const crownY = y - building.crownHeight;
+        const sidecarX = building.sidecarWidth > 0 ? building.x - building.sidecarWidth + 2 : building.x;
+        const bodyGlow = building.bodyStyle === 3 ? 0.22 : 0.12;
         return (
           <g key={`building-${building.x}`}>
             <rect
+              x={building.x - 3}
+              y={y - 6}
+              width={building.width + 6}
+              height={height + 10}
+              rx="6"
+              fill={palette.fill}
+              opacity={bodyGlow}
+            />
+            <rect
               x={building.x}
               y={y}
-              width={building.w}
+              width={building.width}
               height={height}
               rx="4"
               fill="rgba(18,34,56,0.74)"
@@ -121,37 +185,91 @@ function renderHomeDistrict(derived: DerivedState) {
               opacity={districtOpacity}
             />
             <rect
-              x={building.x + 2}
+              x={building.x + building.inset}
               y={y + 2}
-              width={building.w - 4}
+              width={insetWidth}
               height={Math.max(4, height * 0.22)}
               rx="3"
               fill={palette.fill}
               opacity={0.65}
             />
-            {Array.from({ length: lightRows }, (_, lightIndex) => (
-              <line
-                key={`window-${index}-${lightIndex}`}
-                x1={building.x + 4}
-                y1={y + 8 + lightIndex * 10}
-                x2={building.x + building.w - 4}
-                y2={y + 8 + lightIndex * 10}
-                stroke={lightIndex % 2 === 0 ? palette.accent : palette.stroke}
-                strokeWidth="1"
-                opacity={0.65}
+            {building.bodyStyle >= 1 && (
+              <rect
+                x={building.x + 3}
+                y={y + Math.max(8, height * 0.3)}
+                width={Math.max(5, building.width - 6)}
+                height={Math.max(5, height * 0.12)}
+                rx="2"
+                fill="rgba(255,255,255,0.04)"
+                stroke={palette.stroke}
+                strokeWidth="0.8"
+                opacity={0.55}
               />
+            )}
+            {building.bodyStyle >= 2 && (
+              <rect
+                x={crownX}
+                y={crownY}
+                width={crownWidth}
+                height={building.crownHeight}
+                rx="3"
+                fill="rgba(20,40,62,0.86)"
+                stroke={palette.accent}
+                strokeWidth="0.9"
+                opacity={0.8}
+              />
+            )}
+            {building.bodyStyle === 3 && building.sidecarWidth > 0 && (
+              <rect
+                x={sidecarX}
+                y={y + Math.max(10, height * 0.22)}
+                width={building.sidecarWidth}
+                height={Math.max(12, height * 0.44)}
+                rx="3"
+                fill="rgba(16,30,48,0.74)"
+                stroke={palette.stroke}
+                strokeWidth="0.9"
+                opacity={0.78}
+              />
+            )}
+            {Array.from({ length: lightRows }, (_, lightIndex) => (
+              <g key={`window-${index}-${lightIndex}`}>
+                {Array.from({ length: building.windowColumns }, (_, columnIndex) => {
+                  const gutter = (building.width - 8) / building.windowColumns;
+                  const windowWidth = Math.max(2.2, gutter - 3);
+                  const wx = building.x + 4 + columnIndex * gutter;
+                  const wy = y + 8 + lightIndex * 10;
+                  return (
+                    <rect
+                      key={`window-${index}-${lightIndex}-${columnIndex}`}
+                      x={wx}
+                      y={wy}
+                      width={windowWidth}
+                      height="2"
+                      rx="1"
+                      fill={lightIndex % 2 === 0 ? palette.accent : palette.stroke}
+                      opacity={0.58 + ((columnIndex + lightIndex) % 3) * 0.08}
+                    />
+                  );
+                })}
+              </g>
             ))}
-            {building.w >= 20 && (
+            {building.width >= 18 && (
               <line
-                x1={building.x + building.w / 2}
-                y1={y}
-                x2={building.x + building.w / 2}
-                y2={y - 8 - building.stage * 2}
+                x1={building.x + building.width / 2}
+                y1={crownY + (building.bodyStyle >= 2 ? 0 : building.crownHeight)}
+                x2={building.x + building.width / 2}
+                y2={crownY - 8 - building.unlockStage * 2}
                 stroke={palette.accent}
                 strokeWidth="1"
                 opacity={0.6}
               />
             )}
+            {Array.from({ length: building.beaconCount }, (_, beaconIndex) => {
+              const bx = building.x + 4 + ((building.width - 8) * beaconIndex) / Math.max(1, building.beaconCount - 1);
+              const by = crownY - 6 - beaconIndex * 2;
+              return <circle key={`beacon-${index}-${beaconIndex}`} cx={bx} cy={by} r="1.3" fill={palette.accent} opacity={0.88} />;
+            })}
           </g>
         );
       })}
@@ -174,6 +292,24 @@ function renderHomeDistrict(derived: DerivedState) {
           />
         </g>
       )}
+
+      {activeBuildings.map((building, index) => {
+        if (!building.bridge || index === activeBuildings.length - 1) return null;
+        const nextBuilding = activeBuildings[index + 1];
+        const startY = 552 - building.baseHeight * 0.46;
+        const endY = 552 - nextBuilding.baseHeight * 0.42;
+        return (
+          <path
+            key={`bridge-${building.x}`}
+            d={`M ${building.x + building.width - 2} ${startY} C ${building.x + building.width + 10} ${startY - 6}, ${nextBuilding.x - 10} ${endY - 6}, ${nextBuilding.x + 2} ${endY}`}
+            fill="none"
+            stroke="rgba(165,235,255,0.24)"
+            strokeWidth="1"
+            strokeDasharray="3 4"
+            opacity="0.75"
+          />
+        );
+      })}
 
       {stage >= 4 && (
         <g opacity={0.68}>
@@ -232,7 +368,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         stroke="rgba(255,255,255,0.1)"
       />
 
-      {renderHomeDistrict(derived)}
+      {renderHomeDistrict(game, derived)}
 
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;

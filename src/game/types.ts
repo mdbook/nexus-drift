@@ -123,6 +123,7 @@ export type Timers = {
 };
 
 export type GameState = {
+  citySeed: number;
   resources: ResourceMap;
   upgrades: UpgradeMap;
   log: string[];

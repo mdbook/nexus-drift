@@ -219,6 +219,7 @@ export function spawnEnemy(id: number, wave = 0, forcedKind: EnemyKind | null = 
 
 export function createInitialGameState(): GameState {
   return {
+    citySeed: rand(1, 100_000),
     resources: { gold: 24, ore: 8, gems: 0, energy: 0 },
     upgrades: {
       miner: 0,
