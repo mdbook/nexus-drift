@@ -17,8 +17,8 @@ type SidebarProps = {
 
 export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
   return (
-    <div className="grid min-h-0 grid-rows-[auto_auto_1fr] gap-4">
-      <Card className={`${PANEL_CLASS} p-4`}>
+    <div className="flex flex-col gap-3 xl:h-full xl:overflow-y-auto">
+      <Card className={`${PANEL_CLASS} shrink-0 p-3`}>
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Economy</div>
@@ -29,7 +29,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <StatTile label="Total Income" value={`${fmt(derived.totalIncome)}/s`} tint="rgba(130,255,210,0.95)" />
           <StatTile
             label="Colony Health"
@@ -40,7 +40,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           <StatTile label="Stability" value={`${Math.round(stabilityPct)}%`} tint="rgba(160,235,255,0.95)" />
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-white/40">
             <span>Threat / Defense Balance</span>
             <span>
@@ -50,7 +50,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           <Progress value={stabilityPct} className="mt-2 h-2 bg-white/10" />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           {resourceDefs.map((resource) => (
             <div key={resource.key} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/38">{resource.label}</div>
@@ -62,7 +62,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
         </div>
       </Card>
 
-      <Card className={`${PANEL_CLASS} p-4`}>
+      <Card className={`${PANEL_CLASS} shrink-0 p-3`}>
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Automation</div>
@@ -73,12 +73,12 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <StatTile label="Active Turrets" value={derived.activeTurrets} tint="rgba(255,255,255,0.95)" />
           <StatTile label="Active Scouts" value={derived.activeScouts} tint="rgba(220,180,255,0.95)" />
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {upgradeDefs.map((def) => {
             const Icon = upgradeIcons[def.key];
             return (
@@ -95,7 +95,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
         </div>
       </Card>
 
-      <Card className={`${PANEL_CLASS} flex min-h-0 flex-col p-4`}>
+      <Card className={`${PANEL_CLASS} shrink-0 p-3`}>
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Threat / Activity</div>
@@ -106,7 +106,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <StatTile label="Combat Contacts" value={derived.combatThreats} tint="rgba(255,170,170,0.95)" />
           <StatTile label="Corrupters" value={derived.corruptorCount} tint="rgba(220,170,255,0.95)" />
           <StatTile label="Corrupted Nodes" value={derived.corruptedNodes} tint="rgba(220,170,255,0.95)" />
@@ -115,7 +115,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           <StatTile label="Purges" value={game.stats.purges} tint="rgba(220,190,255,0.95)" />
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
             <div className="text-[10px] uppercase tracking-[0.2em] text-white/38">Ore Rot</div>
             <div className="mt-1 text-sm font-medium text-white/80">{derived.corruptedByType.ore}</div>
@@ -130,7 +130,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-3xl border border-white/10 bg-white/5 p-3">
+        <div className="mt-3 flex flex-col rounded-3xl border border-white/10 bg-white/5 p-3">
           <div className="flex items-center justify-between">
             <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Activity Log</div>
             <div className="rounded-2xl bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/45">

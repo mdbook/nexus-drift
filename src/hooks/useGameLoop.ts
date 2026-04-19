@@ -11,19 +11,20 @@ function snapshotFrom(game: GameState): Snapshot {
   return { game, derived: computeDerived(game) };
 }
 
-export function useGameLoop(): Snapshot {
+export function useGameLoop(speedMultiplier = 1): Snapshot {
   const [snapshot, setSnapshot] = useState<Snapshot>(() => snapshotFrom(createInitialGameState()));
   const gameRef = useRef<GameState>(snapshot.game);
+  const speedRef = useRef(speedMultiplier);
+  useEffect(() => { speedRef.current = speedMultiplier; }, [speedMultiplier]);
 
   useEffect(() => {
     let rafId = 0;
     let lastTime = performance.now();
     let accumulator = 0;
-    // Cap catch-up so hidden-tab drift doesn't cause a huge burst of ticks on wake.
-    const maxCatchUp = TICK_MS * 6;
 
     const frame = (now: number) => {
-      accumulator = Math.min(accumulator + (now - lastTime), maxCatchUp);
+      const maxCatchUp = TICK_MS * 6 * speedRef.current;
+      accumulator = Math.min(accumulator + (now - lastTime) * speedRef.current, maxCatchUp);
       lastTime = now;
 
       let current = gameRef.current;
