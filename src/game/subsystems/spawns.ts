@@ -10,7 +10,18 @@ function pluralize(label: string, count: number) {
 }
 
 function describeSpawnWave(spawned: EnemyKind[], derived: DerivedState) {
-  const counts = { mite: 0, raider: 0, wisp: 0, corruptor: 0 };
+  const counts: Record<EnemyKind, number> = {
+    mite: 0,
+    raider: 0,
+    wisp: 0,
+    corruptor: 0,
+    rusher: 0,
+    brute: 0,
+    sapper: 0,
+    blight: 0,
+    leech: 0,
+    phantom: 0,
+  };
   spawned.forEach((kind) => {
     counts[kind] += 1;
   });
@@ -52,14 +63,16 @@ export function stepSpawns(state: GameState) {
   );
 
   if (remainingSlots > 0 && state.rng.chance(corruptorChance)) {
-    spawned.push("corruptor");
-    remainingBudget -= ENEMY_BUDGET_COST.corruptor;
+    const spawnBlight = derived.progression.tier >= 5 && state.rng.chance(0.35);
+    const kind = spawnBlight ? "blight" : "corruptor";
+    spawned.push(kind);
+    remainingBudget -= ENEMY_BUDGET_COST[kind];
     remainingSlots -= 1;
   }
 
   const combatWeights = getCombatEnemyWeights(derived.progression);
   while (remainingSlots > 0 && remainingBudget >= 0.85) {
-    const candidates = (Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor">, number]>)
+    const candidates = (Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor" | "blight">, number]>)
       .filter(([kind, weight]) => weight > 0 && ENEMY_BUDGET_COST[kind] <= remainingBudget + 0.15)
       .map(([kind, weight]) => ({ item: kind, weight }));
 
@@ -72,7 +85,7 @@ export function stepSpawns(state: GameState) {
 
     const total = candidates.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
     let threshold = state.rng.next() * total;
-    let kind: Exclude<EnemyKind, "corruptor"> | null = null;
+    let kind: Exclude<EnemyKind, "corruptor" | "blight"> | null = null;
     for (const entry of candidates) {
       threshold -= Math.max(0, entry.weight);
       if (threshold <= 0) { kind = entry.item; break; }

@@ -16,6 +16,32 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.2",
+    badge: "Strange Tides",
+    summary: "Six new enemy types, Cores drops, and a live random-event system reshape the mid-game.",
+    sections: [
+      {
+        title: "New Enemies",
+        items: [
+          "Rusher (tier 3): fast straight-line darters that pressure turret clusters.",
+          "Brute (tier 4): slow tank that absorbs turret fire and drops Core fragments.",
+          "Sapper (tier 5): suicide unit that detonates near workers.",
+          "Blight (tier 5): heavy corruptor variant that shrugs off scouts until arsenal level 3.",
+          "Leech (tier 6): drains gold and energy when it slips near the home district.",
+          "Phantom (tier 7): phases in and out of cloak, disappearing from turret targeting during its hidden window.",
+        ],
+      },
+      {
+        title: "Resources And Events",
+        items: [
+          "Added Cores to the resource state so late-game upgrade hooks can land without touching enemy logic again.",
+          "Live event system now rolls seeded ambient modifiers and surprise encounters: Meteor Shower, Solar Flare, Cache Discovery, Pirate Caravan, Xeno Bloom, Dust Storm, and Echo Signal.",
+          "Active timed events now surface in the HUD with countdown banners, and the admin panel can trigger each event manually for testing.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.1",
     badge: "Slow Burn",
     summary: "Economy and drone rebalance. Slower pacing, weaker early drones, and cooperative cleanse synergy.",
@@ -41,8 +67,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: CURRENT_VERSION,
-    badge: "Current",
+    version: "0.1.0",
+    badge: "Foundation",
     summary:
       "This is the first build that feels like it has a real spine. The sim is reproducible, the tuning lives in one place, and the code finally reads like something you can keep building on.",
     sections: [

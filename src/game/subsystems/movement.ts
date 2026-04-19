@@ -7,7 +7,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "@/game/constants";
-import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, WORKER } from "@/game/balance";
+import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, ENEMY_SPECIAL, WORKER } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
 import { findClosestAgent } from "@/game/targeting";
 import type { GameState } from "@/game/types";
@@ -147,6 +147,7 @@ export function stepWorkers(state: GameState) {
 export function stepEnemies(state: GameState) {
   state.enemies.forEach((enemy) => {
     enemy.flash = Math.max(0, enemy.flash - 1);
+    const speedScale = state.eventModifiers.enemySpeedScale;
 
     if (enemy.role === "corruptor") {
       const targetableNodes = state.nodes.filter((node) => node.kind !== "gold");
@@ -174,7 +175,14 @@ export function stepEnemies(state: GameState) {
 
       if (d <= contactRadius) {
         enemy.corruptTicks += 1;
-        preferredNode.corruption = clamp(preferredNode.corruption + CORRUPTION.ratePerTick + state.level * CORRUPTION.ratePerLevel, 0, 100);
+        const ratePerTick =
+          enemy.kind === "blight" ? ENEMY_SPECIAL.blight.corruptionRatePerTick : CORRUPTION.ratePerTick;
+        preferredNode.corruption = clamp(
+          preferredNode.corruption +
+            (ratePerTick + state.level * CORRUPTION.ratePerLevel) * state.eventModifiers.corruptionRate,
+          0,
+          100
+        );
         preferredNode.corruptedBy = enemy.id;
         enemy.x += Math.cos((state.timers.tick + enemy.id * 11) / 12) * 0.12;
         enemy.y += Math.sin((state.timers.tick + enemy.id * 7) / 12) * 0.12;
@@ -187,8 +195,8 @@ export function stepEnemies(state: GameState) {
         return;
       }
 
-      enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.corruptorApproachScale;
-      enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.corruptorApproachScale;
+      enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.corruptorApproachScale * speedScale;
+      enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.corruptorApproachScale * speedScale;
       return;
     }
 
@@ -206,11 +214,15 @@ export function stepEnemies(state: GameState) {
         enemy.trail.push([enemy.x, enemy.y]);
         if (enemy.trail.length > 5) enemy.trail.shift();
       }
-      enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale;
-      enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale;
-      const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude;
+      enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
       enemy.x += (-dy / d) * strafe;
       enemy.y += (dx / d) * strafe;
+    }
+
+    if (enemy.kind === "phantom" && enemy.cloakTicks !== undefined) {
+      enemy.cloakTicks = (enemy.cloakTicks + 1) % ENEMY_SPECIAL.phantom.cycleTicks;
     }
   });
 

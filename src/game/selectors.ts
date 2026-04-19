@@ -5,15 +5,26 @@ import type { DerivedState, GameState } from "@/game/types";
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > CORRUPTION.nodeActiveThreshold).length;
   const p = 1 + state.prestige * ECONOMY.prestigeMultiplier;
-  const enemyCounts = { mite: 0, raider: 0, wisp: 0, corruptor: 0 };
+  const enemyCounts = {
+    mite: 0,
+    raider: 0,
+    wisp: 0,
+    corruptor: 0,
+    rusher: 0,
+    brute: 0,
+    sapper: 0,
+    blight: 0,
+    leech: 0,
+    phantom: 0,
+  };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 
   state.enemies.forEach((enemy) => {
     enemyCounts[enemy.kind] += 1;
   });
 
-  const combatThreats = enemyCounts.mite + enemyCounts.raider + enemyCounts.wisp;
-  const corruptorCount = enemyCounts.corruptor;
+  const combatThreats = state.enemies.filter((enemy) => enemy.role === "combat").length;
+  const corruptorCount = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
 
   state.nodes.forEach((node) => {
     if (node.corrupted && node.kind in corruptedByType) {
@@ -42,7 +53,10 @@ export function computeDerived(state: GameState): DerivedState {
     energy:
       (ECONOMY.rates.energyBase + state.upgrades.reactor * ECONOMY.rates.energyPerReactor + state.upgrades.shield * ECONOMY.rates.energyPerShield) *
       p *
-      corruptionPenalty.energy,
+      corruptionPenalty.energy *
+      state.eventModifiers.energyRate,
+    cores: 0,
+    flux: 0,
   };
 
   const totalIncome = rates.gold + rates.ore * 2 + rates.gems * 18 + rates.energy * 12;
@@ -121,6 +135,7 @@ export function computeDerived(state: GameState): DerivedState {
     defenseScore,
     threatScore,
     enemyCounts,
+    activeEvents: state.activeEvents,
     colonyHealth,
     corruptedByType,
     corruptorCount,

@@ -1,6 +1,17 @@
-export type ResourceKey = "gold" | "ore" | "gems" | "energy";
+export type ResourceKey = "gold" | "ore" | "gems" | "energy" | "cores" | "flux";
+export type VisibleResourceKey = "gold" | "ore" | "gems" | "energy";
 export type WorkerKind = "miner" | "runner" | "drone";
-export type EnemyKind = "mite" | "raider" | "wisp" | "corruptor";
+export type EnemyKind =
+  | "mite"
+  | "raider"
+  | "wisp"
+  | "corruptor"
+  | "rusher"
+  | "brute"
+  | "sapper"
+  | "blight"
+  | "leech"
+  | "phantom";
 export type EnemyRole = "combat" | "corruptor";
 export type UpgradeKey =
   | "miner"
@@ -18,7 +29,7 @@ export type UpgradeMap = Record<UpgradeKey, number>;
 
 export type ResourceNode = {
   id: number;
-  kind: ResourceKey;
+  kind: VisibleResourceKey;
   x: number;
   y: number;
   size: number;
@@ -28,6 +39,8 @@ export type ResourceNode = {
   corruption: number;
   corrupted: boolean;
   corruptedBy: number | null;
+  temporary?: boolean;
+  despawnAt?: number;
 };
 
 export type Agent = {
@@ -90,6 +103,9 @@ export type Enemy = {
   targetNodeId: number | null;
   flash: number;
   corruptTicks: number;
+  cloakTicks?: number;
+  goldRewardBonus?: number;
+  coreDropOverride?: number;
   trail: [number, number][];
 };
 
@@ -120,6 +136,13 @@ export type Timers = {
   auto: number;
   event: number;
   enemy: number;
+  bigEvent: number;
+};
+
+export type ActiveEvent = {
+  id: string;
+  label: string;
+  ticksRemaining: number;
 };
 
 import type { Rng } from "@/game/rng";
@@ -142,6 +165,18 @@ export type GameState = {
   projectiles: Projectile[];
   stats: Stats;
   timers: Timers;
+  activeEvents: ActiveEvent[];
+  eventModifiers: {
+    yieldMultiplier: number;
+    energyRate: number;
+    turretCooldownScale: number;
+    turretRangeScale: number;
+    enemySpeedScale: number;
+    corruptionRate: number;
+    fluxPurgeMultiplier: number;
+  };
+  nextBigEventInterval: number;
+  nextNodeId: number;
   nextEnemyId: number;
   nextProjectileId: number;
 };
@@ -155,7 +190,7 @@ export type UpgradeDef = {
 };
 
 export type ResourceDef = {
-  key: ResourceKey;
+  key: VisibleResourceKey;
   label: string;
   tint: string;
   glow: string;
@@ -194,6 +229,7 @@ export type DerivedState = {
   defenseScore: number;
   threatScore: number;
   enemyCounts: Record<EnemyKind, number>;
+  activeEvents: ActiveEvent[];
   colonyHealth: number;
   corruptedByType: Record<"ore" | "gems" | "energy", number>;
   corruptorCount: number;

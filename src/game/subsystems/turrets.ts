@@ -1,4 +1,5 @@
 import { TURRET } from "@/game/balance";
+import { isCloaked } from "@/game/enemyUtils";
 import { addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -26,11 +27,16 @@ export function stepTurrets(state: GameState) {
       return;
     }
 
-    turret.range = TURRET.rangeBase + state.upgrades.turret * TURRET.rangePerUpgrade + state.upgrades.reactor * TURRET.rangePerReactor;
+    turret.range =
+      (TURRET.rangeBase + state.upgrades.turret * TURRET.rangePerUpgrade + state.upgrades.reactor * TURRET.rangePerReactor) *
+      state.eventModifiers.turretRangeScale;
     turret.cooldown = Math.max(0, turret.cooldown - 1);
     const target = [...state.enemies]
       .filter(
-        (enemy) => enemy.role !== "corruptor" && dist(enemy.x, enemy.y, turret.x, turret.y) <= turret.range
+        (enemy) =>
+          enemy.role !== "corruptor" &&
+          !isCloaked(enemy) &&
+          dist(enemy.x, enemy.y, turret.x, turret.y) <= turret.range
       )
       .sort((a, b) => getTurretTargetScore(state, turret, a) - getTurretTargetScore(state, turret, b))[0];
 
@@ -47,7 +53,16 @@ export function stepTurrets(state: GameState) {
         state.upgrades.reactor * TURRET.damagePerReactor +
         (target.kind === "wisp" ? TURRET.damageWispBonusBase + state.upgrades.turret * TURRET.damageWispBonusPerTurret : 0) +
         (target.kind === "raider" ? TURRET.damageRaiderBonusBase + state.upgrades.reactor * TURRET.damageRaiderBonusPerReactor : 0);
-      turret.cooldown = Math.max(TURRET.cooldownFloor, Math.round(TURRET.cooldownBase - state.upgrades.turret * TURRET.cooldownPerTurret - state.upgrades.reactor * TURRET.cooldownPerReactor - Math.floor(derived.progression.tier / 2) * TURRET.cooldownPerTierPair));
+      turret.cooldown = Math.max(
+        TURRET.cooldownFloor,
+        Math.round(
+          (TURRET.cooldownBase -
+            state.upgrades.turret * TURRET.cooldownPerTurret -
+            state.upgrades.reactor * TURRET.cooldownPerReactor -
+            Math.floor(derived.progression.tier / 2) * TURRET.cooldownPerTierPair) *
+            state.eventModifiers.turretCooldownScale
+        )
+      );
       addProjectile(
         state,
         turret.x,

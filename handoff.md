@@ -4,43 +4,45 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-The current build also exposes release history inside the game itself. Click the version badge beside `Autonomous Colony Sim` in the header to open the in-game changelog.
+The current build exposes release history inside the game itself. Click the version badge beside `Autonomous Colony Sim` in the header to open the in-game changelog. The hidden admin panel now includes event trigger buttons in addition to the speed controls.
 
 ## Core Architecture
 
-- `advanceGame(prev)` is still the single simulation orchestrator, but it is now intentionally thin.
+- `advanceGame(prev)` remains the single simulation orchestrator, and the step order still matters.
 - Simulation logic is split across focused modules in `src/game/subsystems/`.
 - `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts.
+- `GameState` also carries timed `activeEvents`, event modifiers, dormant `cores` / `flux` resource slots, and the next big-event interval.
 - Presentation-only calculations live in selectors and are exposed to React as derived state.
 - React rendering is layered on top of the sim through `useGameLoop()`, which uses `requestAnimationFrame` plus a fixed-tick accumulator.
 
 ## Project Structure
 
-- `src/App.tsx` — top-level layout, header, release-history modal, and hidden admin speed panel
-- `src/changelog.ts` — structured in-game release notes
-- `src/components/Background.tsx` — animated starfield and atmosphere layers
-- `src/components/FieldSvg.tsx` — battlefield SVG rendering
-- `src/components/Sidebar.tsx` — economy, automation, and threat panels
-- `src/components/HudPrimitives.tsx` — shared HUD widgets
-- `src/components/ui/` — local card and progress primitives
-- `src/hooks/useGameLoop.ts` — rAF-driven simulation loop
-- `src/game/advanceGame.ts` — thin orchestrator over subsystem steps
-- `src/game/subsystems/` — economy, spawns, movement, corruption, turrets, scouts, combat, mining, autobuy, projectiles, and events
-- `src/game/balance.ts` — single source of truth for tuning constants
-- `src/game/rng.ts` — deterministic Mulberry32 PRNG
-- `src/game/targeting.ts` — shared targeting helpers
-- `src/game/factories.ts` — initial state and entity construction
-- `src/game/selectors.ts` — UI-facing derived state
-- `src/game/__tests__/advanceGame.test.ts` — simulation invariants
-- `.gitlab-ci.yml` — verify and container-build pipeline
-- `docker/nginx.conf` — SPA serving config with security headers
-- `Dockerfile` — multi-stage production image build
+- `src/App.tsx` - top-level layout, header, event banners, admin panel, and release-history modal
+- `src/changelog.ts` - structured in-game release notes
+- `src/components/Background.tsx` - animated starfield and atmosphere layers
+- `src/components/FieldSvg.tsx` - battlefield SVG rendering
+- `src/components/Sidebar.tsx` - economy, automation, and threat panels
+- `src/components/HudPrimitives.tsx` - shared HUD widgets
+- `src/components/ui/` - local card and progress primitives
+- `src/hooks/useGameLoop.ts` - rAF-driven simulation loop plus direct state mutation hook for admin controls
+- `src/game/advanceGame.ts` - thin orchestrator over subsystem steps
+- `src/game/subsystems/` - economy, spawns, movement, corruption, turrets, scouts, combat, mining, autobuy, projectiles, and events
+- `src/game/events/eventDefs.ts` - seeded random-event definitions and activation helper
+- `src/game/balance.ts` - single source of truth for tuning constants
+- `src/game/rng.ts` - deterministic Mulberry32 PRNG
+- `src/game/targeting.ts` - shared targeting helpers
+- `src/game/factories.ts` - initial state and entity construction
+- `src/game/selectors.ts` - UI-facing derived state
+- `src/game/__tests__/advanceGame.test.ts` - simulation invariants
+- `.gitlab-ci.yml` - verify and container-build pipeline
+- `docker/nginx.conf` - SPA serving config with security headers
+- `Dockerfile` - multi-stage production image build
 
 ## Core Game Mechanics
 
 ### Economy
 
-Resources: **Gold, Ore, Gems, Energy**. Gold funds upgrades. Derived economy includes prestige scaling, combat pressure penalties, corruption penalties, income rates, and colony health / threat / defense readouts.
+Resources: **Gold, Ore, Gems, Energy**, with **Cores** now tracked in state as rare combat drops and **Flux** reserved for a later milestone. Gold funds upgrades. Derived economy includes prestige scaling, combat pressure penalties, corruption penalties, income rates, and colony health / threat / defense readouts.
 
 ### Workers
 
@@ -48,15 +50,15 @@ Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously, evade comb
 
 ### Enemies
 
-Combat enemies (`mite`, `raider`, `wisp`) pursue workers, apply pressure, and are the only targets turrets will engage.
+Combat enemies (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`) pursue workers, apply pressure, and are the only enemies turrets will engage. Phantoms cycle into cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms can yield Core fragments.
 
 ### Corrupters
 
-Corrupters do not attack workers. They never target gold nodes, prefer ore/gems/energy, attach while corrupting, and reduce effective economic output.
+Corrupters do not attack workers. They never target gold nodes, prefer ore/gems/energy, attach while corrupting, and reduce effective economic output. `blight` is the heavier corruptor variant with stronger corruption pressure and early scout resistance.
 
 ### Turrets
 
-Static base defense. One is live from the start, with more unlocked by upgrades. Turrets only target combat enemies.
+Static base defense. One is live from the start, with more unlocked by upgrades. Turrets target combat enemies, obey event-based range and cooldown modifiers, and skip cloaked phantoms.
 
 ### Scouts
 
@@ -64,7 +66,11 @@ Dedicated anti-corruption units. They prioritize live corrupters, then sweep hig
 
 ### Mining And Harvesting
 
-Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefit from crits. Corrupted nodes yield less and respawn through the seeded RNG path when depleted.
+Workers mine assigned nodes, apply kind-specific harvesting behavior, and benefit from crits. Corrupted nodes yield less, timed events can boost yield, and temporary cache nodes disappear instead of respawning when exhausted.
+
+### Random Events
+
+Ambient log chatter still fires on its original timer, but a second seeded event timer now rolls mechanical events between roughly 30 and 90 seconds. Timed events write into `state.activeEvents`, push multiplier changes into `state.eventModifiers`, and render countdown banners in the HUD. Instant events can add temporary nodes or inject off-schedule enemy spawns.
 
 ### Autobuy And Prestige
 
@@ -82,7 +88,7 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 - All gameplay randomness should flow through the seeded `Rng`, not direct `Math.random()` calls.
 - Worker evasion keeps the small enter radius, larger exit radius, multi-tick persistence, and vector-summed escape behavior.
 - Corrupters never attack workers and never target gold nodes.
-- Turrets never target corrupters.
+- Turrets never target corrupters and also ignore cloaked phantoms.
 - Scouts stay visually distinct from turrets and keep first crack at corruption cleanup.
 - Wallpaper feel still beats perfect simulation purity.
 
@@ -90,6 +96,7 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 
 - The header version badge opens the in-game release history.
 - The hidden admin speed panel toggles after pressing `Space` five times while focus is on the page body.
+- The admin panel can manually fire any defined event, which is the fastest way to verify event banners and event-modifier effects in-browser.
 - `package.json` version and `src/changelog.ts` should stay in sync whenever a release is being cut.
 
 ## Remaining Work
@@ -104,11 +111,10 @@ The home district skyline evolves as the colony grows. Its cadence and visual gr
 
 - Small dev overlay for tick counts, enemy counts, corruption state, and autobuy choice.
 - Headless soak-test utility for large deterministic runs.
-- Release workflow cleanup so package versioning and changelog maintenance are less manual.
+- Late-game systems that consume `cores` and `flux`, which are now present in state and event modifiers.
 
 ### Nice To Have
 
-- More enemy variants and scout behaviors.
 - Replay or save/load support.
 - Weather, day-night, sound hooks, and alternate visual themes.
 
@@ -158,8 +164,9 @@ Local verification:
 4. `src/game/advanceGame.ts`
 5. `src/game/balance.ts`
 6. `src/game/subsystems/`
-7. `src/game/selectors.ts`
-8. `src/components/FieldSvg.tsx`
-9. `src/components/Sidebar.tsx`
+7. `src/game/events/eventDefs.ts`
+8. `src/game/selectors.ts`
+9. `src/components/FieldSvg.tsx`
+10. `src/components/Sidebar.tsx`
 
 Compare against `reference/idle_wallpaper_game.reference.jsx` when you need to recover the original intended behavior or feel.

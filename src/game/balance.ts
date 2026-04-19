@@ -1,4 +1,4 @@
-import type { EnemyKind, ResourceKey, UpgradeKey, WorkerKind } from "@/game/types";
+import type { EnemyKind, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
   miner: { baseCost: 10, growth: 1.20 },
@@ -59,6 +59,12 @@ export const ENEMY_STATS: Record<
   raider: { hpBase: 65, hpWave: 5, speedBase: 0.9, speedWave: 0.02 },
   wisp: { hpBase: 30, hpWave: 6, speedBase: 1.45, speedWave: 0.02 },
   corruptor: { hpBase: 52, hpWave: 5, speedBase: 1, speedWave: 0.015 },
+  rusher: { hpBase: 24, hpWave: 4, speedBase: 1.85, speedWave: 0.025 },
+  brute: { hpBase: 160, hpWave: 8, speedBase: 0.55, speedWave: 0.01 },
+  sapper: { hpBase: 35, hpWave: 5, speedBase: 1.1, speedWave: 0.02 },
+  blight: { hpBase: 95, hpWave: 7, speedBase: 0.8, speedWave: 0.012 },
+  leech: { hpBase: 70, hpWave: 6, speedBase: 0.85, speedWave: 0.015 },
+  phantom: { hpBase: 55, hpWave: 5, speedBase: 1.3, speedWave: 0.018 },
 };
 
 export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
@@ -66,6 +72,12 @@ export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
   wisp: 1.25,
   raider: 2.35,
   corruptor: 2.7,
+  rusher: 0.9,
+  brute: 3.5,
+  sapper: 1.6,
+  blight: 3.2,
+  leech: 2.8,
+  phantom: 2.6,
 };
 
 export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
@@ -73,7 +85,39 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
   wisp: 2.6,
   raider: 6.8,
   corruptor: 0,
+  rusher: 4,
+  brute: 12,
+  sapper: 0,
+  blight: 0,
+  leech: 2,
+  phantom: 5,
 };
+
+export const ENEMY_SPECIAL = {
+  sapper: {
+    explosionRadius: 60,
+    explosionDamage: 18,
+    triggerRadius: 22,
+  },
+  blight: {
+    corruptionRatePerTick: 0.95,
+    scoutDamageResistance: 0.6,
+    arsenalResistThreshold: 3,
+  },
+  leech: {
+    drainRadius: 100,
+    goldDrainPerTick: 0.4,
+    energyDrainPerTick: 0.02,
+  },
+  phantom: {
+    visibleTicks: 90,
+    cloakedTicks: 30,
+    cycleTicks: 120,
+  },
+  brute: {
+    coreDropAmount: 1,
+  },
+} as const;
 
 export const ENEMY_SEPARATION = {
   minDist: 42,
@@ -208,7 +252,7 @@ export const MINING = {
   corruptedDamagePenalty: 0.78,
   critChanceBase: 0.18,
   critChancePerBot: 0.01,
-  yield: { gold: 14, ore: 10, gems: 3.4, energy: 5.4 } as Record<ResourceKey, number>,
+  yield: { gold: 14, ore: 10, gems: 3.4, energy: 5.4 } as Record<VisibleResourceKey, number>,
   contactRadiusMin: 24,
   contactRadiusRatio: 0.52,
 } as const;
@@ -217,7 +261,7 @@ export const PRESTIGE = {
   goldGate: 9800,
   gemsGate: 70,
   maxEnemies: 3,
-  resetMultipliers: { gold: 0.18, ore: 0.15, gems: 0.2, energy: 0.2 },
+  resetMultipliers: { gold: 0.18, ore: 0.15, gems: 0.2, energy: 0.2, cores: 0, flux: 0 },
   comboBonus: 0.6,
 } as const;
 
@@ -292,6 +336,11 @@ export const PROGRESSION = {
     mite: { base: 2.2, tier: -0.26, pressure: 0.08, min: 0.45, max: 2.4 },
     wisp: { base: 0.6, tier: 0.32, dominance: 0.08, pressure: -0.02, min: 0.35, max: 3.2, minTier: 1 },
     raider: { base: 0.28, tier: 0.36, dominance: 0.12, pressure: -0.1, min: 0.15, max: 2.8, minTier: 2 },
+    rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 3 },
+    brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 4 },
+    sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 5 },
+    leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 6 },
+    phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 7 },
   },
 } as const;
 

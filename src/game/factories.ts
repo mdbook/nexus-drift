@@ -7,17 +7,24 @@ import type {
   EnemyKind,
   GameState,
   ResourceNode,
-  ResourceKey,
   Scout,
   Turret,
+  VisibleResourceKey,
 } from "@/game/types";
 import { dist } from "@/game/utils";
+
+const BIG_EVENT_TICK_MIN = 30 * 30;
+const BIG_EVENT_TICK_MAX = 90 * 30;
+
+function rollBigEventInterval(rng: Rng) {
+  return Math.floor(BIG_EVENT_TICK_MIN + rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
+}
 
 export function makeNode(rng: Rng, id: number, x: number, y: number, size: number): ResourceNode {
   const hp = rng.range(25, 80);
   return {
     id,
-    kind: rng.pick<ResourceKey>(["gold", "ore", "ore", "gems", "energy"]),
+    kind: rng.pick<VisibleResourceKey>(["gold", "ore", "ore", "gems", "energy"]),
     x,
     y,
     size,
@@ -189,10 +196,10 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
   const stats = ENEMY_STATS[kind];
   const hp = stats.hpBase + wave * stats.hpWave;
   const speed = stats.speedBase + wave * stats.speedWave;
-  return {
+  const enemy: Enemy = {
     id,
     kind,
-    role: kind === "corruptor" ? "corruptor" : "combat",
+    role: kind === "corruptor" || kind === "blight" ? "corruptor" : "combat",
     x,
     y,
     hp,
@@ -204,6 +211,12 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     corruptTicks: 0,
     trail: [],
   };
+
+  if (kind === "phantom") {
+    enemy.cloakTicks = 0;
+  }
+
+  return enemy;
 }
 
 export function createInitialGameState(seed?: number): GameState {
@@ -212,7 +225,7 @@ export function createInitialGameState(seed?: number): GameState {
   return {
     citySeed,
     rng,
-    resources: { gold: 24, ore: 8, gems: 0, energy: 0 },
+    resources: { gold: 24, ore: 8, gems: 0, energy: 0, cores: 0, flux: 0 },
     upgrades: {
       miner: 0,
       drill: 0,
@@ -252,7 +265,20 @@ export function createInitialGameState(seed?: number): GameState {
       auto: 0,
       event: 0,
       enemy: 0,
+      bigEvent: 0,
     },
+    activeEvents: [],
+    eventModifiers: {
+      yieldMultiplier: 1,
+      energyRate: 1,
+      turretCooldownScale: 1,
+      turretRangeScale: 1,
+      enemySpeedScale: 1,
+      corruptionRate: 1,
+      fluxPurgeMultiplier: 1,
+    },
+    nextBigEventInterval: rollBigEventInterval(rng),
+    nextNodeId: 14,
     nextEnemyId: 1,
     nextProjectileId: 1,
   };
@@ -265,6 +291,8 @@ export function cloneGameState(prev: GameState): GameState {
     upgrades: { ...prev.upgrades },
     stats: { ...prev.stats },
     timers: { ...prev.timers },
+    activeEvents: prev.activeEvents.map((event) => ({ ...event })),
+    eventModifiers: { ...prev.eventModifiers },
     log: [...prev.log],
     nodes: prev.nodes.map((node) => ({ ...node })),
     agents: prev.agents.map((agent) => ({ ...agent })),

@@ -1,5 +1,5 @@
 import { UPGRADES } from "@/game/balance";
-import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, ResourceKey, UpgradeDef, WorkerKind } from "@/game/types";
+import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, UpgradeDef, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 export const resourceDefs: ResourceDef[] = [
   {
@@ -39,7 +39,7 @@ export const upgradeDefs: UpgradeDef[] = [
   { key: "arsenal", label: "Scout Arsenal", baseCost: UPGRADES.arsenal.baseCost, growth: UPGRADES.arsenal.growth, effectText: "Purge burst + field cleanse" },
 ];
 
-export const NODE_STYLE: Record<ResourceKey, NodeVisual> = {
+export const NODE_STYLE: Record<VisibleResourceKey, NodeVisual> = {
   gold: {
     fill: "rgba(255, 200, 50, 0.28)",
     core: "rgba(255, 230, 140, 0.95)",
@@ -88,6 +88,42 @@ export const ENEMY_STYLE: Record<Exclude<EnemyKind, "corruptor">, EnemyVisual> =
     glow: "rgba(120, 170, 255, 0.28)",
     stroke: "rgba(210, 230, 255, 0.80)",
     radius: 9,
+  },
+  rusher: {
+    fill: "rgba(255, 214, 64, 0.92)",
+    glow: "rgba(255, 214, 64, 0.24)",
+    stroke: "rgba(255, 246, 190, 0.8)",
+    radius: 8,
+  },
+  brute: {
+    fill: "rgba(110, 122, 145, 0.92)",
+    glow: "rgba(140, 156, 182, 0.24)",
+    stroke: "rgba(224, 232, 246, 0.75)",
+    radius: 22,
+  },
+  sapper: {
+    fill: "rgba(255, 82, 119, 0.92)",
+    glow: "rgba(255, 82, 119, 0.24)",
+    stroke: "rgba(255, 212, 224, 0.8)",
+    radius: 6,
+  },
+  blight: {
+    fill: "rgba(155, 240, 185, 0.88)",
+    glow: "rgba(114, 230, 145, 0.24)",
+    stroke: "rgba(228, 255, 236, 0.8)",
+    radius: 14,
+  },
+  leech: {
+    fill: "rgba(129, 140, 248, 0.92)",
+    glow: "rgba(129, 140, 248, 0.24)",
+    stroke: "rgba(224, 228, 255, 0.8)",
+    radius: 12,
+  },
+  phantom: {
+    fill: "rgba(226, 232, 240, 0.9)",
+    glow: "rgba(226, 232, 240, 0.2)",
+    stroke: "rgba(255, 255, 255, 0.8)",
+    radius: 13,
   },
 };
 

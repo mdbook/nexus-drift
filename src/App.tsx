@@ -1,6 +1,18 @@
 import type { ComponentType, CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Coins, Cpu, Crosshair, Gem, Hammer, Pickaxe, Radar, Shield, Swords, Zap } from "lucide-react";
+import {
+  Bot,
+  Coins,
+  Cpu,
+  Crosshair,
+  Gem,
+  Hammer,
+  Pickaxe,
+  Radar,
+  Shield,
+  Swords,
+  Zap,
+} from "lucide-react";
 import { Background } from "@/components/Background";
 import { FieldSvg } from "@/components/FieldSvg";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
@@ -9,8 +21,9 @@ import { Card } from "@/components/ui/card";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { Progress } from "@/components/ui/progress";
 import { resourceDefs } from "@/game/data";
-import type { ResourceKey, UpgradeKey } from "@/game/types";
-import { fmt, clamp } from "@/game/utils";
+import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
+import { clamp, fmt } from "@/game/utils";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { PANEL_CLASS } from "@/theme";
 
@@ -19,16 +32,17 @@ function useAdminPanel() {
   const timestamps = useRef<number[]>([]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || e.target !== document.body) return;
-      e.preventDefault();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.target !== document.body) return;
+      event.preventDefault();
       const now = Date.now();
-      timestamps.current = [...timestamps.current.filter((t) => now - t < 1500), now];
+      timestamps.current = [...timestamps.current.filter((timestamp) => now - timestamp < 1500), now];
       if (timestamps.current.length >= 5) {
         timestamps.current = [];
-        setOpen((o) => !o);
+        setOpen((value) => !value);
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -36,7 +50,10 @@ function useAdminPanel() {
   return { open, setOpen };
 }
 
-const resourceIcons: Record<ResourceKey, ComponentType<{ className?: string; style?: CSSProperties }>> = {
+const resourceIcons: Record<
+  VisibleResourceKey,
+  ComponentType<{ className?: string; style?: CSSProperties }>
+> = {
   gold: Coins,
   ore: Pickaxe,
   gems: Gem,
@@ -58,7 +75,7 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
-  const { game, derived } = useGameLoop(speed);
+  const { game, derived, mutateGame } = useGameLoop(speed);
   const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
   const stabilityPct = clamp((derived.defenseScore / Math.max(2, derived.threatScore + 2)) * 100, 0, 100);
   const averageUnitHealth =
@@ -97,9 +114,13 @@ export default function App() {
                 v{CURRENT_VERSION}
               </button>
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">NEXUS DRIFT // purge wing online</h1>
+            <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
+              NEXUS DRIFT // purge wing online
+            </h1>
             <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base">
-              Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the grid, raiders push the perimeter. The colony runs itself — your job is to keep it that way.
+              Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
+              grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
+              way.
             </p>
           </div>
 
@@ -148,17 +169,27 @@ export default function App() {
             <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2 pt-4 md:justify-start">
               <div className="relative flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-md md:hidden">
                 <Shield className="h-4 w-4 text-white/55" />
-                <Zap className="absolute h-2 w-2 translate-y-px text-white/90" fill="currentColor" strokeWidth={0} />
+                <Zap
+                  className="absolute h-2 w-2 translate-y-px text-white/90"
+                  fill="currentColor"
+                  strokeWidth={0}
+                />
               </div>
               <div className="hidden flex-1 items-center justify-between rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs uppercase tracking-[0.24em] text-white/55 backdrop-blur-md md:flex">
                 <span>active field // perimeter defense + purge wing</span>
                 <div className="relative ml-3 shrink-0">
                   <Shield className="h-4 w-4 text-white/55" />
-                  <Zap className="absolute inset-0 m-auto h-2 w-2 translate-y-px text-white/90" fill="currentColor" strokeWidth={0} />
+                  <Zap
+                    className="absolute inset-0 m-auto h-2 w-2 translate-y-px text-white/90"
+                    fill="currentColor"
+                    strokeWidth={0}
+                  />
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
-                <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>Combat {derived.combatThreats}</StatusBadge>
+                <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
+                  Combat {derived.combatThreats}
+                </StatusBadge>
                 <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
                   Corruption {derived.activeCorruptionNodes}
                 </StatusBadge>
@@ -168,6 +199,19 @@ export default function App() {
             <div className="min-h-0 flex-1">
               <FieldSvg game={game} derived={derived} />
             </div>
+
+            {derived.activeEvents.length > 0 && (
+              <div className="flex shrink-0 flex-wrap gap-2 px-4 py-2">
+                {derived.activeEvents.map((event) => (
+                  <span
+                    key={event.id}
+                    className="rounded-full border border-yellow-700/40 bg-yellow-900/60 px-2 py-0.5 text-xs text-yellow-200"
+                  >
+                    {event.label} ({Math.ceil(event.ticksRemaining / 30)}s)
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-4 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/38">
               <span>Crews {game.agents.length}</span>
@@ -180,35 +224,65 @@ export default function App() {
             </div>
           </Card>
 
-          <Sidebar game={game} derived={derived} upgradeIcons={upgradeIcons} stabilityPct={stabilityPct} />
+          <Sidebar
+            game={game}
+            derived={derived}
+            upgradeIcons={upgradeIcons}
+            stabilityPct={stabilityPct}
+          />
         </div>
       </div>
+
       {adminOpen && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-          <div className={`${PANEL_CLASS} flex items-center gap-3 px-4 py-3`}>
-            <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Admin // Speed</span>
-            {[1, 2, 5, 10].map((s) => (
+          <div className={`${PANEL_CLASS} flex flex-col gap-3 px-4 py-3`}>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+                Admin // Speed
+              </span>
+              {[1, 2, 5, 10].map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setSpeed(value)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+                    speed === value
+                      ? "bg-white/20 text-white"
+                      : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80"
+                  }`}
+                >
+                  {value}x
+                </button>
+              ))}
               <button
-                key={s}
-                onClick={() => setSpeed(s)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
-                  speed === s
-                    ? "bg-white/20 text-white"
-                    : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80"
-                }`}
+                onClick={() => setAdminOpen(false)}
+                className="ml-1 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/40 hover:text-white/70"
               >
-                {s}x
+                x
               </button>
-            ))}
-            <button
-              onClick={() => setAdminOpen(false)}
-              className="ml-1 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/40 hover:text-white/70"
-            >
-              ✕
-            </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+                Trigger Event
+              </span>
+              {EVENT_DEFS.map((eventDef) => (
+                <button
+                  key={eventDef.id}
+                  className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
+                  onClick={() =>
+                    mutateGame((next) => {
+                      activateEvent(next, eventDef);
+                    })
+                  }
+                >
+                  {eventDef.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
+
       {changelogOpen && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-[#02050f]/75 px-3 py-6 backdrop-blur-sm md:px-6"
@@ -223,10 +297,15 @@ export default function App() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-6">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] text-cyan-100/55">Release History</div>
-                <div className="mt-2 text-2xl font-semibold text-white md:text-3xl">Nexus Drift // v{CURRENT_VERSION}</div>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-cyan-100/55">
+                  Release History
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-white md:text-3xl">
+                  Nexus Drift // v{CURRENT_VERSION}
+                </div>
                 <p className="mt-2 max-w-2xl text-sm text-white/55 md:text-base">
-                  Release notes rebuilt from the repo history, from the first rough prototype to the current build.
+                  Release notes rebuilt from the repo history, from the first rough prototype to the
+                  current build.
                 </p>
               </div>
               <button
@@ -240,19 +319,31 @@ export default function App() {
 
             <div className="max-h-[calc(min(720px,92vh)-112px)] space-y-4 overflow-y-auto px-5 py-4 md:px-6 md:py-5">
               {CHANGELOG.map((entry) => (
-                <section key={entry.version} className="rounded-[28px] border border-white/10 bg-black/20 p-4 md:p-5">
+                <section
+                  key={entry.version}
+                  className="rounded-[28px] border border-white/10 bg-black/20 p-4 md:p-5"
+                >
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-xl font-semibold text-white md:text-2xl">v{entry.version}</div>
+                    <div className="text-xl font-semibold text-white md:text-2xl">
+                      v{entry.version}
+                    </div>
                     <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-cyan-100/75">
                       {entry.badge}
                     </div>
                   </div>
-                  <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">{entry.summary}</p>
+                  <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
+                    {entry.summary}
+                  </p>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2">
                     {entry.sections.map((section) => (
-                      <div key={section.title} className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">{section.title}</div>
+                      <div
+                        key={section.title}
+                        className="rounded-3xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">
+                          {section.title}
+                        </div>
                         <div className="mt-3 space-y-2 text-sm text-white/72">
                           {section.items.map((item) => (
                             <p key={item} className="leading-6">

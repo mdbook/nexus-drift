@@ -1,5 +1,5 @@
 import { PROGRESSION } from "@/game/balance";
-import type { ProgressionDirector } from "@/game/types";
+import type { EnemyKind, ProgressionDirector } from "@/game/types";
 import { clamp } from "@/game/utils";
 
 type ProgressionMetrics = {
@@ -78,21 +78,39 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
 export function getCombatEnemyWeights(director: ProgressionDirector) {
   const dominance = Math.max(0, director.powerBalance);
   const pressure = Math.max(0, -director.powerBalance);
-  const mw = PROGRESSION.combatWeights.mite;
-  const ww = PROGRESSION.combatWeights.wisp;
-  const rw = PROGRESSION.combatWeights.raider;
+  const weights = {} as Record<Exclude<EnemyKind, "corruptor" | "blight">, number>;
 
-  return {
-    mite: clamp(mw.base + director.tier * mw.tier + pressure * mw.pressure, mw.min, mw.max),
-    wisp:
-      director.tier >= ww.minTier
-        ? clamp(ww.base + director.tier * ww.tier + dominance * ww.dominance + pressure * ww.pressure, ww.min, ww.max)
-        : 0,
-    raider:
-      director.tier >= rw.minTier
-        ? clamp(rw.base + (director.tier - 1) * rw.tier + dominance * rw.dominance + pressure * rw.pressure, rw.min, rw.max)
-        : 0,
-  };
+  (Object.entries(PROGRESSION.combatWeights) as Array<
+    [
+      Exclude<EnemyKind, "corruptor" | "blight">,
+      {
+        base: number;
+        tier: number;
+        dominance?: number;
+        pressure?: number;
+        min: number;
+        max: number;
+        minTier?: number;
+      },
+    ]
+  >).forEach(([kind, config]) => {
+    if (director.tier < (config.minTier ?? 0)) {
+      weights[kind] = 0;
+      return;
+    }
+
+    const tierFactor = kind === "raider" ? Math.max(0, director.tier - 1) : director.tier;
+    weights[kind] = clamp(
+      config.base +
+        tierFactor * config.tier +
+        dominance * (config.dominance ?? 0) +
+        pressure * (config.pressure ?? 0),
+      config.min,
+      config.max
+    );
+  });
+
+  return weights;
 }
 
 export function getCorruptorSpawnChance(

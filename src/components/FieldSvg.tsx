@@ -1,6 +1,7 @@
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
+import { isCloaked } from "@/game/enemyUtils";
 import { clamp } from "@/game/utils";
 
 type FieldSvgProps = {
@@ -640,14 +641,15 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         }
 
         const style = ENEMY_STYLE[enemy.kind as Exclude<typeof enemy.kind, "corruptor">];
+        const enemyOpacity = isCloaked(enemy) ? 0.2 : 1;
         const threatPulse = 0.12 + Math.sin((game.timers.tick + enemy.id * 7) / 10) * 0.07;
         const threatRing = (
-          <circle cx={enemy.x} cy={enemy.y} r={style.radius + 18} fill={`rgba(220,30,30,${threatPulse.toFixed(2)})`} stroke="rgba(255,60,60,0.45)" strokeWidth="1.2" />
+          <circle cx={enemy.x} cy={enemy.y} r={style.radius + 18} fill={`rgba(220,30,30,${threatPulse.toFixed(2)})`} stroke="rgba(255,60,60,0.45)" strokeWidth="1.2" opacity={enemyOpacity} />
         );
 
         if (enemy.kind === "raider") {
           return (
-            <g key={enemy.id}>
+            <g key={enemy.id} opacity={enemyOpacity}>
               {threatRing}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
               {/* thick outer armour ring */}
@@ -699,8 +701,21 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         }
 
         // mite — small fast circle with sharp antenna spikes
+        if (enemy.kind === "sapper") {
+          return (
+            <g key={enemy.id} opacity={enemyOpacity}>
+              <circle cx={enemy.x} cy={enemy.y} r="60" fill="none" stroke="#f43f5e" strokeWidth="0.5" opacity="0.3" />
+              {threatRing}
+              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
+              <circle cx={enemy.x} cy={enemy.y} r={style.radius} fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.5" />
+              <line x1={enemy.x} y1={enemy.y - 10} x2={enemy.x} y2={enemy.y + 10} stroke="rgba(255,230,230,0.8)" strokeWidth="1.5" />
+              <line x1={enemy.x - 10} y1={enemy.y} x2={enemy.x + 10} y2={enemy.y} stroke="rgba(255,230,230,0.8)" strokeWidth="1.5" />
+            </g>
+          );
+        }
+
         return (
-          <g key={enemy.id}>
+          <g key={enemy.id} opacity={enemyOpacity}>
             {threatRing}
             <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
             <circle cx={enemy.x} cy={enemy.y} r={style.radius} fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.5" />

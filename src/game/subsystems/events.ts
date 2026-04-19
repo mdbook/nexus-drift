@@ -1,9 +1,17 @@
 import { EVENT_TICK } from "@/game/constants";
+import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { pushLog } from "@/game/utils";
 
-export function stepEvents(state: GameState) {
+const BIG_EVENT_TICK_MIN = 30 * 30;
+const BIG_EVENT_TICK_MAX = 90 * 30;
+
+function rollBigEventInterval(state: GameState) {
+  return Math.floor(BIG_EVENT_TICK_MIN + state.rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
+}
+
+function stepAmbientMessages(state: GameState) {
   if (state.timers.event < EVENT_TICK) return;
   state.timers.event = 0;
 
@@ -35,4 +43,55 @@ export function stepEvents(state: GameState) {
   }
 
   state.log = pushLog(state.log, state.rng.pick(ambientMessages));
+}
+
+export function stepEvents(state: GameState) {
+  stepAmbientMessages(state);
+
+  const expiredIds: string[] = [];
+  for (const active of state.activeEvents) {
+    active.ticksRemaining -= 1;
+    if (active.ticksRemaining <= 0) {
+      expiredIds.push(active.id);
+    }
+  }
+
+  for (const id of expiredIds) {
+    const eventDef = EVENT_DEFS.find((def) => def.id === id);
+    eventDef?.revert(state);
+    state.activeEvents = state.activeEvents.filter((event) => event.id !== id);
+    state.log = pushLog(state.log, `${eventDef?.label ?? id} has ended.`);
+  }
+
+  state.nodes = state.nodes.filter((node) => {
+    if (node.temporary && node.despawnAt !== undefined && state.timers.tick >= node.despawnAt) {
+      return false;
+    }
+    return true;
+  });
+
+  state.timers.bigEvent += 1;
+  if (state.timers.bigEvent < state.nextBigEventInterval) return;
+
+  state.timers.bigEvent = 0;
+  state.nextBigEventInterval = rollBigEventInterval(state);
+
+  const derived = computeDerived(state);
+  const activeIds = new Set(state.activeEvents.map((event) => event.id));
+  const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.tier && !activeIds.has(def.id));
+  if (!eligible.length) return;
+
+  const totalWeight = eligible.reduce((sum, def) => sum + def.weight, 0);
+  let threshold = state.rng.next() * totalWeight;
+  let chosen = eligible[eligible.length - 1];
+
+  for (const eventDef of eligible) {
+    threshold -= eventDef.weight;
+    if (threshold <= 0) {
+      chosen = eventDef;
+      break;
+    }
+  }
+
+  activateEvent(state, chosen);
 }

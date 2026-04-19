@@ -29,6 +29,7 @@ export function advanceGame(prev: GameState): GameState {
   stepScouts(state);
   resolveEnemyDeaths(state);
   stepCombat(state);
+  resolveEnemyDeaths(state);
   stepMining(state);
   stepAutobuy(state);
   stepProjectiles(state);

@@ -8,6 +8,8 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Deterministic seeded RNG in the simulation layer for reproducible runs.
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
 - Hidden admin speed panel for tuning and quick checks: press `Space` five times.
+- Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, and phantoms.
+- Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns.
 
 ## Development
 
@@ -31,12 +33,13 @@ npm run format:check
 
 ## Architecture
 
-- `src/App.tsx`: top-level shell, HUD framing, admin panel, and release-history modal
+- `src/App.tsx`: top-level shell, HUD framing, admin panel, event test triggers, and release-history modal
 - `src/changelog.ts`: in-game release notes sourced from repo milestones
 - `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop and derived-state snapshots
 - `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
 - `src/game/subsystems/`: focused simulation modules for economy, spawns, movement, combat, scouts, turrets, corruption, mining, autobuy, projectiles, and events
 - `src/game/balance.ts`: central tuning constants
+- `src/game/events/eventDefs.ts`: seeded mechanical event definitions and event activation helpers
 - `src/game/rng.ts`: seeded Mulberry32 PRNG used by simulation paths
 - `src/game/targeting.ts`: shared targeting helpers
 - `src/components/`: battlefield rendering, HUD widgets, and sidebar panels

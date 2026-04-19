@@ -1,8 +1,11 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, REWARDS, WORKER } from "@/game/balance";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, REWARDS, WORKER } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
+
+const HOME_X = 500;
+const HOME_Y = 540;
 
 export function resolveEnemyDeaths(state: GameState) {
   const killed = state.enemies.filter((enemy) => enemy.hp <= 0);
@@ -11,12 +14,40 @@ export function resolveEnemyDeaths(state: GameState) {
   const purged = killed.filter((enemy) => enemy.role === "corruptor").length;
   const regular = killed.length - purged;
   const killedIds = new Set(killed.map((enemy) => enemy.id));
+  let goldReward = 0;
+  let energyReward = 0;
 
   state.stats.hostileKills += killed.length;
   state.stats.purges += purged;
-  state.resources.gold += regular * (REWARDS.goldPerKillBase + state.upgrades.turret * REWARDS.goldPerKillPerTurret) + purged * (REWARDS.goldPerPurgeBase + state.upgrades.scout * REWARDS.goldPerPurgePerScout);
-  state.resources.energy +=
-    regular * (REWARDS.energyPerKillBase + state.upgrades.shield * REWARDS.energyPerKillPerShield) + purged * (REWARDS.energyPerPurgeBase + state.upgrades.arsenal * REWARDS.energyPerPurgePerArsenal);
+
+  killed.forEach((enemy) => {
+    if (enemy.role === "corruptor") {
+      goldReward += REWARDS.goldPerPurgeBase + state.upgrades.scout * REWARDS.goldPerPurgePerScout;
+      energyReward += REWARDS.energyPerPurgeBase + state.upgrades.arsenal * REWARDS.energyPerPurgePerArsenal;
+    } else {
+      const rewardBonus = enemy.goldRewardBonus ?? 1;
+      goldReward +=
+        (REWARDS.goldPerKillBase + state.upgrades.turret * REWARDS.goldPerKillPerTurret) * rewardBonus;
+      energyReward +=
+        (REWARDS.energyPerKillBase + state.upgrades.shield * REWARDS.energyPerKillPerShield) * rewardBonus;
+    }
+
+    const coreDrop =
+      enemy.coreDropOverride ??
+      (enemy.kind === "brute" || enemy.kind === "phantom" ? ENEMY_SPECIAL.brute.coreDropAmount : 0);
+    if (coreDrop > 0) {
+      state.resources.cores += coreDrop;
+      state.log = pushLog(
+        state.log,
+        enemy.kind === "brute"
+          ? "Brute destroyed. Core fragment recovered."
+          : "Phantom dispersed. Core fragment stabilized."
+      );
+    }
+  });
+
+  state.resources.gold += goldReward;
+  state.resources.energy += energyReward;
 
   state.nodes.forEach((node) => {
     if (node.corruptedBy != null && killedIds.has(node.corruptedBy)) {
@@ -41,9 +72,40 @@ export function resolveEnemyDeaths(state: GameState) {
 export function stepCombat(state: GameState) {
   if (state.timers.tick % COMBAT_TICK !== 0) return;
 
+  for (const enemy of state.enemies) {
+    if (enemy.kind !== "sapper" || enemy.hp <= 0) continue;
+
+    const nearWorker = state.agents.some((agent) => dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.triggerRadius);
+    if (!nearWorker) continue;
+
+    for (const agent of state.agents) {
+      if (dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.explosionRadius) {
+        agent.hp -= ENEMY_SPECIAL.sapper.explosionDamage;
+        agent.damageTicks = WORKER.combatDamageTicks;
+      }
+    }
+
+    enemy.hp = 0;
+    state.log = pushLog(state.log, "Sapper detonated near workers.");
+  }
+
+  for (const enemy of state.enemies) {
+    if (
+      enemy.kind === "leech" &&
+      enemy.hp > 0 &&
+      dist(enemy.x, enemy.y, HOME_X, HOME_Y) < ENEMY_SPECIAL.leech.drainRadius
+    ) {
+      state.resources.gold = Math.max(0, state.resources.gold - ENEMY_SPECIAL.leech.goldDrainPerTick);
+      state.resources.energy = Math.max(0, state.resources.energy - ENEMY_SPECIAL.leech.energyDrainPerTick);
+    }
+  }
+
   state.agents.forEach((agent) => {
     const attackers = state.enemies.filter(
-      (enemy) => enemy.role !== "corruptor" && dist(enemy.x, enemy.y, agent.x, agent.y) < COMBAT.detectionRadius
+      (enemy) =>
+        enemy.hp > 0 &&
+        enemy.role !== "corruptor" &&
+        dist(enemy.x, enemy.y, agent.x, agent.y) < COMBAT.detectionRadius
     );
 
     if (!attackers.length) return;

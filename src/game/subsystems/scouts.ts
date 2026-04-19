@@ -1,4 +1,4 @@
-import { SCOUT } from "@/game/balance";
+import { ENEMY_SPECIAL, SCOUT } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import type { GameState } from "@/game/types";
 import { clamp, dist } from "@/game/utils";
@@ -118,7 +118,14 @@ export function stepScouts(state: GameState) {
           )
         );
         addProjectile(state, scout.x, scout.y, interceptTarget.x, interceptTarget.y, "rgba(220, 170, 255, 0.95)", 2.4, 8);
-        interceptTarget.hp -= damage;
+        let effectiveDamage = damage;
+        if (
+          interceptTarget.kind === "blight" &&
+          state.upgrades.arsenal < ENEMY_SPECIAL.blight.arsenalResistThreshold
+        ) {
+          effectiveDamage *= 1 - ENEMY_SPECIAL.blight.scoutDamageResistance;
+        }
+        interceptTarget.hp -= effectiveDamage;
         interceptTarget.flash = 7;
       }
 

@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { advanceGame } from "@/game/advanceGame";
 import { TICK_MS } from "@/game/constants";
-import { createInitialGameState } from "@/game/factories";
+import { cloneGameState, createInitialGameState } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { DerivedState, GameState } from "@/game/types";
 
-type Snapshot = { game: GameState; derived: DerivedState };
+type Snapshot = {
+  game: GameState;
+  derived: DerivedState;
+  mutateGame: (updater: (draft: GameState) => void) => void;
+};
 
 function snapshotFrom(game: GameState): Snapshot {
-  return { game, derived: computeDerived(game) };
+  return {
+    game,
+    derived: computeDerived(game),
+    mutateGame: () => {},
+  };
 }
 
 export function useGameLoop(speedMultiplier = 1): Snapshot {
@@ -16,6 +24,17 @@ export function useGameLoop(speedMultiplier = 1): Snapshot {
   const gameRef = useRef<GameState>(snapshot.game);
   const speedRef = useRef(speedMultiplier);
   useEffect(() => { speedRef.current = speedMultiplier; }, [speedMultiplier]);
+
+  const mutateGame = (updater: (draft: GameState) => void) => {
+    const next = cloneGameState(gameRef.current);
+    updater(next);
+    gameRef.current = next;
+    setSnapshot({
+      game: next,
+      derived: computeDerived(next),
+      mutateGame,
+    });
+  };
 
   useEffect(() => {
     let rafId = 0;
@@ -37,7 +56,11 @@ export function useGameLoop(speedMultiplier = 1): Snapshot {
 
       if (ticked) {
         gameRef.current = current;
-        setSnapshot(snapshotFrom(current));
+        setSnapshot({
+          game: current,
+          derived: computeDerived(current),
+          mutateGame,
+        });
       }
 
       rafId = requestAnimationFrame(frame);
@@ -47,5 +70,5 @@ export function useGameLoop(speedMultiplier = 1): Snapshot {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  return snapshot;
+  return { ...snapshot, mutateGame };
 }
