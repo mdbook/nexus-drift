@@ -180,6 +180,27 @@ function stepWorkers(state: GameState) {
     agent.hp = clamp(agent.hp + 0.014 + state.upgrades.shield * 0.006, 0, agent.maxHp);
     agent.damageTicks = Math.max(0, agent.damageTicks - 1);
   });
+
+  // separate overlapping workers
+  for (let i = 0; i < state.agents.length; i++) {
+    for (let j = i + 1; j < state.agents.length; j++) {
+      const a = state.agents[i];
+      const b = state.agents[j];
+      const minDist = 28;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d < minDist && d > 0) {
+        const push = (minDist - d) / 2;
+        const nx = (dx / d) * push;
+        const ny = (dy / d) * push;
+        a.x -= nx;
+        a.y -= ny;
+        b.x += nx;
+        b.y += ny;
+      }
+    }
+  }
 }
 
 function stepEnemies(state: GameState) {
@@ -242,6 +263,10 @@ function stepEnemies(state: GameState) {
     const d = Math.max(1, Math.hypot(dx, dy));
 
     if (d > 18) {
+      if (enemy.kind === "wisp") {
+        enemy.trail.push([enemy.x, enemy.y]);
+        if (enemy.trail.length > 5) enemy.trail.shift();
+      }
       enemy.x += (dx / d) * enemy.speed * 0.561;
       enemy.y += (dy / d) * enemy.speed * 0.561;
       const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * 0.18;
@@ -249,6 +274,29 @@ function stepEnemies(state: GameState) {
       enemy.y += (dx / d) * strafe;
     }
   });
+
+  // separate overlapping enemies — two passes for stronger resolution
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < state.enemies.length; i++) {
+      for (let j = i + 1; j < state.enemies.length; j++) {
+        const a = state.enemies[i];
+        const b = state.enemies[j];
+        const minDist = 42;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        if (d < minDist && d > 0) {
+          const push = (minDist - d) / 2;
+          const nx = (dx / d) * push;
+          const ny = (dy / d) * push;
+          a.x -= nx;
+          a.y -= ny;
+          b.x += nx;
+          b.y += ny;
+        }
+      }
+    }
+  }
 }
 
 function stepCorruption(state: GameState) {

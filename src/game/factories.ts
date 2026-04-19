@@ -195,6 +195,7 @@ export function spawnEnemy(id: number, wave = 0, forcedKind: EnemyKind | null = 
       targetNodeId: null,
       flash: 0,
       corruptTicks: 0,
+      trail: [],
     };
   }
 
@@ -213,6 +214,7 @@ export function spawnEnemy(id: number, wave = 0, forcedKind: EnemyKind | null = 
     targetNodeId: null,
     flash: 0,
     corruptTicks: 0,
+    trail: [],
   };
 }
 
@@ -304,20 +306,48 @@ export function addProjectile(
   });
 }
 
+// Tier 1 = strongly preferred, Tier 2 = acceptable, anything else = avoided
+const WORKER_TIER1: Record<Agent["kind"], string[]> = {
+  miner: ["gold"],
+  runner: ["ore", "energy"],
+  drone: ["gems", "energy"],
+};
+const WORKER_TIER2: Record<Agent["kind"], string[]> = {
+  miner: ["ore"],
+  runner: ["gold"],
+  drone: [],
+};
+
 export function chooseWorkerTarget(state: GameState, agent: Agent, index: number) {
   if (!state.nodes.length) return null;
-  const preferredKinds = new Set(
-    WORKER_KIND_PREFERENCES[agent.kind] ?? resourceDefs.map((resource) => resource.key)
-  );
 
   const ranked = state.nodes
     .map((node) => {
-      let score = dist(agent.x, agent.y, node.x, node.y);
-      if (preferredKinds.has(node.kind)) score *= 0.76;
-      if (node.corruption > 12) score *= agent.kind === "miner" ? 1.04 : 0.82;
-      if (node.corrupted) score *= agent.kind === "miner" ? 1.08 : 0.78;
-      if (agent.hp < 50) score += dist(agent.homeX, agent.homeY, node.x, node.y) * 0.2;
-      score += ((index + 1) * 13 + node.id * 17 + state.timers.tick) % 29;
+      const d = dist(agent.x, agent.y, node.x, node.y);
+      const hpFactor = node.hp / node.maxHp; // 1.0 = full, 0.0 = depleted
+
+      // Distance + hp urgency: lower hp nodes score better (we want to harvest them before respawn)
+      let score = d * 0.55 + hpFactor * 70;
+
+      // Type preference — aggressive tiers
+      if (WORKER_TIER1[agent.kind].includes(node.kind)) {
+        score *= 0.45;
+      } else if (WORKER_TIER2[agent.kind].includes(node.kind)) {
+        score *= 0.78;
+      } else {
+        score *= 1.6; // strong penalty for off-type nodes
+      }
+
+      // Contested penalty: discourage piling on the same node as another worker
+      const contested = state.agents.filter((a) => a.id !== agent.id && a.target === node.id).length;
+      score += contested * 90;
+
+      // Corruption: non-miners avoid heavily corrupted nodes
+      if (node.corruption > 12) score *= agent.kind === "miner" ? 1.05 : 0.88;
+
+      // Small deterministic jitter so identical situations still spread workers
+      score += ((agent.id * 41 + node.id * 17) % 20);
+
       return { id: node.id, score };
     })
     .sort((a, b) => a.score - b.score);
