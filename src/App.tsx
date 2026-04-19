@@ -115,27 +115,38 @@ export default function App() {
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">
-          <Card className={`${PANEL_CLASS} relative overflow-hidden p-0`}>
-            <div className="absolute left-4 top-4 z-20 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs uppercase tracking-[0.24em] text-white/55 backdrop-blur-md">
-              active field // perimeter defense + purge wing
+          <Card className={`${PANEL_CLASS} flex flex-col overflow-hidden p-0`}>
+            <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2 pt-4 md:justify-start">
+              <div className="relative flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-md md:hidden">
+                <Shield className="h-4 w-4 text-white/55" />
+                <Zap className="absolute h-2 w-2 translate-y-px text-white/90" fill="currentColor" strokeWidth={0} />
+              </div>
+              <div className="hidden flex-1 items-center justify-between rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs uppercase tracking-[0.24em] text-white/55 backdrop-blur-md md:flex">
+                <span>active field // perimeter defense + purge wing</span>
+                <div className="relative ml-3 shrink-0">
+                  <Shield className="h-4 w-4 text-white/55" />
+                  <Zap className="absolute inset-0 m-auto h-2 w-2 translate-y-px text-white/90" fill="currentColor" strokeWidth={0} />
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>Combat {derived.combatThreats}</StatusBadge>
+                <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>Corruption {derived.corruptedNodes}</StatusBadge>
+              </div>
             </div>
 
-            <div className="absolute right-4 top-4 z-20 flex gap-2">
-              <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>Combat {derived.combatThreats}</StatusBadge>
-              <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>Corruption {derived.corruptedNodes}</StatusBadge>
+            <div className="min-h-0 flex-1">
+              <FieldSvg game={game} derived={derived} />
             </div>
 
-            <FieldSvg game={game} derived={derived} />
-
-            <div className="absolute bottom-4 left-4 right-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid shrink-0 grid-cols-3 gap-2 px-4 pb-4 pt-2">
               {game.agents.map((agent) => (
-                <div key={agent.id} className="rounded-3xl border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-md">
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Unit {agent.id}</div>
-                  <div className="mt-1 flex items-center justify-between text-sm font-medium text-white">
-                    <span>{agent.kind}</span>
-                    <span className="text-xs text-white/50">{Math.round(agent.hp)}%</span>
+                <div key={agent.id} className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 backdrop-blur-md">
+                  <div className="text-[9px] uppercase tracking-[0.18em] text-white/40">Unit {agent.id}</div>
+                  <div className="mt-0.5 flex items-center justify-between gap-1 text-xs font-medium text-white">
+                    <span className="truncate">{agent.kind}</span>
+                    <span className="shrink-0 text-[10px] text-white/50">{Math.round(agent.hp)}%</span>
                   </div>
-                  <div className="mt-1 text-xs text-white/50">{agent.task}</div>
+                  <div className="mt-0.5 truncate text-[10px] text-white/50">{agent.task}</div>
                 </div>
               ))}
             </div>
