@@ -289,7 +289,7 @@ export default function App() {
   const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
   const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
   const hasActiveEvents = derived.activeEvents.length > 0;
-  const fieldFooterInsetClass = hasActiveEvents ? "mb-[124px] lg:mb-[83px]" : "mb-[84px] lg:mb-[42px]";
+  const fieldFooterInsetClass = "mb-[124px] lg:mb-[83px]";
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -471,15 +471,17 @@ export default function App() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
-              {hasActiveEvents && (
-                <div className="border-b border-white/5">
-                  <div className="flex flex-wrap gap-2 px-4 py-2 lg:flex-nowrap lg:overflow-x-auto lg:[scrollbar-width:none]">
-                    {derived.activeEvents.map((event) => (
+              <div className="border-b border-white/5">
+                <div className="flex flex-wrap gap-2 px-4 py-2 lg:flex-nowrap lg:overflow-x-auto lg:[scrollbar-width:none]">
+                  {hasActiveEvents ? (
+                    derived.activeEvents.map((event) => (
                       <EventChip key={event.id} event={event} def={getEventDef(event.id)} />
-                    ))}
-                  </div>
+                    ))
+                  ) : (
+                    <span className="text-xs text-white/25">No ongoing events</span>
+                  )}
                 </div>
-              )}
+              </div>
               <FieldStatsStrip game={game} derived={derived} />
               <div className="lg:hidden">
                 <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
