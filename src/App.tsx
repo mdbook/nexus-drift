@@ -556,6 +556,7 @@ export default function App() {
                         key={event.id}
                         event={event}
                         def={getEventDef(event.id)}
+                        inspected={game.stats.eventTagsInspected.includes(event.id)}
                         onInspect={(eventId) => {
                           mutateGame((next) => {
                             inspectEventTag(next, eventId);

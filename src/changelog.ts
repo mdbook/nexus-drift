@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Removed the extra `ONE SHOT SIGNAL` label from one-shot event cards.",
           "Removed the visible duration counter from one-shot cards so they no longer read like timed modifiers.",
           "One-shot cards now linger for their HUD lifetime, then fade out smoothly instead of showing a ticking countdown.",
+          "Clicked event cards now show a visible inspected state, so achievement-relevant inspection progress reads as an intentional interaction instead of a silent trigger.",
         ],
       },
     ],
