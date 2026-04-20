@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 type Align = "center" | "start";
 
-export type TooltipAnchor = { left: number; top: number };
+export type TooltipAnchor = { left: number; top: number; bottom: number };
 
 export function useTooltip(
   tooltipId: string,
@@ -41,7 +41,7 @@ export function useTooltip(
       const cx = rect.left + rect.width / 2;
       left = Math.min(Math.max(cx - widthPx / 2, margin), window.innerWidth - widthPx - margin);
     }
-    setAnchor({ left, top: rect.top });
+    setAnchor({ left, top: rect.top, bottom: rect.bottom });
   }, [open, widthPx, align]);
 
   return {

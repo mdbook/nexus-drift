@@ -151,7 +151,7 @@ If you add a new column to the main grid or put a new scrollable strip inside th
 
 ## Breakpoint Conventions
 
-The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-screen`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
+The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-[100svh]`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
 
 Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
 
@@ -171,7 +171,7 @@ The field card is the primary HUD surface — especially on mobile where the sid
 
 Rules for indicators on the field card footer:
 
-- **Tooltip positioning — use `position: fixed` with a viewport-anchor ref**. Do NOT use `absolute bottom-full` on tooltips inside the footer. The footer rows use `overflow-x-auto` for scroll-on-narrow-screens; CSS's overflow interaction rule makes `overflow-y` effectively clipped on those rows, which silently clips any upward `absolute` tooltip (only the arrow shows). The established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button, on `open` run `useLayoutEffect` to read `getBoundingClientRect()`, store `{ cx, top }` (or `{ left, top }`) in state, and render the tooltip with `style={{ position: "fixed", left, top, transform: "translate(-50%, calc(-100% - 8px))" }}`. Reference implementations: `FieldStatsStrip` (centered), `UpgradeIndicatorRail` (centered), `EventChip` (left-aligned).
+- **Tooltip positioning — use `position: fixed` with a viewport-anchor ref**. Do NOT use `absolute bottom-full` on tooltips inside the footer. The footer rows use `overflow-x-auto` for scroll-on-narrow-screens; CSS's overflow interaction rule makes `overflow-y` effectively clipped on those rows, which silently clips any upward `absolute` tooltip (only the arrow shows). The established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button, on `open` run `useLayoutEffect` to read `getBoundingClientRect()`, store viewport coordinates in state, and render the tooltip with fixed positioning. Reference implementations: `FieldStatsStrip` (centered, above), `EventChip` (left-aligned, above), `UpgradeIndicatorRail` (above in the mobile footer, below in the desktop top chrome).
 - **Tooltip stacking**: use `z-50` on fixed tooltips (not `z-30`) so they render above any `z-20` / `z-40` surface. Modals at `z-50` are fine — when both are open the modal's backdrop captures pointer events so the tooltip is a non-issue.
 - **`pointer-events-none` on fixed tooltips** — prevents the tooltip from interfering with hover leave detection on the button underneath when the cursor drifts upward.
 - **Mobile first**: on small screens, hide text labels and keep icon + value + a tone-coloured dot. Use `hidden md:inline` for labels. Icons must be distinctive — do not share the same icon across semantically different indicators.

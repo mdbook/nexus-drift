@@ -142,6 +142,27 @@ function NewGameButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function HeaderControls({
+  speed,
+  setSpeed,
+  onNewGame,
+}: {
+  speed: number;
+  setSpeed: (value: number) => void;
+  onNewGame: () => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
+        {PUBLIC_SPEEDS.map((value) => (
+          <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
+        ))}
+      </div>
+      <NewGameButton onClick={onNewGame} />
+    </div>
+  );
+}
+
 const SectorStatusCard = memo(function SectorStatusCard({
   game,
   derived,
@@ -267,6 +288,8 @@ export default function App() {
   const uiXpPct = clamp((uiGame.xp / Math.max(1, uiDerived.targetXp)) * 100, 0, 100);
   const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
   const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
+  const hasActiveEvents = derived.activeEvents.length > 0;
+  const fieldFooterInsetClass = hasActiveEvents ? "mb-[124px] lg:mb-[104px]" : "mb-[84px] lg:mb-[52px]";
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -316,15 +339,15 @@ export default function App() {
 
   return (
     <div
-      className={`relative min-h-screen bg-[#050814] text-white lg:h-screen lg:overflow-hidden ${
+      className={`relative min-h-[100svh] bg-[#050814] text-white lg:h-[100svh] lg:overflow-hidden ${
         synthwave ? "synthwave" : ""
       }`}
     >
       <Background />
       <EventBackdrop activeEventKey={activeEventBackdropKey} />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 lg:h-screen lg:max-w-[1920px] lg:px-6">
-        {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on lg */}
+      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1600px] flex-col p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] lg:h-[100svh] lg:max-w-[1920px] lg:px-6 lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {/* header chrome — sector card is a separate flex item below on mobile, absolute top-right on lg */}
         <div className="mb-2">
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
             <span>Autonomous Colony Sim</span>
@@ -357,14 +380,11 @@ export default function App() {
             grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
             way.
           </p>
-          <div className="mt-3 hidden lg:flex lg:items-center lg:gap-3">
-            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
-              {PUBLIC_SPEEDS.map((value) => (
-                <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
-              ))}
-            </div>
-            <NewGameButton onClick={() => { localStorage.removeItem("nexusDriftSave"); window.location.reload(); }} />
-          </div>
+          <HeaderControls
+            speed={speed}
+            setSpeed={setSpeed}
+            onNewGame={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }}
+          />
         </div>
 
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
@@ -372,17 +392,13 @@ export default function App() {
 
         <div className="hidden lg:absolute lg:right-6 lg:top-[92px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
           <Card className={`${PANEL_CLASS} overflow-hidden p-0`}>
-            <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
+            <UpgradeIndicatorRail
+              game={game}
+              derived={derived}
+              upgradeIcons={upgradeIcons}
+              tooltipPlacement="below"
+            />
           </Card>
-        </div>
-
-        <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
-          <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
-            {PUBLIC_SPEEDS.map((value) => (
-              <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
-            ))}
-          </div>
-          <NewGameButton onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} />
         </div>
 
         <ResourceBar game={uiGame} derived={uiDerived} />
@@ -450,19 +466,20 @@ export default function App() {
               </button>
             )}
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-[20px] lg:mb-[52px]">
+            <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
               <FieldSvg game={game} derived={derived} />
             </div>
 
-            {derived.activeEvents.length > 0 && (
-              <div className="relative z-20 flex shrink-0 flex-wrap gap-2 px-4 py-2">
-                {derived.activeEvents.map((event) => (
-                  <EventChip key={event.id} event={event} def={getEventDef(event.id)} />
-                ))}
-              </div>
-            )}
-
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
+              {hasActiveEvents && (
+                <div className="border-b border-white/5">
+                  <div className="flex flex-wrap gap-2 px-4 py-2 lg:flex-nowrap lg:overflow-x-auto lg:[scrollbar-width:none]">
+                    {derived.activeEvents.map((event) => (
+                      <EventChip key={event.id} event={event} def={getEventDef(event.id)} />
+                    ))}
+                  </div>
+                </div>
+              )}
               <FieldStatsStrip game={game} derived={derived} />
               <div className="lg:hidden">
                 <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />

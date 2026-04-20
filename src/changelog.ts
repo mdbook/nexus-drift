@@ -16,6 +16,36 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.11",
+    badge: "Visible Chrome",
+    summary:
+      "Top-chrome controls now stay accessible on smaller screens, iPad desktop layouts reserve enough space for live events without clipping the field, and the favicon stack now covers more browsers with PNG, ICO, touch-icon, and manifest fallbacks.",
+    sections: [
+      {
+        title: "Responsive Controls",
+        items: [
+          "Public speed controls and the New Game action now stay in the header chrome on every breakpoint instead of dropping below the field on smaller screens.",
+          "The desktop top-right upgrade rail now opens its tooltips downward, matching its new position near the top of the viewport.",
+        ],
+      },
+      {
+        title: "Footer HUD Fit",
+        items: [
+          "The app shell now uses safe viewport sizing (`100svh`) plus safe-area bottom padding instead of relying on `100vh`, reducing the last bit of bottom-edge clipping on iPad Safari.",
+          "Active events are now anchored inside the footer HUD stack itself instead of living in card flow, so the event strip remains visible across all breakpoints.",
+          "The field now reserves extra bottom inset above the overlay footer on every breakpoint, keeping the event HUD visible without chopping it off at the bottom edge.",
+        ],
+      },
+      {
+        title: "Favicon Compatibility",
+        items: [
+          "Added multi-format favicon links in `index.html`: SVG, ICO, 32px PNG, 16px PNG, `shortcut icon`, Apple touch icon, and a web manifest.",
+          "Shipped generated `favicon.ico`, `favicon-32x32.png`, `favicon-16x16.png`, `apple-touch-icon.png`, and `site.webmanifest` assets so older browsers have a non-SVG fallback path.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.10",
     badge: "Clear Margin",
     summary:

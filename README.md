@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.2.10` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `2.2.11` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -26,20 +26,22 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### HUD & UI
 - Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it floats in the top-right chrome band so the footer can prioritize events and live field stats without shrinking the field
+- Active events now live inside the footer HUD stack itself, so the event strip stays visible instead of getting chopped off at the bottom edge
 - Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip; coarse-pointer desktop layouts such as iPadOS landscape fall back to a cheaper static variant so the visual identity stays intact without the Safari lag hit
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
 
 ### Controls & Persistence
-- Speed presets: `1x`, `2x`, `4x` public; hidden admin speed panel behind `Space` × 5
+- Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
 - In-game release history: click the version badge next to `Autonomous Colony Sim`
 - GitLab source link sits in the top project chrome beside the version badge
+- Favicon stack now includes SVG, PNG, ICO, Apple touch icon, and web manifest fallbacks for broader browser coverage
 
 ### Layout
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
-- Desktop iPad layouts keep the field footer as an overlay for performance, but the field now reserves an inset above it so the bottom HUD stays readable without covering the home district
+- Desktop iPad layouts use safe viewport sizing plus safe-area bottom padding, and the field reserves an inset above the overlay footer on every breakpoint so the bottom HUD stays readable without covering the home district
 - On coarse-pointer `lg` desktops, the heaviest ambient background / event animation paths and SVG text blur are intentionally reduced so scrolling stays smooth on iPadOS Safari without flattening the overall look
 - On `lg` two-column screens, the upgrade rail is absolutely overlaid in the top-right chrome band above the resource bar instead of taking up vertical layout space
 
@@ -69,7 +71,7 @@ npm run format:check
 |------|------|
 | `src/App.tsx` | Top-level shell: save bootstrap, speed presets, achievement UI, admin panel, event test triggers, release-history modal |
 | `src/changelog.ts` | In-game release notes sourced from repo milestones |
-| `index.html` | App metadata, favicon links, Open Graph / Twitter embed tags |
+| `index.html` | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags |
 | `src/hooks/useLowFxMode.ts` | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic |
 | `src/hooks/useGameLoop.ts` | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot |
 | `src/game/advanceGame.ts` | Thin orchestrator that runs the simulation step order |

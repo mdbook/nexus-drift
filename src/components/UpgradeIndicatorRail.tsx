@@ -10,6 +10,7 @@ type Props = {
   game: GameState;
   derived: DerivedState;
   upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>>;
+  tooltipPlacement?: "above" | "below";
 };
 
 type UpgradeCategory = "yield" | "defense" | "support" | "elite";
@@ -79,9 +80,10 @@ type DotProps = {
   canAfford: boolean;
   costLine: string;
   Icon: ComponentType<{ className?: string }>;
+  tooltipPlacement: "above" | "below";
 };
 
-function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProps) {
+function UpgradeDot({ def, level, category, canAfford, costLine, Icon, tooltipPlacement }: DotProps) {
   const style = CATEGORY_STYLE[category];
   const owned = level > 0;
   const intensity = Math.min(1, level / 5);
@@ -132,7 +134,14 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
         )}
       </button>
 
-      <TooltipPanel id={tooltipId} open={open} anchor={anchor} width={240} borderClass={style.tooltipBorder}>
+      <TooltipPanel
+        id={tooltipId}
+        open={open}
+        anchor={anchor}
+        width={240}
+        borderClass={style.tooltipBorder}
+        placement={tooltipPlacement}
+      >
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">
@@ -166,7 +175,12 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
  * Intended as a glanceable alternative to sidebar-only upgrade visibility —
  * especially important on mobile where the sidebar sits below the field.
  */
-export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({ game, derived, upgradeIcons }: Props) {
+export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({
+  game,
+  derived,
+  upgradeIcons,
+  tooltipPlacement = "above",
+}: Props) {
   const visible = upgradeDefs.filter((def) => {
     // Match Sidebar visibility rules exactly so the rail stays in sync.
     if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
@@ -205,6 +219,7 @@ export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({ game, d
                 canAfford={affordable}
                 costLine={costLine}
                 Icon={Icon}
+                tooltipPlacement={tooltipPlacement}
               />
             );
           })}
