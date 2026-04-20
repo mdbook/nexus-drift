@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.12",
+    badge: "True Viewport",
+    summary:
+      "Switches the app shell from `100svh` to `100dvh` so the field card's overlay footer stays inside the visible viewport on iPadOS Safari when the URL bar is present — active events (Signal Drought, Xeno Bloom, etc.) now appear on iPad.",
+    sections: [
+      {
+        title: "iPad Event HUD Fix",
+        items: [
+          "The app shell now uses `100dvh` (dynamic viewport height) instead of `100svh`. WebKit misreports `svh` when the iOS/iPadOS URL bar is visible, returning the full physical height and pushing the field card's absolute footer — which contains the active-events strip, FieldStatsStrip, and UpgradeIndicatorRail — below the visible viewport where it was clipped by `overflow-hidden`.",
+          "`dvh` adjusts as browser chrome shows and hides, and is supported on Safari 15.4+ (all currently shipping iPadOS versions).",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.11",
     badge: "Visible Chrome",
     summary:
