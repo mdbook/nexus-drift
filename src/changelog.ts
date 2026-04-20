@@ -18,8 +18,17 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.9",
     badge: "Clear Margin",
-    summary: "Desktop iPad layout now gives the field footer its own space instead of layering it over the battlefield, and the upgrade rail moves into the unused top-right chrome so events and field HUD stay visible.",
+    summary:
+      "Desktop iPad layout now keeps the footer and top-chrome HUD visible without covering the field, and a new coarse-pointer low-FX path removes the Safari lag regression that the earlier layout pass exposed.",
     sections: [
+      {
+        title: "iPad Safari Performance",
+        items: [
+          "New `useLowFxMode` detects coarse-pointer `lg` desktop layouts such as iPadOS landscape Safari and lets the presentation layer swap to cheaper FX without touching gameplay.",
+          "The base background and event backdrops now use static gradient / glow variants in that mode instead of the most expensive moving starfield, particle-loop, and long-lived blur animation paths.",
+          "Field labels keep their readable foreground text but drop the extra SVG blur shadow in low-FX mode, removing an expensive filter pass from the battlefield render.",
+        ],
+      },
       {
         title: "iPad Desktop Layout Fit",
         items: [
@@ -40,6 +49,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Project Chrome",
         items: [
           "The top metadata row now includes a direct GitLab source link beside the version badge.",
+        ],
+      },
+      {
+        title: "Contributor Tooling",
+        items: [
+          "ESLint now ignores `.claude/worktrees/`, matching the documented local-tooling ignore rule so auxiliary agent worktrees do not break `npm run lint`.",
         ],
       },
     ],

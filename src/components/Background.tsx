@@ -1,10 +1,46 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { memo, useMemo } from "react";
 import { makeStars } from "@/game/utils";
+import { useLowFxMode } from "@/hooks/useLowFxMode";
 
 export const Background = memo(function Background() {
-  const stars = useMemo(() => makeStars(90), []);
+  const lowFxMode = useLowFxMode();
+  const stars = useMemo(() => makeStars(lowFxMode ? 32 : 90), [lowFxMode]);
   const prefersReducedMotion = useReducedMotion();
+  const motionEnabled = !prefersReducedMotion && !lowFxMode;
+
+  if (lowFxMode) {
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(70,110,255,0.16),transparent_35%),linear-gradient(180deg,rgba(5,8,20,1)_0%,rgba(7,10,28,1)_42%,rgba(6,10,22,1)_100%)]">
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
+          }}
+        />
+        <div className="absolute inset-0 opacity-55">
+          {stars.map((star) => (
+            <div
+              key={star.id}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.x}%`,
+                top: `${star.y}%`,
+                width: star.size,
+                height: star.size,
+                opacity: star.opacity,
+              }}
+            />
+          ))}
+        </div>
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-cyan-200/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-blue-200/10 blur-3xl" />
+        <div className="absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-fuchsia-300/10 blur-3xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(70,110,255,0.16),transparent_35%),linear-gradient(180deg,rgba(5,8,20,1)_0%,rgba(7,10,28,1)_42%,rgba(6,10,22,1)_100%)]">
@@ -29,41 +65,26 @@ export const Background = memo(function Background() {
               height: star.size,
               opacity: star.opacity,
             }}
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    opacity: [star.opacity * 0.35, star.opacity, star.opacity * 0.55],
-                    scale: [1, 1.2, 1],
-                  }
-            }
-            transition={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    duration: 3 + (star.id % 5),
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }
-            }
+            animate={motionEnabled ? { opacity: [star.opacity * 0.35, star.opacity, star.opacity * 0.55], scale: [1, 1.2, 1] } : undefined}
+            transition={motionEnabled ? { duration: 3 + (star.id % 5), repeat: Infinity, ease: "easeInOut" } : undefined}
           />
         ))}
       </div>
 
       <motion.div
         className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-cyan-200/10 blur-3xl"
-        animate={prefersReducedMotion ? undefined : { x: [0, 120, 0], y: [0, 40, 0] }}
-        transition={prefersReducedMotion ? undefined : { duration: 28, repeat: Infinity, ease: "easeInOut" }}
+        animate={motionEnabled ? { x: [0, 120, 0], y: [0, 40, 0] } : undefined}
+        transition={motionEnabled ? { duration: 28, repeat: Infinity, ease: "easeInOut" } : undefined}
       />
       <motion.div
         className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-blue-200/10 blur-3xl"
-        animate={prefersReducedMotion ? undefined : { x: [0, -100, 0], y: [0, -60, 0] }}
-        transition={prefersReducedMotion ? undefined : { duration: 31, repeat: Infinity, ease: "easeInOut" }}
+        animate={motionEnabled ? { x: [0, -100, 0], y: [0, -60, 0] } : undefined}
+        transition={motionEnabled ? { duration: 31, repeat: Infinity, ease: "easeInOut" } : undefined}
       />
       <motion.div
         className="absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-fuchsia-300/10 blur-3xl"
-        animate={prefersReducedMotion ? undefined : { x: [0, 40, 0], y: [0, -30, 0] }}
-        transition={prefersReducedMotion ? undefined : { duration: 24, repeat: Infinity, ease: "easeInOut" }}
+        animate={motionEnabled ? { x: [0, 40, 0], y: [0, -30, 0] } : undefined}
+        transition={motionEnabled ? { duration: 24, repeat: Infinity, ease: "easeInOut" } : undefined}
       />
     </div>
   );

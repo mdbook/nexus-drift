@@ -26,7 +26,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### HUD & UI
 - Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it moves into the top-right chrome so the footer can prioritize events and live field stats
-- Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip
+- Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip; coarse-pointer desktop layouts such as iPadOS landscape fall back to a cheaper static variant so the visual identity stays intact without the Safari lag hit
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
 
@@ -40,6 +40,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ### Layout
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
 - Desktop iPad layouts keep the field footer as an overlay for performance, but the field now reserves an inset above it so the bottom HUD stays readable without covering the home district
+- On coarse-pointer `lg` desktops, the heaviest ambient background / event animation paths and SVG text blur are intentionally reduced so scrolling stays smooth on iPadOS Safari without flattening the overall look
 - On `lg` two-column screens, the upgrade rail lives in a dedicated top-right card above the resource bar instead of sharing the field footer with active events
 
 ---
@@ -69,6 +70,7 @@ npm run format:check
 | `src/App.tsx` | Top-level shell: save bootstrap, speed presets, achievement UI, admin panel, event test triggers, release-history modal |
 | `src/changelog.ts` | In-game release notes sourced from repo milestones |
 | `index.html` | App metadata, favicon links, Open Graph / Twitter embed tags |
+| `src/hooks/useLowFxMode.ts` | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic |
 | `src/hooks/useGameLoop.ts` | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot |
 | `src/game/advanceGame.ts` | Thin orchestrator that runs the simulation step order |
 | `src/game/achievements.ts` | Achievement definitions and unlock helper |
@@ -78,15 +80,15 @@ npm run format:check
 | `src/game/rng.ts` | Seeded Mulberry32 PRNG used by all simulation paths |
 | `src/game/targeting.ts` | Shared targeting helpers |
 | `src/game/subsystems/` | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events |
-| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout |
-| `src/components/EventBackdrop.tsx` | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion`) |
+| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode |
+| `src/components/EventBackdrop.tsx` | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode) |
 | `src/components/EventChip.tsx` | Active-event HUD chip with hover/focus tooltip |
 | `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus |
 | `src/components/FieldStatsStrip.tsx` | Compact pill row of live field stats with tone colours and detail tooltips |
 | `src/components/ActivityLog.tsx` | Structured log panel with category icons, relative timestamps, and filter tabs |
 | `src/components/AchievementsModal.tsx` | Achievements modal with category tabs, rarity colouring, hidden masking, and progress bar |
 | `src/components/Sidebar.tsx` | Economy, automation, and threat panels |
-| `src/components/Background.tsx` | Animated starfield and atmosphere layers |
+| `src/components/Background.tsx` | Animated starfield and atmosphere layers; swaps to a static cheaper variant on coarse-pointer desktop layouts |
 | `src/components/HudPrimitives.tsx` | Shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile) |
 | `src/components/Tooltip.tsx` | Shared `TooltipPanel` primitive; `useTooltip` hook in `src/hooks/useTooltip.ts` |
 | `src/components/ui/` | Local card and progress bar primitives |
@@ -127,5 +129,6 @@ GitLab CI runs:
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
 - If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
 - Follow-up UI/docs tweaks belong to the current in-flight release unless the user says otherwise.
+- Local `.claude/worktrees/` copies are tooling noise; repo docs, git status summaries, and linting should treat them as ignored.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
-- Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover do not compete with the 30 Hz simulation loop.
+- Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover do not compete with the 30 Hz simulation loop. On coarse-pointer desktop layouts, preserve the visual direction but route expensive ambient motion and SVG filters through `useLowFxMode`.

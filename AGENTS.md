@@ -7,7 +7,7 @@
 - Keep `README.md`, `handoff.md`, `package.json`, and `src/changelog.ts` aligned. If architecture, commands, or player-facing behavior changes, update the docs in the same pass.
 - `src/changelog.ts` is the source for the in-game release history. It must match `package.json` version.
 - Every non-trivial change should have a matching `src/changelog.ts` entry. If work is folded into an existing release version, update that version's entry instead of leaving the changelog behind.
-- Ignore `.claude/worktrees/` in both git status and agent summaries. It is local tooling noise, not project source.
+- Ignore `.claude/worktrees/` in both git status and agent summaries. It is local tooling noise, not project source, and repo tooling like ESLint should keep ignoring it too.
 - If the user does not specify a new release boundary, assume follow-up work belongs to the current in-flight release and keep expanding that version's changelog entry.
 
 ## Always Update Docs (Every Change)
@@ -154,6 +154,16 @@ If you add a new column to the main grid or put a new scrollable strip inside th
 The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-screen`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
 
 Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
+
+## Coarse-Pointer Desktop FX Budget
+
+`src/hooks/useLowFxMode.ts` is the presentation-only guardrail for `lg` coarse-pointer desktop layouts, especially iPadOS landscape Safari. `Background.tsx`, `EventBackdrop.tsx`, and `FieldSvg.tsx` already use it to preserve the same overall look while dropping the most compositor-heavy continuous effects.
+
+Rules for this path:
+
+- Treat `useLowFxMode` as a **render-budget fallback only**. Never branch gameplay, save data, or simulation logic on it.
+- Any new full-screen ambient animation, large blur wash, particle loop, or SVG filter added to the background / event backdrop / field-label surfaces must either simplify or disable under `useLowFxMode`.
+- Do not flatten the surface into "no effect". Keep a static gradient / glow version so the visual identity remains intact even when motion is reduced for performance.
 
 ## HUD And Indicator Conventions
 

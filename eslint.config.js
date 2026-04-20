@@ -10,6 +10,7 @@ export default tseslint.config(
     ignores: [
       "dist/",
       "node_modules/",
+      ".claude/worktrees/**",
       "reference/",
       "*.config.js",
       "*.config.cjs",

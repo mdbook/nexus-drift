@@ -4,6 +4,7 @@ import { SENTINEL } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
+import { useLowFxMode } from "@/hooks/useLowFxMode";
 import { clamp } from "@/game/utils";
 
 const SPAWN_FADE_TICKS = 20;
@@ -471,6 +472,7 @@ function renderHomeDistrict(game: GameState, district: DistrictRenderData | null
 }
 
 export function FieldSvg({ game, derived }: FieldSvgProps) {
+  const lowFxMode = useLowFxMode();
   const activeTurretXs = useMemo(
     () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
     [game.turrets, derived.activeTurrets]
@@ -539,9 +541,11 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
         </linearGradient>
-        <filter id="textBlur" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
-        </filter>
+        {!lowFxMode && (
+          <filter id="textBlur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+          </filter>
+        )}
       </defs>
 
       <rect width={WORLD_W} height={WORLD_H} fill={skyColor} />
@@ -693,9 +697,11 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
                 <rect x={node.x - 22} y={node.y + node.size + 18} rx="4" ry="4" width={(44 * corruptionPct) / 100} height="4" fill="rgba(195,120,255,0.92)" />
               </>
             )}
-            <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,1)" fontWeight="bold" style={{ letterSpacing: 1.5 }} filter="url(#textBlur)">
-              {node.kind.toUpperCase()}
-            </text>
+            {!lowFxMode && (
+              <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,1)" fontWeight="bold" style={{ letterSpacing: 1.5 }} filter="url(#textBlur)">
+                {node.kind.toUpperCase()}
+              </text>
+            )}
             <text x={node.x} y={node.y + 4} textAnchor="middle" fontSize="10" fill={style.label} fontWeight="bold" style={{ letterSpacing: 1.5 }}>
               {node.kind.toUpperCase()}
             </text>
