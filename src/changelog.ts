@@ -16,6 +16,32 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.4a",
+    badge: "Field First",
+    summary: "Layout overhaul for every screen size — the game field is now the focal point on mobile and desktop alike.",
+    sections: [
+      {
+        title: "Layout",
+        items: [
+          "Game field is now the first thing below the title on mobile and vertical screens.",
+          "Sector Level card moves below the fold on mobile so the field gets immediate focus.",
+          "Resource pills, speed presets, and sidebar content follow the field on small screens.",
+          "SVG field now fills its flex container properly — no more clipping on constrained viewports.",
+          "Achievement badges moved inside the field card so they don't consume outer layout height.",
+        ],
+      },
+      {
+        title: "Desktop",
+        items: [
+          "Sector Level card collapses to a compact single-row bar at xl breakpoint.",
+          "Description paragraph hidden on xl to recover vertical space for the field.",
+          "Speed presets and New Game button integrated into the title row on xl.",
+          "Max content width expanded to 1920px with wider gutters on large monitors.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.4",
     badge: "Long Watch",
     summary: "Save persistence, day/night cycle, achievements, easter eggs, and idle-friendly UX polish.",

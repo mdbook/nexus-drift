@@ -163,33 +163,80 @@ export default function App() {
     >
       <Background />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 xl:h-screen">
-        <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
-              <span>Autonomous Colony Sim</span>
-              <button
-                type="button"
-                onClick={() => setChangelogOpen(true)}
-                className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
-                aria-expanded={changelogOpen}
-                aria-haspopup="dialog"
-                aria-label={`Open changelog for version ${CURRENT_VERSION}`}
-              >
-                v{CURRENT_VERSION}
-              </button>
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
-              NEXUS DRIFT // purge wing online
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base">
-              Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
-              grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
-              way.
-            </p>
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 xl:h-screen xl:max-w-[1920px] xl:px-6">
+        {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on xl */}
+        <div className="mb-2">
+          <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
+            <span>Autonomous Colony Sim</span>
+            <button
+              type="button"
+              onClick={() => setChangelogOpen(true)}
+              className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
+              aria-expanded={changelogOpen}
+              aria-haspopup="dialog"
+              aria-label={`Open changelog for version ${CURRENT_VERSION}`}
+            >
+              v{CURRENT_VERSION}
+            </button>
           </div>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl xl:max-w-[calc(100%-420px)]">
+            NEXUS DRIFT // purge wing online
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base xl:hidden">
+            Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
+            grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
+            way.
+          </p>
+          <div className="mt-3 hidden xl:flex xl:items-center xl:gap-3">
+            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
+              {PUBLIC_SPEEDS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSpeed(value)}
+                  className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+                    speed === value
+                      ? "border-cyan-200/30 bg-white/12 text-white"
+                      : "border-transparent text-white/45 hover:text-white"
+                  }`}
+                >
+                  {value}x
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="text-xs text-white/40 transition-colors hover:text-white/75"
+              onClick={() => {
+                localStorage.removeItem("nexusDriftSave");
+                window.location.reload();
+              }}
+            >
+              New Game
+            </button>
+          </div>
+        </div>
 
-          <Card className={`${PANEL_CLASS} min-w-[220px] p-3`}>
+        {/* sector card — order-5 on mobile (below game+hud), absolute top-right on xl */}
+        <Card className={`order-5 ${PANEL_CLASS} p-3 xl:absolute xl:top-4 xl:right-6 xl:order-none xl:min-w-[380px]`}>
+          {/* compact xl layout */}
+          <div className="hidden xl:flex xl:items-center xl:justify-between xl:gap-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
+              <span className="text-xs uppercase tracking-[0.2em] text-white/40">combo · lv {game.level}</span>
+            </div>
+            <Progress value={xpPct} className="h-1.5 w-24 bg-white/10" />
+            <div className="flex gap-2">
+              <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
+                {derived.hostilePressure ? "Perimeter Hot" : "Stable"}
+              </StatusBadge>
+              <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
+                {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
+              </StatusBadge>
+            </div>
+          </div>
+          {/* full layout for smaller screens */}
+          <div className="xl:hidden">
             <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
               <span>Sector Level</span>
               <span>{game.level}</span>
@@ -209,10 +256,10 @@ export default function App() {
                 {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
               </StatusBadge>
             </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
 
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 xl:hidden">
           <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
             {PUBLIC_SPEEDS.map((value) => (
               <button
@@ -241,7 +288,7 @@ export default function App() {
           </button>
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 xl:order-3 xl:grid-cols-6">
           {resourceDefs.map((resource) => {
             const Icon = resourceIcons[resource.key];
             return (
@@ -278,27 +325,7 @@ export default function App() {
           )}
         </div>
 
-        {Object.keys(game.achievements).length > 0 && (
-          <div
-            className="mb-3 flex cursor-pointer gap-1.5 overflow-x-auto px-1 py-1"
-            onClick={() => setAchievementsOpen(true)}
-            title="View achievements"
-          >
-            {Object.keys(game.achievements).map((id) => {
-              const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
-              return (
-                <span
-                  key={id}
-                  className="whitespace-nowrap rounded-full border border-indigo-700/30 bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-200"
-                >
-                  {def?.label ?? id}
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">
+        <div className="order-2 grid min-h-0 flex-1 grid-cols-1 gap-3 xl:order-4 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">
           <Card className={`${PANEL_CLASS} flex flex-col overflow-hidden p-0`}>
             <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2 pt-4 md:justify-start">
               <div className="relative flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-md md:hidden">
@@ -329,6 +356,26 @@ export default function App() {
                 </StatusBadge>
               </div>
             </div>
+
+            {Object.keys(game.achievements).length > 0 && (
+              <div
+                className="flex shrink-0 cursor-pointer gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5"
+                onClick={() => setAchievementsOpen(true)}
+                title="View achievements"
+              >
+                {Object.keys(game.achievements).map((id) => {
+                  const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
+                  return (
+                    <span
+                      key={id}
+                      className="whitespace-nowrap rounded-full border border-indigo-700/30 bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-200"
+                    >
+                      {def?.label ?? id}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="min-h-0 flex-1">
               <FieldSvg game={game} derived={derived} />
