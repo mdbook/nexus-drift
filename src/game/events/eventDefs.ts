@@ -231,6 +231,123 @@ export const EVENT_DEFS: EventDef[] = [
     },
     revert: () => {},
   },
+  {
+    id: "core_breach",
+    label: "Core Breach",
+    description: "Reactor containment destabilised — energy output halved, corruption spreads faster for 60s.",
+    flavor: "Reactor containment shivers. The grid drinks deep but the rot follows.",
+    tone: "threat",
+    effects: [
+      { text: "Energy rate ×0.5", tone: "threat" },
+      { text: "Corruption spread ×1.4", tone: "threat" },
+      { text: "Duration: 60 seconds", tone: "neutral" },
+    ],
+    durationTicks: 60 * TICKS_PER_SEC,
+    weight: 0.55,
+    minTier: 2,
+    apply: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, energyRate: 0.5, corruptionRate: 1.4 };
+    },
+    revert: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, energyRate: 1, corruptionRate: 1 };
+    },
+  },
+  {
+    id: "hunter_pack",
+    label: "Hunter Pack",
+    description: "Coordinated raiders inbound — enemies faster, turret locks slowed for 40s.",
+    flavor: "Something coordinated is pressing in. The signals are too clean to be random.",
+    tone: "threat",
+    effects: [
+      { text: "Enemy speed ×1.3", tone: "threat" },
+      { text: "Turret cooldowns ×1.15", tone: "threat" },
+      { text: "2 rushers spawn immediately", tone: "threat" },
+      { text: "Duration: 40 seconds", tone: "neutral" },
+    ],
+    durationTicks: 40 * TICKS_PER_SEC,
+    weight: 0.45,
+    minTier: 3,
+    apply: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, enemySpeedScale: 1.3, turretCooldownScale: 1.15 };
+      for (let i = 0; i < 2; i++) {
+        state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, 0, "rusher", state.timers.tick));
+      }
+      state.log = pushLog(state.log, "Hunter Pack: coordinated strike inbound.", "event", state.timers.tick);
+    },
+    revert: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, enemySpeedScale: 1, turretCooldownScale: 1 };
+    },
+  },
+  {
+    id: "signal_drought",
+    label: "Signal Drought",
+    description: "Carrier band silent — yields and flux purge output suppressed for 50s.",
+    flavor: "The carrier band has gone quiet. Nodes still run but something is jamming the signal.",
+    tone: "threat",
+    effects: [
+      { text: "All node yields ×0.6", tone: "threat" },
+      { text: "Flux from purges ×0.5", tone: "threat" },
+      { text: "Duration: 50 seconds", tone: "neutral" },
+    ],
+    durationTicks: 50 * TICKS_PER_SEC,
+    weight: 0.4,
+    minTier: 2,
+    apply: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 0.6, fluxPurgeMultiplier: 0.5 };
+    },
+    revert: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1, fluxPurgeMultiplier: 1 };
+    },
+  },
+  {
+    id: "starcall",
+    label: "Starcall",
+    description: "A vein of ancient light opens. Yields doubled, a rare node surfaces for 30s.",
+    flavor: "A vein of ancient light opens overhead. Take what you can before it closes.",
+    tone: "boon",
+    effects: [
+      { text: "All node yields ×2", tone: "boon" },
+      { text: "Energy rate ×1.5", tone: "boon" },
+      { text: "Bonus gems node spawned", tone: "boon" },
+      { text: "Duration: 30 seconds", tone: "neutral" },
+    ],
+    durationTicks: 30 * TICKS_PER_SEC,
+    weight: 0.12,
+    minTier: 6,
+    apply: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 2, energyRate: 1.5 };
+      spawnTemporaryCacheNode(state);
+      state.log = pushLog(state.log, "Starcall: ancient signal detected — yields surging.", "event", state.timers.tick);
+    },
+    revert: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1, energyRate: 1 };
+    },
+  },
+  {
+    id: "null_surge",
+    label: "Null Surge",
+    description: "Every scope fills with ghost returns — turret range halved, enemies faster for 45s.",
+    flavor: "Every scope fills with ghost returns. One turret goes dark.",
+    tone: "threat",
+    effects: [
+      { text: "Turret range ×0.5", tone: "threat" },
+      { text: "Enemy speed ×1.2", tone: "threat" },
+      { text: "One random turret disabled on apply", tone: "threat" },
+      { text: "Duration: 45 seconds", tone: "neutral" },
+    ],
+    durationTicks: 45 * TICKS_PER_SEC,
+    weight: 0.1,
+    minTier: 7,
+    apply: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, turretRangeScale: 0.5, enemySpeedScale: 1.2 };
+      const activeTurret = state.turrets.find((t) => t.disabledTicks === 0);
+      if (activeTurret) activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
+      state.log = pushLog(state.log, "Null Surge: targeting blackout — one turret disabled.", "event", state.timers.tick);
+    },
+    revert: (state) => {
+      state.eventModifiers = { ...state.eventModifiers, turretRangeScale: 1, enemySpeedScale: 1 };
+    },
+  },
 ];
 
 export function getEventDef(id: string): EventDef | undefined {

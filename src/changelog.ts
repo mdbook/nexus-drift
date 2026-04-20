@@ -16,6 +16,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    badge: "Pressure Front",
+    summary: "Five new events fill the event roster with threat-tone pressure: three sustained modifiers and two rare late-game shocks.",
+    sections: [
+      {
+        title: "New Events",
+        items: [
+          "Core Breach (threat, tier 2): energy halved and corruption spread up 40% for 60s. Night-bias ×1.4.",
+          "Hunter Pack (threat, tier 3): enemy speed +30%, turret cooldowns +15%, 2 rushers spawn on apply — 40s.",
+          "Signal Drought (threat, tier 2): yields ×0.6, flux purge ×0.5 for 50s.",
+          "Starcall (rare boon, tier 6, weight 0.12): yields ×2, energy ×1.5, bonus gems node spawns — 30s.",
+          "Null Surge (rare threat, tier 7, weight 0.1): turret range halved, enemies +20% speed, one turret disabled on apply — 45s. Night-bias ×2.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.1",
     badge: "Disruptor",
     summary: "A new late-game threat: the Zapper. This ranged enemy holds its distance and fires slow energy bolts that disable workers and turrets for several seconds on impact.",

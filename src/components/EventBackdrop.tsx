@@ -51,6 +51,7 @@ export function EventBackdrop({ activeEvents }: Props) {
   const xenoSpores = useMemo(() => makeParticles(30, 42), []);
   const dustMotes = useMemo(() => makeParticles(40, 91), []);
   const pirateStreaks = useMemo(() => makeParticles(5, 133), []);
+  const nullGlitches = useMemo(() => makeParticles(18, 211), []);
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -280,6 +281,134 @@ export function EventBackdrop({ activeEvents }: Props) {
                   delay: p.delay,
                   repeat: Infinity,
                   ease: "linear",
+                }}
+              />
+            ))}
+        </div>
+      )}
+
+      {/* Core Breach — deep red reactor glow, flickering */}
+      {activeIds.has("core_breach") && (
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-t from-red-900/[0.18] via-red-800/[0.08] to-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+          />
+          <motion.div
+            className="absolute -bottom-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-red-700/20 blur-3xl"
+            animate={prefersReducedMotion ? undefined : { scale: [1, 1.18, 0.92, 1], opacity: [0.5, 0.8, 0.45, 0.5] }}
+            transition={prefersReducedMotion ? undefined : { duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          />
+          {!prefersReducedMotion && (
+            <motion.div
+              className="absolute inset-0 bg-red-500/[0.04]"
+              animate={{ opacity: [0, 0.4, 0] }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Hunter Pack — moving red threat-line sweeping in from edges */}
+      {activeIds.has("hunter_pack") && (
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0"
+            style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(239,68,68,0.14) 100%)" }}
+            animate={prefersReducedMotion ? undefined : { opacity: [0.6, 1, 0.6] }}
+            transition={prefersReducedMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          {!prefersReducedMotion && (
+            <>
+              <motion.div
+                className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent"
+                animate={{ y: [0, 800], opacity: [0, 0.8, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.div
+                className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent"
+                animate={{ y: [0, 800], opacity: [0, 0.6, 0] }}
+                transition={{ duration: 2.5, delay: 1.2, repeat: Infinity, ease: "linear" }}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Signal Drought — cold grey desaturating wash, flickering signal bars */}
+      {activeIds.has("signal_drought") && (
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-b from-slate-700/[0.12] via-slate-600/[0.06] to-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2 }}
+          />
+          {!prefersReducedMotion && (
+            <motion.div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(0deg, rgba(148,163,184,0.03) 0, rgba(148,163,184,0.03) 1px, transparent 1px, transparent 12px)",
+              }}
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Starcall — golden radiance bloom from above */}
+      {activeIds.has("starcall") && (
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-b from-yellow-200/[0.16] via-amber-300/[0.08] to-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.0 }}
+          />
+          <motion.div
+            className="absolute -top-48 left-1/2 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-yellow-200/25 blur-3xl"
+            animate={prefersReducedMotion ? undefined : { scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+            transition={prefersReducedMotion ? undefined : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          />
+          {!prefersReducedMotion && (
+            <motion.div
+              className="absolute inset-0 bg-amber-100/[0.05]"
+              animate={{ opacity: [0, 0.5, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Null Surge — deep indigo interference, glitch scanlines */}
+      {activeIds.has("null_surge") && (
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-900/[0.20] via-slate-900/[0.12] to-indigo-800/[0.16]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+          />
+          {!prefersReducedMotion &&
+            nullGlitches.map((p) => (
+              <motion.div
+                key={`null-${p.id}`}
+                className="absolute h-px bg-indigo-300/50"
+                style={{ top: `${p.y}%`, left: 0, right: 0 }}
+                animate={{ opacity: [0, 0.8, 0], scaleX: [0.2, 1, 0.2] }}
+                transition={{
+                  duration: 0.18 + p.duration * 0.04,
+                  delay: p.delay * 0.6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
                 }}
               />
             ))}

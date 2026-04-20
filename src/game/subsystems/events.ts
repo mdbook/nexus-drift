@@ -90,7 +90,8 @@ export function stepEvents(state: GameState) {
 
   const isNight = getNightFactor(state.stats.runtimeMs) < 0.5;
   const adjustedWeight = (id: string, weight: number) => {
-    if (isNight && (id === "xeno_bloom" || id === "dust_storm")) return weight * 1.8;
+    if (isNight && (id === "xeno_bloom" || id === "dust_storm" || id === "null_surge")) return weight * 2.0;
+    if (isNight && id === "core_breach") return weight * 1.4;
     return weight;
   };
   const totalWeight = eligible.reduce((sum, def) => sum + adjustedWeight(def.id, def.weight), 0);
