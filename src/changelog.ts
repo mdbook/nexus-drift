@@ -18,13 +18,14 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.8",
     badge: "Clear Margin",
-    summary: "Desktop iPad layout now gives the field footer its own space instead of layering it over the battlefield, so the bottom HUD no longer clips the home district or falls off the viewport edge.",
+    summary: "Desktop iPad layout now gives the field footer its own space instead of layering it over the battlefield, and the upgrade rail moves into the unused top-right chrome so events and field HUD stay visible.",
     sections: [
       {
         title: "iPad Desktop Layout Fit",
         items: [
           "On `lg` layouts, the field footer stays as an overlay for performance instead of moving into normal flow.",
           "The battlefield now reserves bottom inset space above that overlay, which preserves the city/home strip on iPadOS landscape and keeps the crews/integrity/combat rail fully visible.",
+          "The upgrade indicator rail now moves out of the footer and into the top-right desktop chrome, reclaiming footer height for active events and keeping that previously-empty band useful.",
           "This avoids the heavy relayout path that made the earlier iPad desktop fix laggy while still preventing the footer from hiding field content.",
         ],
       },

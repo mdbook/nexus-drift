@@ -324,7 +324,7 @@ export default function App() {
       <EventBackdrop activeEventKey={activeEventBackdropKey} />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 lg:h-screen lg:max-w-[1920px] lg:px-6">
-        {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on xl */}
+        {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on lg */}
         <div className="mb-2">
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
             <span>Autonomous Colony Sim</span>
@@ -369,6 +369,12 @@ export default function App() {
 
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
+
+        <div className="order-3 mb-2 hidden w-full max-w-[420px] self-end lg:block">
+          <Card className={`${PANEL_CLASS} overflow-hidden p-0`}>
+            <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
+          </Card>
+        </div>
 
         <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
           <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
@@ -444,7 +450,7 @@ export default function App() {
               </button>
             )}
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-[20px] lg:mb-[84px]">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[20px] lg:mb-[52px]">
               <FieldSvg game={game} derived={derived} />
             </div>
 
@@ -458,7 +464,9 @@ export default function App() {
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
               <FieldStatsStrip game={game} derived={derived} />
-              <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
+              <div className="lg:hidden">
+                <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
+              </div>
             </div>
           </Card>
 

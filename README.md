@@ -25,7 +25,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - 44 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories
 
 ### HUD & UI
-- Glanceable upgrade rail and field stats strip inside the field card — colour-coded upgrade dots and compact stat pills with hover/focus tooltips
+- Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it moves into the top-right chrome so the footer can prioritize events and live field stats
 - Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
@@ -40,6 +40,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ### Layout
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
 - Desktop iPad layouts keep the field footer as an overlay for performance, but the field now reserves an inset above it so the bottom HUD stays readable without covering the home district
+- On `lg` two-column screens, the upgrade rail lives in a dedicated top-right card above the resource bar instead of sharing the field footer with active events
 
 ---
 

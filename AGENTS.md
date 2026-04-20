@@ -157,7 +157,7 @@ Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` b
 
 ## HUD And Indicator Conventions
 
-The field card is the primary HUD surface — especially on mobile where the sidebar sits below the fold. When adding any new live indicator (upgrade status, stat pill, event chip, alert badge), default to placing it **inside the field card footer** (currently: active events → `FieldStatsStrip` → `UpgradeIndicatorRail`). Only push UI into the sidebar when the information is dense, multi-line, or rarely glanced at.
+The field card is the primary HUD surface — especially on mobile where the sidebar sits below the fold. When adding any new live indicator (upgrade status, stat pill, event chip, alert badge), default to placing it **inside the field card footer on mobile**. Current mobile footer order is: active events → `FieldStatsStrip` → `UpgradeIndicatorRail`. On `lg` desktop layouts, the upgrade rail is the explicit exception: it lives in the top-right chrome band above the resource bar so the footer can stay focused on events + live stats. Only push UI into the sidebar when the information is dense, multi-line, or rarely glanced at.
 
 Rules for indicators on the field card footer:
 
