@@ -289,7 +289,7 @@ export default function App() {
   const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
   const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
   const hasActiveEvents = derived.activeEvents.length > 0;
-  const fieldFooterInsetClass = hasActiveEvents ? "mb-[124px] lg:mb-[104px]" : "mb-[84px] lg:mb-[52px]";
+  const fieldFooterInsetClass = hasActiveEvents ? "mb-[124px] lg:mb-0" : "mb-[84px] lg:mb-0";
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;

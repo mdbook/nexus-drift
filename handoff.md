@@ -58,7 +58,7 @@ The UI uses Tailwind with a responsive flex layout:
 - The field card and sidebar wrapper are direct children of a `lg:grid-cols-[1.45fr_0.85fr]` grid. **Both carry `min-w-0`**, without which grid items default to `min-width: auto` and the intrinsic content width of scrollable pill strips / long labels forces the grid wider than the viewport, pushing the sidebar off-screen. Do not remove `min-w-0` from either.
 - Achievement badges live inside the field card, below the field toolbar, so they don't consume outer layout height.
 - On mobile, the field card footer contains, top to bottom: the active events bar (`EventChip`s), the `FieldStatsStrip` (live stats), and the `UpgradeIndicatorRail` (glowing dots). This is the primary small-screen HUD surface — keep any new live indicators here rather than in the sidebar.
-- On `lg` desktop layouts, the upgrade rail leaves the footer and renders as an absolutely-positioned overlay in the otherwise-unused top-right chrome band above the resource bar. The footer overlay itself now contains the active-events row plus the stats strip, and the field reserves extra bottom inset while events are live so the event HUD stays visible across all breakpoints.
+- On `lg` desktop layouts, the upgrade rail leaves the footer and renders as an absolutely-positioned overlay in the otherwise-unused top-right chrome band above the resource bar. The footer overlay contains the active-events row plus the stats strip. At `lg` the SVG wrapper uses `lg:mb-0` so the canvas fills the card edge to edge and the footer overlays the bottom naturally; on mobile `mb-[84px]`/`mb-[124px]` pushes the SVG up so the footer doesn't hide content in the scrollable layout.
 - Max content width is 1920px with wider gutters at xl.
 
 ## Game Systems
