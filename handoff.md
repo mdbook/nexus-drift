@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **0.1.5**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header.
+Current version: **2.0.1**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -21,6 +21,10 @@ Current version: **0.1.5**. The in-game changelog is at `src/changelog.ts` and o
 - `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history)
 - `src/components/Background.tsx` — animated starfield and atmosphere layers
+- `src/components/EventBackdrop.tsx` — full-screen ambient effect overlay keyed off `derived.activeEvents`. Purely presentational, never touches sim state. Respects `prefers-reduced-motion` (static color washes still render, particle animations gate off). Effect per event id: `meteor_shower`, `solar_flare`, `cache_discovery`, `pirate_caravan`, `xeno_bloom`, `dust_storm`, `echo_signal`.
+- `src/components/EventChip.tsx` — active-event HUD chip. Tone-coded by `EventDef.tone`. Hover or focus reveals a tooltip with flavor text and a per-effect list (each item colour-coded by its own tone). Uses local state only.
+- `src/components/UpgradeIndicatorRail.tsx` — compact rail of one glowing dot per currently-visible upgrade. Category colour (yield / defense / support / elite) is centralized in a `UPGRADE_CATEGORY` map inside the component. Glow intensity scales with level (capped at 5 so late game does not wash out), and affordability drives a pulsing outer ring. Visibility rules mirror `Sidebar` exactly (tier gate + sentinel brute-kill gate). Tooltips pop upward from the bottom strip so they render inside the field card's `overflow-hidden` bounds.
+- `src/components/FieldStatsStrip.tsx` — horizontal stat pill row with per-pill tooltips. Each pill carries a tone (`calm` / `warn` / `danger` / `ready` / `toxic`) driven by derived state (integrity thresholds, `hostilePressure`, `corruptionPressure`, `progression.recoveryMode`, tier). Labels hide on mobile; icons + values + dots remain. Corruption pill shows a single combined count (corruptors + infected nodes) to stay compact.
 - `src/components/FieldSvg.tsx` — battlefield SVG rendering (workers, enemies, nodes, sentinels, projectiles, day/night cycle)
 - `src/components/Sidebar.tsx` — economy, automation, and threat panels
 - `src/components/HudPrimitives.tsx` — shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)
@@ -45,9 +49,11 @@ Current version: **0.1.5**. The in-game changelog is at `src/changelog.ts` and o
 
 The UI uses Tailwind with a responsive flex layout:
 
-- **Mobile / tablet**: title → field card (full width, `h-full`) → resource pills → speed controls → sidebar. The field gets immediate focus.
-- **Desktop (xl)**: field + sidebar side by side; sector status card collapses to a compact single-row bar positioned absolute top-right; speed presets and New Game button integrate into the title row.
+- **Mobile / small tablet (< 1024px)**: title → field card (full width) → resource pills → speed controls → sidebar stacked below. The field gets immediate focus.
+- **Desktop / large tablet (lg, ≥ 1024px)**: field + sidebar side by side; sector status card collapses to a compact single-row bar positioned absolute top-right; speed presets and New Game button integrate into the title row. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout. The `xl` (1280px) breakpoint no longer drives layout — all structural classes use `lg:`.
+- The field card and sidebar wrapper are direct children of a `lg:grid-cols-[1.45fr_0.85fr]` grid. **Both carry `min-w-0`**, without which grid items default to `min-width: auto` and the intrinsic content width of scrollable pill strips / long labels forces the grid wider than the viewport, pushing the sidebar off-screen. Do not remove `min-w-0` from either.
 - Achievement badges live inside the field card, below the field toolbar, so they don't consume outer layout height.
+- The field card footer contains, top to bottom: the active events bar (`EventChip`s), the `FieldStatsStrip` (live stats), and the `UpgradeIndicatorRail` (glowing dots). All three sit inside the field card so the sidebar is not required for glanceable colony monitoring. This is the primary mobile HUD surface — keep any new live indicators here rather than in the sidebar.
 - Max content width is 1920px with wider gutters at xl.
 
 ## Game Systems
@@ -82,9 +88,30 @@ Heavy late-game ground mechs. Patrol midfield when idle. Priority: leech > brute
 
 Workers harvest assigned nodes with kind-specific behavior and crit chances. Corrupted nodes yield less. Foundry upgrades increase yield and respawn speed. Temporary cache nodes disappear on exhaustion instead of respawning.
 
+### Entity Spawn / Death Animation
+
+Nodes, enemies, and agents all fade in and out rather than popping. Three fields drive this entirely in the renderer (`FieldSvg.tsx`) — no presentation logic leaks into the sim:
+
+- **`spawnTick: number`** on `ResourceNode`, `Enemy`, and `Agent` — the `timers.tick` value when the entity entered the field. Set in `makeNode`, `respawnNode`, `makeWorker`, `spawnEnemy`, and in `combat.ts` at agent reboot. Migration fallback `?? 0` disables fade for loaded saves (avoids a flash-of-invisible on load).
+- **`dyingTicks: number`** on `Enemy` — counts from `DEATH_FADE_TICKS` (18) down to 0 after `hp` hits 0. While `dyingTicks > 0`, the enemy stays in `state.enemies` but is skipped by movement, targeting, and combat (all those paths already guarded on `hp > 0`). Removed from state once `dyingTicks` reaches 0.
+- Temporary nodes use their existing `despawnAt` field for a fade-out warning: `despawnAlpha` begins fading 60 ticks before the deadline.
+
+`resolveEnemyDeaths` (in `combat.ts`) owns the `dyingTicks` lifecycle: it sets the countdown on newly killed enemies, ticks it down for already-dying ones, and filters the array. Order matters — the countdown is set *before* the filter runs so newly killed enemies are not immediately removed.
+
+Renderer helpers in `FieldSvg.tsx`: `spawnAlpha(tick, spawnTick)`, `deathAlpha(dyingTicks)`, `despawnAlpha(tick, despawnAt)`. Each entity wraps its render in a `<g opacity={...}>` combining whichever alphas apply.
+
 ### Random Events
 
 Two event layers: ambient flavor log chatter (original), and seeded mechanical events (30–90 second timer). Mechanical events write into `state.activeEvents`, push multipliers into `state.eventModifiers`, and render countdown banners in the HUD. Night (day/night cycle) slightly biases toward harsher events. Active events are visible in the HUD above the field.
+
+Each `EventDef` in `src/game/events/eventDefs.ts` carries presentational metadata alongside its mechanical `apply` / `revert`: `flavor` (short narrative line), `tone` (`boon` / `threat` / `mixed` / `neutral` — drives chip colour), and `effects: { text, tone }[]` (per-line breakdown shown in the tooltip). Keep these in sync when tuning an event's mechanics — the tooltip is the player's only source of truth for what the event actually does.
+
+Two presentational layers consume that metadata:
+
+- `EventBackdrop` renders a distinct ambient effect per active event id (color wash + particles + blurs). Effects compose additively when multiple events are active.
+- `EventChip` renders the HUD pill with hover/focus tooltip. Tone colours are centralized in a `TONE_STYLE` map inside the component.
+
+`getEventDef(id)` is exported from `eventDefs.ts` for presentational lookups — never mutate the returned def.
 
 ### Autobuy
 
@@ -195,6 +222,8 @@ docker run --rm -p 8080:80 nexus-drift
 7. `src/game/events/eventDefs.ts`
 8. `src/game/selectors.ts`
 9. `src/components/FieldSvg.tsx`
-10. `src/components/Sidebar.tsx`
+10. `src/components/EventBackdrop.tsx` and `src/components/EventChip.tsx`
+11. `src/components/FieldStatsStrip.tsx` and `src/components/UpgradeIndicatorRail.tsx`
+12. `src/components/Sidebar.tsx`
 
 Compare against `reference/idle_wallpaper_game.reference.jsx` to recover the original intended behavior or feel.

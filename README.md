@@ -9,10 +9,13 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
 - Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
 - Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, and phantoms.
-- Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns.
+- Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns. Each active event now drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) and surfaces a tone-coded HUD chip with a hover/focus tooltip listing flavor text and every buff and debuff.
 - Flux and Cores now feed multi-resource upgrades, including Foundry, Data Archive, and Sentinel Mechs.
 - Long runs now autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden. Save files carry a schema version so future migrations are explicit.
 - Achievement tracking, a day/night field cycle, veteran workers, and a few hidden easter eggs now support longer idle sessions.
+- Glanceable upgrade rail and field stats strip live inside the field card — colour-coded upgrade dots (yield / defense / support / elite) and compact stat pills each expose hover/focus tooltips with full detail. Designed mobile-first so the sidebar no longer needs to be open to monitor the colony.
+- Responsive layout activates the two-column desktop view at 1024px (lg) instead of 1280px, so 11-inch iPads in landscape get the full side-by-side field and sidebar without scrolling.
+- Entities fade in and out instead of popping: nodes fade in on spawn and respawn, temporary nodes fade out as they near their despawn deadline, enemies fade in on entry and play a short death fade-out before removal, and agents fade in on reboot.
 
 ## Development
 
@@ -47,7 +50,11 @@ npm run format:check
 - `src/game/events/eventDefs.ts`: seeded mechanical event definitions and event activation helpers
 - `src/game/rng.ts`: seeded Mulberry32 PRNG used by simulation paths
 - `src/game/targeting.ts`: shared targeting helpers
-- `src/components/`: battlefield rendering, HUD widgets, and sidebar panels
+- `src/components/`: battlefield rendering, HUD widgets, sidebar panels, and presentational overlays
+- `src/components/EventBackdrop.tsx`: full-screen ambient effect layer keyed off active events (purely presentational, respects `prefers-reduced-motion`)
+- `src/components/EventChip.tsx`: active-event HUD chip with hover/focus tooltip showing flavor and per-effect tone breakdown
+- `src/components/UpgradeIndicatorRail.tsx`: horizontal rail of one dot per visible upgrade. Dots glow harder with level, pulse when the next level is affordable, and open a tooltip (name, level, effect, cost) on hover/focus. Hidden upgrades match the sidebar's visibility rules.
+- `src/components/FieldStatsStrip.tsx`: compact pill row of live field stats (crews, integrity, turrets, scouts, sentinels, combat, corruption, threat tier, combo) with tone colours and detail tooltips. Replaces the old verbose crew/task text footer.
 - `reference/`: preserved single-file reference artifact
 
 ## Build And Delivery

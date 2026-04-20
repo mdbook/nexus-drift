@@ -5,6 +5,28 @@ import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
 import { clamp } from "@/game/utils";
 
+const SPAWN_FADE_TICKS = 20;
+const DEATH_FADE_TICKS = 18;
+const DESPAWN_WARN_TICKS = 60; // start fading out temporary nodes this many ticks before despawn
+
+/** 0→1 fade-in alpha based on how long since spawnTick. */
+function spawnAlpha(currentTick: number, spawnTick: number): number {
+  if (spawnTick === 0) return 1; // initial game load — no fade
+  return clamp((currentTick - spawnTick) / SPAWN_FADE_TICKS, 0, 1);
+}
+
+/** 1→0 fade-out alpha for enemies in their death animation. */
+function deathAlpha(dyingTicks: number): number {
+  return clamp(dyingTicks / DEATH_FADE_TICKS, 0, 1);
+}
+
+/** 1→0 fade-out alpha for temporary nodes approaching despawn. */
+function despawnAlpha(currentTick: number, despawnAt: number): number {
+  const remaining = despawnAt - currentTick;
+  if (remaining > DESPAWN_WARN_TICKS) return 1;
+  return clamp(remaining / DESPAWN_WARN_TICKS, 0, 1);
+}
+
 type FieldSvgProps = {
   game: GameState;
   derived: DerivedState;
@@ -574,9 +596,12 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         const hpPct = clamp((node.hp / node.maxHp) * 100, 0, 100);
         const corruptionPct = clamp(node.corruption, 0, 100);
         const toxicGlow = node.corruption > 0 ? 0.1 + node.corruption / 200 : 0;
+        const nodeAlpha = node.temporary && node.despawnAt !== undefined
+          ? Math.min(spawnAlpha(game.timers.tick, node.spawnTick), despawnAlpha(game.timers.tick, node.despawnAt))
+          : spawnAlpha(game.timers.tick, node.spawnTick);
 
         return (
-          <g key={node.id}>
+          <g key={node.id} opacity={nodeAlpha}>
             {node.corruption > 0 && (
               <>
                 <circle cx={node.x} cy={node.y} r={node.size + 22} fill="rgba(160,50,255,0.22)" opacity={toxicGlow * 1.4} />
@@ -638,11 +663,14 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
 
       {game.enemies.map((enemy) => {
         const hpPct = clamp((enemy.hp / enemy.maxHp) * 100, 0, 100);
+        const enemyFadeAlpha = enemy.hp <= 0
+          ? deathAlpha(enemy.dyingTicks)
+          : spawnAlpha(game.timers.tick, enemy.spawnTick);
 
         if (enemy.role === "corruptor") {
           const wobble = Math.sin((game.timers.tick + enemy.id * 11) / 7) * 2;
           return (
-            <g key={enemy.id}>
+            <g key={enemy.id} opacity={enemyFadeAlpha}>
               <circle cx={enemy.x} cy={enemy.y} r="22" fill="rgba(160,70,255,0.08)" />
               <circle
                 cx={enemy.x}
@@ -661,7 +689,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         }
 
         const style = ENEMY_STYLE[enemy.kind as Exclude<typeof enemy.kind, "corruptor">];
-        const enemyOpacity = isCloaked(enemy) ? 0.2 : 1;
+        const enemyOpacity = (isCloaked(enemy) ? 0.2 : 1) * enemyFadeAlpha;
         const threatPulse = 0.12 + Math.sin((game.timers.tick + enemy.id * 7) / 10) * 0.07;
         const threatRing = (
           <circle cx={enemy.x} cy={enemy.y} r={style.radius + 18} fill={`rgba(220,30,30,${threatPulse.toFixed(2)})`} stroke="rgba(255,60,60,0.45)" strokeWidth="1.2" opacity={enemyOpacity} />
@@ -840,6 +868,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         const damaged = agent.hp < 35;
         const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";
         const bodyStroke = damaged ? "rgba(255,150,150,0.75)" : "rgba(120,220,255,0.80)";
+        const agentAlpha = spawnAlpha(game.timers.tick, agent.spawnTick);
 
         // hexagon points helper
         const hex = (cx: number, cy: number, r: number) =>
@@ -849,7 +878,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           }).join(" ");
 
         return (
-          <g key={agent.id}>
+          <g key={agent.id} opacity={agentAlpha}>
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
             {agent.veteranRank > 0 &&
               Array.from({ length: agent.veteranRank }, (_, index) => (

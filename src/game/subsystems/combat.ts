@@ -7,8 +7,26 @@ import { clamp, dist, pushLog } from "@/game/utils";
 const HOME_X = 500;
 const HOME_Y = 540;
 
+// How many ticks a dead enemy lingers for its fade-out animation before removal.
+const DEATH_FADE_TICKS = 18;
+
 export function resolveEnemyDeaths(state: GameState) {
-  const killed = state.enemies.filter((enemy) => enemy.hp <= 0);
+  // Find newly killed enemies (hp ≤ 0 but not yet started dying).
+  const killed = state.enemies.filter((enemy) => enemy.hp <= 0 && enemy.dyingTicks === 0);
+
+  // Start the death fade-out countdown for newly killed enemies. They remain
+  // in state but are skipped by all sim logic (movement, targeting, combat
+  // checks already guard on hp > 0).
+  for (const enemy of killed) {
+    enemy.dyingTicks = DEATH_FADE_TICKS;
+  }
+
+  // Tick down already-dying enemies and remove fully faded ones.
+  for (const enemy of state.enemies) {
+    if (enemy.dyingTicks > 0) enemy.dyingTicks -= 1;
+  }
+  state.enemies = state.enemies.filter((enemy) => !(enemy.hp <= 0 && enemy.dyingTicks <= 0));
+
   if (!killed.length) return;
 
   const purged = killed.filter((enemy) => enemy.role === "corruptor").length;
@@ -68,6 +86,7 @@ export function resolveEnemyDeaths(state: GameState) {
   state.resources.gold += goldReward;
   state.resources.energy += energyReward;
 
+  // Clear corruptedBy references for newly-killed enemies.
   state.nodes.forEach((node) => {
     if (node.corruptedBy != null && killedIds.has(node.corruptedBy)) {
       node.corruptedBy = null;
@@ -85,7 +104,6 @@ export function resolveEnemyDeaths(state: GameState) {
     state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`);
   }
 
-  state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
 }
 
 export function stepCombat(state: GameState) {
@@ -161,6 +179,7 @@ export function stepCombat(state: GameState) {
       agent.evadeDx = 0;
       agent.evadeDy = -1;
       agent.damageTicks = WORKER.respawn.damageTicks;
+      agent.spawnTick = state.timers.tick;
       agent.target = chooseWorkerTarget(state, agent);
       agent.task = "Rebooting";
       state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`);

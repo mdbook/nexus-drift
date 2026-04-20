@@ -23,7 +23,7 @@ function rollBigEventInterval(rng: Rng) {
   return Math.floor(BIG_EVENT_TICK_MIN + rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
 }
 
-export function makeNode(rng: Rng, id: number, x: number, y: number, size: number): ResourceNode {
+export function makeNode(rng: Rng, id: number, x: number, y: number, size: number, currentTick = 0): ResourceNode {
   const hp = rng.range(25, 80);
   return {
     id,
@@ -37,10 +37,11 @@ export function makeNode(rng: Rng, id: number, x: number, y: number, size: numbe
     corruption: 0,
     corrupted: false,
     corruptedBy: null,
+    spawnTick: currentTick,
   };
 }
 
-export function respawnNode(rng: Rng, id: number, existing: ResourceNode[]): ResourceNode {
+export function respawnNode(rng: Rng, id: number, existing: ResourceNode[], currentTick = 0): ResourceNode {
   const GAP = 12;
   const MAX_ATTEMPTS = 60;
   let x = 0, y = 0, size = 0, attempts = 0;
@@ -55,7 +56,7 @@ export function respawnNode(rng: Rng, id: number, existing: ResourceNode[]): Res
     existing.some((n) => n.id !== id && dist(x, y, n.x, n.y) < size + n.size + GAP)
   );
 
-  return makeNode(rng, id, x, y, size);
+  return makeNode(rng, id, x, y, size, currentTick);
 }
 
 export function makeNodes(rng: Rng) {
@@ -92,7 +93,7 @@ export function makeAgents(): Agent[] {
   });
 }
 
-export function makeWorker(kind: Agent["kind"], id: number): Agent {
+export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0): Agent {
   const home = WORKERS_AT_HOME[kind];
 
   return {
@@ -117,6 +118,7 @@ export function makeWorker(kind: Agent["kind"], id: number): Agent {
     damageTicks: 0,
     killsNearby: 0,
     veteranRank: 0,
+    spawnTick: currentTick,
   };
 }
 
@@ -228,7 +230,7 @@ export function makeSentinels(): Sentinel[] {
   ];
 }
 
-export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null): Enemy {
+export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null, currentTick = 0): Enemy {
   const side = rng.next() < 0.5 ? "left" : "right";
   const x = side === "left" ? -30 : WORLD_W + 30;
   const y = rng.range(120, WORLD_H - 100);
@@ -251,6 +253,8 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     flash: 0,
     corruptTicks: 0,
     trail: [],
+    spawnTick: currentTick,
+    dyingTicks: 0,
   };
 
   if (kind === "phantom") {
@@ -412,7 +416,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     eventModifiers: { ...base.eventModifiers, ...raw.eventModifiers },
     log: Array.isArray(raw.log) ? [...raw.log] : base.log,
     nodes: Array.isArray(raw.nodes)
-      ? raw.nodes.map((node) => ({ ...node }))
+      ? raw.nodes.map((node) => ({ ...node, spawnTick: node.spawnTick ?? 0 }))
       : base.nodes,
     agents: Array.isArray(raw.agents)
       ? raw.agents.map((agent) => ({
@@ -420,6 +424,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           ...agent,
           killsNearby: agent.killsNearby ?? 0,
           veteranRank: agent.veteranRank ?? 0,
+          spawnTick: agent.spawnTick ?? 0,
         }))
       : base.agents,
     turrets: Array.isArray(raw.turrets)
@@ -435,6 +440,8 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       ? raw.enemies.map((enemy) => ({
           ...enemy,
           trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
+          spawnTick: enemy.spawnTick ?? 0,
+          dyingTicks: enemy.dyingTicks ?? 0,
         }))
       : base.enemies,
     projectiles: Array.isArray(raw.projectiles)

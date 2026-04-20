@@ -104,7 +104,7 @@ export function stepSpawns(state: GameState) {
   if (!spawned.length) return;
 
   for (const kind of spawned) {
-    state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, kind));
+    state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, kind, state.timers.tick));
   }
 
   const message = describeSpawnWave(spawned, derived);

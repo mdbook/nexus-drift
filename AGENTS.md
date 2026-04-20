@@ -3,8 +3,34 @@
 ## Repo Guidance
 
 - `handoff.md` is the primary source of context for agents operating in this repo. Read it before starting any non-trivial work.
+- `src/changelog.ts` is the in-game release history and a useful quick-scan of what has changed recently — read it alongside `handoff.md` to understand the current state of the project.
 - Keep `README.md`, `handoff.md`, `package.json`, and `src/changelog.ts` aligned. If architecture, commands, or player-facing behavior changes, update the docs in the same pass.
 - `src/changelog.ts` is the source for the in-game release history. It must match `package.json` version.
+
+## Always Update Docs (Every Change)
+
+After every change that lands — feature, fix, refactor, tooling, anything non-trivial — update the repo documentation in the same pass, before considering the work done:
+
+- **`README.md`** — update if the change alters player-facing behavior, the architecture summary, available components, commands, or contributor guidance.
+- **`handoff.md`** — update if the change alters project structure, game systems, invariants, operational notes, or the reading order. Add new components, subsystems, or concepts here so the next agent sees them.
+- **`AGENTS.md`** — update if the change alters how future agents should work in this repo: new invariants, new checklists, new rules, new conventions, or new gotchas. Do not let implicit knowledge stay implicit.
+
+This is **separate from release work**. Even if no version bump is happening, the docs must stay current every pass. Version bumps, `package.json`, and `src/changelog.ts` only get touched when the user explicitly asks for release work (see Release Work Checklist below).
+
+If a change genuinely needs no doc update in one of the three files, say so explicitly in your summary so the user can confirm — do not silently skip.
+
+## Committing Changes (Commit, Don't Push)
+
+Agents should **commit regularly** as they work. The default cadence is one commit per logical unit of work: a feature, a bug fix, a refactor, a docs pass, a release bump. Do not batch unrelated changes into a single commit.
+
+- **Commit every time a logical unit of work completes** — after tests and lint pass, after docs are updated, before moving on to the next task.
+- **Never push** (`git push`, `git push --force`, etc.) unless the user explicitly asks. Committing keeps history clean and recoverable locally; pushing is the user's decision.
+- **One topic per commit.** Bug fix, doc update, and new feature are three commits, not one. The changelog and commit history should tell parallel, coherent stories.
+- **Follow the repo's existing commit message style.** Imperative mood, short subject line, optional body explaining the "why" rather than the "what". Look at `git log --oneline` for recent examples before writing a new one.
+- **Do not skip hooks** (`--no-verify`, etc.) unless the user explicitly asks.
+- **Do not amend commits that have already been pushed.** Check `git status` for "Your branch is ahead" before any amend.
+
+If a user asks for work across multiple logical units in a single message, commit them separately as you complete each one — do not wait for the whole batch to finish before committing.
 
 ## Release Monitoring
 
@@ -16,11 +42,13 @@ Agents working in this repo should actively watch for changes that are large eno
 
 ## Versioning Heuristics
 
-The project is still pre-1.0. Use semver-style suggestions with that in mind.
+The project uses semver. As of 2.0 the leading `0.` prefix was dropped — the current major line is `2.x`.
 
-- Suggest `0.1.x` for contained bug fixes, docs, tooling, or small polish that does not materially change the player experience.
-- Suggest `0.2.0` for a meaningful player-facing feature, balance pass, UI pass, or a bundled set of smaller improvements that together feel release-worthy.
-- Suggest `1.0.0` only when the project feels intentionally stable as a release product, not just interesting as a prototype.
+- Suggest a **patch bump** (e.g. `2.0.1 → 2.0.2`) for contained bug fixes, docs, tooling, or small polish that does not materially change the player experience.
+- Suggest a **minor bump** (e.g. `2.0.x → 2.1.0`) for a meaningful player-facing feature, balance pass, UI pass, or a bundled set of smaller improvements that together feel release-worthy.
+- Suggest a **major bump** (e.g. `2.x → 3.0.0`) only when the project makes a deliberate, large step-change — a new primary game mode, a total visual identity refresh, or an architecture change that breaks saves on purpose.
+
+Do not re-introduce the `0.` prefix. The version schema migration in 2.0.0 rolled every historical release forward by one dot (old `0.1.5` → new `1.5.0`, old `0.0.1` → new `0.1.0`, etc.).
 
 ## When To Raise A Release Suggestion
 
@@ -41,6 +69,16 @@ If the user asks for a release or version bump, update these together:
 - `handoff.md`
 
 If the user does not ask for release work, keep the suggestion advisory only.
+
+## Entity Spawn / Death Animation Fields
+
+`ResourceNode`, `Enemy`, and `Agent` each carry a `spawnTick: number` field (set to `timers.tick` at creation/respawn/reboot). `Enemy` also carries `dyingTicks: number` (counts down from `DEATH_FADE_TICKS` after hp hits 0). Both fields are used **only in the renderer** (`FieldSvg.tsx`).
+
+Rules for these fields:
+- Always pass `state.timers.tick` when calling `makeNode`, `respawnNode`, `makeWorker`, or `spawnEnemy` at runtime. The initial-state factory (`createInitialGameState`) passes `0`, which the renderer treats as "no fade".
+- Migration must add `?? 0` fallbacks for both `spawnTick` and `dyingTicks` on all three entity types so loaded saves do not flash-in.
+- Do not use `dyingTicks` for any sim logic. Movement, targeting, and combat all guard on `enemy.hp > 0`. Dying enemies linger in `state.enemies` for visual purposes only — they must not participate in gameplay.
+- If you add a new entity type that spawns/despawns at runtime, follow the same pattern: `spawnTick` on the entity, set at construction, used only in the renderer.
 
 ## Save State And Migration (Check On Every Feature)
 
@@ -64,3 +102,30 @@ Do this even for fields that seem cosmetic or optional. A missing field on a loa
 ## Test Coverage
 
 24 tests in `src/game/__tests__/advanceGame.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+
+## Grid And Flex Children Must Have `min-w-0`
+
+Grid and flex children default to `min-width: auto`, which means "as wide as intrinsic content". When a child contains horizontally-scrollable strips (`overflow-x-auto`), a long unbreakable string, or any element with a large intrinsic width, the parent grid/flex container will be forced wider than its fractional allocation (`1.45fr`, `0.85fr`, etc.). This breaks the field/sidebar proportions and pushes content off-screen.
+
+Rule: every direct child of a grid with `fr` units or a flex column that might contain pill strips, tables, or long content must have `min-w-0` (and `min-h-0` for flex rows with similar risks). The field card and sidebar wrapper in `App.tsx` both have `min-w-0` — do not remove them.
+
+If you add a new column to the main grid or put a new scrollable strip inside the field card, check proportions at the `lg` breakpoint first. If the column is wider than expected, `min-w-0` on the grid child is almost always the fix.
+
+## Breakpoint Conventions
+
+The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-screen`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
+
+Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
+
+## HUD And Indicator Conventions
+
+The field card is the primary HUD surface — especially on mobile where the sidebar sits below the fold. When adding any new live indicator (upgrade status, stat pill, event chip, alert badge), default to placing it **inside the field card footer** (currently: active events → `FieldStatsStrip` → `UpgradeIndicatorRail`). Only push UI into the sidebar when the information is dense, multi-line, or rarely glanced at.
+
+Rules for indicators on the field card footer:
+
+- **Tooltip direction**: the field card uses `overflow-hidden`. Tooltips that anchor to the footer must pop **upward** (into the field area) so they are not clipped. A horizontally-centered arrow below the tooltip is the current convention — see `EventChip`, `UpgradeIndicatorRail`, `FieldStatsStrip`.
+- **Mobile first**: on small screens, hide text labels and keep icon + value + a tone-coloured dot. Use `hidden md:inline` for labels. Icons must be distinctive — do not share the same icon across semantically different indicators.
+- **Tone colour is meaning**: each indicator's colour must encode state, not just decoration. Use the existing tone vocabulary (`calm` cyan, `warn` amber, `danger` rose, `ready` emerald, `toxic` fuchsia) and extend it deliberately if a new category is genuinely needed.
+- **Focus and hover parity**: every indicator that opens a tooltip must do so on both hover and keyboard focus. Use local `useState` for `hovered` and `focused` and OR them together — this is the established pattern.
+- **Accessibility**: tooltip buttons need `aria-describedby` (pointing to the tooltip id) and an `aria-label` summarizing label + value. Tooltips use `role="tooltip"`.
+- **Visibility rules must match the sidebar**: if a piece of state is gated by tier or by a stat threshold in the sidebar, the field-card indicator for it must use the same gate. `UpgradeIndicatorRail` is the reference implementation — it mirrors the sidebar's upgrade filter exactly.

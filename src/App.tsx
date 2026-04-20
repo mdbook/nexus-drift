@@ -16,16 +16,20 @@ import {
   Zap,
 } from "lucide-react";
 import { Background } from "@/components/Background";
+import { EventBackdrop } from "@/components/EventBackdrop";
+import { EventChip } from "@/components/EventChip";
+import { FieldStatsStrip } from "@/components/FieldStatsStrip";
 import { FieldSvg } from "@/components/FieldSvg";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
+import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { PANEL_CLASS } from "@/theme";
 import { ACHIEVEMENT_DEFS, unlockAchievement } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
-import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, pushLog } from "@/game/utils";
@@ -106,10 +110,6 @@ export default function App() {
   useEffect(() => { synthwaveRef.current = synthwave; }, [synthwave]);
   const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
   const stabilityPct = clamp((derived.defenseScore / Math.max(2, derived.threatScore + 2)) * 100, 0, 100);
-  const averageUnitHealth =
-    game.agents.length > 0
-      ? Math.round(game.agents.reduce((sum, agent) => sum + agent.hp, 0) / game.agents.length)
-      : 100;
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -157,13 +157,14 @@ export default function App() {
 
   return (
     <div
-      className={`relative min-h-screen bg-[#050814] text-white xl:h-screen xl:overflow-hidden ${
+      className={`relative min-h-screen bg-[#050814] text-white lg:h-screen lg:overflow-hidden ${
         synthwave ? "synthwave" : ""
       }`}
     >
       <Background />
+      <EventBackdrop activeEvents={derived.activeEvents} />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 xl:h-screen xl:max-w-[1920px] xl:px-6">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 lg:h-screen lg:max-w-[1920px] lg:px-6">
         {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on xl */}
         <div className="mb-2">
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">
@@ -179,15 +180,15 @@ export default function App() {
               v{CURRENT_VERSION}
             </button>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl xl:max-w-[calc(100%-420px)]">
+          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
             NEXUS DRIFT // purge wing online
           </h1>
-          <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base xl:hidden">
+          <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
             Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
             grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
             way.
           </p>
-          <div className="mt-3 hidden xl:flex xl:items-center xl:gap-3">
+          <div className="mt-3 hidden lg:flex lg:items-center lg:gap-3">
             <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
               {PUBLIC_SPEEDS.map((value) => (
                 <button
@@ -217,10 +218,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* sector card — order-5 on mobile (below game+hud), absolute top-right on xl */}
-        <Card className={`order-5 ${PANEL_CLASS} p-3 xl:absolute xl:top-4 xl:right-6 xl:order-none xl:min-w-[380px]`}>
-          {/* compact xl layout */}
-          <div className="hidden xl:flex xl:items-center xl:justify-between xl:gap-4">
+        {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
+        <Card className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}>
+          {/* compact lg+ layout */}
+          <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
               <span className="text-xs uppercase tracking-[0.2em] text-white/40">combo · lv {game.level}</span>
@@ -236,7 +237,7 @@ export default function App() {
             </div>
           </div>
           {/* full layout for smaller screens */}
-          <div className="xl:hidden">
+          <div className="lg:hidden">
             <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
               <span>Sector Level</span>
               <span>{game.level}</span>
@@ -259,7 +260,7 @@ export default function App() {
           </div>
         </Card>
 
-        <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 xl:hidden">
+        <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
           <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
             {PUBLIC_SPEEDS.map((value) => (
               <button
@@ -288,7 +289,7 @@ export default function App() {
           </button>
         </div>
 
-        <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 xl:order-3 xl:grid-cols-6">
+        <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 lg:order-3 lg:grid-cols-6">
           {resourceDefs.map((resource) => {
             const Icon = resourceIcons[resource.key];
             return (
@@ -325,8 +326,8 @@ export default function App() {
           )}
         </div>
 
-        <div className="order-2 grid min-h-0 flex-1 grid-cols-1 gap-3 xl:order-4 xl:overflow-hidden xl:grid-cols-[1.45fr_0.85fr]">
-          <Card className={`${PANEL_CLASS} flex flex-col overflow-hidden p-0`}>
+        <div className="order-2 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:order-4 lg:overflow-hidden lg:grid-cols-[1.45fr_0.85fr]">
+          <Card className={`${PANEL_CLASS} flex min-w-0 flex-col p-0`}>
             <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2 pt-4 md:justify-start">
               <div className="relative flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-md md:hidden">
                 <Shield className="h-4 w-4 text-white/55" />
@@ -377,31 +378,21 @@ export default function App() {
               </div>
             )}
 
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[20px]">
               <FieldSvg game={game} derived={derived} />
             </div>
 
             {derived.activeEvents.length > 0 && (
-              <div className="flex shrink-0 flex-wrap gap-2 px-4 py-2">
+              <div className="relative z-20 flex shrink-0 flex-wrap gap-2 px-4 py-2">
                 {derived.activeEvents.map((event) => (
-                  <span
-                    key={event.id}
-                    className="rounded-full border border-yellow-700/40 bg-yellow-900/60 px-2 py-0.5 text-xs text-yellow-200"
-                  >
-                    {event.label} ({Math.ceil(event.ticksRemaining / 30)}s)
-                  </span>
+                  <EventChip key={event.id} event={event} def={getEventDef(event.id)} />
                 ))}
               </div>
             )}
 
-            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-4 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/38">
-              <span>Crews {game.agents.length}</span>
-              <span>Avg Integrity {averageUnitHealth}%</span>
-              {game.agents.map((agent) => (
-                <span key={agent.id}>
-                  {agent.kind} // {agent.task}
-                </span>
-              ))}
+            <div className="relative z-20 border-t border-white/5">
+              <FieldStatsStrip game={game} derived={derived} />
+              <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
             </div>
           </Card>
 

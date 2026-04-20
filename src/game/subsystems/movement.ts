@@ -172,6 +172,9 @@ export function stepTourist(state: GameState) {
 
 export function stepEnemies(state: GameState) {
   state.enemies.forEach((enemy) => {
+    // Skip enemies that are in the death fade-out — they no longer act.
+    if (enemy.hp <= 0) return;
+
     enemy.flash = Math.max(0, enemy.flash - 1);
     const speedScale = state.eventModifiers.enemySpeedScale;
 
@@ -258,6 +261,7 @@ export function stepEnemies(state: GameState) {
       for (let j = i + 1; j < state.enemies.length; j++) {
         const a = state.enemies[i];
         const b = state.enemies[j];
+        if (a.hp <= 0 || b.hp <= 0) continue;
         const minDist = ENEMY_SEPARATION.minDist;
         const dx = b.x - a.x;
         const dy = b.y - a.y;

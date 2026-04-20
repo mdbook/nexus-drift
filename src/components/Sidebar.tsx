@@ -25,7 +25,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
   });
 
   return (
-    <div className="flex flex-col gap-3 xl:h-full xl:overflow-y-auto">
+    <div className="flex min-w-0 flex-col gap-3 lg:h-full lg:overflow-y-auto">
       <Card className={`${PANEL_CLASS} shrink-0 p-3`}>
         <div className="flex items-center justify-between">
           <div>

@@ -16,7 +16,61 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.1.5",
+    version: "2.0.0",
+    badge: "Living Field",
+    summary: "A major visual and UX pass — the field now breathes with event atmosphere, glanceable HUD indicators, smooth entity transitions, and a thorough overflow/clipping fix across all screen sizes.",
+    sections: [
+      {
+        title: "Event Atmosphere",
+        items: [
+          "Each active event now drives a distinct full-screen backdrop effect: meteor streaks, solar corona pulse, emerald cache shimmer, red perimeter alert for pirate raids, violet xeno spore fog, amber dust-storm haze, and expanding echo scanner rings.",
+          "Event HUD chips are now tone-coded (green boon, red threat, amber mixed) with hover/focus tooltips showing flavor text and a per-effect breakdown.",
+          "EventDef now carries flavor, tone, and a structured effects list — the tooltip is the single source of truth for what each event actually does.",
+        ],
+      },
+      {
+        title: "Field HUD",
+        items: [
+          "New FieldStatsStrip: compact scrollable pill row at the bottom of the field card showing crews, integrity, turrets, scouts, sentinels, combat contacts, corruption pressure, threat tier, and combo — all with tone colours and detail tooltips.",
+          "New UpgradeIndicatorRail: one glowing dot per visible upgrade, colour-coded by category (amber yield, cyan defense, fuchsia support, indigo elite). Dot brightness scales with level; a pulsing ring highlights affordable next upgrades.",
+          "Both strips are now horizontally scrollable on narrow screens instead of wrapping to multiple lines.",
+          "The verbose crew/task text line is replaced by the compact stats strip.",
+        ],
+      },
+      {
+        title: "Entity Transitions",
+        items: [
+          "Nodes, enemies, and agents fade in over ~20 ticks on spawn or respawn instead of popping into existence.",
+          "Enemies play a short fade-out death animation (~18 ticks) before being removed from state.",
+          "Temporary cache nodes fade out as they approach their despawn deadline.",
+          "Agents fade in again after rebooting at a home pad.",
+        ],
+      },
+      {
+        title: "UI Polish & Bug Fixes",
+        items: [
+          "Fixed: UpgradeIndicatorRail tooltips were completely invisible — the overflow-x-auto scroll container was silently clipping all upward-pointing absolute tooltips via the CSS overflow interaction rule.",
+          "Fixed: FieldStatsStrip pills were wrapping to two rows on narrow screens, causing tooltips to point into occupied UI space rather than the field.",
+          "Fixed: EventChip tooltip was overflowing and clipping at card edges — switched to left-anchored layout with max-w viewport clamping.",
+          "Fixed: all footer tooltips now clamp to max-w calc(100vw - 2rem) to prevent right-edge overflow on any screen size.",
+          "Fixed: the stray tooltip arrow appearing with no body on the upgrade rail (overflow-hidden on the field card was clipping the tooltip panel but not the tiny rotated arrow).",
+          "Fixed: FieldStatsStrip and UpgradeIndicatorRail outer wrappers were flex containers, causing the sidebar to bleed into the field at desktop widths — outer wrappers are now block-only positioning contexts.",
+          "Fixed: the field card and sidebar were overflowing their grid columns, pushing the sidebar off-screen and letting the field consume ~95% of the viewport. Root cause: grid items default to `min-width: auto` which expands to intrinsic content width; the new pill strips with `overflow-x-auto` carried wide intrinsic widths that ignored the `1.45fr 0.85fr` proportions. Adding `min-w-0` to both grid children restores correct proportions.",
+          "Version schema migrated: releases are no longer prefixed with a leading `0.` — the previous `0.2.0` becomes `2.0.0`, `0.1.5` becomes `1.5.0`, and the full history rolls forward in a consistent one-dot shift.",
+        ],
+      },
+      {
+        title: "Tablet & Responsive Layout",
+        items: [
+          "Desktop two-column layout now activates at lg (1024px) instead of xl (1280px), so 11-inch iPads in landscape (1194px CSS) get the full side-by-side field+sidebar view.",
+          "h-screen lock, sector card absolute positioning, speed controls, resource pill reorder, and subtitle hide all now trigger at lg instead of xl.",
+          "Sidebar scrolls independently at lg+. The layout stays fully usable in both landscape and portrait on iPad.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "1.5.0",
     badge: "Code Hardening",
     summary: "Internal quality pass — save versioning, subsystem documentation, stricter linting, and expanded test coverage.",
     sections: [
@@ -38,7 +92,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.4a",
+    version: "1.4.1",
     badge: "Field First",
     summary: "Layout overhaul for every screen size — the game field is now the focal point on mobile and desktop alike.",
     sections: [
@@ -64,7 +118,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.4",
+    version: "1.4.0",
     badge: "Long Watch",
     summary: "Save persistence, day/night cycle, achievements, easter eggs, and idle-friendly UX polish.",
     sections: [
@@ -104,7 +158,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.3",
+    version: "1.3.0",
     badge: "Deep Reserves",
     summary: "Two new resources, three new upgrade tracks, and Sentinel Mechs for the late-game.",
     sections: [
@@ -134,7 +188,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.2",
+    version: "1.2.0",
     badge: "Strange Tides",
     summary: "Six new enemy types, Cores drops, and a live random-event system reshape the mid-game.",
     sections: [
@@ -160,7 +214,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.1",
+    version: "1.1.0",
     badge: "Slow Burn",
     summary: "Economy and drone rebalance. Slower pacing, weaker early drones, and cooperative cleanse synergy.",
     sections: [
@@ -185,7 +239,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.1.0",
+    version: "1.0.0",
     badge: "Foundation",
     summary:
       "This is the first build that feels like it has a real spine. The sim is reproducible, the tuning lives in one place, and the code finally reads like something you can keep building on.",
@@ -208,7 +262,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.8",
+    version: "0.8.0",
     badge: "Pressure Pass",
     summary:
       "This was the stop-the-late-game-from-wobbling release. Pressure still ramps, but it ramps in a way that feels fairer and easier to read.",
@@ -231,7 +285,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.7",
+    version: "0.7.0",
     badge: "Homefront",
     summary:
       "The colony finally started to feel like a place instead of just a combat board. This is the release where the home district began to tell the story of the run.",
@@ -254,7 +308,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.6",
+    version: "0.6.0",
     badge: "Visual Pass",
     summary:
       "This was the big readability pass. Enemy types became unmistakable, workers got their own silhouettes, and the whole battlefield stopped collapsing into one color soup.",
@@ -276,7 +330,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.5",
+    version: "0.5.0",
     badge: "AI Pass",
     summary:
       "The sim started behaving better here, not just looking better. Workers made smarter calls, units gave each other room, and busy fights got easier to follow.",
@@ -297,7 +351,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.4",
+    version: "0.4.0",
     badge: "Mobile Pass",
     summary:
       "This was the phone-and-layout cleanup release. The interface got less awkward on small screens, and the battlefield became a lot easier to read.",
@@ -313,7 +367,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.3",
+    version: "0.3.0",
     badge: "Control Room",
     summary:
       "The shell of the game got a lot calmer here. Desktop layout stopped sprawling, the HUD read better, and there was finally a quick way to speed the sim up while tuning.",
@@ -335,7 +389,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.2",
+    version: "0.2.0",
     badge: "Stability",
     summary:
       "A lot of invisible but important work landed here. The project stopped feeling fragile: CI existed, tests existed, and the build path finally matched the app.",
@@ -357,7 +411,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.0.1",
+    version: "0.1.0",
     badge: "Prototype",
     summary:
       "The first playable cut of Nexus Drift. Rough around the edges, but the core idea was already there: a colony that mostly runs itself while you keep the machine from drifting apart.",

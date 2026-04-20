@@ -47,6 +47,8 @@ export type ResourceNode = {
   corruptedBy: number | null;
   temporary?: boolean;
   despawnAt?: number;
+  /** Sim tick when this node was placed or last respawned. Used by the renderer for fade-in. */
+  spawnTick: number;
 };
 
 export type Agent = {
@@ -71,6 +73,8 @@ export type Agent = {
   damageTicks: number;
   killsNearby: number;
   veteranRank: 0 | 1 | 2 | 3;
+  /** Sim tick when this agent was deployed or last rebooted. Used by the renderer for fade-in. */
+  spawnTick: number;
 };
 
 export type Turret = {
@@ -131,6 +135,14 @@ export type Enemy = {
   goldRewardBonus?: number;
   coreDropOverride?: number;
   trail: [number, number][];
+  /** Sim tick when this enemy entered the field. Used by the renderer for fade-in. */
+  spawnTick: number;
+  /**
+   * Counts down from DEATH_FADE_TICKS to 0 after hp hits 0. The enemy is kept
+   * in state (but skipped by all sim logic) so the renderer can animate a
+   * fade-out. Removed from state.enemies once this reaches 0.
+   */
+  dyingTicks: number;
 };
 
 export type Projectile = {

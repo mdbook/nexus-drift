@@ -110,7 +110,7 @@ export function stepEvents(state: GameState) {
 
   if (!state.lostWorkerFound && derived.progression.tier >= 9 && state.rng.chance(0.01)) {
     state.lostWorkerFound = true;
-    const lostWorker = makeWorker("drone", state.agents.length + 1);
+    const lostWorker = makeWorker("drone", state.agents.length + 1, state.timers.tick);
     lostWorker.x = -30;
     lostWorker.y = 300;
     lostWorker.tx = lostWorker.homeX;

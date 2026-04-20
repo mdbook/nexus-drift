@@ -52,7 +52,7 @@ export function stepMining(state: GameState) {
       if (node.temporary) {
         exhaustedTemporaryNodes.add(node.id);
       } else {
-        Object.assign(node, respawnNode(state.rng, node.id, state.nodes));
+        Object.assign(node, respawnNode(state.rng, node.id, state.nodes, state.timers.tick));
       }
     } else {
       node.pulse = (node.pulse + 0.2 + node.corruption * 0.003) % (Math.PI * 2);
