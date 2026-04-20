@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-Current release: `2.2.7`.
+Current release: `2.2.8`.
 
 ## Highlights
 
@@ -18,6 +18,7 @@ Current release: `2.2.7`.
 - Glanceable upgrade rail and field stats strip live inside the field card — colour-coded upgrade dots (yield / defense / support / elite) and compact stat pills each expose hover/focus tooltips with full detail. Designed mobile-first so the sidebar no longer needs to be open to monitor the colony.
 - Activity log shows up to 40 structured entries with per-category icons (combat, corruption, mining, upgrade, event, system, achievement, ambient), relative-age timestamps, and a filter tab bar so you can focus on the stream that matters.
 - Responsive layout activates the two-column desktop view at 1024px (lg) instead of 1280px, so 11-inch iPads in landscape get the full side-by-side field and sidebar without scrolling.
+- On desktop iPad layouts, the field footer now reserves its own height below the canvas instead of overlaying the city strip, so the bottom HUD stays readable without covering the home district.
 - Entities fade in and out instead of popping: nodes fade in on spawn and respawn, temporary nodes fade out as they near their despawn deadline, enemies fade in on entry and play a short death fade-out before removal, and agents fade in on reboot.
 
 ## Development

@@ -444,7 +444,7 @@ export default function App() {
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
+            <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm lg:static lg:mt-auto lg:rounded-b-[28px]">
               <FieldStatsStrip game={game} derived={derived} />
               <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
             </div>

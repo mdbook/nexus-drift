@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    badge: "Clear Margin",
+    summary: "Desktop iPad layout now gives the field footer its own space instead of layering it over the battlefield, so the bottom HUD no longer clips the home district or falls off the viewport edge.",
+    sections: [
+      {
+        title: "iPad Desktop Layout Fit",
+        items: [
+          "On `lg` layouts, the field footer now sits in normal flow beneath the battlefield instead of absolutely overlaying the SVG.",
+          "This preserves the bottom city/home strip on iPadOS landscape and keeps the crews/integrity/combat rail fully visible within the card.",
+          "The battlefield canvas now yields a little vertical space to the footer on tablet-sized desktop layouts rather than hiding content under it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.7",
     badge: "True Signal",
     summary: "Achievement tracking is now aligned with real gameplay outcomes: synthwave unlocks its own secret badge, purge milestones count cleansed nodes, sentinel kills require a lethal sentinel hit, and Immaculate Grid no longer auto-completes on a fresh save.",

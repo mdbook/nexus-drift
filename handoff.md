@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.2.7**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.2.8**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -56,6 +56,7 @@ The UI uses Tailwind with a responsive flex layout:
 - The field card and sidebar wrapper are direct children of a `lg:grid-cols-[1.45fr_0.85fr]` grid. **Both carry `min-w-0`**, without which grid items default to `min-width: auto` and the intrinsic content width of scrollable pill strips / long labels forces the grid wider than the viewport, pushing the sidebar off-screen. Do not remove `min-w-0` from either.
 - Achievement badges live inside the field card, below the field toolbar, so they don't consume outer layout height.
 - The field card footer contains, top to bottom: the active events bar (`EventChip`s), the `FieldStatsStrip` (live stats), and the `UpgradeIndicatorRail` (glowing dots). All three sit inside the field card so the sidebar is not required for glanceable colony monitoring. This is the primary mobile HUD surface — keep any new live indicators here rather than in the sidebar.
+- On mobile and narrow layouts, the footer rail still overlays the bottom of the field. On `lg` desktop layouts, the stats strip / upgrade rail block now sits in normal flow beneath the SVG so iPad landscape does not lose the home-district strip behind the footer.
 - Max content width is 1920px with wider gutters at xl.
 
 ## Game Systems
