@@ -27,7 +27,7 @@ Current version: **2.2.13**. The in-game changelog is at `src/changelog.ts` and 
 - `src/components/EventChip.tsx` — active-event HUD chip. Tone-coded by `EventDef.tone`. Hover or focus reveals a tooltip with flavor text and a per-effect list (each item colour-coded by its own tone). Tooltip uses `position: fixed` with a ref-measured viewport anchor so it escapes the flex-wrap row's potential clipping ancestors.
 - `src/components/UpgradeIndicatorRail.tsx` — compact rail of one glowing dot per currently-visible upgrade. Category colour (yield / defense / support / elite) is centralized in a `UPGRADE_CATEGORY` map inside the component. Glow intensity scales with level (capped at 5 so late game does not wash out), and affordability drives a pulsing outer ring. Visibility rules mirror `Sidebar` exactly (tier gate + sentinel brute-kill gate). Tooltip uses `position: fixed` — required because the rail's inner row has `overflow-x-auto` which would clip any `absolute bottom-full` tooltip via the CSS overflow interaction rule. Placement is responsive: mobile keeps it in the field footer with upward-opening tooltips; `lg` desktop renders it as an absolutely-positioned overlay in the top-right chrome band above the resource bar with downward-opening tooltips.
 - `src/components/FieldStatsStrip.tsx` — horizontal stat pill row with per-pill tooltips. Each pill carries a tone (`calm` / `warn` / `danger` / `ready` / `toxic`) driven by derived state (integrity thresholds, `hostilePressure`, `corruptionPressure`, `progression.recoveryMode`, tier). Labels hide on mobile; icons + values + dots remain. Corruption pill shows a single combined count (corruptors + infected nodes) to stay compact. Tooltip uses `position: fixed` for the same reason as `UpgradeIndicatorRail` (inner scroll row clips upward tooltips).
-- `src/components/FieldSvg.tsx` — battlefield SVG rendering (workers, enemies, nodes, sentinels, projectiles, day/night cycle). Home-district building geometry is memoized by `citySeed` + active turret layout so decorative skyline generation is not repeated every tick. In low-FX mode the extra SVG text blur pass is disabled, but the foreground labels still render normally.
+- `src/components/FieldSvg.tsx` — battlefield SVG rendering (workers, enemies, nodes, sentinels, projectiles, day/night cycle). Home-district building geometry is memoized by `citySeed` + active turret layout so decorative skyline generation is not repeated every tick. In low-FX mode the extra SVG text blur pass is disabled, but the foreground labels still render normally. The late-game tourist drone is also rendered here as a keyboard/click target with an expanded transparent hit area so the hidden achievement is intentional rather than accidental.
 - `src/components/ActivityLog.tsx` — structured activity log panel: category icons, relative-age timestamps, filter tabs (including Awards), scrollable 40-entry history
 - `src/components/AchievementsModal.tsx` — full achievements modal: category tabs, rarity colouring, hidden masking, progress bar, rarity legend
 - `src/components/Sidebar.tsx` — economy, automation, and threat panels
@@ -35,7 +35,7 @@ Current version: **2.2.13**. The in-game changelog is at `src/changelog.ts` and 
 - `src/components/ui/` — local card and progress bar primitives
 - `src/hooks/useGameLoop.ts` — rAF-driven simulation loop, pause-on-hidden, autosave, direct state mutation hook for admin controls, and a throttled `uiGame` / `uiDerived` snapshot for scroll-heavy chrome surfaces
 - `src/game/advanceGame.ts` — thin orchestrator over subsystem steps; execution order documented inline
-- `src/game/achievements.ts` — achievement definitions and unlock helper
+- `src/game/achievements.ts` — achievement definitions, unlock helper, and the explicit `spotTourist()` secret trigger used by the UI click path
 - `src/game/persistence.ts` — localStorage save/load with `schemaVersion`-aware migration
 - `src/game/factories.ts` — initial state, entity construction, `SCHEMA_VERSION`, `migrateGameState`
 - `src/game/selectors.ts` — UI-facing derived state
@@ -44,7 +44,7 @@ Current version: **2.2.13**. The in-game changelog is at `src/changelog.ts` and 
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
 - `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
-- `src/game/__tests__/advanceGame.test.ts` — 24 tests: simulation invariants, subsystem behavior, save/load round-trip
+- `src/game/__tests__/advanceGame.test.ts` — 46 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, and save/load round-trip
 - `.gitlab-ci.yml` — verify and container-build pipeline
 - `docker/nginx.conf` — SPA serving config with security headers
 - `Dockerfile` — multi-stage production image build
@@ -168,7 +168,7 @@ Auto-triggers when the colony is rich, stable, and clear enough. Combo bonus sta
 
 ### City / Home District
 
-The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5.
+The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5; the hidden `Taking Notes` achievement now requires clicking that drone instead of merely letting it drift on-screen.
 
 ### Persistence And Idle UX
 
@@ -184,7 +184,7 @@ Categories and examples:
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
 - **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types)
 - **Survival** — 15m/30m/1h/2h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
-- **Secret** — drift easter egg, tourist spotted, lost drone, synthwave Konami, all 7 events, 3+ simultaneous events (legendary)
+- **Secret** — drift easter egg, click-spotted tourist drone, lost drone, synthwave Konami, all 7 events, 3+ simultaneous events (legendary)
 
 New stats tracked on `GameState.stats`: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `sentinelKills`. `sentinelKills` is credited only when a sentinel lands the lethal hit; do not infer it later from target selection or corpse cleanup. Migration adds `?? 0` fallbacks for all four.
 
@@ -198,7 +198,7 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 
 - Konami code toggles synthwave palette, logs a message, and unlocks the hidden `synthwave` achievement.
 - Typing `drift` anywhere logs "The drift remembers." and unlocks an achievement.
-- Tourist drone wanders the field after 15 real-time minutes at city stage 5.
+- Tourist drone wanders the field after 15 real-time minutes at city stage 5; click it to unlock `Taking Notes`.
 - At tier 9+, a 1% chance per big-event roll recruits a lost drone permanently.
 - Admin panel: press `Space` five times with page focus. Exposes speed controls and event trigger buttons.
 

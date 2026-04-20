@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
-import { unlockSecretAchievement } from "@/game/achievements";
+import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
@@ -466,6 +466,21 @@ describe("advanceGame simulation invariants", () => {
     stepAchievements(pressureState);
 
     expect(pressureState.achievements.full_health).toBe(true);
+  });
+
+  it("requires clicking the tourist drone before Taking Notes unlocks", () => {
+    const state = createInitialGameState();
+    state.touristWorker = { x: 512, y: 300, angle: 0, active: true, spotted: false };
+
+    stepAchievements(state);
+
+    expect(state.achievements.tourist_spotted).toBeUndefined();
+    expect(state.touristWorker.spotted).toBe(false);
+
+    spotTourist(state);
+
+    expect(state.touristWorker.spotted).toBe(true);
+    expect(state.achievements.tourist_spotted).toBe(true);
   });
 });
 

@@ -30,6 +30,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip; coarse-pointer desktop layouts such as iPadOS landscape fall back to a cheaper static variant so the visual identity stays intact without the Safari lag hit
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
+- Mature colonies can attract a tiny tourist drone; click it on the field to unlock the hidden `Taking Notes` achievement
 
 ### Controls & Persistence
 - Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
@@ -56,7 +57,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (24 tests in src/game/__tests__/)
+npm test            # unit tests (46 tests in src/game/__tests__/)
 npm run lint
 npm run build
 npm run preview
@@ -75,14 +76,14 @@ npm run format:check
 | `src/hooks/useLowFxMode.ts` | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic |
 | `src/hooks/useGameLoop.ts` | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot |
 | `src/game/advanceGame.ts` | Thin orchestrator that runs the simulation step order |
-| `src/game/achievements.ts` | Achievement definitions and unlock helper |
+| `src/game/achievements.ts` | Achievement definitions, unlock helper, and the click-driven tourist secret helper |
 | `src/game/persistence.ts` | localStorage save/load bootstrap and migration entry point |
 | `src/game/balance.ts` | Central tuning constants |
 | `src/game/events/eventDefs.ts` | Seeded mechanical event definitions and activation helpers |
 | `src/game/rng.ts` | Seeded Mulberry32 PRNG used by all simulation paths |
 | `src/game/targeting.ts` | Shared targeting helpers |
 | `src/game/subsystems/` | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events |
-| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode |
+| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode and the tourist drone exposed as a click target |
 | `src/components/EventBackdrop.tsx` | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode) |
 | `src/components/EventChip.tsx` | Active-event HUD chip with hover/focus tooltip |
 | `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus |

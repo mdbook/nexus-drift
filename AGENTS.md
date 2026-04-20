@@ -104,6 +104,7 @@ Rules for adding achievements:
 - If the condition needs a new stat counter, add it to `Stats` in `types.ts`, initialise it in `createInitialGameState()`, and add a `?? 0` fallback in `migrateGameState()` — the same save-state migration checklist as any other field change.
 - `state.stats.purges` counts completed node cleanses only. Increment it in `stepScouts()` when a node is actually cleansed; do not increment it for corruptor or blight deaths.
 - `state.stats.sentinelKills` counts lethal sentinel hits only. Credit it at the damage site in `stepSentinels()`, not later in `resolveEnemyDeaths()` based on `targetId`.
+- `tourist_spotted` is intentionally input-driven. `App.tsx` calls `spotTourist()` when the player clicks the tourist drone rendered in `FieldSvg.tsx`; do not reintroduce a passive visibility unlock in `stepAchievements()`.
 - Rarity tiers: `common` (tutorial-level), `uncommon` (mid-game), `rare` (late-game / specific combos), `legendary` (exceptional / near-impossible feats).
 - Hidden achievements (`hidden: true`) show as "???" placeholders in the modal until unlocked. Use sparingly — only for genuine easter eggs and surprises.
 - The `AchievementsModal` component renders all `ACHIEVEMENT_DEFS` entries. If you add a def without a matching condition in `stepAchievements`, it will appear permanently locked but won't break anything.
@@ -139,7 +140,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-24 tests in `src/game/__tests__/advanceGame.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+46 tests in `src/game/__tests__/advanceGame.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, achievement edge cases, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

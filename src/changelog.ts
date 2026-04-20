@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.2.13",
     badge: "Hardened Targets",
     summary:
-      "Combat-behavior pass. Leeches now bypass worker targeting and charge the home district directly. Three late-game enemies (leech, phantom, zapper) gain regenerating shields that absorb damage before their HP pool, adding a sustained-fire check to late-game pressure.",
+      "Combat-behavior pass. Leeches now bypass worker targeting and charge the home district directly. Three late-game enemies (leech, phantom, zapper) gain regenerating shields that absorb damage before their HP pool, adding a sustained-fire check to late-game pressure, and the tourist easter egg now requires a deliberate click to claim its hidden badge.",
     sections: [
       {
         title: "Leech Homing Behavior",
@@ -37,6 +37,13 @@ export const CHANGELOG: ChangelogEntry[] = [
           "New render pass: shielded enemies show a dashed cyan ring whose opacity tracks current shield %, a soft blue outer glow, and a thin shield bar above the HP bar. Regenerating shields pulse subtly to telegraph recovery.",
           "Sentinel kill-credit now checks effective lethal damage after shield absorption, so shield-absorbed hits don't falsely award sentinel kill achievements.",
           "Save migration adds shield fields with full-shield defaults so mid-combat saves from before this change don't load with 0-shield enemies.",
+        ],
+      },
+      {
+        title: "Tourist Click Target",
+        items: [
+          "The hidden `Taking Notes` achievement no longer unlocks automatically when the tourist drone drifts on-screen. You now have to click the drone itself.",
+          "The tourist sprite is keyboard-focusable and rendered with an expanded transparent hit area, so the interaction stays intentional without turning the tiny ship into a pixel hunt.",
         ],
       },
     ],

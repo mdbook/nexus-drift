@@ -108,16 +108,6 @@ export function stepAchievements(state: GameState) {
   // Lost Drone: the lostWorkerFound flag (easter egg drone from outer zone)
   if (state.lostWorkerFound) unlockAchievement(state, "lost_drone");
 
-  // Tourist drone spotted
-  if (
-    state.touristWorker?.active &&
-    state.touristWorker.x > 0 &&
-    state.touristWorker.x < 1024
-  ) {
-    unlockAchievement(state, "tourist_spotted");
-    state.touristWorker.spotted = true;
-  }
-
   // ── Veteran rank updates ──────────────────────────────────────────────────────
   state.agents.forEach((agent) => {
     const kills = agent.killsNearby ?? 0;

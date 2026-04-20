@@ -31,7 +31,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { PANEL_CLASS } from "@/theme";
-import { ACHIEVEMENT_DEFS, unlockSecretAchievement } from "@/game/achievements";
+import { ACHIEVEMENT_DEFS, spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import type { AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
@@ -469,7 +469,15 @@ export default function App() {
             )}
 
             <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
-              <FieldSvg game={game} derived={derived} />
+              <FieldSvg
+                game={game}
+                derived={derived}
+                onTouristClick={() => {
+                  mutateGame((next) => {
+                    spotTourist(next);
+                  });
+                }}
+              />
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">

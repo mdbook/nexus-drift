@@ -491,6 +491,14 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   return true;
 }
 
+export function spotTourist(state: GameState) {
+  if (!state.touristWorker?.active) return false;
+  if (state.touristWorker.spotted && state.achievements.tourist_spotted) return false;
+
+  state.touristWorker.spotted = true;
+  return unlockAchievement(state, "tourist_spotted");
+}
+
 export function unlockSecretAchievement(state: GameState, trigger: SecretAchievementTrigger) {
   return unlockAchievement(state, trigger === "drift" ? "drift_heard" : "synthwave");
 }

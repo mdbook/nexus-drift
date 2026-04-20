@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { SENTINEL } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
@@ -32,6 +32,7 @@ function despawnAlpha(currentTick: number, despawnAt: number): number {
 type FieldSvgProps = {
   game: GameState;
   derived: DerivedState;
+  onTouristClick?: () => void;
 };
 
 const CITY_PALETTE = [
@@ -471,7 +472,7 @@ function renderHomeDistrict(game: GameState, district: DistrictRenderData | null
   );
 }
 
-export function FieldSvg({ game, derived }: FieldSvgProps) {
+export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
   const lowFxMode = useLowFxMode();
   const activeTurretXs = useMemo(
     () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
@@ -526,6 +527,19 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
   const skyLight = Math.round(dayFactor * 18);
   const skyColor = `rgb(${skyLight}, ${skyLight + 4}, ${skyLight + 10})`;
   const nightOverlayOpacity = dayFactor < 0.5 ? 1 - dayFactor * 2 : 0;
+  const touristInteractive =
+    Boolean(onTouristClick) &&
+    Boolean(game.touristWorker?.active) &&
+    !game.touristWorker?.spotted &&
+    !game.achievements.tourist_spotted;
+
+  const onTouristKeyDown = (event: ReactKeyboardEvent<SVGGElement>) => {
+    if (!touristInteractive) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    onTouristClick?.();
+  };
 
   return (
     <svg
@@ -1028,7 +1042,15 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
       {game.touristWorker?.active && (
         <g
           transform={`translate(${game.touristWorker.x}, ${game.touristWorker.y}) rotate(${(game.touristWorker.angle * 180) / Math.PI})`}
+          role={touristInteractive ? "button" : undefined}
+          tabIndex={touristInteractive ? 0 : undefined}
+          aria-label={touristInteractive ? "Spot the tourist drone" : undefined}
+          onClick={touristInteractive ? onTouristClick : undefined}
+          onKeyDown={touristInteractive ? onTouristKeyDown : undefined}
+          style={touristInteractive ? { cursor: "pointer" } : undefined}
         >
+          {/* Transparent hit area so the tiny tourist is still reasonably clickable. */}
+          {touristInteractive && <circle r="14" fill="rgba(0,0,0,0.001)" />}
           <circle r="8" fill="rgba(253, 230, 138, 0.16)" />
           <circle r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1" />
           <rect x="5" y="-3" width="6" height="4" rx="1" fill="#374151" />
