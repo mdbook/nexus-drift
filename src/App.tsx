@@ -303,6 +303,7 @@ export default function App() {
   const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
   const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
   const hasActiveEvents = derived.activeEvents.length > 0;
+  const unlockedAchievementIds = Object.keys(game.achievements).reverse();
   const fieldFooterInsetClass = "mb-[124px] lg:mb-[83px]";
 
   useEffect(() => {
@@ -437,7 +438,7 @@ export default function App() {
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
 
-        <div className="hidden lg:absolute lg:right-6 lg:top-[92px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
+        <div className="hidden lg:absolute lg:right-6 lg:top-[84px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
           <Card className={`${PANEL_CLASS} overflow-hidden p-0`}>
             <UpgradeIndicatorRail
               game={game}
@@ -482,14 +483,14 @@ export default function App() {
               </div>
             </div>
 
-            {Object.keys(game.achievements).length > 0 && (
+            {unlockedAchievementIds.length > 0 && (
               <button
                 type="button"
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5 text-left [scrollbar-width:none] hover:bg-white/3"
                 onClick={openAchievements}
                 title="View achievements"
               >
-                {Object.keys(game.achievements).map((id) => {
+                {unlockedAchievementIds.map((id) => {
                   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
                   const rarity: AchievementRarity = def?.rarity ?? "common";
                   const RARITY_BADGE: Record<AchievementRarity, string> = {
@@ -508,7 +509,7 @@ export default function App() {
                   );
                 })}
                 <span className="ml-auto shrink-0 text-[10px] text-white/25">
-                  {Object.keys(game.achievements).length}/{ACHIEVEMENT_DEFS.length}
+                  {unlockedAchievementIds.length}/{ACHIEVEMENT_DEFS.length}
                 </span>
               </button>
             )}

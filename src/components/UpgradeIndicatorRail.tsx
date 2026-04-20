@@ -198,7 +198,7 @@ export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({
           reason as FieldStatsStrip: the outer div is the tooltip positioning
           context and must not have overflow set. shrink-0 on the outer div
           ensures the card's flex column never collapses this rail. */}
-      <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 md:gap-2 md:px-4">
+      <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.12)_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/12 [&::-webkit-scrollbar-track]:bg-transparent md:gap-2 md:px-4">
         <span className="shrink-0 text-[9px] uppercase tracking-[0.26em] text-white/35 md:text-[10px]">
           Upgrades
         </span>
