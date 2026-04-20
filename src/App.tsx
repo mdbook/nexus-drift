@@ -16,6 +16,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Background } from "@/components/Background";
+import { useTooltip } from "@/hooks/useTooltip";
+import { TooltipPanel } from "@/components/Tooltip";
 import { EventBackdrop } from "@/components/EventBackdrop";
 import { EventChip } from "@/components/EventChip";
 import { FieldStatsStrip } from "@/components/FieldStatsStrip";
@@ -85,6 +87,57 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4];
+const SPEED_TOOLTIP: Record<number, string> = {
+  1: "Normal speed — standard simulation rate.",
+  2: "2× speed — double tick rate, useful for mid-game grinding.",
+  4: "4× speed — fast-forward through long upgrade waits.",
+};
+
+function SpeedButton({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
+  const id = `speed-btn-${value}`;
+  const { open, triggerRef, triggerProps, anchor } = useTooltip(id, 200);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={onClick}
+        className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+          active
+            ? "border-cyan-200/30 bg-white/12 text-white"
+            : "border-transparent text-white/45 hover:text-white"
+        }`}
+        {...triggerProps}
+      >
+        {value}x
+      </button>
+      <TooltipPanel id={id} open={open} anchor={anchor} width={200}>
+        <p className="text-xs leading-5 text-white/75">{SPEED_TOOLTIP[value]}</p>
+      </TooltipPanel>
+    </>
+  );
+}
+
+function NewGameButton({ onClick }: { onClick: () => void }) {
+  const id = "new-game-btn";
+  const { open, triggerRef, triggerProps, anchor } = useTooltip(id, 200);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="text-xs text-white/40 transition-colors hover:text-white/75"
+        onClick={onClick}
+        {...triggerProps}
+      >
+        New Game
+      </button>
+      <TooltipPanel id={id} open={open} anchor={anchor} width={200} borderClass="border-rose-500/30">
+        <p className="text-xs leading-5 text-white/75">Wipes your save and starts a fresh run.</p>
+      </TooltipPanel>
+    </>
+  );
+}
 const KONAMI = [
   "ArrowUp",
   "ArrowUp",
@@ -195,30 +248,10 @@ export default function App() {
           <div className="mt-3 hidden lg:flex lg:items-center lg:gap-3">
             <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
               {PUBLIC_SPEEDS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setSpeed(value)}
-                  className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-                    speed === value
-                      ? "border-cyan-200/30 bg-white/12 text-white"
-                      : "border-transparent text-white/45 hover:text-white"
-                  }`}
-                >
-                  {value}x
-                </button>
+                <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
               ))}
             </div>
-            <button
-              type="button"
-              className="text-xs text-white/40 transition-colors hover:text-white/75"
-              onClick={() => {
-                localStorage.removeItem("nexusDriftSave");
-                window.location.reload();
-              }}
-            >
-              New Game
-            </button>
+            <NewGameButton onClick={() => { localStorage.removeItem("nexusDriftSave"); window.location.reload(); }} />
           </div>
         </div>
 
@@ -267,30 +300,10 @@ export default function App() {
         <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
           <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
             {PUBLIC_SPEEDS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setSpeed(value)}
-                className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-                  speed === value
-                    ? "border-cyan-200/30 bg-white/12 text-white"
-                    : "border-transparent text-white/45 hover:text-white"
-                }`}
-              >
-                {value}x
-              </button>
+              <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
             ))}
           </div>
-          <button
-            type="button"
-            className="text-xs text-white/40 transition-colors hover:text-white/75"
-            onClick={() => {
-              localStorage.removeItem(SAVE_KEY);
-              window.location.reload();
-            }}
-          >
-            New Game
-          </button>
+          <NewGameButton onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} />
         </div>
 
         <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 lg:order-3 lg:grid-cols-6">

@@ -16,6 +16,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    badge: "Informed Colony",
+    summary: "Tooltip coverage pass — every interactive surface now explains itself on hover or focus, backed by a shared Tooltip primitive that replaces three hand-rolled implementations.",
+    sections: [
+      {
+        title: "Tooltip System",
+        items: [
+          "New `useTooltip` hook in `src/hooks/useTooltip.ts` and `TooltipPanel` component in `src/components/Tooltip.tsx` extract the common hover/focus + position:fixed portal pattern shared by all HUD tooltips.",
+          "EventChip, FieldStatsStrip, and UpgradeIndicatorRail refactored to use the primitive — same visual behaviour, ~80 fewer duplicated lines across those three files.",
+          "Speed preset buttons (1×, 2×, 4×) now show a tooltip explaining what each multiplier does.",
+          "New Game button shows a tooltip warning that it wipes the save.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.3",
     badge: "Breathing Room",
     summary: "Enemies no longer pile on a cornered worker — a soft-repulsion pass makes them orbit at staggered angles instead of collapsing to zero distance.",

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useTooltip } from "@/hooks/useTooltip";
+import { TooltipPanel } from "@/components/Tooltip";
 import { upgradeDefs } from "@/game/data";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { canAffordUpgrade, formatUpgradeCost, nextUpgradeCost } from "@/game/utils";
@@ -81,47 +81,19 @@ type DotProps = {
 };
 
 function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProps) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [anchor, setAnchor] = useState<{ cx: number; top: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const open = hovered || focused;
-
   const style = CATEGORY_STYLE[category];
   const owned = level > 0;
-  // Intensity drives how much glow the dot carries. Caps at level 5 so late
-  // game dots do not wash out the rail.
   const intensity = Math.min(1, level / 5);
-
   const tooltipId = `upgrade-dot-${def.key}`;
-
-  // Tooltip uses position:fixed to escape every clipping ancestor. The rail's
-  // inner row has overflow-x-auto, which (via CSS's overflow interaction
-  // rule) would clip any absolute bottom-full tooltip. Fixed positioning is
-  // relative to the viewport, so no ancestor can clip it.
-  useLayoutEffect(() => {
-    if (!open || !buttonRef.current) {
-      setAnchor(null);
-      return;
-    }
-    const rect = buttonRef.current.getBoundingClientRect();
-    const tooltipW = 240; // w-60 = 15rem = 240px
-    const margin = 8;
-    const cx = rect.left + rect.width / 2;
-    const left = Math.min(
-      Math.max(cx - tooltipW / 2, margin),
-      window.innerWidth - tooltipW - margin
-    );
-    setAnchor({ cx: left, top: rect.top });
-  }, [open]);
+  const { open, triggerRef, triggerProps, anchor } = useTooltip(tooltipId, 240);
 
   return (
     <>
       <button
-        ref={buttonRef}
+        ref={triggerRef}
         type="button"
-        aria-describedby={open ? tooltipId : undefined}
         aria-label={`${def.label} level ${level}`}
+        {...triggerProps}
         className={cn(
           "group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:h-8 md:w-8",
           owned
@@ -132,10 +104,6 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
               ? "border-white/20 bg-white/5 hover:bg-white/10"
               : "border-white/10 bg-black/20 hover:bg-white/[0.06]"
         )}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
       >
         <Icon className={cn("h-3.5 w-3.5 md:h-4 md:w-4", owned ? "text-white/85" : "text-white/40")} />
         {/* glowing level indicator — the corner dot — scales with level intensity */}
@@ -163,54 +131,31 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
         )}
       </button>
 
-      {open && anchor && createPortal(
-        <div
-          id={tooltipId}
-          role="tooltip"
-          style={{
-            position: "fixed",
-            left: anchor.cx,
-            top: anchor.top,
-            transform: "translateY(calc(-100% - 8px))",
-          }}
-          className={cn(
-            "pointer-events-none z-50 w-60 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl",
-            style.tooltipBorder
-          )}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">
-                {CATEGORY_LABEL[category]}
-              </div>
-              <div className="mt-0.5 text-sm font-semibold text-white">{def.label}</div>
+      <TooltipPanel id={tooltipId} open={open} anchor={anchor} width={240} borderClass={style.tooltipBorder}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">
+              {CATEGORY_LABEL[category]}
             </div>
-            <div
-              className={cn(
-                "shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em]",
-                owned ? "text-white/80" : "text-white/40"
-              )}
-            >
-              Lv {level}
-            </div>
+            <div className="mt-0.5 text-sm font-semibold text-white">{def.label}</div>
           </div>
-          <p className="mt-2 text-xs leading-5 text-white/65">{def.effectText}</p>
-          <div className="mt-2.5 flex items-center justify-between border-t border-white/10 pt-2 text-[11px] uppercase tracking-[0.18em]">
-            <span className={canAfford ? "text-emerald-300" : "text-white/35"}>
-              {canAfford ? "Buy Ready" : "Saving"}
-            </span>
-            <span className="text-white/55 normal-case tracking-normal">{costLine}</span>
-          </div>
-          <span
-            aria-hidden
+          <div
             className={cn(
-              "absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b border-r bg-slate-950/95",
-              style.tooltipBorder
+              "shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em]",
+              owned ? "text-white/80" : "text-white/40"
             )}
-          />
-        </div>,
-        document.body
-      )}
+          >
+            Lv {level}
+          </div>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-white/65">{def.effectText}</p>
+        <div className="mt-2.5 flex items-center justify-between border-t border-white/10 pt-2 text-[11px] uppercase tracking-[0.18em]">
+          <span className={canAfford ? "text-emerald-300" : "text-white/35"}>
+            {canAfford ? "Buy Ready" : "Saving"}
+          </span>
+          <span className="text-white/55 normal-case tracking-normal">{costLine}</span>
+        </div>
+      </TooltipPanel>
     </>
   );
 }

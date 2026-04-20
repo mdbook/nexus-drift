@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useTooltip } from "@/hooks/useTooltip";
+import { TooltipPanel } from "@/components/Tooltip";
 import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Users } from "lucide-react";
 import type { DerivedState, GameState } from "@/game/types";
 import { cn } from "@/lib/cn";
@@ -54,48 +54,18 @@ const TONE: Record<IndicatorTone, { text: string; dot: string; glow: string; bor
 };
 
 function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: IndicatorProps) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [anchor, setAnchor] = useState<{ cx: number; top: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const open = hovered || focused;
   const style = TONE[tone];
   const tooltipId = `field-stat-${label.toLowerCase().replace(/\s+/g, "-")}`;
-
-  // When the tooltip opens, record the button's viewport rect so we can render
-  // the tooltip with position:fixed. This escapes every clipping ancestor —
-  // critical because the parent scroll row uses overflow-x-auto which would
-  // otherwise swallow an absolute bottom-full tooltip (CSS overflow
-  // interaction rule makes overflow-y effectively clipped too).
-  useLayoutEffect(() => {
-    if (!open || !buttonRef.current) {
-      setAnchor(null);
-      return;
-    }
-    const rect = buttonRef.current.getBoundingClientRect();
-    const tooltipW = 224; // w-56 = 14rem = 224px
-    const margin = 8;
-    const cx = rect.left + rect.width / 2;
-    // Clamp so the tooltip never bleeds past either viewport edge.
-    const left = Math.min(
-      Math.max(cx - tooltipW / 2, margin),
-      window.innerWidth - tooltipW - margin
-    );
-    setAnchor({ cx: left, top: rect.top });
-  }, [open]);
+  const { open, triggerRef, triggerProps, anchor } = useTooltip(tooltipId, 224);
 
   return (
     <>
       <button
-        ref={buttonRef}
+        ref={triggerRef}
         type="button"
-        aria-describedby={open ? tooltipId : undefined}
         aria-label={`${label}: ${value}`}
         className="group flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40 md:px-3"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        {...triggerProps}
       >
         <Icon className={cn("h-3 w-3 md:h-3.5 md:w-3.5", style.text)} />
         <span className="hidden text-[10px] uppercase tracking-[0.2em] text-white/45 md:inline">
@@ -108,36 +78,13 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
           style={{ boxShadow: style.glow }}
         />
       </button>
-      {open && anchor && createPortal(
-        <div
-          id={tooltipId}
-          role="tooltip"
-          style={{
-            position: "fixed",
-            left: anchor.cx,
-            top: anchor.top,
-            transform: "translateY(calc(-100% - 8px))",
-          }}
-          className={cn(
-            "pointer-events-none z-50 w-56 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-2.5 text-left shadow-hud backdrop-blur-xl",
-            style.border
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/45">{label}</span>
-            <span className={cn("text-sm font-semibold tabular-nums", style.text)}>{value}</span>
-          </div>
-          <p className="mt-1.5 text-xs leading-5 text-white/65">{detail}</p>
-          <span
-            aria-hidden
-            className={cn(
-              "absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b border-r bg-slate-950/95",
-              style.border
-            )}
-          />
-        </div>,
-        document.body
-      )}
+      <TooltipPanel id={tooltipId} open={open} anchor={anchor} width={224} borderClass={style.border}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/45">{label}</span>
+          <span className={cn("text-sm font-semibold tabular-nums", style.text)}>{value}</span>
+        </div>
+        <p className="mt-1.5 text-xs leading-5 text-white/65">{detail}</p>
+      </TooltipPanel>
     </>
   );
 }
