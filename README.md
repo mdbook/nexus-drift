@@ -9,6 +9,7 @@ Current release: `2.2.8`.
 - Fully browser-run simulation with no network gameplay dependency.
 - Deterministic seeded RNG in the simulation layer for reproducible runs.
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
+- GitLab source link sits in the top project chrome beside the version badge.
 - Site chrome now uses the branded `nexus-drift` mark for the favicon and touch icon, while social embeds continue using `public/og-image.png`.
 - Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
 - Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, phantoms, and zappers. Zappers are a late-game (tier 7+) ranged threat that holds at firing distance and fires slow energy bolts — a hit disables a worker or turret for ~7 seconds.
@@ -100,6 +101,7 @@ GitLab CI currently runs:
 ## Notes For Contributors
 
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
+- If the user does not explicitly say otherwise, assume follow-up UI/docs tweaks belong to the current in-flight release rather than forcing a new version bump.
 - If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
 - Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover work do not compete with the 30 Hz simulation loop.

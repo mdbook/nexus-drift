@@ -35,6 +35,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Social embeds continue using the existing `og-image.png` artwork, so link previews keep the wide hero image instead of switching to the favicon.",
         ],
       },
+      {
+        title: "Project Chrome",
+        items: [
+          "The top metadata row now includes a direct GitLab source link beside the version badge.",
+        ],
+      },
     ],
   },
   {

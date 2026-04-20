@@ -8,6 +8,7 @@
 - `src/changelog.ts` is the source for the in-game release history. It must match `package.json` version.
 - Every non-trivial change should have a matching `src/changelog.ts` entry. If work is folded into an existing release version, update that version's entry instead of leaving the changelog behind.
 - Ignore `.claude/worktrees/` in both git status and agent summaries. It is local tooling noise, not project source.
+- If the user does not specify a new release boundary, assume follow-up work belongs to the current in-flight release and keep expanding that version's changelog entry.
 
 ## Always Update Docs (Every Change)
 

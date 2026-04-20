@@ -6,6 +6,7 @@ import {
   Cpu,
   Crosshair,
   Diamond,
+  ExternalLink,
   Gem,
   Hammer,
   Hexagon,
@@ -88,6 +89,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4];
+const SOURCE_URL = "https://gitlab.mdbook.me/mikayla/nexus-drift";
 const SPEED_TOOLTIP: Record<number, string> = {
   1: "Normal speed — standard simulation rate.",
   2: "2× speed — double tick rate, useful for mid-game grinding.",
@@ -336,6 +338,16 @@ export default function App() {
             >
               v{CURRENT_VERSION}
             </button>
+            <a
+              href={SOURCE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium tracking-[0.24em] text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white/85"
+              aria-label="Open Nexus Drift source on GitLab"
+            >
+              <span>Source</span>
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
             NEXUS DRIFT // purge wing online

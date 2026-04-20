@@ -19,7 +19,6 @@ Current version: **2.2.8**. The in-game changelog is at `src/changelog.ts` and o
 ## Project Structure
 
 - `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
-- `src/changelog.ts` — structured in-game release notes (source of truth for version history)
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history). Every non-trivial shipped change should be represented there, either as a new release entry or by expanding the current version's entry before release.
 - `index.html` — app metadata, favicon/touch-icon links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark, embeds still use `public/og-image.png`.
 - `src/components/Background.tsx` — animated starfield and atmosphere layers
@@ -204,10 +203,12 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 ## Current Operational Notes
 
 - Header version badge opens the in-game changelog.
+- Top project chrome also carries a GitLab source link beside the version badge.
 - Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers.
 - Sector card, resource bar, and sidebar intentionally read the throttled `uiGame` / `uiDerived` snapshot. The field SVG and field-card live indicators still read the per-tick snapshot.
 - Favicon / touch icon live in `public/nexus-drift.svg` and `public/nexus-drift.png`. Social embeds intentionally remain pointed at `public/og-image.png`; do not swap embed art when only the favicon changes.
 - `package.json` version and `src/changelog.ts` must stay in sync for every release.
+- Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
 - 24 tests in `src/game/__tests__/advanceGame.test.ts` cover simulation invariants, subsystem behavior, and save/load round-trips.
