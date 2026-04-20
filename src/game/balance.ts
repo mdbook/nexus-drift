@@ -145,6 +145,9 @@ export const ENEMY_MOVEMENT = {
   corruptorApproachScale: 0.56,
   strafeAmplitude: 0.18,
   approachMinDistance: 18,
+  personalSpaceRadius: 55,
+  crowdingThreshold: 2,
+  orbitBlend: 0.4,
 } as const;
 
 export const TURRET = {

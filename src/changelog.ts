@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    badge: "Breathing Room",
+    summary: "Enemies no longer pile on a cornered worker — a soft-repulsion pass makes them orbit at staggered angles instead of collapsing to zero distance.",
+    sections: [
+      {
+        title: "Enemy AI — Soft Repulsion",
+        items: [
+          "Combat enemies now check how many other enemies are already contesting the same target within a 55px personal-space radius.",
+          "If 2 or more enemies are crowding, this enemy blends its pursuit vector 60/40 with a tangential orbit component, arriving at a staggered angle rather than piling directly on top.",
+          "Crowded enemies also hold 10px further back from the target than normal, giving cornered workers breathing room to evade.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.2",
     badge: "Pressure Front",
     summary: "Five new events fill the event roster with threat-tone pressure: three sustained modifiers and two rare late-game shocks.",

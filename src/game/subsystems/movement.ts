@@ -261,13 +261,39 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
-    if (d > ENEMY_MOVEMENT.approachMinDistance) {
+    const crowdCount = state.enemies.filter(
+      (other) =>
+        other.id !== enemy.id &&
+        other.hp > 0 &&
+        other.role === "combat" &&
+        other.kind !== "corruptor" &&
+        other.targetId === target.id &&
+        dist(other.x, other.y, target.x, target.y) < ENEMY_MOVEMENT.personalSpaceRadius
+    ).length;
+    const crowded = crowdCount >= ENEMY_MOVEMENT.crowdingThreshold;
+    const effectiveApproachMin = ENEMY_MOVEMENT.approachMinDistance + (crowded ? 10 : 0);
+
+    if (d > effectiveApproachMin) {
       if (enemy.kind === "wisp") {
         enemy.trail.push([enemy.x, enemy.y]);
         if (enemy.trail.length > 5) enemy.trail.shift();
       }
-      enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
-      enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      let moveX = dx / d;
+      let moveY = dy / d;
+      if (crowded) {
+        // Blend pursuit with a tangential (orbit) component so enemies arrive at staggered angles.
+        const tangentSign = enemy.id % 2 === 0 ? 1 : -1;
+        const tx = (-dy / d) * tangentSign;
+        const ty = (dx / d) * tangentSign;
+        const blend = ENEMY_MOVEMENT.orbitBlend;
+        const mx = moveX * (1 - blend) + tx * blend;
+        const my = moveY * (1 - blend) + ty * blend;
+        const ml = Math.max(0.001, Math.hypot(mx, my));
+        moveX = mx / ml;
+        moveY = my / ml;
+      }
+      enemy.x += moveX * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      enemy.y += moveY * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
       const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
       enemy.x += (-dy / d) * strafe;
       enemy.y += (dx / d) * strafe;
