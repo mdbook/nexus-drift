@@ -42,6 +42,16 @@ If the user asks for a release or version bump, update these together:
 
 If the user does not ask for release work, keep the suggestion advisory only.
 
+## Save State And Migration (Check On Every Feature)
+
+Any change that adds, removes, or renames a field on `GameState` (or any nested type) requires updates in three places. Before finishing a feature, explicitly ask: *does this change the shape of what gets saved to localStorage?* If yes:
+
+1. **`src/game/types.ts`** — add the new field to `GameState` (or the relevant nested type).
+2. **`src/game/factories.ts`** — set a default value in `createInitialGameState()` so fresh runs always have the field. Then add a defensive fallback in `migrateGameState()` so existing saves without the field load cleanly (e.g. `raw.newField ?? defaultValue`). If the schema change is significant, bump `SCHEMA_VERSION`.
+3. **`src/game/factories.ts` → `cloneGameState()`** — if the new field is an object or array, add an explicit spread or map so it gets deep-copied. Primitive fields are handled by `...prev` automatically.
+
+Do this even for fields that seem cosmetic or optional. A missing field on a loaded save will produce `undefined` where the sim expects a number, which causes silent NaN propagation that is hard to diagnose.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
