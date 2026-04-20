@@ -41,7 +41,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### Layout
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
-- Desktop iPad layouts use safe viewport sizing plus safe-area bottom padding, and the field reserves an inset above the overlay footer on every breakpoint so the bottom HUD stays readable without covering the home district
+- Desktop iPad layouts use dynamic viewport sizing (`100dvh`) plus safe-area bottom padding so the field card and its overlay footer stay inside the visible viewport when Safari's URL bar is present, and the field reserves an inset above the overlay footer on every breakpoint so the bottom HUD stays readable without covering the home district
 - On coarse-pointer `lg` desktops, the heaviest ambient background / event animation paths and SVG text blur are intentionally reduced so scrolling stays smooth on iPadOS Safari without flattening the overall look
 - On `lg` two-column screens, the upgrade rail is absolutely overlaid in the top-right chrome band above the resource bar instead of taking up vertical layout space
 

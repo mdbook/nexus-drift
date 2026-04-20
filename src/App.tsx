@@ -339,14 +339,14 @@ export default function App() {
 
   return (
     <div
-      className={`relative min-h-[100svh] bg-[#050814] text-white lg:h-[100svh] lg:overflow-hidden ${
+      className={`relative min-h-[100dvh] bg-[#050814] text-white lg:h-[100dvh] lg:overflow-hidden ${
         synthwave ? "synthwave" : ""
       }`}
     >
       <Background />
       <EventBackdrop activeEventKey={activeEventBackdropKey} />
 
-      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1600px] flex-col p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] lg:h-[100svh] lg:max-w-[1920px] lg:px-6 lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1600px] flex-col p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] lg:h-[100dvh] lg:max-w-[1920px] lg:px-6 lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* header chrome — sector card is a separate flex item below on mobile, absolute top-right on lg */}
         <div className="mb-2">
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.35em] text-white/40">

@@ -31,7 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Footer HUD Fit",
         items: [
-          "The app shell now uses safe viewport sizing (`100svh`) plus safe-area bottom padding instead of relying on `100vh`, reducing the last bit of bottom-edge clipping on iPad Safari.",
+          "The app shell now uses dynamic viewport sizing (`100dvh`) plus safe-area bottom padding, replacing the earlier `100svh` sizing that WebKit misreports on iPadOS Safari when the URL bar is visible — the field card and its absolute footer now stay inside the visible viewport.",
           "Active events are now anchored inside the footer HUD stack itself instead of living in card flow, so the event strip remains visible across all breakpoints.",
           "The field now reserves extra bottom inset above the overlay footer on every breakpoint, keeping the event HUD visible without chopping it off at the bottom edge.",
         ],

@@ -151,7 +151,9 @@ If you add a new column to the main grid or put a new scrollable strip inside th
 
 ## Breakpoint Conventions
 
-The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-[100svh]`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
+The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All structural layout classes (`h-[100dvh]`, `overflow-hidden`, `grid-cols-[1.45fr_0.85fr]`, sector card `absolute` positioning, speed controls, resource pill order) use `lg:` prefixes. This threshold was chosen so 11-inch iPads in landscape (1194px CSS) get the full desktop layout.
+
+Viewport sizing uses `100dvh` (dynamic viewport height), not `100svh` or `100vh`. iPadOS Safari misreports `svh` when the URL bar is visible, returning roughly the full-screen height and causing absolute-positioned footers inside `overflow-hidden` containers to clip below the visible viewport. `dvh` adjusts as browser chrome shows/hides and is supported on Safari 15.4+ (all shipping iPadOS today). Do not reintroduce `100svh` or `100vh` for the app shell without testing on iPadOS landscape with the URL bar visible.
 
 Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
 
