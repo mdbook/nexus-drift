@@ -6,6 +6,7 @@
 - `src/changelog.ts` is the in-game release history and a useful quick-scan of what has changed recently — read it alongside `handoff.md` to understand the current state of the project.
 - Keep `README.md`, `handoff.md`, `package.json`, and `src/changelog.ts` aligned. If architecture, commands, or player-facing behavior changes, update the docs in the same pass.
 - `src/changelog.ts` is the source for the in-game release history. It must match `package.json` version.
+- Every non-trivial change should have a matching `src/changelog.ts` entry. If work is folded into an existing release version, update that version's entry instead of leaving the changelog behind.
 - Ignore `.claude/worktrees/` in both git status and agent summaries. It is local tooling noise, not project source.
 
 ## Always Update Docs (Every Change)

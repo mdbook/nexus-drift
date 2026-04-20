@@ -20,6 +20,7 @@ Current version: **2.2.8**. The in-game changelog is at `src/changelog.ts` and o
 
 - `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history)
+- `src/changelog.ts` — structured in-game release notes (source of truth for version history). Every non-trivial shipped change should be represented there, either as a new release entry or by expanding the current version's entry before release.
 - `index.html` — app metadata, favicon/touch-icon links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark, embeds still use `public/og-image.png`.
 - `src/components/Background.tsx` — animated starfield and atmosphere layers
 - `src/components/EventBackdrop.tsx` — full-screen ambient effect overlay keyed off active event ids. Purely presentational, never touches sim state. Respects `prefers-reduced-motion` (static color washes still render, particle animations gate off). Effect per event id: `meteor_shower`, `solar_flare`, `cache_discovery`, `pirate_caravan`, `xeno_bloom`, `dust_storm`, `echo_signal`.

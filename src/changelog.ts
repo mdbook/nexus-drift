@@ -28,6 +28,13 @@ export const CHANGELOG: ChangelogEntry[] = [
           "The battlefield canvas now yields a little vertical space to the footer on tablet-sized desktop layouts rather than hiding content under it.",
         ],
       },
+      {
+        title: "Branding Metadata",
+        items: [
+          "The site favicon and touch icon now use the branded `nexus-drift` mark.",
+          "Social embeds continue using the existing `og-image.png` artwork, so link previews keep the wide hero image instead of switching to the favicon.",
+        ],
+      },
     ],
   },
   {
