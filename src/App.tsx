@@ -372,11 +372,10 @@ export default function App() {
               <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </div>
-          <h1 className="leading-none lg:max-w-[calc(100%-420px)]">
-            <span className="text-3xl font-semibold tracking-tight md:text-5xl">NEXUS DRIFT</span>
-            <span className="mx-2 align-middle text-4xl font-thin text-white/40 md:mx-3 md:text-6xl">//</span>
-            <br />
-            <span className="text-base font-medium tracking-widest text-white/70 uppercase md:text-xl">purge wing online</span>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
+            NEXUS DRIFT
+            <span className="mx-2 font-thin text-white/40"> //</span>
+            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">purge wing online</span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
             Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
