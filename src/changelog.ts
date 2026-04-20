@@ -34,6 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Polished the desktop top-right upgrade rail spacing so it sits closer to the sector card and no longer crowds the resource row, and slimmed its horizontal scrollbar to reduce chrome weight.",
           "The in-field achievement ribbon now renders newest unlocks first, so fresh badges appear on the left edge and push older ones rightward.",
           "Clicking an achievement badge in that ribbon now opens the archive already filtered to the right category, scrolls the matching row into view, focuses it, and flashes it for quick orientation.",
+          "That target-row glow now pulses twice instead of holding as a static cyan halo, making the landing point easier to catch at a glance.",
         ],
       },
     ],

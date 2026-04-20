@@ -286,7 +286,7 @@ export function AchievementsModal({
                 tabIndex={-1}
                 className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 transition-colors ${
                   flashAchievementId === def.id
-                    ? "ring-2 ring-cyan-300/55 shadow-[0_0_0_1px_rgba(103,232,249,0.28),0_0_28px_rgba(34,211,238,0.16)]"
+                    ? "achievement-target-pulse ring-2 ring-cyan-300/55 shadow-[0_0_0_1px_rgba(103,232,249,0.28),0_0_28px_rgba(34,211,238,0.16)]"
                     : ""
                 } ${
                   unlocked ? `${meta.border} ${meta.bg}` : "border-white/8 bg-white/3 opacity-55"

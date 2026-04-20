@@ -36,7 +36,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
 - Mature colonies can attract a tiny tourist drone; repeated clicks now squish it, count per pass, and feed multiple hidden achievements
 - Late-game interaction props live directly in the field: a broken recoverable lost drone, a 3-event anomaly artifact, clickable zapper bolts, unforgiving in-flight missiles, and corpse clicks during enemy death-fade windows
-- The in-field achievement ribbon now shows newly unlocked badges first on the left, pushing older ones rightward so fresh unlocks are immediately visible, and clicking a badge jumps the archive modal straight to that achievement with a scroll/focus flash
+- The in-field achievement ribbon now shows newly unlocked badges first on the left, pushing older ones rightward so fresh unlocks are immediately visible, and clicking a badge jumps the archive modal straight to that achievement with a scroll/focus pulse
 
 ### Controls & Persistence
 

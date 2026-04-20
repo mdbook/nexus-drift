@@ -204,7 +204,7 @@ Interaction-driven achievement helpers now live in `src/game/achievements.ts` an
 
 The achievement ribbon in the field card now uses rarity-coded border/background colours instead of flat indigo. An unlock count badge (e.g. `3/54`) appears at the right end of the strip. Opening the ribbon can itself unlock `archivist` once any hidden secret is already revealed.
 The ribbon renders newest unlocks first by reversing the unlocked id list at render time, so fresh badges appear on the left edge and push older ones rightward instead of being appended off to the far right.
-Each ribbon badge is now its own button: clicking one opens `AchievementsModal`, switches to the matching category, scrolls the corresponding row into view, focuses it, and plays a brief highlight flash so the player lands on the right achievement immediately.
+Each ribbon badge is now its own button: clicking one opens `AchievementsModal`, switches to the matching category, scrolls the corresponding row into view, focuses it, and plays a brief pulsing cyan highlight so the player lands on the right achievement immediately. The pulse is implemented in `src/index.css` as presentation-only animation and is disabled under `prefers-reduced-motion`.
 
 Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cataclysm`). Any legacy “tier 8/9/10” style unlock or spawn gate must key off `derived.progression.score / PROGRESSION.tiersPerScore`, not the capped `derived.progression.tier`. `stepAchievements()` and the lost-drone event roll now follow that rule.
 
