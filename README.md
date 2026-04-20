@@ -9,6 +9,7 @@ Current release: `2.2.8`.
 - Fully browser-run simulation with no network gameplay dependency.
 - Deterministic seeded RNG in the simulation layer for reproducible runs.
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
+- Site chrome now uses the branded `nexus-drift` mark for the favicon and touch icon, while social embeds continue using `public/og-image.png`.
 - Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
 - Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, phantoms, and zappers. Zappers are a late-game (tier 7+) ranged threat that holds at firing distance and fires slow energy bolts — a hit disables a worker or turret for ~7 seconds.
 - Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns. Each active event now drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) and surfaces a tone-coded HUD chip with a hover/focus tooltip listing flavor text and every buff and debuff.
@@ -45,6 +46,7 @@ npm run format:check
 
 - `src/App.tsx`: top-level shell, save bootstrap, speed presets, achievement UI, admin panel, event test triggers, and release-history modal
 - `src/changelog.ts`: in-game release notes sourced from repo milestones
+- `index.html`: app metadata, favicon links, and Open Graph / Twitter embed tags
 - `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop, pause-on-hidden handling, autosave cadence, live field snapshots, and a throttled UI snapshot for sidebar/chrome rendering
 - `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
 - `src/game/achievements.ts`: achievement definitions and unlock helper

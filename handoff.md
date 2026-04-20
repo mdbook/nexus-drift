@@ -20,6 +20,7 @@ Current version: **2.2.8**. The in-game changelog is at `src/changelog.ts` and o
 
 - `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history)
+- `index.html` — app metadata, favicon/touch-icon links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark, embeds still use `public/og-image.png`.
 - `src/components/Background.tsx` — animated starfield and atmosphere layers
 - `src/components/EventBackdrop.tsx` — full-screen ambient effect overlay keyed off active event ids. Purely presentational, never touches sim state. Respects `prefers-reduced-motion` (static color washes still render, particle animations gate off). Effect per event id: `meteor_shower`, `solar_flare`, `cache_discovery`, `pirate_caravan`, `xeno_bloom`, `dust_storm`, `echo_signal`.
 - `src/components/EventChip.tsx` — active-event HUD chip. Tone-coded by `EventDef.tone`. Hover or focus reveals a tooltip with flavor text and a per-effect list (each item colour-coded by its own tone). Tooltip uses `position: fixed` with a ref-measured viewport anchor so it escapes the flex-wrap row's potential clipping ancestors.
@@ -204,6 +205,7 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 - Header version badge opens the in-game changelog.
 - Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers.
 - Sector card, resource bar, and sidebar intentionally read the throttled `uiGame` / `uiDerived` snapshot. The field SVG and field-card live indicators still read the per-tick snapshot.
+- Favicon / touch icon live in `public/nexus-drift.svg` and `public/nexus-drift.png`. Social embeds intentionally remain pointed at `public/og-image.png`; do not swap embed art when only the favicon changes.
 - `package.json` version and `src/changelog.ts` must stay in sync for every release.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
