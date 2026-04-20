@@ -29,10 +29,28 @@ export const resourceDefs: ResourceDef[] = [
 ];
 
 export const upgradeDefs: UpgradeDef[] = [
-  { key: "miner", label: "Auto Miner", baseCost: UPGRADES.miner.baseCost, growth: UPGRADES.miner.growth, effectText: "+ Gold + Ore flow" },
-  { key: "drill", label: "Deep Drill", baseCost: UPGRADES.drill.baseCost, growth: UPGRADES.drill.growth, effectText: "+ Ore + Gems extraction" },
+  {
+    key: "miner",
+    label: "Auto Miner",
+    baseCost: UPGRADES.miner.baseCost,
+    growth: UPGRADES.miner.growth,
+    effectText: "+ Gold + Ore flow, extra crews at sector 12 / 24; unlock steps use flux + cores",
+  },
+  {
+    key: "drill",
+    label: "Deep Drill",
+    baseCost: UPGRADES.drill.baseCost,
+    growth: UPGRADES.drill.growth,
+    effectText: "+ Ore + Gems extraction, extra drones at sector 12 / 24; unlock steps use flux + cores",
+  },
   { key: "reactor", label: "Reactor", baseCost: UPGRADES.reactor.baseCost, growth: UPGRADES.reactor.growth, effectText: "+ Energy + anti-raider gun power" },
-  { key: "bot", label: "Ops Bot", baseCost: UPGRADES.bot.baseCost, growth: UPGRADES.bot.growth, effectText: "Adaptive counter-build logic" },
+  {
+    key: "bot",
+    label: "Ops Bot",
+    baseCost: UPGRADES.bot.baseCost,
+    growth: UPGRADES.bot.growth,
+    effectText: "Adaptive counter-build logic, extra runners at sector 12 / 24; unlock steps use flux + cores",
+  },
   { key: "turret", label: "Defense Turret", baseCost: UPGRADES.turret.baseCost, growth: UPGRADES.turret.growth, effectText: "+ Range + fire rate, anti-wisp" },
   { key: "shield", label: "Shield Grid", baseCost: UPGRADES.shield.baseCost, growth: UPGRADES.shield.growth, effectText: "Swarm mitigation + recovery" },
   { key: "scout", label: "Assault Scout", baseCost: UPGRADES.scout.baseCost, growth: UPGRADES.scout.growth, effectText: "Intercepts corrupters" },

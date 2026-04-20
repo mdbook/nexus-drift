@@ -132,10 +132,12 @@ Rules for adding achievements:
 
 ## Worker Slot Invariants
 
-`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active; slots 1 and 2 are unlocked by upgrade level. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
+`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active. Extra slots are intentionally late-game: the relevant upgrade track must reach its normal threshold (level 3 for the second slot, level 6 for the third), the colony must also reach sector level 12 / 24 before those units deploy, and those two worker-track purchases now add `flux` + `cores` on top of the normal gold cost. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
 
-- `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the number of active slots for a given upgrade level.
-- `stepWorkerSlots()` (called after `stepEconomy`) reconciles `agent.active` against current upgrade levels. It only ever activates, never deactivates — workers stay in the field once deployed.
+- `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the slot count allowed by that worker track's upgrade level.
+- `WORKER_SLOTS_BY_LEVEL[level]` is the slot count allowed by colony progression; `stepWorkerSlots()` uses the lower of the upgrade-based and level-based gates.
+- `WORKER_SLOT_UNLOCK_RESOURCE_COSTS[level]` is the extra flux/core surcharge applied by `nextUpgradeCost()` when a worker-track purchase lands exactly on one of the slot-unlock levels.
+- `stepWorkerSlots()` (called after `stepEconomy`) reconciles `agent.active` against the combined upgrade+level gates. It only ever activates, never deactivates — workers stay in the field once deployed.
 - All subsystems that iterate `state.agents` must guard on `agent.active` before processing. Check combat, movement, mining, and zapper targeting when touching those subsystems.
 - `FieldSvg.tsx` filters `game.agents` to active-only before rendering.
 - Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.
@@ -152,7 +154,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-56 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, event-card linger behavior, manual-override timing, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+58 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, manual-override timing, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

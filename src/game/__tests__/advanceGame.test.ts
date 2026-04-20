@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
+import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
@@ -9,8 +10,10 @@ import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepTurrets } from "@/game/subsystems/turrets";
+import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
+import { nextUpgradeCost } from "@/game/utils";
 
 function runTicks(state: GameState, ticks: number): GameState {
   let current = state;
@@ -162,6 +165,37 @@ describe("advanceGame simulation invariants", () => {
     low.upgrades.scout = 2;
     const lowDerived = computeDerived(low);
     expect(lowDerived.activeScouts).toBe(2);
+  });
+
+  it("keeps extra worker slots locked until late-game sector levels", () => {
+    const state = createInitialGameState();
+    state.upgrades.miner = 6;
+    state.upgrades.bot = 6;
+    state.upgrades.drill = 6;
+
+    stepWorkerSlots(state);
+    expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(1);
+    expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(1);
+    expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(1);
+
+    state.level = 12;
+    stepWorkerSlots(state);
+    expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(2);
+    expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(2);
+    expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(2);
+
+    state.level = 24;
+    stepWorkerSlots(state);
+    expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(3);
+    expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(3);
+    expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(3);
+  });
+
+  it("charges flux and cores on the worker-slot unlock upgrade levels", () => {
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 12 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 14, flux: 4, cores: 1 });
+    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 235, flux: 12, cores: 3 });
+    expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 12, cores: 3 });
   });
 
   it("never produces NaN resources over a long run", () => {

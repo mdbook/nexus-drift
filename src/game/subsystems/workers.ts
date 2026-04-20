@@ -1,4 +1,4 @@
-import { WORKER_SLOTS_BY_UPGRADE, WORKERS_AT_HOME } from "@/game/balance";
+import { WORKER_SLOTS_BY_LEVEL, WORKER_SLOTS_BY_UPGRADE, WORKERS_AT_HOME } from "@/game/balance";
 import type { GameState } from "@/game/types";
 
 export function stepWorkerSlots(state: GameState) {
@@ -11,7 +11,9 @@ export function stepWorkerSlots(state: GameState) {
           ? state.upgrades.bot
           : state.upgrades.drill;
     const slots = WORKER_SLOTS_BY_UPGRADE[kind];
-    const activeCount = slots[Math.min(upgradeLevel, slots.length - 1)];
+    const upgradeActiveCount = slots[Math.min(upgradeLevel, slots.length - 1)];
+    const levelActiveCount = WORKER_SLOTS_BY_LEVEL[Math.min(state.level, WORKER_SLOTS_BY_LEVEL.length - 1)];
+    const activeCount = Math.min(upgradeActiveCount, levelActiveCount);
 
     const kindAgents = state.agents.filter((a) => a.kind === kind);
     kindAgents.forEach((agent, slotIdx) => {

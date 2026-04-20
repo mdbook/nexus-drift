@@ -1,3 +1,4 @@
+import { WORKER_SLOT_UNLOCK_RESOURCE_COSTS } from "@/game/balance";
 import { MAX_LOG } from "@/game/constants";
 import type { LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
 
@@ -58,14 +59,25 @@ export function pushLog(
 
 export function nextUpgradeCost(def: UpgradeDef, level: number): Partial<Record<ResourceKey, number>> {
   const multiplier = Math.pow(def.growth, level);
+  const cost: Partial<Record<ResourceKey, number>> = {};
+
   if (typeof def.baseCost === "number") {
-    return { gold: Math.round(def.baseCost * multiplier) };
+    cost.gold = Math.round(def.baseCost * multiplier);
+  } else {
+    for (const [key, value] of Object.entries(def.baseCost)) {
+      cost[key as ResourceKey] = Math.round(value * multiplier);
+    }
   }
 
-  const cost: Partial<Record<ResourceKey, number>> = {};
-  for (const [key, value] of Object.entries(def.baseCost)) {
-    cost[key as ResourceKey] = Math.round(value * multiplier);
+  if (def.key === "miner" || def.key === "drill" || def.key === "bot") {
+    const unlockCost = WORKER_SLOT_UNLOCK_RESOURCE_COSTS[level + 1];
+    if (unlockCost) {
+      for (const [key, value] of Object.entries(unlockCost)) {
+        cost[key as ResourceKey] = (cost[key as ResourceKey] ?? 0) + (value ?? 0);
+      }
+    }
   }
+
   return cost;
 }
 

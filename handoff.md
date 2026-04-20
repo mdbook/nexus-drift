@@ -69,9 +69,9 @@ The UI uses Tailwind with a responsive flex layout:
 
 ### Workers
 
-Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). Slot 0 starts active; slot 1 unlocks at upgrade level 3; slot 2 unlocks at upgrade level 6. The `active: boolean` field on `Agent` controls this — inactive agents are skipped by all sim logic and hidden in the renderer.
+Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). Slot 0 starts active. Extra slots are now intentionally late-game: the relevant upgrade track still has to reach its slot thresholds (level 3 for slot 1, level 6 for slot 2), but the colony must also hit **sector level 12** before the second unit deploys and **sector level 24** before the third unit deploys. Those two slot-unlock purchases now also add `flux` + `cores` costs on top of the normal gold price. The `active: boolean` field on `Agent` controls this — inactive agents are skipped by all sim logic and hidden in the renderer.
 
-`WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → active slot count. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against current upgrade levels each tick (called after `stepEconomy`, before `stepSpawns`).
+`WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
 Workers pick targets autonomously via a scored target-selection function in `factories.ts`. They evade threats with sticky enter/exit hysteresis, recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
@@ -245,7 +245,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 56 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts` cover simulation invariants, interaction achievements, event HUD linger behavior, manual-override timing, and save/load round-trips.
+- 58 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 

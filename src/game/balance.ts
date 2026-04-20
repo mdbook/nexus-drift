@@ -1,4 +1,4 @@
-import type { EnemyKind, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type { EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
   miner: { baseCost: 10, growth: 1.20 },
@@ -471,6 +471,17 @@ export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
   miner:  [1, 1, 1, 2, 2, 2, 3],
   runner: [1, 1, 1, 2, 2, 2, 3],
   drone:  [1, 1, 1, 2, 2, 2, 3],
+};
+
+export const WORKER_SLOTS_BY_LEVEL = [
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  3,
+] as const;
+
+export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<Record<number, Partial<Record<ResourceKey, number>>>> = {
+  3: { flux: 4, cores: 1 },
+  6: { flux: 12, cores: 3 },
 };
 
 export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: string }> = {

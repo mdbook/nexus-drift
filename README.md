@@ -14,7 +14,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
-- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units — slots unlock at upgrade levels 3 and 6
+- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, but extra crews are now a true late-game unlock: the relevant track still has to reach its slot levels, the colony must also hit sector levels 12 and 24, and those key unlock upgrades now charge both Flux and Cores
 - Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
 - Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns; the 3 one-shot events now surface as short-lived inspectable cards instead of disappearing immediately, then fade away without a visible countdown
 
@@ -65,7 +65,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (56 tests across src/game/__tests__/)
+npm test            # unit tests (58 tests across src/game/__tests__/)
 npm run lint
 npm run build
 npm run preview

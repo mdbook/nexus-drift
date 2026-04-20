@@ -19,8 +19,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.3.2",
     badge: "Signal Trim",
     summary:
-      "Small HUD polish patch. One-shot event cards keep their distinct short-lived card treatment, but the oversized explanatory label and visible countdown have been removed so they can linger, then fade out cleanly.",
+      "Small HUD polish patch plus a worker-progression trim. One-shot event cards keep their distinct short-lived card treatment without the oversized explanatory label or visible countdown, and extra worker slots now wait for much later colony progression and premium resource unlocks before they deploy.",
     sections: [
+      {
+        title: "Worker Progression",
+        items: [
+          "Extra miner, runner, and drone bodies no longer appear as soon as their upgrade track hits level 3 / 6.",
+          "Second and third worker slots now also require sector levels 12 and 24, turning multi-worker tracks into deliberate mid-to-late and late-game unlocks instead of an early snowball.",
+          "Those two slot-unlock purchases now also charge both Flux and Cores, so expanding the roster competes with other late-game systems instead of being a pure gold check.",
+          "Upgrade tile copy now calls out the sector-level and premium-resource gates directly so the delayed deployment reads as intended rather than feeling like a hidden rule.",
+        ],
+      },
       {
         title: "Event Card Copy",
         items: [
