@@ -642,19 +642,42 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         );
       })}
 
-      {game.projectiles.map((projectile) => (
-        <line
-          key={projectile.id}
-          x1={projectile.x1}
-          y1={projectile.y1}
-          x2={projectile.x2}
-          y2={projectile.y2}
-          stroke={projectile.color}
-          strokeWidth={projectile.width}
-          opacity={projectile.life / projectile.maxLife}
-          strokeLinecap="round"
-        />
-      ))}
+      {game.projectiles.map((projectile) => {
+        if (projectile.tag === "turret-missile") {
+          const angle = Math.atan2(projectile.vy ?? -1, projectile.vx ?? 0) * (180 / Math.PI);
+          const opacity = Math.min(1, projectile.life / 12);
+          return (
+            <g
+              key={projectile.id}
+              transform={`translate(${projectile.x1},${projectile.y1}) rotate(${angle})`}
+              opacity={opacity}
+            >
+              {/* nose cone — red tip */}
+              <polygon points="6,0 3,-2.5 3,2.5" fill="#e53e3e" />
+              {/* body — white/grey */}
+              <rect x={-2} y={-2.5} width={5} height={5} rx={1} fill="#d1d5db" />
+              {/* fins — red */}
+              <polygon points="-2,-2.5 -5,-5 -3,-2.5" fill="#e53e3e" />
+              <polygon points="-2,2.5 -5,5 -3,2.5" fill="#e53e3e" />
+              {/* engine fire — orange */}
+              <polygon points="-2,-1.5 -5.5,0 -2,1.5" fill="rgba(255,140,0,0.9)" />
+            </g>
+          );
+        }
+        return (
+          <line
+            key={projectile.id}
+            x1={projectile.x1}
+            y1={projectile.y1}
+            x2={projectile.x2}
+            y2={projectile.y2}
+            stroke={projectile.color}
+            strokeWidth={projectile.width}
+            opacity={projectile.life / projectile.maxLife}
+            strokeLinecap="round"
+          />
+        );
+      })}
 
       {game.enemies.map((enemy) => {
         const hpPct = clamp((enemy.hp / enemy.maxHp) * 100, 0, 100);

@@ -12,6 +12,7 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
   foundry: { baseCost: 200, growth: 1.26 },
   sentinel: { baseCost: 800, growth: 1.35 },
   archive: { baseCost: 0, growth: 1.30 },
+  focusedBeam: { baseCost: 600, growth: 1.35 },
 };
 
 export const WORKER = {
@@ -167,6 +168,16 @@ export const TURRET = {
   cooldownPerTierPair: 0.3,
   cooldownFloor: 7,
   projectileLife: 7,
+  missileSpeed: 3.5,
+  missileSteering: 0.12,
+  missileMaxLife: 90,
+  missileHitRadius: 14,
+  missileDamageBonus: 1.15,
+} as const;
+
+export const FOCUSED_BEAM = {
+  baseRange: 90,
+  rangePerLevel: 8,
 } as const;
 
 export const SCOUT = {

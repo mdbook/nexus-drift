@@ -1,4 +1,4 @@
-import { ENEMY_STATS, SENTINEL, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -298,6 +298,7 @@ export function createInitialGameState(seed?: number): GameState {
       foundry: 0,
       sentinel: 0,
       archive: 0,
+      focusedBeam: 0,
     },
     log: [
       { tick: 0, category: "system" as const, message: "Passive income stable." },
@@ -506,6 +507,34 @@ export function addProjectile(
     ...(tag !== undefined && { tag }),
     ...(targetId !== undefined && { targetId }),
     ...(targetKind !== undefined && { targetKind }),
+  });
+}
+
+export function addMissile(
+  state: GameState,
+  fromX: number,
+  fromY: number,
+  vx: number,
+  vy: number,
+  targetId: number,
+  damage: number
+) {
+  state.projectiles.push({
+    id: state.nextProjectileId++,
+    x1: fromX,
+    y1: fromY,
+    x2: fromX,
+    y2: fromY,
+    life: TURRET.missileMaxLife,
+    maxLife: TURRET.missileMaxLife,
+    color: "rgba(255, 140, 0, 0.95)",
+    width: 3,
+    tag: "turret-missile",
+    targetId,
+    vx,
+    vy,
+    speed: TURRET.missileSpeed,
+    damage,
   });
 }
 

@@ -28,6 +28,7 @@ const UPGRADE_CATEGORY: Record<UpgradeKey, UpgradeCategory> = {
   arsenal: "support",
   bot: "support",
   archive: "elite",
+  focusedBeam: "defense",
 };
 
 const CATEGORY_STYLE: Record<

@@ -84,6 +84,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   foundry: Cpu,
   sentinel: Crosshair,
   archive: Bot,
+  focusedBeam: Zap,
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4];

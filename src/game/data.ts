@@ -61,6 +61,14 @@ export const upgradeDefs: UpgradeDef[] = [
     effectText: "+8% XP rate, +0.05 prestige combo per level",
     minTier: 4,
   },
+  {
+    key: "focusedBeam",
+    label: "Focused Beam",
+    baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.focusedBeam.growth,
+    effectText: "Turrets use instant-hit beam for close targets; missiles handle longer range",
+    minTier: 4,
+  },
 ];
 
 export function getUpgradeDef(key: UpgradeDef["key"]) {

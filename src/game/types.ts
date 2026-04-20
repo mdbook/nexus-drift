@@ -28,7 +28,8 @@ export type UpgradeKey =
   | "arsenal"
   | "foundry"
   | "sentinel"
-  | "archive";
+  | "archive"
+  | "focusedBeam";
 export type StatusTone = "danger" | "toxic" | "ready" | "calm";
 
 export type LogCategory =
@@ -180,12 +181,19 @@ export type Projectile = {
   maxLife: number;
   color: string;
   width: number;
-  /** Identifies special projectile behaviour. Untagged = cosmetic line only. */
-  tag?: "zapper-bolt";
+  /** Identifies special projectile behaviour. Untagged / "instant-beam" = cosmetic line only. */
+  tag?: "zapper-bolt" | "turret-missile" | "instant-beam";
   /** Target entity id for tagged projectiles. */
   targetId?: number;
-  /** Whether the target is an agent or turret. */
+  /** Whether the target is an agent or turret (zapper-bolt) or an enemy (turret-missile). */
   targetKind?: "agent" | "turret";
+  /** Homing missile velocity (unit vector). */
+  vx?: number;
+  vy?: number;
+  /** Movement speed in px/tick for turret-missile. */
+  speed?: number;
+  /** Damage to apply on impact for turret-missile. */
+  damage?: number;
 };
 
 export type Stats = {

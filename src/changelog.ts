@@ -16,6 +16,30 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    badge: "Locked On",
+    summary: "Turrets now fire visible homing missiles instead of instant shots. A new Focused Beam upgrade (tier 4+) unlocks instant-hit fire for close targets while missiles handle the longer range.",
+    sections: [
+      {
+        title: "Turret Missile Rework",
+        items: [
+          "Turrets default to firing homing missiles that travel visibly and steer toward their target each tick; damage is applied on impact rather than instantly.",
+          "Missiles receive a 15% damage bonus to preserve DPS relative to the previous instant-shot baseline.",
+          "Missiles fizzle harmlessly if their target dies or cloaks mid-flight.",
+          "Missile render: a tiny rocket figurine (red nose, grey body, red fins, orange engine flame) that rotates to face its heading.",
+        ],
+      },
+      {
+        title: "Focused Beam Upgrade",
+        items: [
+          "New `focusedBeam` upgrade track (minTier: 4, cost: 600g + 2 cores, growth ×1.35). Unlocks instant-hit beam fire for targets within base 90px + 8px per level.",
+          "When the target is within beam range, the turret fires instantly (classic behaviour); beyond beam range it falls through to the missile path.",
+          "The beam's short range ensures missiles remain relevant as the base turret range scales up late-game.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.5",
     badge: "Crowded House",
     summary: "Each worker kind can now field up to three units — slots unlock at upgrade levels 3 and 6. Workers spawn at staggered home pads and activate or deactivate as upgrade levels change.",

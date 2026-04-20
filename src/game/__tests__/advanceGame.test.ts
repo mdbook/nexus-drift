@@ -4,6 +4,7 @@ import { AUTO_TICK } from "@/game/constants";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
+import { stepTurrets } from "@/game/subsystems/turrets";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
@@ -227,10 +228,13 @@ describe("advanceGame simulation invariants", () => {
     boostedRaider.y = boosted.turrets[0].y - 10;
     boosted.enemies.push(boostedRaider);
 
-    const baselineAfter = advanceGame(baseline);
-    const boostedAfter = advanceGame(boosted);
+    // Turrets now fire missiles; run enough ticks for missiles to travel and land (~8-10 ticks at 3.5 px/tick for ~31px gap)
+    const baselineAfter = runTicks(baseline, 15);
+    const boostedAfter = runTicks(boosted, 15);
 
-    expect(boostedAfter.enemies[0].hp).toBeLessThan(baselineAfter.enemies[0].hp);
+    const baselineHp = baselineAfter.enemies.find((e) => e.id === baselineRaider.id)?.hp ?? 0;
+    const boostedHp = boostedAfter.enemies.find((e) => e.id === boostedRaider.id)?.hp ?? 0;
+    expect(boostedHp).toBeLessThan(baselineHp);
   });
 
   it("resets the spawn timer instead of banking spawn debt while enemy cap is full", () => {
@@ -414,8 +418,8 @@ describe("save / load round-trip", () => {
       citySeed: 12345,
       level: 3,
       resources: { gold: 80, ore: 20, gems: 5, energy: 0, cores: 0, flux: 0 },
-      upgrades: { miner: 1, drill: 0, reactor: 0, bot: 0, turret: 0, shield: 0, scout: 0, arsenal: 0, foundry: 0, sentinel: 0, archive: 0 },
-    };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
 
     const restored = migrateGameState(v1Save);
 
@@ -553,5 +557,110 @@ describe("zapper enemy", () => {
     const restored = migrateGameState(save);
     expect(restored.agents[0].disabledTicks).toBe(0);
     expect(restored.turrets[0].disabledTicks).toBe(0);
+  });
+});
+
+describe("turret missiles and focused beam (2.2.6)", () => {
+  function makeStateWithEnemyInRange() {
+    const state = createInitialGameState();
+    // Unlock turret so first turret is live
+    state.upgrades.turret = 1;
+    const turret = state.turrets[0];
+    turret.range = 250;
+    turret.cooldown = 0;
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy.x = turret.x;
+    enemy.y = turret.y - 120;
+    enemy.hp = 100;
+    state.enemies.push(enemy);
+    return { state, turret, enemy };
+  }
+
+  it("turret fires a missile when focusedBeam is 0", () => {
+    const { state } = makeStateWithEnemyInRange();
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    expect(missile).toBeDefined();
+    expect(missile?.targetId).toBe(state.enemies[state.enemies.length - 1].id);
+  });
+
+  it("missile moves toward its target each tick", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    const startDist = Math.hypot(enemy.x - missile.x1, enemy.y - missile.y1);
+    stepProjectiles(state);
+    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    const endDist = Math.hypot(enemy.x - updated.x1, enemy.y - updated.y1);
+    expect(endDist).toBeLessThan(startDist);
+    // No damage yet (missile still in flight)
+    expect(enemy.hp).toBe(100);
+  });
+
+  it("missile applies damage on impact and is removed", () => {
+    const { state, turret, enemy } = makeStateWithEnemyInRange();
+    // Place enemy right at turret position so missile spawns nearly touching
+    enemy.x = turret.x + 10;
+    enemy.y = turret.y;
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile).toBeDefined();
+    // Force missile onto the enemy
+    missile.x1 = enemy.x;
+    missile.y1 = enemy.y;
+    stepProjectiles(state);
+    expect(enemy.hp).toBeLessThan(100);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
+  it("missile fizzles when its target dies mid-flight", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    stepTurrets(state);
+    // Kill the target
+    enemy.hp = 0;
+    enemy.dyingTicks = 1;
+    // Run a few ticks — missile should not crash and eventually fizzle
+    for (let i = 0; i < 5; i++) stepProjectiles(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    // It is still present (flying) but no NaN on position
+    if (missile) {
+      expect(isNaN(missile.x1)).toBe(false);
+      expect(isNaN(missile.y1)).toBe(false);
+    }
+  });
+
+  it("turret uses instant beam when focusedBeam > 0 and target is within beam range", () => {
+    const { state, turret, enemy } = makeStateWithEnemyInRange();
+    state.upgrades.focusedBeam = 5;
+    // Place enemy within focusedBeam range: 90 + 5*8 = 130px
+    enemy.x = turret.x;
+    enemy.y = turret.y - 100;
+    const hpBefore = enemy.hp;
+    stepTurrets(state);
+    expect(enemy.hp).toBeLessThan(hpBefore);
+    const beam = state.projectiles.find((p) => p.tag === "instant-beam");
+    expect(beam).toBeDefined();
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    expect(missile).toBeUndefined();
+  });
+
+  it("turret fires missile when focusedBeam > 0 but target is beyond beam range", () => {
+    const { state, turret, enemy } = makeStateWithEnemyInRange();
+    state.upgrades.focusedBeam = 1;
+    // focusedBeam range = 90 + 1*8 = 98px; turret range after upgrade = 140px; place enemy at 120px
+    enemy.x = turret.x;
+    enemy.y = turret.y - 120;
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    expect(missile).toBeDefined();
+    // No immediate damage
+    expect(enemy.hp).toBe(100);
+  });
+
+  it("focusedBeam upgrade defaults to 0 in new game and migration", () => {
+    const state = createInitialGameState();
+    expect(state.upgrades.focusedBeam).toBe(0);
+    const restored = migrateGameState({ citySeed: 1 } as any);
+    expect(restored.upgrades.focusedBeam).toBe(0);
   });
 });

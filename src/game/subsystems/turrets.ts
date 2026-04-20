@@ -1,6 +1,6 @@
-import { TURRET } from "@/game/balance";
+import { FOCUSED_BEAM, TURRET } from "@/game/balance";
 import { isCloaked } from "@/game/enemyUtils";
-import { addProjectile } from "@/game/factories";
+import { addMissile, addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { dist } from "@/game/utils";
@@ -53,7 +53,7 @@ export function stepTurrets(state: GameState) {
     }
 
     if (target && turret.cooldown <= 0) {
-      const damage =
+      const baseDamage =
         TURRET.damageBase +
         state.upgrades.turret * TURRET.damagePerTurret +
         state.upgrades.reactor * TURRET.damagePerReactor +
@@ -69,18 +69,30 @@ export function stepTurrets(state: GameState) {
             state.eventModifiers.turretCooldownScale
         )
       );
-      addProjectile(
-        state,
-        turret.x,
-        turret.y,
-        target.x,
-        target.y,
-        "rgba(255, 255, 255, 0.95)",
-        target.kind === "raider" ? 2.8 : 2.2,
-        TURRET.projectileLife
-      );
-      target.hp -= damage;
-      target.flash = 6;
+
+      const d = dist(turret.x, turret.y, target.x, target.y);
+      const instantRange = FOCUSED_BEAM.baseRange + state.upgrades.focusedBeam * FOCUSED_BEAM.rangePerLevel;
+      const useBeam = state.upgrades.focusedBeam > 0 && d <= instantRange;
+
+      if (useBeam) {
+        addProjectile(
+          state,
+          turret.x,
+          turret.y,
+          target.x,
+          target.y,
+          "rgba(255, 255, 255, 0.95)",
+          target.kind === "raider" ? 2.8 : 2.2,
+          TURRET.projectileLife,
+          "instant-beam"
+        );
+        target.hp -= baseDamage;
+        target.flash = 6;
+      } else {
+        const vx = (target.x - turret.x) / Math.max(1, d);
+        const vy = (target.y - turret.y) / Math.max(1, d);
+        addMissile(state, turret.x, turret.y, vx, vy, target.id, Math.round(baseDamage * TURRET.missileDamageBonus));
+      }
     }
   });
 }
