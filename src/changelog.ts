@@ -23,9 +23,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "iPad Desktop Layout Fit",
         items: [
-          "On `lg` layouts, the field footer now sits in normal flow beneath the battlefield instead of absolutely overlaying the SVG.",
-          "This preserves the bottom city/home strip on iPadOS landscape and keeps the crews/integrity/combat rail fully visible within the card.",
-          "The battlefield canvas now yields a little vertical space to the footer on tablet-sized desktop layouts rather than hiding content under it.",
+          "On `lg` layouts, the field footer stays as an overlay for performance instead of moving into normal flow.",
+          "The battlefield now reserves bottom inset space above that overlay, which preserves the city/home strip on iPadOS landscape and keeps the crews/integrity/combat rail fully visible.",
+          "This avoids the heavy relayout path that made the earlier iPad desktop fix laggy while still preventing the footer from hiding field content.",
         ],
       },
       {

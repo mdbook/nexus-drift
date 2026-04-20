@@ -57,7 +57,7 @@ The UI uses Tailwind with a responsive flex layout:
 - The field card and sidebar wrapper are direct children of a `lg:grid-cols-[1.45fr_0.85fr]` grid. **Both carry `min-w-0`**, without which grid items default to `min-width: auto` and the intrinsic content width of scrollable pill strips / long labels forces the grid wider than the viewport, pushing the sidebar off-screen. Do not remove `min-w-0` from either.
 - Achievement badges live inside the field card, below the field toolbar, so they don't consume outer layout height.
 - The field card footer contains, top to bottom: the active events bar (`EventChip`s), the `FieldStatsStrip` (live stats), and the `UpgradeIndicatorRail` (glowing dots). All three sit inside the field card so the sidebar is not required for glanceable colony monitoring. This is the primary mobile HUD surface — keep any new live indicators here rather than in the sidebar.
-- On mobile and narrow layouts, the footer rail still overlays the bottom of the field. On `lg` desktop layouts, the stats strip / upgrade rail block now sits in normal flow beneath the SVG so iPad landscape does not lose the home-district strip behind the footer.
+- The footer rail stays overlaid at all breakpoints for performance. On `lg` desktop layouts, the field reserves bottom inset space above that overlay so iPad landscape keeps the home-district strip visible without forcing the footer into normal flow.
 - Max content width is 1920px with wider gutters at xl.
 
 ## Game Systems
