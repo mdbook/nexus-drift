@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { AlertTriangle, Bot, TrendingUp } from "lucide-react";
+import { ActivityLog } from "@/components/ActivityLog";
 import { StatTile, UpgradeTile } from "@/components/HudPrimitives";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -161,21 +162,7 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
           </div>
         </div>
 
-        <div className="mt-3 flex flex-col rounded-3xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Activity Log</div>
-            <div className="rounded-2xl bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/45">
-              live
-            </div>
-          </div>
-          <div className="mt-3 space-y-2">
-            {game.log.map((entry, index) => (
-              <div key={`${entry}-${index}`} className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/75">
-                {entry}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ActivityLog log={game.log} currentTick={game.timers.tick} />
       </Card>
     </div>
   );

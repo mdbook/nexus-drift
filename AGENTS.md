@@ -90,6 +90,16 @@ Any change that adds, removes, or renames a field on `GameState` (or any nested 
 
 Do this even for fields that seem cosmetic or optional. A missing field on a loaded save will produce `undefined` where the sim expects a number, which causes silent NaN propagation that is hard to diagnose.
 
+## Activity Log Invariants
+
+`state.log` is a `LogEntry[]` (max 40, newest first). Each entry has `tick`, `category`, and `message`.
+
+- Always call `pushLog(log, message, category, state.timers.tick)` — never push raw objects directly.
+- `LogCategory` is one of: `system` | `combat` | `mining` | `corruption` | `event` | `upgrade` | `achievement` | `ambient`. Pick the tightest fit; default to `ambient` for flavor.
+- `migrateGameState()` maps legacy `string[]` saves to `{ tick: 0, category: "system", message }` — do not remove that branch.
+- `cloneGameState()` maps `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
+- `MAX_LOG` is 40. Do not lower it without checking the `ActivityLog` component's `max-h-72` scroll container.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.

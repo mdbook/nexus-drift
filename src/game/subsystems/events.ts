@@ -49,7 +49,7 @@ function stepAmbientMessages(state: GameState) {
     ambientMessages.push("Treasury overflow routed into colony purchase heuristics.");
   }
 
-  state.log = pushLog(state.log, state.rng.pick(ambientMessages));
+  state.log = pushLog(state.log, state.rng.pick(ambientMessages), "ambient", state.timers.tick);
 }
 
 export function stepEvents(state: GameState) {
@@ -67,7 +67,7 @@ export function stepEvents(state: GameState) {
     const eventDef = EVENT_DEFS.find((def) => def.id === id);
     eventDef?.revert(state);
     state.activeEvents = state.activeEvents.filter((event) => event.id !== id);
-    state.log = pushLog(state.log, `${eventDef?.label ?? id} has ended.`);
+    state.log = pushLog(state.log, `${eventDef?.label ?? id} has ended.`, "event", state.timers.tick);
   }
 
   state.nodes = state.nodes.filter((node) => {
@@ -117,6 +117,6 @@ export function stepEvents(state: GameState) {
     lostWorker.ty = lostWorker.homeY;
     lostWorker.task = "Traversing";
     state.agents.push(lostWorker);
-    state.log = pushLog(state.log, "A damaged drone emerged from the outer zone - folded into the roster.");
+    state.log = pushLog(state.log, "A damaged drone emerged from the outer zone - folded into the roster.", "event", state.timers.tick);
   }
 }

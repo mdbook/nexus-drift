@@ -174,7 +174,7 @@ export function stepScouts(state: GameState) {
             FLUX.softCap,
             state.resources.flux + FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
           );
-          state.log = pushLog(state.log, "Node cleansed. Flux recovered.");
+          state.log = pushLog(state.log, "Node cleansed. Flux recovered.", "corruption", state.timers.tick);
         }
       }
 

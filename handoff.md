@@ -26,6 +26,7 @@ Current version: **2.0.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/components/UpgradeIndicatorRail.tsx` — compact rail of one glowing dot per currently-visible upgrade. Category colour (yield / defense / support / elite) is centralized in a `UPGRADE_CATEGORY` map inside the component. Glow intensity scales with level (capped at 5 so late game does not wash out), and affordability drives a pulsing outer ring. Visibility rules mirror `Sidebar` exactly (tier gate + sentinel brute-kill gate). Tooltip uses `position: fixed` — required because the rail's inner row has `overflow-x-auto` which would clip any `absolute bottom-full` tooltip via the CSS overflow interaction rule.
 - `src/components/FieldStatsStrip.tsx` — horizontal stat pill row with per-pill tooltips. Each pill carries a tone (`calm` / `warn` / `danger` / `ready` / `toxic`) driven by derived state (integrity thresholds, `hostilePressure`, `corruptionPressure`, `progression.recoveryMode`, tier). Labels hide on mobile; icons + values + dots remain. Corruption pill shows a single combined count (corruptors + infected nodes) to stay compact. Tooltip uses `position: fixed` for the same reason as `UpgradeIndicatorRail` (inner scroll row clips upward tooltips).
 - `src/components/FieldSvg.tsx` — battlefield SVG rendering (workers, enemies, nodes, sentinels, projectiles, day/night cycle)
+- `src/components/ActivityLog.tsx` — structured activity log panel: category icons, relative-age timestamps, filter tabs, scrollable 40-entry history
 - `src/components/Sidebar.tsx` — economy, automation, and threat panels
 - `src/components/HudPrimitives.tsx` — shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)
 - `src/components/ui/` — local card and progress bar primitives
@@ -99,6 +100,24 @@ Nodes, enemies, and agents all fade in and out rather than popping. Three fields
 `resolveEnemyDeaths` (in `combat.ts`) owns the `dyingTicks` lifecycle: it sets the countdown on newly killed enemies, ticks it down for already-dying ones, and filters the array. Order matters — the countdown is set *before* the filter runs so newly killed enemies are not immediately removed.
 
 Renderer helpers in `FieldSvg.tsx`: `spawnAlpha(tick, spawnTick)`, `deathAlpha(dyingTicks)`, `despawnAlpha(tick, despawnAt)`. Each entity wraps its render in a `<g opacity={...}>` combining whichever alphas apply.
+
+### Activity Log
+
+`state.log` holds up to 40 `LogEntry` objects (bumped from 6 plain strings). Each entry carries:
+
+- `tick: number` — the simulation tick when the entry was pushed (used to display "Xs ago" relative ages in the UI)
+- `category: LogCategory` — one of `system`, `combat`, `mining`, `corruption`, `event`, `upgrade`, `achievement`, `ambient`
+- `message: string` — the human-readable log line
+
+`pushLog(log, message, category, tick)` is the sole write path. Every subsystem passes its category and `state.timers.tick`. `migrateGameState()` handles old saves that stored plain `string[]` entries by mapping them to `{ tick: 0, category: "system", message: entry }`.
+
+The `ActivityLog` component (see `src/components/ActivityLog.tsx`) renders the log with:
+- Per-category icon (lucide-react) and colour coding
+- Relative-age timestamp ("3s ago", "1m ago")
+- Category filter tab bar: All / Combat / Corrupt / Upgrade / Event
+- Scrollable list (max-h-72) showing up to 40 entries, newest first
+- A live pulsing dot in the header
+- A bottom legend that links directly to each represented category
 
 ### Random Events
 

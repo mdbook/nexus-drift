@@ -30,6 +30,22 @@ export type UpgradeKey =
   | "archive";
 export type StatusTone = "danger" | "toxic" | "ready" | "calm";
 
+export type LogCategory =
+  | "system"
+  | "combat"
+  | "mining"
+  | "corruption"
+  | "event"
+  | "upgrade"
+  | "achievement"
+  | "ambient";
+
+export type LogEntry = {
+  tick: number;
+  category: LogCategory;
+  message: string;
+};
+
 export type ResourceMap = Record<ResourceKey, number>;
 export type UpgradeMap = Record<UpgradeKey, number>;
 
@@ -199,7 +215,7 @@ export type GameState = {
   rng: Rng;
   resources: ResourceMap;
   upgrades: UpgradeMap;
-  log: string[];
+  log: LogEntry[];
   combo: number;
   level: number;
   xp: number;

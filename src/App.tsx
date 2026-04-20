@@ -131,7 +131,7 @@ export default function App() {
 
       if (driftRef.current === "drift") {
         mutateGame((next) => {
-          next.log = pushLog(next.log, "The drift remembers.");
+          next.log = pushLog(next.log, "The drift remembers.", "system", next.timers.tick);
           unlockAchievement(next, "drift_heard");
         });
         driftRef.current = "";
@@ -143,7 +143,9 @@ export default function App() {
         mutateGame((next) => {
           next.log = pushLog(
             next.log,
-            nextSynthwave ? "Synthwave protocol engaged." : "Synthwave protocol disengaged."
+            nextSynthwave ? "Synthwave protocol engaged." : "Synthwave protocol disengaged.",
+            "system",
+            next.timers.tick
           );
           unlockAchievement(next, "drift_heard");
         });

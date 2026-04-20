@@ -145,7 +145,7 @@ export const EVENT_DEFS: EventDef[] = [
         enemy.goldRewardBonus = 2;
         state.enemies.push(enemy);
       }
-      state.log = pushLog(state.log, "Pirate caravan inbound - raiders carrying bonus loot.");
+      state.log = pushLog(state.log, "Pirate caravan inbound - raiders carrying bonus loot.", "event", state.timers.tick);
     },
     revert: () => {},
   },
@@ -227,7 +227,7 @@ export const EVENT_DEFS: EventDef[] = [
       elite.maxHp = elite.hp;
       elite.coreDropOverride = 5;
       state.enemies.push(elite);
-      state.log = pushLog(state.log, "Echo Signal: elite signature detected on approach.");
+      state.log = pushLog(state.log, "Echo Signal: elite signature detected on approach.", "event", state.timers.tick);
     },
     revert: () => {},
   },
@@ -248,7 +248,7 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
   eventDef.apply(state);
 
   if (announce) {
-    state.log = pushLog(state.log, `Event: ${eventDef.label} - ${eventDef.description}`);
+    state.log = pushLog(state.log, `Event: ${eventDef.label} - ${eventDef.description}`, "event", state.timers.tick);
   }
 
   if (eventDef.durationTicks > 0) {

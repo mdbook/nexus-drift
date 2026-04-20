@@ -125,7 +125,9 @@ export function stepAutobuy(state: GameState) {
     state.stats.spent += getUpgradeCostTotal(cost);
     state.log = pushLog(
       state.log,
-      `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`
+      `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`,
+      "upgrade",
+      state.timers.tick
     );
     return;
   }
@@ -162,7 +164,7 @@ export function stepAutobuy(state: GameState) {
     deductUpgradeCost(state.resources, chosen.cost);
     state.upgrades[chosen.def.key] += 1;
     state.stats.spent += getUpgradeCostTotal(chosen.cost);
-    state.log = pushLog(state.log, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`);
+    state.log = pushLog(state.log, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`, "upgrade", state.timers.tick);
     return;
   }
 
@@ -180,6 +182,6 @@ export function stepAutobuy(state: GameState) {
     state.resources.flux *= FLUX.prestigeResetMultiplier;
     state.prestige += 1;
     state.combo = Math.min(state.combo + derived.prestigeComboBonus, ECONOMY.comboMax);
-    state.log = pushLog(state.log, "Quantum reset complete. Prestige +1.");
+    state.log = pushLog(state.log, "Quantum reset complete. Prestige +1.", "system", state.timers.tick);
   }
 }

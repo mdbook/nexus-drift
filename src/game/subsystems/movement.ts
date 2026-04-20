@@ -219,7 +219,7 @@ export function stepEnemies(state: GameState) {
         if (preferredNode.corruption >= 100 && !preferredNode.corrupted) {
           preferredNode.corrupted = true;
           state.stats.corruptions += 1;
-          state.log = pushLog(state.log, `${preferredNode.kind} node fully corrupted. Gross.`);
+          state.log = pushLog(state.log, `${preferredNode.kind} node fully corrupted. Gross.`, "corruption", state.timers.tick);
         }
         return;
       }

@@ -1,7 +1,7 @@
 export const TICK_MS = 33;
 export const WORLD_W = 1000;
 export const WORLD_H = 620;
-export const MAX_LOG = 6;
+export const MAX_LOG = 40;
 
 export const EVADE_ENTER_RADIUS = 92;
 export const EVADE_EXIT_RADIUS = 150;

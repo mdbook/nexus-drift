@@ -33,6 +33,6 @@ export function stepEconomy(state: GameState) {
     state.xp -= ECONOMY.levelXpBase + state.level * ECONOMY.levelXpPerLevel;
     state.level += 1;
     state.combo = clamp(state.combo + ECONOMY.levelComboBonus, 1, ECONOMY.comboMax);
-    state.log = pushLog(state.log, `Sector level up -> ${state.level}`);
+    state.log = pushLog(state.log, `Sector level up -> ${state.level}`, "system", state.timers.tick);
   }
 }

@@ -6,6 +6,7 @@ import type {
   Enemy,
   EnemyKind,
   GameState,
+  LogEntry,
   ResourceNode,
   Scout,
   Sentinel,
@@ -286,10 +287,10 @@ export function createInitialGameState(seed?: number): GameState {
       archive: 0,
     },
     log: [
-      "Boot sequence complete.",
-      "Auto-routing drones to resource field.",
-      "Passive income stable.",
-    ],
+      { tick: 0, category: "system" as const, message: "Passive income stable." },
+      { tick: 0, category: "system" as const, message: "Auto-routing drones to resource field." },
+      { tick: 0, category: "system" as const, message: "Boot sequence complete." },
+    ] satisfies LogEntry[],
     combo: 1,
     level: 1,
     xp: 8,
@@ -355,7 +356,7 @@ export function cloneGameState(prev: GameState): GameState {
     touristWorker: prev.touristWorker ? { ...prev.touristWorker } : null,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
-    log: [...prev.log],
+    log: prev.log.map((entry) => ({ ...entry })),
     nodes: prev.nodes.map((node) => ({ ...node })),
     agents: prev.agents.map((agent) => ({ ...agent })),
     turrets: prev.turrets.map((turret) => ({ ...turret })),
@@ -414,7 +415,13 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       ? raw.activeEvents.map((event) => ({ ...event }))
       : base.activeEvents,
     eventModifiers: { ...base.eventModifiers, ...raw.eventModifiers },
-    log: Array.isArray(raw.log) ? [...raw.log] : base.log,
+    log: Array.isArray(raw.log)
+      ? raw.log.map((entry) =>
+          typeof entry === "string"
+            ? ({ tick: 0, category: "system" as const, message: entry } satisfies LogEntry)
+            : ({ tick: entry.tick ?? 0, category: entry.category ?? "ambient", message: entry.message ?? "" } satisfies LogEntry)
+        )
+      : base.log,
     nodes: Array.isArray(raw.nodes)
       ? raw.nodes.map((node) => ({ ...node, spawnTick: node.spawnTick ?? 0 }))
       : base.nodes,

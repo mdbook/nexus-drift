@@ -109,6 +109,6 @@ export function stepSpawns(state: GameState) {
 
   const message = describeSpawnWave(spawned, derived);
   if (message) {
-    state.log = pushLog(state.log, message);
+    state.log = pushLog(state.log, message, "combat", state.timers.tick);
   }
 }

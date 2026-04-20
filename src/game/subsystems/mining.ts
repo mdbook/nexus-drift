@@ -46,7 +46,7 @@ export function stepMining(state: GameState) {
       state.stats.mined += amount;
       if (crit) {
         state.stats.crits += 1;
-        state.log = pushLog(state.log, `Critical haul on ${node.kind} node.`);
+        state.log = pushLog(state.log, `Critical haul on ${node.kind} node.`, "mining", state.timers.tick);
       }
 
       if (node.temporary) {

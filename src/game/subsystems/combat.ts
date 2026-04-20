@@ -78,7 +78,9 @@ export function resolveEnemyDeaths(state: GameState) {
         state.log,
         enemy.kind === "brute"
           ? "Brute destroyed. Core fragment recovered."
-          : "Phantom dispersed. Core fragment stabilized."
+          : "Phantom dispersed. Core fragment stabilized.",
+        "combat",
+        state.timers.tick
       );
     }
   });
@@ -96,12 +98,14 @@ export function resolveEnemyDeaths(state: GameState) {
   if (regular > 0 && purged > 0) {
     state.log = pushLog(
       state.log,
-      `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}; scouts purged ${purged} corrupter${purged > 1 ? "s" : ""}.`
+      `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}; scouts purged ${purged} corrupter${purged > 1 ? "s" : ""}.`,
+      "combat",
+      state.timers.tick
     );
   } else if (purged > 0) {
-    state.log = pushLog(state.log, `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`);
+    state.log = pushLog(state.log, `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`, "combat", state.timers.tick);
   } else {
-    state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`);
+    state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`, "combat", state.timers.tick);
   }
 
 }
@@ -123,7 +127,7 @@ export function stepCombat(state: GameState) {
     }
 
     enemy.hp = 0;
-    state.log = pushLog(state.log, "Sapper detonated near workers.");
+    state.log = pushLog(state.log, "Sapper detonated near workers.", "combat", state.timers.tick);
   }
 
   for (const enemy of state.enemies) {
@@ -165,7 +169,7 @@ export function stepCombat(state: GameState) {
 
     const nextHp = clamp(agent.hp - incoming, 0, agent.maxHp);
     if (nextHp <= WORKER.heavyFireThreshold && agent.hp > WORKER.heavyFireThreshold) {
-      state.log = pushLog(state.log, `${agent.kind} drone taking heavy fire.`);
+      state.log = pushLog(state.log, `${agent.kind} drone taking heavy fire.`, "combat", state.timers.tick);
     }
 
     if (nextHp <= 0) {
@@ -182,7 +186,7 @@ export function stepCombat(state: GameState) {
       agent.spawnTick = state.timers.tick;
       agent.target = chooseWorkerTarget(state, agent);
       agent.task = "Rebooting";
-      state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`);
+      state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`, "combat", state.timers.tick);
       return;
     }
 

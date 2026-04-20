@@ -42,7 +42,7 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   state.achievements[id] = true;
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
-    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`);
+    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`, "achievement", state.timers.tick);
   }
   return true;
 }

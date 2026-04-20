@@ -1,5 +1,5 @@
 import { MAX_LOG } from "@/game/constants";
-import type { ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
+import type { LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
 
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 export const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -47,8 +47,13 @@ export function fmt(n: number) {
   return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)}${units[index]}`;
 }
 
-export function pushLog(log: string[], message: string) {
-  return [message, ...log].slice(0, MAX_LOG);
+export function pushLog(
+  log: LogEntry[],
+  message: string,
+  category: LogCategory,
+  tick: number
+): LogEntry[] {
+  return [{ tick, category, message }, ...log].slice(0, MAX_LOG);
 }
 
 export function nextUpgradeCost(def: UpgradeDef, level: number): Partial<Record<ResourceKey, number>> {
