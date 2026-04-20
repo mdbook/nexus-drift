@@ -16,7 +16,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.2.13",
+    version: "2.2.14",
     badge: "Hardened Targets",
     summary:
       "Combat-behavior pass. Leeches now bypass worker targeting and charge the home district directly. Three late-game enemies (leech, phantom, zapper) gain regenerating shields that absorb damage before their HP pool, adding a sustained-fire check to late-game pressure, and the tourist easter egg now requires a deliberate click to claim its hidden badge.",
