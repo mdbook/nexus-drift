@@ -16,6 +16,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    badge: "Field Clarity",
+    summary: "Visual polish pass — field decoration cleaned up for a cleaner, less cluttered battlefield.",
+    sections: [
+      {
+        title: "Visual Polish",
+        items: [
+          "Removed the corner bracket markers from the home zone — the dashed border already defines the region clearly without the extra decoration.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.1.0",
     badge: "Signal & Record",
     summary: "Two major quality-of-life systems land together: a fully structured activity log with category filtering and timestamps, and a 44-achievement roster with rarity tiers, category tabs, and a dedicated modal.",
