@@ -155,6 +155,8 @@ The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All struc
 
 Viewport sizing uses `100dvh` (dynamic viewport height), not `100svh` or `100vh`. iPadOS Safari misreports `svh` when the URL bar is visible, returning roughly the full-screen height and causing absolute-positioned footers inside `overflow-hidden` containers to clip below the visible viewport. `dvh` adjusts as browser chrome shows/hides and is supported on Safari 15.4+ (all shipping iPadOS today). Do not reintroduce `100svh` or `100vh` for the app shell without testing on iPadOS landscape with the URL bar visible.
 
+The field card (left column of the `lg` grid) must have `lg:h-full overflow-hidden`. Without `lg:h-full` the card can grow taller than its grid cell, pushing its `absolute bottom-0` footer off-screen where it is clipped by the grid's `overflow-hidden`. Without `overflow-hidden` on the card itself, content inside can visually escape the card's bounds. The sidebar already carries `lg:h-full`; keep both columns in sync.
+
 Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
 
 ## Coarse-Pointer Desktop FX Budget

@@ -404,7 +404,7 @@ export default function App() {
         <ResourceBar game={uiGame} derived={uiDerived} />
 
         <div className="order-2 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:order-4 lg:overflow-hidden lg:grid-cols-[1.45fr_0.85fr]">
-          <Card className={`${PANEL_CLASS} relative flex min-w-0 flex-col p-0`}>
+          <Card className={`${PANEL_CLASS} relative flex min-w-0 flex-col overflow-hidden p-0 lg:h-full`}>
             <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2 pt-4 md:justify-start">
               <div className="relative flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-md md:hidden">
                 <Shield className="h-4 w-4 text-white/55" />

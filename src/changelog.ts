@@ -19,13 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.2.12",
     badge: "True Viewport",
     summary:
-      "Switches the app shell from `100svh` to `100dvh` so the field card's overlay footer stays inside the visible viewport on iPadOS Safari when the URL bar is present — active events (Signal Drought, Xeno Bloom, etc.) now appear on iPad.",
+      "Fixes the field card footer — active events (Signal Drought, Xeno Bloom, etc.), FieldStatsStrip, and the upgrade rail — being invisible on iPadOS landscape. Two cooperating bugs: the app shell used `100svh` which WebKit misreports when the URL bar is present, and the field card had no explicit height so it could grow taller than its grid cell and push its absolute footer off-screen.",
     sections: [
       {
         title: "iPad Event HUD Fix",
         items: [
-          "The app shell now uses `100dvh` (dynamic viewport height) instead of `100svh`. WebKit misreports `svh` when the iOS/iPadOS URL bar is visible, returning the full physical height and pushing the field card's absolute footer — which contains the active-events strip, FieldStatsStrip, and UpgradeIndicatorRail — below the visible viewport where it was clipped by `overflow-hidden`.",
-          "`dvh` adjusts as browser chrome shows and hides, and is supported on Safari 15.4+ (all currently shipping iPadOS versions).",
+          "The field card now has `lg:h-full overflow-hidden` so it is hard-clamped to its grid cell height at the desktop breakpoint. Without this, the card could grow past the viewport bottom, taking its `absolute bottom-0` footer — events, stats strip, upgrade rail — with it, where it was clipped by the grid's `overflow-hidden`.",
+          "The app shell now uses `100dvh` (dynamic viewport height) instead of `100svh`. WebKit misreports `svh` on iPadOS when the URL bar is visible, returning the full physical height rather than the visible area. `dvh` tracks the actual usable viewport and is supported on Safari 15.4+ (all currently shipping iPadOS versions).",
         ],
       },
     ],
