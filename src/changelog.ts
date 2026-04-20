@@ -16,6 +16,50 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    badge: "Signal & Record",
+    summary: "Two major quality-of-life systems land together: a fully structured activity log with category filtering and timestamps, and a 44-achievement roster with rarity tiers, category tabs, and a dedicated modal.",
+    sections: [
+      {
+        title: "Activity Log Revamp",
+        items: [
+          "Log entries are now structured objects carrying a category, a simulation-tick timestamp, and a message — replacing the old plain string array.",
+          "Eight categories drive distinct icons and colours in the log: system (cyan), combat (rose), mining (amber), corruption (fuchsia), event (violet), upgrade (emerald), achievement (gold), and ambient (dim white).",
+          "The sidebar log panel now shows up to 40 entries (up from 6) in a scrollable list, newest first, with relative-age timestamps ('4s ago', '2m ago').",
+          "A filter tab bar lets you narrow the feed to Combat, Corrupt, Upgrade, Event, or Awards entries.",
+          "The newest entry is highlighted; all entries show their category label, icon, and age.",
+          "A live pulsing dot in the log header confirms the feed is actively updating.",
+          "Old saves migrate cleanly: legacy string entries are restored as system-category entries at tick 0.",
+        ],
+      },
+      {
+        title: "Achievements Revamp",
+        items: [
+          "Achievement count grows from 12 to 44, spanning six categories: Combat, Corruption, Mining, Progression, Survival, and Secret.",
+          "Four rarity tiers: Common (white), Uncommon (cyan), Rare (violet), Legendary (amber). Each tier has distinct border, background, and badge colours in the ribbon and modal.",
+          "New progression achievements: level 10/20/30, prestige 3/5, threat tier 10, all-upgrades-at-1 and all-at-5, Cores 50, Flux 100.",
+          "New combat achievements: kill milestones at 10/500/1000, Phantoms ×5, Leeches ×3, Sappers ×10, first Sentinel kill, Turret Ace (level 8), Titan Slayer (25 Brutes).",
+          "New corruption achievements: first purge, 50/200 purges, Pristine (corruptors alive but zero corrupted nodes), Triple Rot (3+ simultaneously), Full Spectrum (all three node types corrupted at once).",
+          "New mining achievements: first crit, 25/100 crits, 1k/10k resources mined, Gold Hoarder (5k gold at once), Gem Collector (200 gems).",
+          "New survival achievements: 15m and 30m runtime milestones, 2-hour Vigil, Equilibrium (95% colony health under hostile pressure), Immaculate Grid (all workers simultaneously at full HP).",
+          "Five secret achievements, including the hidden Cascading Anomaly (3+ simultaneous events — legendary).",
+          "Hidden achievements show as '???' placeholders until unlocked; an eye-toggle in the modal reveals or masks them.",
+          "The achievements modal now has a category tab bar (with per-tab unlock counts), a completion progress bar, a rarity legend footer, and rarity-coloured rows.",
+          "The field-card achievement ribbon uses rarity-coded badge colours and shows a running unlock count.",
+          "Four new per-kind kill counters added to GameState.stats: phantomsKilled, leechesKilled, sappersKilled, sentinelKills. Old saves migrate with ?? 0 defaults.",
+        ],
+      },
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed footer tooltip clipping: all HUD strip tooltips now use position:fixed with a viewport-anchored ref, escaping the overflow-x-auto scroll container that was silently clipping upward absolute tooltips.",
+          "Fixed tooltip portal rendering to guarantee escape from all ancestor overflow/clip contexts.",
+          "Fixed tooltip right-edge overflow: positions are now clamped to the viewport boundary.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.0.0",
     badge: "Living Field",
     summary: "A major visual and UX pass — the field now breathes with event atmosphere, glanceable HUD indicators, smooth entity transitions, and a thorough overflow/clipping fix across all screen sizes.",
