@@ -16,7 +16,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.2.8",
+    version: "2.2.9",
     badge: "Clear Margin",
     summary: "Desktop iPad layout now gives the field footer its own space instead of layering it over the battlefield, and the upgrade rail moves into the unused top-right chrome so events and field HUD stay visible.",
     sections: [
