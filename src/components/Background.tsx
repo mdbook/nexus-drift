@@ -1,8 +1,8 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { makeStars } from "@/game/utils";
 
-export function Background() {
+export const Background = memo(function Background() {
   const stars = useMemo(() => makeStars(90), []);
   const prefersReducedMotion = useReducedMotion();
 
@@ -67,4 +67,4 @@ export function Background() {
       />
     </div>
   );
-}
+});

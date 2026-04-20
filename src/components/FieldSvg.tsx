@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { SENTINEL } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
@@ -70,6 +71,22 @@ type DistrictBuilding = {
   windowColumns: number;
   bridge: boolean;
   turretIndex: number;
+};
+
+type DistrictRenderData = {
+  progress: number;
+  stage: number;
+  buildProgress: number;
+  chromatic: boolean;
+  paletteDrift: number;
+  districtOpacity: number;
+  activeTurretXs: number[];
+  activeBuildings: DistrictBuilding[];
+  sequentialCursor: number;
+  fullyBuiltCount: number;
+  activeBuildIndex: number;
+  districtSpines: number;
+  activePalette: typeof CITY_PALETTE;
 };
 
 const CITY_MAX_STAGE = 5;
@@ -158,28 +175,25 @@ function buildDistrict(seed: number, turretXs: number[]) {
   return buildings.sort((a, b) => a.x - b.x);
 }
 
-function renderHomeDistrict(game: GameState, derived: DerivedState, dayFactor: number) {
-  if (derived.cityStage === 0) return null;
+function renderHomeDistrict(game: GameState, district: DistrictRenderData | null, dayFactor: number) {
+  if (!district) return null;
 
-  const progress = clamp(derived.cityProgress, 0, 1);
-  const stage = derived.cityStage;
-  const buildProgress = clamp(derived.cityBuildProgress, 0, 1);
-  const chromatic = stage >= 5 && buildProgress >= 1;
-  const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
-  const districtOpacity = 0.36 + stage * 0.1;
+  const {
+    progress,
+    stage,
+    buildProgress,
+    chromatic,
+    paletteDrift,
+    districtOpacity,
+    activeTurretXs,
+    activeBuildings,
+    sequentialCursor,
+    fullyBuiltCount,
+    activeBuildIndex,
+    districtSpines,
+    activePalette,
+  } = district;
   const towerScale = 0.76 + stage * 0.08;
-  const activeTurretXs = game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x);
-  const buildings = buildDistrict(game.citySeed, activeTurretXs);
-  if (!buildings.length) return null;
-  const sequentialCursor = buildProgress * buildings.length;
-  const fullyBuiltCount = Math.floor(sequentialCursor);
-  const activeBuildIndex = Math.min(buildings.length - 1, fullyBuiltCount);
-  const activeBuildings = buildings.filter((_, index) => index <= activeBuildIndex);
-  const districtSpines = Math.min(
-    9,
-    activeTurretXs.length * 2 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2)
-  );
-  const activePalette = chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12);
 
   return (
     <g>
@@ -457,6 +471,53 @@ function renderHomeDistrict(game: GameState, derived: DerivedState, dayFactor: n
 }
 
 export function FieldSvg({ game, derived }: FieldSvgProps) {
+  const activeTurretXs = useMemo(
+    () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
+    [game.turrets, derived.activeTurrets]
+  );
+  const districtBuildings = useMemo(
+    () => buildDistrict(game.citySeed, activeTurretXs),
+    [activeTurretXs, game.citySeed]
+  );
+  const district = useMemo<DistrictRenderData | null>(() => {
+    if (derived.cityStage === 0 || districtBuildings.length === 0) return null;
+
+    const progress = clamp(derived.cityProgress, 0, 1);
+    const stage = derived.cityStage;
+    const buildProgress = clamp(derived.cityBuildProgress, 0, 1);
+    const chromatic = stage >= 5 && buildProgress >= 1;
+    const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
+    const sequentialCursor = buildProgress * districtBuildings.length;
+    const fullyBuiltCount = Math.floor(sequentialCursor);
+    const activeBuildIndex = Math.min(districtBuildings.length - 1, fullyBuiltCount);
+
+    return {
+      progress,
+      stage,
+      buildProgress,
+      chromatic,
+      paletteDrift,
+      districtOpacity: 0.36 + stage * 0.1,
+      activeTurretXs,
+      activeBuildings: districtBuildings.filter((_, index) => index <= activeBuildIndex),
+      sequentialCursor,
+      fullyBuiltCount,
+      activeBuildIndex,
+      districtSpines: Math.min(
+        9,
+        activeTurretXs.length * 2 + stage + Math.floor(seededNoise(game.citySeed, 400) * 2)
+      ),
+      activePalette: chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12),
+    };
+  }, [
+    activeTurretXs,
+    derived.cityBuildProgress,
+    derived.cityProgress,
+    derived.cityStage,
+    districtBuildings,
+    game.citySeed,
+    game.timers.tick,
+  ]);
   const dayCycleMs = 30 * 60 * 1000;
   const dayPhase = (game.stats.runtimeMs % dayCycleMs) / dayCycleMs;
   const dayFactor = Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5;
@@ -535,7 +596,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         />
       )}
 
-      {renderHomeDistrict(game, derived, dayFactor)}
+      {renderHomeDistrict(game, district, dayFactor)}
 
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;

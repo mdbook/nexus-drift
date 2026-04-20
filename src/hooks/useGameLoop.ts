@@ -9,6 +9,8 @@ import type { DerivedState, GameState } from "@/game/types";
 type Snapshot = {
   game: GameState;
   derived: DerivedState;
+  uiGame: GameState;
+  uiDerived: DerivedState;
   mutateGame: (updater: (draft: GameState) => void) => void;
 };
 
@@ -16,11 +18,14 @@ function snapshotFrom(game: GameState): Snapshot {
   return {
     game,
     derived: computeDerived(game),
+    uiGame: game,
+    uiDerived: computeDerived(game),
     mutateGame: () => {},
   };
 }
 
 const SAVE_INTERVAL_MS = 30_000;
+const UI_REFRESH_MS = 125;
 
 export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): Snapshot {
   const [snapshot, setSnapshot] = useState<Snapshot>(() => snapshotFrom(cloneGameState(initialGameState)));
@@ -31,19 +36,28 @@ export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): S
   const lastTimeRef = useRef(0);
   const hiddenAtRef = useRef<number | null>(null);
   const lastSaveRef = useRef(0);
+  const lastUiRefreshRef = useRef(0);
   const runtimeCarryRef = useRef(0);
   useEffect(() => { speedRef.current = speedMultiplier; }, [speedMultiplier]);
 
   const mutateGame = useCallback((updater: (draft: GameState) => void) => {
     const next = cloneGameState(gameRef.current);
     updater(next);
+    const nextDerived = computeDerived(next);
     gameRef.current = next;
-    setSnapshot((prev) => ({ ...prev, game: next, derived: computeDerived(next) }));
+    setSnapshot((prev) => ({
+      ...prev,
+      game: next,
+      derived: nextDerived,
+      uiGame: next,
+      uiDerived: nextDerived,
+    }));
   }, []);
 
   useEffect(() => {
     lastTimeRef.current = performance.now();
     lastSaveRef.current = lastTimeRef.current;
+    lastUiRefreshRef.current = lastTimeRef.current;
 
     const frame = (now: number) => {
       if (document.hidden) {
@@ -69,7 +83,18 @@ export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): S
         current.stats.runtimeMs += runtimeCarryRef.current;
         runtimeCarryRef.current = 0;
         gameRef.current = current;
-        setSnapshot((prev) => ({ ...prev, game: current, derived: computeDerived(current) }));
+        const nextDerived = computeDerived(current);
+        const refreshUi = now - lastUiRefreshRef.current >= UI_REFRESH_MS;
+        if (refreshUi) {
+          lastUiRefreshRef.current = now;
+        }
+        setSnapshot((prev) => ({
+          ...prev,
+          game: current,
+          derived: nextDerived,
+          uiGame: refreshUi ? current : prev.uiGame,
+          uiDerived: refreshUi ? nextDerived : prev.uiDerived,
+        }));
 
         if (now - lastSaveRef.current > SAVE_INTERVAL_MS) {
           lastSaveRef.current = now;

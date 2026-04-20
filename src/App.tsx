@@ -1,4 +1,4 @@
-import type { ComponentType, CSSProperties } from "react";
+import { memo, type ComponentType, type CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   Bot,
@@ -139,6 +139,104 @@ function NewGameButton({ onClick }: { onClick: () => void }) {
     </>
   );
 }
+
+const SectorStatusCard = memo(function SectorStatusCard({
+  game,
+  derived,
+  xpPct,
+}: {
+  game: ReturnType<typeof useGameLoop>["uiGame"];
+  derived: ReturnType<typeof useGameLoop>["uiDerived"];
+  xpPct: number;
+}) {
+  return (
+    <Card className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}>
+      <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-white/40">combo · lv {game.level}</span>
+        </div>
+        <Progress value={xpPct} className="h-1.5 w-24 bg-white/10" />
+        <div className="flex gap-2">
+          <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
+            {derived.hostilePressure ? "Perimeter Hot" : "Stable"}
+          </StatusBadge>
+          <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
+            {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
+          </StatusBadge>
+        </div>
+      </div>
+      <div className="lg:hidden">
+        <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
+          <span>Sector Level</span>
+          <span>{game.level}</span>
+        </div>
+        <div className="mt-3 text-4xl font-semibold text-white">x{game.combo.toFixed(1)}</div>
+        <div className="mt-1 text-sm text-white/55">combo multiplier</div>
+        <Progress value={xpPct} className="mt-4 h-2 bg-white/10" />
+        <div className="mt-2 flex items-center justify-between text-xs text-white/45">
+          <span>XP {fmt(game.xp)}</span>
+          <span>{fmt(derived.targetXp)}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
+            {derived.hostilePressure ? "Perimeter Hot" : "Perimeter Stable"}
+          </StatusBadge>
+          <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
+            {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
+          </StatusBadge>
+        </div>
+      </div>
+    </Card>
+  );
+});
+
+const ResourceBar = memo(function ResourceBar({
+  game,
+  derived,
+}: {
+  game: ReturnType<typeof useGameLoop>["uiGame"];
+  derived: ReturnType<typeof useGameLoop>["uiDerived"];
+}) {
+  return (
+    <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 lg:order-3 lg:grid-cols-6">
+      {resourceDefs.map((resource) => {
+        const Icon = resourceIcons[resource.key];
+        return (
+          <ResourcePill
+            key={resource.key}
+            label={resource.label}
+            value={derived.resources[resource.key]}
+            rate={derived.rates[resource.key]}
+            icon={Icon}
+            tint={resource.tint}
+            glow={resource.glow}
+          />
+        );
+      })}
+      {game.upgrades.scout >= 1 && (
+        <ResourcePill
+          label="Flux"
+          value={derived.resources.flux}
+          rate={derived.fluxRate}
+          icon={Hexagon}
+          tint="rgba(216, 180, 255, 0.95)"
+          glow="rgba(168, 85, 247, 0.24)"
+        />
+      )}
+      {derived.progression.tier >= 4 && (
+        <ResourcePill
+          label="Cores"
+          value={derived.resources.cores}
+          rate={0}
+          icon={Diamond}
+          tint="rgba(251, 191, 36, 0.95)"
+          glow="rgba(245, 158, 11, 0.24)"
+        />
+      )}
+    </div>
+  );
+});
 const KONAMI = [
   "ArrowUp",
   "ArrowUp",
@@ -159,13 +257,14 @@ export default function App() {
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
-  const { game, derived, mutateGame } = useGameLoop(initialGame, speed);
+  const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
   const synthwaveRef = useRef(synthwave);
   useEffect(() => { synthwaveRef.current = synthwave; }, [synthwave]);
-  const xpPct = clamp((game.xp / Math.max(1, derived.targetXp)) * 100, 0, 100);
-  const stabilityPct = clamp((derived.defenseScore / Math.max(2, derived.threatScore + 2)) * 100, 0, 100);
+  const uiXpPct = clamp((uiGame.xp / Math.max(1, uiDerived.targetXp)) * 100, 0, 100);
+  const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
+  const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -220,7 +319,7 @@ export default function App() {
       }`}
     >
       <Background />
-      <EventBackdrop activeEvents={derived.activeEvents} />
+      <EventBackdrop activeEventKey={activeEventBackdropKey} />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col p-3 md:p-4 lg:h-screen lg:max-w-[1920px] lg:px-6">
         {/* header: title only — sector card is a separate flex item below on mobile, absolute top-right on xl */}
@@ -257,46 +356,7 @@ export default function App() {
         </div>
 
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
-        <Card className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}>
-          {/* compact lg+ layout */}
-          <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">combo · lv {game.level}</span>
-            </div>
-            <Progress value={xpPct} className="h-1.5 w-24 bg-white/10" />
-            <div className="flex gap-2">
-              <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
-                {derived.hostilePressure ? "Perimeter Hot" : "Stable"}
-              </StatusBadge>
-              <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
-                {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
-              </StatusBadge>
-            </div>
-          </div>
-          {/* full layout for smaller screens */}
-          <div className="lg:hidden">
-            <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
-              <span>Sector Level</span>
-              <span>{game.level}</span>
-            </div>
-            <div className="mt-3 text-4xl font-semibold text-white">x{game.combo.toFixed(1)}</div>
-            <div className="mt-1 text-sm text-white/55">combo multiplier</div>
-            <Progress value={xpPct} className="mt-4 h-2 bg-white/10" />
-            <div className="mt-2 flex items-center justify-between text-xs text-white/45">
-              <span>XP {fmt(game.xp)}</span>
-              <span>{fmt(derived.targetXp)}</span>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
-                {derived.hostilePressure ? "Perimeter Hot" : "Perimeter Stable"}
-              </StatusBadge>
-              <StatusBadge tone={derived.corruptionPressure ? "toxic" : "ready"}>
-                {derived.corruptionPressure ? "Purge Wing Live" : "Corruption Low"}
-              </StatusBadge>
-            </div>
-          </div>
-        </Card>
+        <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
 
         <div className="order-3 mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
           <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
@@ -307,42 +367,7 @@ export default function App() {
           <NewGameButton onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} />
         </div>
 
-        <div className="order-4 mb-2 grid grid-cols-2 gap-2 md:grid-cols-3 lg:order-3 lg:grid-cols-6">
-          {resourceDefs.map((resource) => {
-            const Icon = resourceIcons[resource.key];
-            return (
-              <ResourcePill
-                key={resource.key}
-                label={resource.label}
-                value={derived.resources[resource.key]}
-                rate={derived.rates[resource.key]}
-                icon={Icon}
-                tint={resource.tint}
-                glow={resource.glow}
-              />
-            );
-          })}
-          {game.upgrades.scout >= 1 && (
-            <ResourcePill
-              label="Flux"
-              value={derived.resources.flux}
-              rate={derived.fluxRate}
-              icon={Hexagon}
-              tint="rgba(216, 180, 255, 0.95)"
-              glow="rgba(168, 85, 247, 0.24)"
-            />
-          )}
-          {derived.progression.tier >= 4 && (
-            <ResourcePill
-              label="Cores"
-              value={derived.resources.cores}
-              rate={0}
-              icon={Diamond}
-              tint="rgba(251, 191, 36, 0.95)"
-              glow="rgba(245, 158, 11, 0.24)"
-            />
-          )}
-        </div>
+        <ResourceBar game={uiGame} derived={uiDerived} />
 
         <div className="order-2 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:order-4 lg:overflow-hidden lg:grid-cols-[1.45fr_0.85fr]">
           <Card className={`${PANEL_CLASS} relative flex min-w-0 flex-col p-0`}>
@@ -426,10 +451,10 @@ export default function App() {
           </Card>
 
           <Sidebar
-            game={game}
-            derived={derived}
+            game={uiGame}
+            derived={uiDerived}
             upgradeIcons={upgradeIcons}
-            stabilityPct={stabilityPct}
+            stabilityPct={uiStabilityPct}
           />
         </div>
       </div>

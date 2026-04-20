@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useTooltip } from "@/hooks/useTooltip";
 import { TooltipPanel } from "@/components/Tooltip";
 import type { EventDef, EventEffectTone } from "@/game/events/eventDefs";
@@ -38,7 +39,7 @@ const EFFECT_TEXT_TONE: Record<EventEffectTone, string> = {
   neutral: "text-white/60",
 };
 
-export function EventChip({ event, def }: Props) {
+export const EventChip = memo(function EventChip({ event, def }: Props) {
   const tone = def?.tone ?? "neutral";
   const style = TONE_STYLE[tone];
   const secondsRemaining = Math.ceil(event.ticksRemaining / 30);
@@ -84,4 +85,4 @@ export function EventChip({ event, def }: Props) {
       </TooltipPanel>
     </>
   );
-}
+});

@@ -44,7 +44,7 @@ npm run format:check
 
 - `src/App.tsx`: top-level shell, save bootstrap, speed presets, achievement UI, admin panel, event test triggers, and release-history modal
 - `src/changelog.ts`: in-game release notes sourced from repo milestones
-- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop, pause-on-hidden handling, autosave cadence, and derived-state snapshots
+- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop, pause-on-hidden handling, autosave cadence, live field snapshots, and a throttled UI snapshot for sidebar/chrome rendering
 - `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
 - `src/game/achievements.ts`: achievement definitions and unlock helper
 - `src/game/persistence.ts`: localStorage save/load bootstrap and migration entry point; saves carry a `schemaVersion` field for forward-compatible migration
@@ -56,7 +56,8 @@ npm run format:check
 - `src/components/ActivityLog.tsx`: structured log panel with category icons, relative timestamps, and filter tabs (including Awards)
 - `src/components/AchievementsModal.tsx`: achievements modal with category tabs, rarity colouring, hidden masking, and progress bar
 - `src/components/`: battlefield rendering, HUD widgets, sidebar panels, and presentational overlays
-- `src/components/EventBackdrop.tsx`: full-screen ambient effect layer keyed off active events (purely presentational, respects `prefers-reduced-motion`)
+- `src/components/EventBackdrop.tsx`: full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion`) so long-running countdown ticks do not force full overlay rerenders
+- `src/components/FieldSvg.tsx`: battlefield SVG rendering. Static district geometry is memoized by seed/turret layout so decorative skyline work does not rebuild every sim tick.
 - `src/components/EventChip.tsx`: active-event HUD chip with hover/focus tooltip showing flavor and per-effect tone breakdown
 - `src/components/UpgradeIndicatorRail.tsx`: horizontal rail of one dot per visible upgrade. Dots glow harder with level, pulse when the next level is affordable, and open a tooltip (name, level, effect, cost) on hover/focus. Hidden upgrades match the sidebar's visibility rules.
 - `src/components/FieldStatsStrip.tsx`: compact pill row of live field stats (crews, integrity, turrets, scouts, sentinels, combat, corruption, threat tier, combo) with tone colours and detail tooltips. Replaces the old verbose crew/task text footer.
@@ -98,3 +99,4 @@ GitLab CI currently runs:
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
 - If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
+- Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover work do not compete with the 30 Hz simulation loop.

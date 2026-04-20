@@ -1,9 +1,8 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { useMemo } from "react";
-import type { ActiveEvent } from "@/game/types";
+import { memo, useMemo } from "react";
 
 type Props = {
-  activeEvents: ActiveEvent[];
+  activeEventKey: string;
 };
 
 type Particle = {
@@ -40,11 +39,11 @@ function makeParticles(count: number, seed: number): Particle[] {
  * presentational — does not touch sim state. Sits above the base Background
  * and below the main UI.
  */
-export function EventBackdrop({ activeEvents }: Props) {
+export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Props) {
   const prefersReducedMotion = useReducedMotion();
   const activeIds = useMemo(
-    () => new Set(activeEvents.map((event) => event.id)),
-    [activeEvents]
+    () => new Set(activeEventKey.split("|").filter(Boolean)),
+    [activeEventKey]
   );
 
   const meteorParticles = useMemo(() => makeParticles(22, 7), []);
@@ -458,4 +457,4 @@ export function EventBackdrop({ activeEvents }: Props) {
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { memo, type ComponentType } from "react";
 import { AlertTriangle, Bot, TrendingUp } from "lucide-react";
 import { ActivityLog } from "@/components/ActivityLog";
 import { StatTile, UpgradeTile } from "@/components/HudPrimitives";
@@ -17,7 +17,7 @@ type SidebarProps = {
   stabilityPct: number;
 };
 
-export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
   const spawnCadenceSeconds = (derived.progression.spawnIntervalTicks * TICK_MS) / 1000;
   const visibleUpgrades = upgradeDefs.filter((def) => {
     if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
@@ -166,4 +166,4 @@ export function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarPr
       </Card>
     </div>
   );
-}
+});

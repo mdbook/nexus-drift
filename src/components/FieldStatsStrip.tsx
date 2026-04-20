@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useTooltip } from "@/hooks/useTooltip";
 import { TooltipPanel } from "@/components/Tooltip";
 import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Users } from "lucide-react";
@@ -101,7 +102,7 @@ function averageHealth(game: GameState) {
  * tooltip that expands it into a sentence. On mobile the label hides and only
  * the icon + value remain to save horizontal space.
  */
-export function FieldStatsStrip({ game, derived }: Props) {
+export const FieldStatsStrip = memo(function FieldStatsStrip({ game, derived }: Props) {
   const integrity = averageHealth(game);
   const integrityTone: IndicatorTone =
     integrity < 45 ? "danger" : integrity < 72 ? "warn" : "ready";
@@ -222,4 +223,4 @@ export function FieldStatsStrip({ game, derived }: Props) {
       </div>
     </div>
   );
-}
+});

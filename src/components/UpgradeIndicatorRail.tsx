@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { memo, type ComponentType } from "react";
 import { useTooltip } from "@/hooks/useTooltip";
 import { TooltipPanel } from "@/components/Tooltip";
 import { upgradeDefs } from "@/game/data";
@@ -166,7 +166,7 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
  * Intended as a glanceable alternative to sidebar-only upgrade visibility —
  * especially important on mobile where the sidebar sits below the field.
  */
-export function UpgradeIndicatorRail({ game, derived, upgradeIcons }: Props) {
+export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({ game, derived, upgradeIcons }: Props) {
   const visible = upgradeDefs.filter((def) => {
     // Match Sidebar visibility rules exactly so the rail stays in sync.
     if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
@@ -212,4 +212,4 @@ export function UpgradeIndicatorRail({ game, derived, upgradeIcons }: Props) {
       </div>
     </div>
   );
-}
+});

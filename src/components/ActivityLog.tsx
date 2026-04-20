@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   Activity,
   Award,
@@ -99,7 +99,7 @@ type ActivityLogProps = {
   currentTick: number;
 };
 
-export function ActivityLog({ log, currentTick }: ActivityLogProps) {
+export const ActivityLog = memo(function ActivityLog({ log, currentTick }: ActivityLogProps) {
   const [activeFilter, setActiveFilter] = useState<LogCategory | "all">("all");
 
   const filtered =
@@ -215,4 +215,4 @@ export function ActivityLog({ log, currentTick }: ActivityLogProps) {
       )}
     </div>
   );
-}
+});
