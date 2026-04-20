@@ -19,13 +19,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.3.1",
     badge: "Signal Trim",
     summary:
-      "Small HUD polish patch. One-shot event cards keep their distinct short-lived card treatment, but the oversized explanatory label has been removed so the footer reads more cleanly.",
+      "Small HUD polish patch. One-shot event cards keep their distinct short-lived card treatment, but the oversized explanatory label and visible countdown have been removed so they can linger, then fade out cleanly.",
     sections: [
       {
         title: "Event Card Copy",
         items: [
           "Removed the extra `ONE SHOT SIGNAL` label from one-shot event cards.",
-          "The cards still keep their distinct layout and countdown treatment, so one-shot events remain visually readable without redundant explanatory text.",
+          "Removed the visible duration counter from one-shot cards so they no longer read like timed modifiers.",
+          "One-shot cards now linger for their HUD lifetime, then fade out smoothly instead of showing a ticking countdown.",
         ],
       },
     ],

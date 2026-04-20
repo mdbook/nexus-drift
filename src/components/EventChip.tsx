@@ -45,6 +45,9 @@ export const EventChip = memo(function EventChip({ event, def, onInspect }: Prop
   const style = TONE_STYLE[tone];
   const secondsRemaining = Math.max(1, Math.ceil(event.ticksRemaining / 30));
   const isOneShotCard = !event.revertOnExpire;
+  const oneShotFadeOpacity = isOneShotCard
+    ? Math.max(0.28, Math.min(1, event.ticksRemaining / Math.max(1, def?.hudDurationTicks ?? event.ticksRemaining)))
+    : 1;
   const describedById = `event-chip-${event.id}`;
   const { open, triggerRef, triggerProps, anchor } = useTooltip(describedById, 256, "start");
 
@@ -59,6 +62,7 @@ export const EventChip = memo(function EventChip({ event, def, onInspect }: Prop
             ? `flex min-w-[168px] flex-col items-start gap-1 rounded-2xl px-3 py-2 text-left ${style.chip}`
             : `flex items-center gap-1.5 rounded-full px-2.5 py-0.5 ${style.chip}`
         } cursor-pointer`}
+        style={isOneShotCard ? { opacity: oneShotFadeOpacity } : undefined}
         {...triggerProps}
       >
         {isOneShotCard ? (
@@ -66,7 +70,6 @@ export const EventChip = memo(function EventChip({ event, def, onInspect }: Prop
             <div className="flex w-full items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${style.dot}`} aria-hidden />
               <span className="flex-1">{event.label}</span>
-              <span className="text-white/55">{secondsRemaining}s</span>
             </div>
           </>
         ) : (
@@ -81,9 +84,11 @@ export const EventChip = memo(function EventChip({ event, def, onInspect }: Prop
       <TooltipPanel id={describedById} open={open} anchor={anchor} width={256} borderClass={style.tooltipAccent} arrowAlign="left">
         <div className="flex items-start justify-between gap-2">
           <div className="text-sm font-semibold text-white">{def?.label ?? event.label}</div>
-          <div className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-white/60">
-            {secondsRemaining}s
-          </div>
+          {!isOneShotCard && (
+            <div className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-white/60">
+              {secondsRemaining}s
+            </div>
+          )}
         </div>
         {def?.flavor && (
           <p className="mt-1.5 text-xs italic leading-5 text-white/65">{def.flavor}</p>
