@@ -75,24 +75,51 @@ a {
 }
 
 @keyframes achievementTargetPulse {
-  0%,
+  0% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 rgba(103, 232, 249, 0),
+      0 0 0 rgba(34, 211, 238, 0);
+  }
+
+  18% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 2px rgba(103, 232, 249, 0.3),
+      0 0 20px rgba(34, 211, 238, 0.14);
+  }
+
+  38% {
+    transform: scale(1.01);
+    box-shadow:
+      0 0 0 2px rgba(103, 232, 249, 0.48),
+      0 0 34px rgba(34, 211, 238, 0.24);
+  }
+
+  58% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 2px rgba(103, 232, 249, 0.22),
+      0 0 16px rgba(34, 211, 238, 0.1);
+  }
+
+  76% {
+    transform: scale(1.008);
+    box-shadow:
+      0 0 0 2px rgba(103, 232, 249, 0.34),
+      0 0 26px rgba(34, 211, 238, 0.18);
+  }
+
   100% {
     transform: scale(1);
     box-shadow:
-      0 0 0 1px rgba(103, 232, 249, 0.24),
-      0 0 22px rgba(34, 211, 238, 0.12);
-  }
-
-  50% {
-    transform: scale(1.01);
-    box-shadow:
-      0 0 0 1px rgba(103, 232, 249, 0.4),
-      0 0 34px rgba(34, 211, 238, 0.24);
+      0 0 0 0 rgba(103, 232, 249, 0),
+      0 0 0 rgba(34, 211, 238, 0);
   }
 }
 
 .achievement-target-pulse {
-  animation: achievementTargetPulse 700ms ease-in-out 2;
+  animation: achievementTargetPulse 1400ms ease-in-out forwards;
   will-change: transform, box-shadow;
 }
 
