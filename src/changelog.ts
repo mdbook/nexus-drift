@@ -16,6 +16,29 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    badge: "True Signal",
+    summary: "Achievement tracking is now aligned with real gameplay outcomes: synthwave unlocks its own secret badge, purge milestones count cleansed nodes, sentinel kills require a lethal sentinel hit, and Immaculate Grid no longer auto-completes on a fresh save.",
+    sections: [
+      {
+        title: "Achievement Integrity Fixes",
+        items: [
+          "Konami synthwave now unlocks the hidden `synthwave` achievement instead of incorrectly granting `drift_heard`.",
+          "Purge achievements now count completed node cleanses rather than corruptor deaths.",
+          "Sentinel kill credit is awarded only when a sentinel lands the lethal hit, eliminating false positives from shared targets.",
+          "Immaculate Grid now requires every active worker to be at full health while hostiles are actually on the field.",
+        ],
+      },
+      {
+        title: "Scout Cleanse Follow-Through",
+        items: [
+          "Scouts now keep sweeping partially-cleaned nodes until they cross the cleanse threshold instead of abandoning them once residue drops below the old targeting cutoff.",
+          "This makes cleanse completion, purge stats, and related achievements internally consistent again.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.6",
     badge: "Locked On",
     summary: "Turrets now fire visible homing missiles instead of instant shots. A new Focused Beam upgrade (tier 4+) unlocks instant-hit fire for close targets while missiles handle the longer range.",

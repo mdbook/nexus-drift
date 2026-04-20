@@ -2,6 +2,8 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
+Current release: `2.2.7`.
+
 ## Highlights
 
 - Fully browser-run simulation with no network gameplay dependency.
