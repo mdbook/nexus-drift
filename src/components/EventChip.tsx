@@ -68,7 +68,6 @@ export const EventChip = memo(function EventChip({ event, def, onInspect }: Prop
               <span className="flex-1">{event.label}</span>
               <span className="text-white/55">{secondsRemaining}s</span>
             </div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">One-Shot Signal</div>
           </>
         ) : (
           <>

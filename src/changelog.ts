@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    badge: "Signal Trim",
+    summary:
+      "Small HUD polish patch. One-shot event cards keep their distinct short-lived card treatment, but the oversized explanatory label has been removed so the footer reads more cleanly.",
+    sections: [
+      {
+        title: "Event Card Copy",
+        items: [
+          "Removed the extra `ONE SHOT SIGNAL` label from one-shot event cards.",
+          "The cards still keep their distinct layout and countdown treatment, so one-shot events remain visually readable without redundant explanatory text.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.3.0",
     badge: "Hidden Signals",
     summary:
