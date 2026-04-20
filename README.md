@@ -12,7 +12,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns. Each active event now drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) and surfaces a tone-coded HUD chip with a hover/focus tooltip listing flavor text and every buff and debuff.
 - Flux and Cores now feed multi-resource upgrades, including Foundry, Data Archive, and Sentinel Mechs.
 - Long runs now autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden. Save files carry a schema version so future migrations are explicit.
-- Achievement tracking, a day/night field cycle, veteran workers, and a few hidden easter eggs now support longer idle sessions.
+- 44 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories (combat, corruption, mining, progression, survival, secret). The achievement modal groups by category, colour-codes by rarity, masks hidden achievements as "???" until unlocked, and shows a completion progress bar. The field-card ribbon uses rarity-coded badge colours.
 - Glanceable upgrade rail and field stats strip live inside the field card — colour-coded upgrade dots (yield / defense / support / elite) and compact stat pills each expose hover/focus tooltips with full detail. Designed mobile-first so the sidebar no longer needs to be open to monitor the colony.
 - Activity log shows up to 40 structured entries with per-category icons (combat, corruption, mining, upgrade, event, system, achievement, ambient), relative-age timestamps, and a filter tab bar so you can focus on the stream that matters.
 - Responsive layout activates the two-column desktop view at 1024px (lg) instead of 1280px, so 11-inch iPads in landscape get the full side-by-side field and sidebar without scrolling.
@@ -51,7 +51,8 @@ npm run format:check
 - `src/game/events/eventDefs.ts`: seeded mechanical event definitions and event activation helpers
 - `src/game/rng.ts`: seeded Mulberry32 PRNG used by simulation paths
 - `src/game/targeting.ts`: shared targeting helpers
-- `src/components/ActivityLog.tsx`: structured log panel with category icons, relative timestamps, and filter tabs
+- `src/components/ActivityLog.tsx`: structured log panel with category icons, relative timestamps, and filter tabs (including Awards)
+- `src/components/AchievementsModal.tsx`: achievements modal with category tabs, rarity colouring, hidden masking, and progress bar
 - `src/components/`: battlefield rendering, HUD widgets, sidebar panels, and presentational overlays
 - `src/components/EventBackdrop.tsx`: full-screen ambient effect layer keyed off active events (purely presentational, respects `prefers-reduced-motion`)
 - `src/components/EventChip.tsx`: active-event HUD chip with hover/focus tooltip showing flavor and per-effect tone breakdown

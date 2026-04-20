@@ -81,6 +81,7 @@ const FILTER_TABS: Array<{ key: LogCategory | "all"; label: string }> = [
   { key: "corruption", label: "Corrupt" },
   { key: "upgrade", label: "Upgrade" },
   { key: "event", label: "Event" },
+  { key: "achievement", label: "Awards" },
 ];
 
 function formatAge(currentTick: number, entryTick: number): string {

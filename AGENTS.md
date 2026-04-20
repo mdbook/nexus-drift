@@ -90,6 +90,19 @@ Any change that adds, removes, or renames a field on `GameState` (or any nested 
 
 Do this even for fields that seem cosmetic or optional. A missing field on a loaded save will produce `undefined` where the sim expects a number, which causes silent NaN propagation that is hard to diagnose.
 
+## Achievement System Invariants
+
+`ACHIEVEMENT_DEFS` in `src/game/achievements.ts` is the single source of truth for all achievement metadata. The subsystem (`src/game/subsystems/achievements.ts`) only calls `unlockAchievement()` — it never pushes to the log directly.
+
+Rules for adding achievements:
+- Add the new `AchievementId` to the union type in `achievements.ts`.
+- Add a `AchievementDef` entry with `id`, `label`, `description`, `rarity`, `category`, and optionally `hidden: true`.
+- Add the condition check in `stepAchievements()` in `subsystems/achievements.ts`.
+- If the condition needs a new stat counter, add it to `Stats` in `types.ts`, initialise it in `createInitialGameState()`, and add a `?? 0` fallback in `migrateGameState()` — the same save-state migration checklist as any other field change.
+- Rarity tiers: `common` (tutorial-level), `uncommon` (mid-game), `rare` (late-game / specific combos), `legendary` (exceptional / near-impossible feats).
+- Hidden achievements (`hidden: true`) show as "???" placeholders in the modal until unlocked. Use sparingly — only for genuine easter eggs and surprises.
+- The `AchievementsModal` component renders all `ACHIEVEMENT_DEFS` entries. If you add a def without a matching condition in `stepAchievements`, it will appear permanently locked but won't break anything.
+
 ## Activity Log Invariants
 
 `state.log` is a `LogEntry[]` (max 40, newest first). Each entry has `tick`, `category`, and `message`.

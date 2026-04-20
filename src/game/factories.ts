@@ -310,6 +310,10 @@ export function createInitialGameState(seed?: number): GameState {
       hostileKills: 0,
       totalEnemiesKilled: 0,
       brutesKilled: 0,
+      phantomsKilled: 0,
+      leechesKilled: 0,
+      sappersKilled: 0,
+      sentinelKills: 0,
       blocked: 0,
       corruptions: 0,
       purges: 0,
@@ -396,6 +400,10 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     stats: {
       ...base.stats,
       ...raw.stats,
+      phantomsKilled: raw.stats?.phantomsKilled ?? 0,
+      leechesKilled: raw.stats?.leechesKilled ?? 0,
+      sappersKilled: raw.stats?.sappersKilled ?? 0,
+      sentinelKills: raw.stats?.sentinelKills ?? 0,
       eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
         ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
         : base.stats.eventsExperienced,

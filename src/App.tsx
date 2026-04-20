@@ -23,11 +23,13 @@ import { FieldSvg } from "@/components/FieldSvg";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
+import { AchievementsModal } from "@/components/AchievementsModal";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { PANEL_CLASS } from "@/theme";
 import { ACHIEVEMENT_DEFS, unlockAchievement } from "@/game/achievements";
+import type { AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
@@ -361,23 +363,34 @@ export default function App() {
             </div>
 
             {Object.keys(game.achievements).length > 0 && (
-              <div
-                className="flex shrink-0 cursor-pointer gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5"
+              <button
+                type="button"
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5 text-left [scrollbar-width:none] hover:bg-white/3"
                 onClick={() => setAchievementsOpen(true)}
                 title="View achievements"
               >
                 {Object.keys(game.achievements).map((id) => {
                   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
+                  const rarity: AchievementRarity = def?.rarity ?? "common";
+                  const RARITY_BADGE: Record<AchievementRarity, string> = {
+                    common: "border-white/15 bg-white/8 text-white/60",
+                    uncommon: "border-cyan-400/25 bg-cyan-900/30 text-cyan-200/90",
+                    rare: "border-violet-400/30 bg-violet-900/30 text-violet-200/90",
+                    legendary: "border-amber-400/35 bg-amber-900/30 text-amber-200/90",
+                  };
                   return (
                     <span
                       key={id}
-                      className="whitespace-nowrap rounded-full border border-indigo-700/30 bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-200"
+                      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${RARITY_BADGE[rarity]}`}
                     >
                       {def?.label ?? id}
                     </span>
                   );
                 })}
-              </div>
+                <span className="ml-auto shrink-0 text-[10px] text-white/25">
+                  {Object.keys(game.achievements).length}/{ACHIEVEMENT_DEFS.length}
+                </span>
+              </button>
             )}
 
             <div className="min-h-0 flex-1 overflow-hidden rounded-[20px]">
@@ -536,52 +549,10 @@ export default function App() {
       )}
 
       {achievementsOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
-          onClick={() => setAchievementsOpen(false)}
-        >
-          <Card
-            className={`${PANEL_CLASS} w-full max-w-md border-indigo-400/20 bg-slate-950/95 p-6`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Achievements</h2>
-                <p className="mt-1 text-xs text-white/45">
-                  {Object.keys(game.achievements).length} / {ACHIEVEMENT_DEFS.length} unlocked
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAchievementsOpen(false)}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/55 transition hover:bg-white/10 hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
-              {ACHIEVEMENT_DEFS.map((def) => {
-                const unlocked = !!game.achievements[def.id];
-                return (
-                  <div
-                    key={def.id}
-                    className={`flex items-start gap-3 rounded-2xl p-3 ${
-                      unlocked
-                        ? "border border-indigo-400/20 bg-indigo-900/25 text-white"
-                        : "border border-white/8 bg-white/5 text-white/35"
-                    }`}
-                  >
-                    <span className="text-lg">{unlocked ? "✓" : "○"}</span>
-                    <div>
-                      <div className="text-sm font-medium">{def.label}</div>
-                      <div className="text-xs text-white/45">{def.description}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+        <AchievementsModal
+          achievements={game.achievements}
+          onClose={() => setAchievementsOpen(false)}
+        />
       )}
     </div>
   );

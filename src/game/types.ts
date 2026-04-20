@@ -180,6 +180,10 @@ export type Stats = {
   hostileKills: number;
   totalEnemiesKilled: number;
   brutesKilled: number;
+  phantomsKilled: number;
+  leechesKilled: number;
+  sappersKilled: number;
+  sentinelKills: number;
   blocked: number;
   corruptions: number;
   purges: number;
