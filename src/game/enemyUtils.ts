@@ -11,9 +11,8 @@ export function isCloaked(enemy: Enemy) {
 
 /**
  * Apply `amount` damage to an enemy, routing it through the shield first.
- * Resets the shield regen cooldown on any hit.
- * Returns the actual HP damage dealt (after shield absorption) for callers
- * that need to check if the enemy died (nextHp = enemy.hp - returned value).
+ * Mutates enemy.shield and enemy.hp in place and resets shieldRegenCooldown
+ * on any hit so regen doesn't tick on the same frame as damage.
  *
  * Usage:
  *   damageEnemy(enemy, 25);
