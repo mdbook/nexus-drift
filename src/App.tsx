@@ -370,7 +370,7 @@ export default function App() {
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
 
-        <div className="order-3 mb-2 hidden w-full max-w-[420px] self-end lg:block">
+        <div className="hidden lg:absolute lg:right-6 lg:top-[92px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
           <Card className={`${PANEL_CLASS} overflow-hidden p-0`}>
             <UpgradeIndicatorRail game={game} derived={derived} upgradeIcons={upgradeIcons} />
           </Card>

@@ -16,7 +16,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.2.9",
+    version: "2.2.10",
     badge: "Clear Margin",
     summary:
       "Desktop iPad layout now keeps the footer and top-chrome HUD visible without covering the field, and a new coarse-pointer low-FX path removes the Safari lag regression that the earlier layout pass exposed.",
@@ -34,7 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "On `lg` layouts, the field footer stays as an overlay for performance instead of moving into normal flow.",
           "The battlefield now reserves bottom inset space above that overlay, which preserves the city/home strip on iPadOS landscape and keeps the crews/integrity/combat rail fully visible.",
-          "The upgrade indicator rail now moves out of the footer and into the top-right desktop chrome, reclaiming footer height for active events and keeping that previously-empty band useful.",
+          "The upgrade indicator rail now moves out of the footer and into an absolutely-positioned top-right desktop chrome band, so it no longer pushes the resource bar or shrinks the battlefield.",
           "This avoids the heavy relayout path that made the earlier iPad desktop fix laggy while still preventing the footer from hiding field content.",
         ],
       },

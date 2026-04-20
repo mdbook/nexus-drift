@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.2.9` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `2.2.10` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -25,7 +25,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - 44 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories
 
 ### HUD & UI
-- Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it moves into the top-right chrome so the footer can prioritize events and live field stats
+- Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it floats in the top-right chrome band so the footer can prioritize events and live field stats without shrinking the field
 - Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip; coarse-pointer desktop layouts such as iPadOS landscape fall back to a cheaper static variant so the visual identity stays intact without the Safari lag hit
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
@@ -41,7 +41,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
 - Desktop iPad layouts keep the field footer as an overlay for performance, but the field now reserves an inset above it so the bottom HUD stays readable without covering the home district
 - On coarse-pointer `lg` desktops, the heaviest ambient background / event animation paths and SVG text blur are intentionally reduced so scrolling stays smooth on iPadOS Safari without flattening the overall look
-- On `lg` two-column screens, the upgrade rail lives in a dedicated top-right card above the resource bar instead of sharing the field footer with active events
+- On `lg` two-column screens, the upgrade rail is absolutely overlaid in the top-right chrome band above the resource bar instead of taking up vertical layout space
 
 ---
 
