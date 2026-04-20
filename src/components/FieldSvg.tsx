@@ -517,17 +517,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         strokeWidth="1"
         strokeDasharray="8 8"
       />
-      {[
-        { x: 122, y: 507 },
-        { x: 860, y: 507 },
-        { x: 122, y: 563 },
-        { x: 860, y: 563 },
-      ].map((corner) => (
-        <g key={`corner-${corner.x}-${corner.y}`}>
-          <line x1={corner.x} y1={corner.y} x2={corner.x + (corner.x < 500 ? 20 : -20)} y2={corner.y} stroke="rgba(190,240,255,0.55)" strokeWidth="2" />
-          <line x1={corner.x} y1={corner.y} x2={corner.x} y2={corner.y + (corner.y < 540 ? 20 : -20)} stroke="rgba(190,240,255,0.55)" strokeWidth="2" />
-        </g>
-      ))}
+
       <path
         d="M118 538 H882"
         fill="none"
