@@ -153,6 +153,12 @@ export const ENEMY_STYLE: Record<Exclude<EnemyKind, "corruptor">, EnemyVisual> =
     stroke: "rgba(255, 255, 255, 0.8)",
     radius: 13,
   },
+  zapper: {
+    fill: "rgba(180, 80, 255, 0.88)",
+    glow: "rgba(160, 60, 240, 0.28)",
+    stroke: "rgba(230, 200, 255, 0.80)",
+    radius: 10,
+  },
 };
 
 export const AGENT_STYLE: Record<WorkerKind, string> = {

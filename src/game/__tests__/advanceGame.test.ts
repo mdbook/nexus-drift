@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
-import { resolveEnemyDeaths } from "@/game/subsystems/combat";
+import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
+import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
@@ -436,5 +437,121 @@ describe("save / load round-trip", () => {
     expect(after.resources.ore).not.toBeNaN();
     expect(after.level).not.toBeNaN();
     expect(after.combo).not.toBeNaN();
+  });
+});
+
+describe("zapper enemy", () => {
+  it("spawns with fireCooldown initialized to 0", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    expect(zapper.fireCooldown).toBe(0);
+  });
+
+  it("fires a zapper-bolt when target is in range", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    // Place zapper right next to a worker
+    zapper.x = state.agents[0].x + 80;
+    zapper.y = state.agents[0].y;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    const before = state.projectiles.length;
+    stepZapperFire(state);
+    expect(state.projectiles.length).toBeGreaterThan(before);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.tag).toBe("zapper-bolt");
+    expect(bolt.targetKind).toBe("agent");
+  });
+
+  it("bolt applies disabledTicks to the target agent on expiry", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.agents[0].x + 80;
+    zapper.y = state.agents[0].y;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    // Fast-expire the bolt
+    bolt.life = 1;
+    stepProjectiles(state);
+
+    expect(state.agents[0].disabledTicks).toBeGreaterThan(0);
+  });
+
+  it("bolt applies disabledTicks to a turret when it is the nearest target", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    // Place zapper close to turret 1 (within firingRange=170)
+    zapper.x = state.turrets[0].x + 60;
+    zapper.y = state.turrets[0].y - 80;
+    // Move all workers beyond firing range
+    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    expect(state.projectiles.length).toBeGreaterThan(0);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("turret");
+
+    bolt.life = 1;
+    stepProjectiles(state);
+    expect(state.turrets[0].disabledTicks).toBeGreaterThan(0);
+  });
+
+  it("disabled worker skips movement and mining for the disable duration", () => {
+    const state = createInitialGameState();
+    state.agents[0].disabledTicks = 10;
+    const posBefore = { x: state.agents[0].x, y: state.agents[0].y };
+
+    const after = runTicks(state, 5);
+    // Worker should not have moved (still disabled for first 5 ticks)
+    expect(after.agents[0].x).toBeCloseTo(posBefore.x, 0);
+    expect(after.agents[0].disabledTicks).toBe(5);
+  });
+
+  it("disabled turret skips firing", () => {
+    const state = createInitialGameState();
+    // Place enemy in turret range
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = state.turrets[0].x;
+    mite.y = state.turrets[0].y - 80;
+    state.enemies.push(mite);
+    state.turrets[0].disabledTicks = 60;
+
+    const after = runTicks(state, 10);
+    // May be dead from sentinel; just verify disabledTicks decremented
+    expect(after.turrets[0].disabledTicks).toBe(50);
+  });
+
+  it("reboot clears disabledTicks", () => {
+    const state = createInitialGameState();
+    state.agents[0].disabledTicks = 200;
+    // Drain HP nearly to zero so a single contact-damage tick kills it
+    state.agents[0].hp = 1;
+    // Place a raider right on top of the worker
+    const raider = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    raider.x = state.agents[0].x;
+    raider.y = state.agents[0].y;
+    state.enemies.push(raider);
+
+    // Run until combat fires (every COMBAT_TICK=12 ticks) and kills the worker
+    const after = runTicks(state, 13);
+    expect(after.agents[0].disabledTicks).toBe(0);
+  });
+
+  it("migration adds disabledTicks fallback to existing saves", () => {
+    const save = {
+      citySeed: 99,
+      agents: [{ id: 1, kind: "miner", x: 100, y: 100 }],
+      turrets: [{ id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2 }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+    const restored = migrateGameState(save);
+    expect(restored.agents[0].disabledTicks).toBe(0);
+    expect(restored.turrets[0].disabledTicks).toBe(0);
   });
 });

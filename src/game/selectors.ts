@@ -17,6 +17,7 @@ export function computeDerived(state: GameState): DerivedState {
     blight: 0,
     leech: 0,
     phantom: 0,
+    zapper: 0,
   };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 

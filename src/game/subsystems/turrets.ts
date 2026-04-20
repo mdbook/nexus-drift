@@ -27,6 +27,12 @@ export function stepTurrets(state: GameState) {
       return;
     }
 
+    if (turret.disabledTicks > 0) {
+      turret.disabledTicks -= 1;
+      turret.angle += (-1.57 - turret.angle) * 0.06;
+      return;
+    }
+
     turret.range =
       (TURRET.rangeBase + state.upgrades.turret * TURRET.rangePerUpgrade + state.upgrades.reactor * TURRET.rangePerReactor) *
       state.eventModifiers.turretRangeScale;

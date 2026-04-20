@@ -7,7 +7,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "@/game/constants";
-import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, ENEMY_SPECIAL, WORKER } from "@/game/balance";
+import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, ENEMY_SPECIAL, WORKER, ZAPPER } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import { findClosestAgent } from "@/game/targeting";
@@ -19,6 +19,12 @@ export function stepWorkers(state: GameState) {
   const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor");
 
   state.agents.forEach((agent, index) => {
+    if (agent.disabledTicks > 0) {
+      agent.disabledTicks -= 1;
+      agent.task = "Disabled";
+      return;
+    }
+
     const needsTarget =
       agent.target == null ||
       !state.nodes.some((node) => node.id === agent.target) ||
@@ -237,6 +243,23 @@ export function stepEnemies(state: GameState) {
     const dx = target.x - enemy.x;
     const dy = target.y - enemy.y;
     const d = Math.max(1, Math.hypot(dx, dy));
+
+    if (enemy.kind === "zapper") {
+      // Zappers hold at firing range rather than closing to contact.
+      if (d > ZAPPER.holdDistance) {
+        enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      } else if (d < ZAPPER.holdDistance * 0.75) {
+        // Back off if too close.
+        enemy.x -= (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        enemy.y -= (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      }
+      // Gentle lateral drift so they don't pile up.
+      const drift = Math.sin((state.timers.tick + enemy.id * 17) / 20) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
+      enemy.x += (-dy / d) * drift;
+      enemy.y += (dx / d) * drift;
+      return;
+    }
 
     if (d > ENEMY_MOVEMENT.approachMinDistance) {
       if (enemy.kind === "wisp") {

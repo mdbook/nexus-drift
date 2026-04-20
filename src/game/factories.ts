@@ -120,14 +120,15 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0): Ag
     killsNearby: 0,
     veteranRank: 0,
     spawnTick: currentTick,
+    disabledTicks: 0,
   };
 }
 
 export function makeTurrets(): Turret[] {
   return [
-    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2 },
-    { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57 },
-    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9 },
+    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2, disabledTicks: 0 },
+    { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57, disabledTicks: 0 },
+    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9, disabledTicks: 0 },
   ];
 }
 
@@ -260,6 +261,10 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
 
   if (kind === "phantom") {
     enemy.cloakTicks = 0;
+  }
+
+  if (kind === "zapper") {
+    enemy.fireCooldown = 0;
   }
 
   return enemy;
@@ -440,10 +445,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           killsNearby: agent.killsNearby ?? 0,
           veteranRank: agent.veteranRank ?? 0,
           spawnTick: agent.spawnTick ?? 0,
+          disabledTicks: agent.disabledTicks ?? 0,
         }))
       : base.agents,
     turrets: Array.isArray(raw.turrets)
-      ? raw.turrets.map((turret) => ({ ...turret }))
+      ? raw.turrets.map((turret) => ({ ...turret, disabledTicks: turret.disabledTicks ?? 0 }))
       : base.turrets,
     scouts: Array.isArray(raw.scouts)
       ? raw.scouts.map((scout) => ({ ...scout }))
@@ -473,7 +479,10 @@ export function addProjectile(
   toY: number,
   color: string,
   width = 2,
-  maxLife = 8
+  maxLife = 8,
+  tag?: import("@/game/types").Projectile["tag"],
+  targetId?: number,
+  targetKind?: import("@/game/types").Projectile["targetKind"]
 ) {
   state.projectiles.push({
     id: state.nextProjectileId++,
@@ -485,6 +494,9 @@ export function addProjectile(
     maxLife,
     color,
     width,
+    ...(tag !== undefined && { tag }),
+    ...(targetId !== undefined && { targetId }),
+    ...(targetKind !== undefined && { targetKind }),
   });
 }
 

@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.2.0**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.2.1**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -70,13 +70,17 @@ Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously via a score
 
 ### Enemies
 
-**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death.
+**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`, `zapper`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death. Zappers (tier 7+) hold at firing range and fire energy bolts (`tag: "zapper-bolt"`) that disable the struck target for 210 ticks (~7s); disabled workers freeze with task `"Disabled"` and disabled turrets skip firing.
 
 **Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance.
 
 ### Turrets
 
-Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers.
+Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers. Carry a `disabledTicks` counter; while > 0 the turret skips targeting and firing entirely.
+
+### Disable System
+
+Workers and turrets carry `disabledTicks: number`. While > 0, the entity is inert (worker task becomes `"Disabled"`, turret skips its fire path) and the counter decrements each tick. Source today: zapper-bolt impact (sets `ZAPPER.disableDurationTicks = 210`). Worker reboot clears `disabledTicks`. Renderer shows disabled entities greyscale with a pulsing orange ring.
 
 ### Scouts
 

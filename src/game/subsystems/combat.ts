@@ -1,6 +1,6 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, WORKER } from "@/game/balance";
-import { chooseWorkerTarget } from "@/game/factories";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, WORKER, ZAPPER } from "@/game/balance";
+import { addProjectile, chooseWorkerTarget } from "@/game/factories";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
@@ -125,6 +125,60 @@ export function resolveEnemyDeaths(state: GameState) {
 
 }
 
+export function stepZapperFire(state: GameState) {
+  for (const enemy of state.enemies) {
+    if (enemy.kind !== "zapper" || enemy.hp <= 0) continue;
+    if (enemy.fireCooldown === undefined) enemy.fireCooldown = 0;
+    if (enemy.fireCooldown > 0) { enemy.fireCooldown -= 1; continue; }
+
+    // Find the nearest eligible target: workers + live turrets within firing range.
+    let bestDist = Infinity;
+    let bestTargetId: number | null = null;
+    let bestTargetKind: "agent" | "turret" = "agent";
+    let bestX = 0;
+    let bestY = 0;
+
+    for (const agent of state.agents) {
+      const d = dist(agent.x, agent.y, enemy.x, enemy.y);
+      if (d < ZAPPER.firingRange && d < bestDist) {
+        bestDist = d;
+        bestTargetId = agent.id;
+        bestTargetKind = "agent";
+        bestX = agent.x;
+        bestY = agent.y;
+      }
+    }
+
+    for (const turret of state.turrets) {
+      const d = dist(turret.x, turret.y, enemy.x, enemy.y);
+      if (d < ZAPPER.firingRange && d < bestDist) {
+        bestDist = d;
+        bestTargetId = turret.id;
+        bestTargetKind = "turret";
+        bestX = turret.x;
+        bestY = turret.y;
+      }
+    }
+
+    if (bestTargetId === null) continue;
+
+    addProjectile(
+      state,
+      enemy.x, enemy.y,
+      bestX, bestY,
+      ZAPPER.boltColor,
+      ZAPPER.boltWidth,
+      ZAPPER.boltLifeTicks,
+      "zapper-bolt",
+      bestTargetId,
+      bestTargetKind
+    );
+
+    enemy.fireCooldown = ZAPPER.fireIntervalTicks;
+    state.log = pushLog(state.log, "Zapper fired a disruptor bolt.", "combat", state.timers.tick);
+  }
+}
+
 export function stepCombat(state: GameState) {
   if (state.timers.tick % COMBAT_TICK !== 0) return;
 
@@ -198,6 +252,7 @@ export function stepCombat(state: GameState) {
       agent.evadeDx = 0;
       agent.evadeDy = -1;
       agent.damageTicks = WORKER.respawn.damageTicks;
+      agent.disabledTicks = 0;
       agent.spawnTick = state.timers.tick;
       agent.target = chooseWorkerTarget(state, agent);
       agent.task = "Rebooting";

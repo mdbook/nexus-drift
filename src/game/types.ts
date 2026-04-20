@@ -14,7 +14,8 @@ export type EnemyKind =
   | "sapper"
   | "blight"
   | "leech"
-  | "phantom";
+  | "phantom"
+  | "zapper";
 export type EnemyRole = "combat" | "corruptor";
 export type UpgradeKey =
   | "miner"
@@ -91,6 +92,8 @@ export type Agent = {
   veteranRank: 0 | 1 | 2 | 3;
   /** Sim tick when this agent was deployed or last rebooted. Used by the renderer for fade-in. */
   spawnTick: number;
+  /** Countdown in ticks while this worker is disabled by a zapper bolt. 0 = active. */
+  disabledTicks: number;
 };
 
 export type Turret = {
@@ -100,6 +103,8 @@ export type Turret = {
   range: number;
   cooldown: number;
   angle: number;
+  /** Countdown in ticks while this turret is disabled by a zapper bolt. 0 = active. */
+  disabledTicks: number;
 };
 
 export type Scout = {
@@ -150,6 +155,8 @@ export type Enemy = {
   cloakTicks?: number;
   goldRewardBonus?: number;
   coreDropOverride?: number;
+  /** Fire cooldown for zapper enemies. 0 = ready to fire. */
+  fireCooldown?: number;
   trail: [number, number][];
   /** Sim tick when this enemy entered the field. Used by the renderer for fade-in. */
   spawnTick: number;
@@ -171,6 +178,12 @@ export type Projectile = {
   maxLife: number;
   color: string;
   width: number;
+  /** Identifies special projectile behaviour. Untagged = cosmetic line only. */
+  tag?: "zapper-bolt";
+  /** Target entity id for tagged projectiles. */
+  targetId?: number;
+  /** Whether the target is an agent or turret. */
+  targetKind?: "agent" | "turret";
 };
 
 export type Stats = {

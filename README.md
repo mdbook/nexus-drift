@@ -8,7 +8,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Deterministic seeded RNG in the simulation layer for reproducible runs.
 - In-game release history: click the version badge next to `Autonomous Colony Sim`.
 - Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
-- Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, and phantoms.
+- Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, phantoms, and zappers. Zappers are a late-game (tier 7+) ranged threat that holds at firing distance and fires slow energy bolts — a hit disables a worker or turret for ~7 seconds.
 - Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns. Each active event now drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) and surfaces a tone-coded HUD chip with a hover/focus tooltip listing flavor text and every buff and debuff.
 - Flux and Cores now feed multi-resource upgrades, including Foundry, Data Archive, and Sentinel Mechs.
 - Long runs now autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden. Save files carry a schema version so future migrations are explicit.

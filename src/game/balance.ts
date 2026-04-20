@@ -68,6 +68,7 @@ export const ENEMY_STATS: Record<
   blight: { hpBase: 95, hpWave: 7, speedBase: 0.8, speedWave: 0.012 },
   leech: { hpBase: 70, hpWave: 6, speedBase: 0.85, speedWave: 0.015 },
   phantom: { hpBase: 55, hpWave: 5, speedBase: 1.3, speedWave: 0.018 },
+  zapper: { hpBase: 45, hpWave: 4, speedBase: 0.75, speedWave: 0.01 },
 };
 
 export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
@@ -81,6 +82,7 @@ export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
   blight: 3.2,
   leech: 2.8,
   phantom: 2.6,
+  zapper: 2.4,
 };
 
 export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
@@ -94,7 +96,18 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
   blight: 0,
   leech: 2,
   phantom: 5,
+  zapper: 0,
 };
+
+export const ZAPPER = {
+  holdDistance: 140,
+  firingRange: 170,
+  fireIntervalTicks: 90,
+  boltLifeTicks: 22,
+  boltColor: "rgba(180, 80, 255, 0.9)",
+  boltWidth: 2.4,
+  disableDurationTicks: 210,
+} as const;
 
 export const ENEMY_SPECIAL = {
   sapper: {
@@ -370,6 +383,7 @@ export const PROGRESSION = {
     sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 5 },
     leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 6 },
     phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 7 },
+    zapper: { base: 0, tier: 0.10, min: 0.06, max: 1.0, minTier: 7 },
   },
 } as const;
 

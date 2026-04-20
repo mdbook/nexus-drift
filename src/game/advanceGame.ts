@@ -2,7 +2,7 @@ import { TICK_WRAP } from "@/game/constants";
 import { cloneGameState } from "@/game/factories";
 import { stepAutobuy } from "@/game/subsystems/autobuy";
 import { stepAchievements } from "@/game/subsystems/achievements";
-import { stepCombat, resolveEnemyDeaths } from "@/game/subsystems/combat";
+import { stepCombat, stepZapperFire, resolveEnemyDeaths } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
@@ -33,6 +33,8 @@ export function advanceGame(prev: GameState): GameState {
   // 4. Corruption — runs after movement so corruptors act on their new position.
   // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
   //    damage via hp reduction + flash markers.
+  // 5b. ZapperFire — after movement so zappers aim at current positions; before
+  //     resolveEnemyDeaths so freshly killed zappers don't fire.
   // 6. resolveEnemyDeaths (first pass) — removes turret/scout kills before stepCombat
   //    so workers don't target already-dead enemies.
   // 7. Combat — workers deal melee damage; a second resolveEnemyDeaths follows so
@@ -40,7 +42,7 @@ export function advanceGame(prev: GameState): GameState {
   // 8. Mining — after combat so a node destroyed by an enemy this tick doesn't also
   //    yield resources.
   // 9. Autobuy — reads final resource totals after income + combat rewards.
-  // 10. Projectiles — visual-only; life counters decay after all game logic.
+  // 10. Projectiles — zapper-bolt disables resolve here after all game logic runs.
   // 11. Events / Achievements — read final state so unlock conditions are accurate.
 
   stepEconomy(state);
@@ -52,6 +54,7 @@ export function advanceGame(prev: GameState): GameState {
   stepTurrets(state);
   stepScouts(state);
   stepSentinels(state);
+  stepZapperFire(state);
   resolveEnemyDeaths(state);
   stepCombat(state);
   resolveEnemyDeaths(state);

@@ -563,9 +563,14 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           );
         }
 
+        const turretDisabled = turret.disabledTicks > 0;
+        const disablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
         return (
-          <g key={turret.id}>
+          <g key={turret.id} style={turretDisabled ? { filter: "grayscale(1)" } : undefined}>
             <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
+            {turretDisabled && (
+              <circle cx={turret.x} cy={turret.y} r="26" fill="none" stroke={`rgba(255,120,40,${disablePulse.toFixed(2)})`} strokeWidth="2.5" />
+            )}
             <circle cx={turret.x} cy={turret.y} r="22" fill="rgba(80,200,255,0.10)" />
             <circle cx={turret.x} cy={turret.y} r="14" fill="rgba(40,120,200,0.55)" stroke="rgba(120,220,255,0.75)" strokeWidth="2" />
             <line
@@ -738,6 +743,32 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           );
         }
 
+        if (enemy.kind === "zapper") {
+          const arcPulse = Math.sin((game.timers.tick + enemy.id * 5) / 8) * 0.4 + 0.6;
+          const charged = enemy.fireCooldown !== undefined && enemy.fireCooldown < 15;
+          return (
+            <g key={enemy.id} opacity={enemyOpacity}>
+              {threatRing}
+              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
+              {/* triangular body */}
+              <path
+                d={`M ${enemy.x} ${enemy.y - 13} L ${enemy.x + 11} ${enemy.y + 9} L ${enemy.x - 11} ${enemy.y + 9} Z`}
+                fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill}
+                stroke={style.stroke}
+                strokeWidth="1.5"
+              />
+              {/* arc-antenna prongs */}
+              <line x1={enemy.x - 4} y1={enemy.y - 9} x2={enemy.x - 10} y2={enemy.y - 19} stroke="rgba(210,130,255,0.85)" strokeWidth="1.5" />
+              <line x1={enemy.x + 4} y1={enemy.y - 9} x2={enemy.x + 10} y2={enemy.y - 19} stroke="rgba(210,130,255,0.85)" strokeWidth="1.5" />
+              {/* charge orb at antenna tip — pulses brighter when ready to fire */}
+              <circle cx={enemy.x - 10} cy={enemy.y - 19} r="2.5" fill={charged ? "rgba(230,160,255,0.98)" : `rgba(180,80,255,${arcPulse.toFixed(2)})`} />
+              <circle cx={enemy.x + 10} cy={enemy.y - 19} r="2.5" fill={charged ? "rgba(230,160,255,0.98)" : `rgba(180,80,255,${arcPulse.toFixed(2)})`} />
+              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
+              <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(180,80,255,0.95)" />
+            </g>
+          );
+        }
+
         // mite — small fast circle with sharp antenna spikes
         if (enemy.kind === "sapper") {
           return (
@@ -859,6 +890,8 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";
         const bodyStroke = damaged ? "rgba(255,150,150,0.75)" : "rgba(120,220,255,0.80)";
         const agentAlpha = spawnAlpha(game.timers.tick, agent.spawnTick);
+        const agentDisabled = agent.disabledTicks > 0;
+        const agentDisablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
 
         // hexagon points helper
         const hex = (cx: number, cy: number, r: number) =>
@@ -868,7 +901,10 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           }).join(" ");
 
         return (
-          <g key={agent.id} opacity={agentAlpha}>
+          <g key={agent.id} opacity={agentAlpha} style={agentDisabled ? { filter: "grayscale(1)" } : undefined}>
+            {agentDisabled && (
+              <circle cx={agent.x} cy={agent.y + bob} r="26" fill="none" stroke={`rgba(255,120,40,${agentDisablePulse.toFixed(2)})`} strokeWidth="2.5" />
+            )}
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
             {agent.veteranRank > 0 &&
               Array.from({ length: agent.veteranRank }, (_, index) => (

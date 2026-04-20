@@ -21,6 +21,7 @@ function describeSpawnWave(spawned: EnemyKind[], derived: DerivedState) {
     blight: 0,
     leech: 0,
     phantom: 0,
+    zapper: 0,
   };
   spawned.forEach((kind) => {
     counts[kind] += 1;

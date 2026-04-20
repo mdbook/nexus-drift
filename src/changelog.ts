@@ -16,6 +16,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    badge: "Disruptor",
+    summary: "A new late-game threat: the Zapper. This ranged enemy holds its distance and fires slow energy bolts that disable workers and turrets for several seconds on impact.",
+    sections: [
+      {
+        title: "New Enemy — Zapper",
+        items: [
+          "Zappers appear from tier 7 onward. They hold at firing range rather than closing to contact, backing off if a target gets too close.",
+          "Every ~90 ticks the zapper fires a zapper-bolt at the nearest worker or turret within range. The bolt travels visually and applies a disable on impact.",
+          "Disabled workers freeze in place (task: Disabled) and disabled turrets stop firing. Both show a greyscale filter and a pulsing orange ring. The disable lasts ~7 seconds (210 ticks).",
+          "Workers reboot automatically when an attacker kills them and they respawn; the disable clears on reboot.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.0",
     badge: "Field Clarity",
     summary: "Visual polish pass — field decoration cleaned up for a cleaner, less cluttered battlefield.",
