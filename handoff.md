@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.2.4**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.2.5**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -12,7 +12,7 @@ Current version: **2.2.4**. The in-game changelog is at `src/changelog.ts` and o
 - The subsystem execution order inside `advanceGame.ts` is load-bearing and is fully documented with per-step rationale in that file. Do not reshuffle without reading those comments.
 - Simulation logic is split across focused modules in `src/game/subsystems/`.
 - `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts. All gameplay randomness must flow through the seeded `Rng`, never `Math.random()`.
-- Save files carry a `schemaVersion` field (currently `2`). `migrateGameState()` always stamps the current version on load and handles v1 saves (no version field) gracefully. The `SCHEMA_VERSION` constant lives in `factories.ts`.
+- Save files carry a `schemaVersion` field (currently `3`). `migrateGameState()` always stamps the current version on load and handles v1/v2 saves gracefully. The `SCHEMA_VERSION` constant lives in `factories.ts`.
 - Presentation-only calculations live in `selectors.ts` and are exposed to React as derived state. Do not put derived calculations inside subsystems.
 - React rendering sits on top of the sim via `useGameLoop()`: `requestAnimationFrame` + fixed-tick accumulator, pauses on hidden tabs, autosaves every 30 seconds.
 
@@ -41,7 +41,7 @@ Current version: **2.2.4**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/rng.ts` — deterministic Mulberry32 PRNG
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
-- `src/game/subsystems/` — economy, spawns, movement, corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
+- `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
 - `src/game/__tests__/advanceGame.test.ts` — 24 tests: simulation invariants, subsystem behavior, save/load round-trip
 - `.gitlab-ci.yml` — verify and container-build pipeline
 - `docker/nginx.conf` — SPA serving config with security headers
@@ -66,7 +66,11 @@ The UI uses Tailwind with a responsive flex layout:
 
 ### Workers
 
-Kinds: `miner`, `runner`, `drone`. Workers pick targets autonomously via a scored target-selection function in `factories.ts`. They evade threats with sticky enter/exit hysteresis, recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
+Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). Slot 0 starts active; slot 1 unlocks at upgrade level 3; slot 2 unlocks at upgrade level 6. The `active: boolean` field on `Agent` controls this — inactive agents are skipped by all sim logic and hidden in the renderer.
+
+`WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → active slot count. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against current upgrade levels each tick (called after `stepEconomy`, before `stepSpawns`).
+
+Workers pick targets autonomously via a scored target-selection function in `factories.ts`. They evade threats with sticky enter/exit hysteresis, recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 ### Enemies
 
@@ -151,7 +155,7 @@ The home district skyline evolves with progression and upgrade investment. Matur
 
 ### Persistence And Idle UX
 
-Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 2`; `migrateGameState()` handles v1 (no version field) and future versions by stamping current schema on load. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
+Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 3`; `migrateGameState()` handles v1/v2 saves (pre-multi-slot) and future versions by stamping current schema on load. Existing saves with 3 agents get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
 
 ### Achievements
 

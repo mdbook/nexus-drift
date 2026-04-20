@@ -14,6 +14,7 @@ export function stepMining(state: GameState) {
 
     const workers = state.agents.filter(
       (agent) =>
+        agent.active &&
         agent.target === node.id &&
         dist(agent.x, agent.y, node.x, node.y) < Math.max(MINING.contactRadiusMin, node.size * MINING.contactRadiusRatio) &&
         agent.hp > MINING.workerActiveHpThreshold &&

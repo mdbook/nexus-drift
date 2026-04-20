@@ -48,6 +48,7 @@ export function resolveEnemyDeaths(state: GameState) {
   killed.forEach((enemy) => {
     if (enemy.role !== "corruptor") {
       state.agents.forEach((agent) => {
+        if (!agent.active) return;
         if (dist(agent.x, agent.y, enemy.x, enemy.y) < 120) {
           agent.killsNearby += 1;
         }
@@ -139,6 +140,7 @@ export function stepZapperFire(state: GameState) {
     let bestY = 0;
 
     for (const agent of state.agents) {
+      if (!agent.active) continue;
       const d = dist(agent.x, agent.y, enemy.x, enemy.y);
       if (d < ZAPPER.firingRange && d < bestDist) {
         bestDist = d;
@@ -185,10 +187,11 @@ export function stepCombat(state: GameState) {
   for (const enemy of state.enemies) {
     if (enemy.kind !== "sapper" || enemy.hp <= 0) continue;
 
-    const nearWorker = state.agents.some((agent) => dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.triggerRadius);
+    const nearWorker = state.agents.some((agent) => agent.active && dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.triggerRadius);
     if (!nearWorker) continue;
 
     for (const agent of state.agents) {
+      if (!agent.active) continue;
       if (dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.explosionRadius) {
         agent.hp -= ENEMY_SPECIAL.sapper.explosionDamage;
         agent.damageTicks = WORKER.combatDamageTicks;
@@ -211,6 +214,7 @@ export function stepCombat(state: GameState) {
   }
 
   state.agents.forEach((agent) => {
+    if (!agent.active) return;
     const attackers = state.enemies.filter(
       (enemy) =>
         enemy.hp > 0 &&

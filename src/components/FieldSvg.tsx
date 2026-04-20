@@ -881,7 +881,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         </g>
       )}
 
-      {game.agents.map((agent) => {
+      {game.agents.filter((agent) => agent.active).map((agent) => {
         const bob = Math.sin((game.timers.tick + agent.id * 8) / 7) * 2;
         const shieldActive = game.upgrades.shield > 0;
         const panicOpacity = clamp(agent.panic / 100, 0, 1) * 0.22;

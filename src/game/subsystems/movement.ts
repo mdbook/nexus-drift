@@ -19,6 +19,7 @@ export function stepWorkers(state: GameState) {
   const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor");
 
   state.agents.forEach((agent, index) => {
+    if (!agent.active) return;
     if (agent.disabledTicks > 0) {
       agent.disabledTicks -= 1;
       agent.task = "Disabled";
@@ -139,6 +140,7 @@ export function stepWorkers(state: GameState) {
     for (let j = i + 1; j < state.agents.length; j++) {
       const a = state.agents[i];
       const b = state.agents[j];
+      if (!a.active || !b.active) continue;
       const minDist = WORKER.separationMinDist;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
@@ -235,7 +237,7 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
-    const target = findClosestAgent(enemy, state.agents);
+    const target = findClosestAgent(enemy, state.agents.filter((a) => a.active));
 
     if (!target) return;
 

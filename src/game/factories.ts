@@ -15,7 +15,7 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -87,24 +87,31 @@ export function makeNodes(rng: Rng) {
 
 export function makeAgents(): Agent[] {
   const kinds = ["miner", "runner", "drone"] as const;
-  return kinds.map((kind, index) => {
-    const agent = makeWorker(kind, index + 1);
-    agent.target = index;
-    return agent;
-  });
+  const agents: Agent[] = [];
+  let id = 1;
+  for (const kind of kinds) {
+    for (let slot = 0; slot < 3; slot++) {
+      const agent = makeWorker(kind, id++, 0, slot, slot === 0);
+      agents.push(agent);
+    }
+  }
+  return agents;
 }
 
-export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0): Agent {
+export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slot = 0, active = true): Agent {
   const home = WORKERS_AT_HOME[kind];
+  const xOffset = (slot - 1) * 28;
+  const homeX = home.x + xOffset;
+  const homeY = home.y;
 
   return {
     id,
-    x: home.x,
-    y: home.y,
-    tx: home.x,
-    ty: home.y,
-    homeX: home.x,
-    homeY: home.y,
+    x: homeX,
+    y: homeY,
+    tx: homeX,
+    ty: homeY,
+    homeX,
+    homeY,
     speed: home.speed,
     kind,
     target: null,
@@ -121,6 +128,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0): Ag
     veteranRank: 0,
     spawnTick: currentTick,
     disabledTicks: 0,
+    active,
   };
 }
 
@@ -446,6 +454,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           veteranRank: agent.veteranRank ?? 0,
           spawnTick: agent.spawnTick ?? 0,
           disabledTicks: agent.disabledTicks ?? 0,
+          active: agent.active ?? true,
         }))
       : base.agents,
     turrets: Array.isArray(raw.turrets)
@@ -533,7 +542,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent) {
       }
 
       // Contested penalty: discourage piling on the same node as another worker
-      const contested = state.agents.filter((a) => a.id !== agent.id && a.target === node.id).length;
+      const contested = state.agents.filter((a) => a.active && a.id !== agent.id && a.target === node.id).length;
       score += contested * 90;
 
       // Corruption: non-miners avoid heavily corrupted nodes

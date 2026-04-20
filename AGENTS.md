@@ -113,6 +113,16 @@ Rules for adding achievements:
 - `cloneGameState()` maps `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
 - `MAX_LOG` is 40. Do not lower it without checking the `ActivityLog` component's `max-h-72` scroll container.
 
+## Worker Slot Invariants
+
+`state.agents` always holds exactly 9 agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active; slots 1 and 2 are unlocked by upgrade level.
+
+- `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the number of active slots for a given upgrade level.
+- `stepWorkerSlots()` (called after `stepEconomy`) reconciles `agent.active` against current upgrade levels. It only ever activates, never deactivates — workers stay in the field once deployed.
+- All subsystems that iterate `state.agents` must guard on `agent.active` before processing. Check combat, movement, mining, and zapper targeting when touching those subsystems.
+- `FieldSvg.tsx` filters `game.agents` to active-only before rendering.
+- Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.

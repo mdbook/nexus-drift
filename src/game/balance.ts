@@ -433,6 +433,12 @@ export const DEFENSE = {
   hostilePressureColonyHealth: 72,
 } as const;
 
+export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
+  miner:  [1, 1, 1, 2, 2, 2, 3],
+  runner: [1, 1, 1, 2, 2, 2, 3],
+  drone:  [1, 1, 1, 2, 2, 2, 3],
+};
+
 export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: string }> = {
   miner: { x: 160, y: 440, speed: 1.1, task: "Surveying" },
   runner: { x: 320, y: 440, speed: 1.28, task: "Hauling" },

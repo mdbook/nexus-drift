@@ -13,6 +13,7 @@ import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepSpawns } from "@/game/subsystems/spawns";
 import { stepTurrets } from "@/game/subsystems/turrets";
+import { stepWorkerSlots } from "@/game/subsystems/workers";
 import type { GameState } from "@/game/types";
 
 export function advanceGame(prev: GameState): GameState {
@@ -46,6 +47,7 @@ export function advanceGame(prev: GameState): GameState {
   // 11. Events / Achievements — read final state so unlock conditions are accurate.
 
   stepEconomy(state);
+  stepWorkerSlots(state);
   stepSpawns(state);
   stepWorkers(state);
   stepTourist(state);

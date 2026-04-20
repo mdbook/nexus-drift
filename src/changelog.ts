@@ -16,6 +16,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    badge: "Crowded House",
+    summary: "Each worker kind can now field up to three units — slots unlock at upgrade levels 3 and 6. Workers spawn at staggered home pads and activate or deactivate as upgrade levels change.",
+    sections: [
+      {
+        title: "Multiple Workers Per Kind",
+        items: [
+          "Miner, runner, and drone tracks each support three simultaneous units. Slot 2 unlocks at upgrade level 3, slot 3 at level 6.",
+          "All nine agents are pre-allocated in the initial state; inactive slots consume no CPU — movement, mining, combat, and rendering skip them.",
+          "New `stepWorkerSlots` subsystem reconciles active count against the current upgrade level each tick; newly unlocked agents deploy from staggered home pads.",
+          "Home pads offset by ±28 px horizontally per slot so workers don't stack at spawn.",
+          "Schema version bumped to 3; `migrateGameState` defaults `active` to `true` for each kind's first agent in existing saves.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.4",
     badge: "Informed Colony",
     summary: "Tooltip coverage pass — every interactive surface now explains itself on hover or focus, backed by a shared Tooltip primitive that replaces three hand-rolled implementations.",

@@ -94,6 +94,8 @@ export type Agent = {
   spawnTick: number;
   /** Countdown in ticks while this worker is disabled by a zapper bolt. 0 = active. */
   disabledTicks: number;
+  /** Whether this slot has been unlocked. Slot 0 starts active; slots 1 and 2 unlock via upgrades. */
+  active: boolean;
 };
 
 export type Turret = {
