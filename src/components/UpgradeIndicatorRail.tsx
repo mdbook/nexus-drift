@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { upgradeDefs } from "@/game/data";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { canAffordUpgrade, formatUpgradeCost, nextUpgradeCost } from "@/game/utils";
@@ -82,6 +82,8 @@ type DotProps = {
 function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProps) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [anchor, setAnchor] = useState<{ cx: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const open = hovered || focused;
 
   const style = CATEGORY_STYLE[category];
@@ -92,14 +94,28 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
 
   const tooltipId = `upgrade-dot-${def.key}`;
 
+  // Tooltip uses position:fixed to escape every clipping ancestor. The rail's
+  // inner row has overflow-x-auto, which (via CSS's overflow interaction
+  // rule) would clip any absolute bottom-full tooltip. Fixed positioning is
+  // relative to the viewport, so no ancestor can clip it.
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setAnchor(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setAnchor({ cx: rect.left + rect.width / 2, top: rect.top });
+  }, [open]);
+
   return (
-    <span className="relative inline-flex shrink-0">
+    <>
       <button
+        ref={buttonRef}
         type="button"
         aria-describedby={open ? tooltipId : undefined}
         aria-label={`${def.label} level ${level}`}
         className={cn(
-          "group relative flex h-7 w-7 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:h-8 md:w-8",
+          "group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:h-8 md:w-8",
           owned
             ? canAfford
               ? "border-white/25 bg-white/[0.08] hover:bg-white/[0.14]"
@@ -139,12 +155,18 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
         )}
       </button>
 
-      {open && (
+      {open && anchor && (
         <div
           id={tooltipId}
           role="tooltip"
+          style={{
+            position: "fixed",
+            left: anchor.cx,
+            top: anchor.top,
+            transform: "translate(-50%, calc(-100% - 8px))",
+          }}
           className={cn(
-            "absolute bottom-full left-1/2 z-30 mb-2 w-60 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl",
+            "pointer-events-none z-50 w-60 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl",
             style.tooltipBorder
           )}
         >
@@ -180,7 +202,7 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
           />
         </div>
       )}
-    </span>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Users } from "lucide-react";
 import type { DerivedState, GameState } from "@/game/types";
 import { cn } from "@/lib/cn";
@@ -55,17 +55,34 @@ const TONE: Record<IndicatorTone, { text: string; dot: string; glow: string; bor
 function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: IndicatorProps) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [anchor, setAnchor] = useState<{ cx: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const open = hovered || focused;
   const style = TONE[tone];
   const tooltipId = `field-stat-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
+  // When the tooltip opens, record the button's viewport rect so we can render
+  // the tooltip with position:fixed. This escapes every clipping ancestor —
+  // critical because the parent scroll row uses overflow-x-auto which would
+  // otherwise swallow an absolute bottom-full tooltip (CSS overflow
+  // interaction rule makes overflow-y effectively clipped too).
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setAnchor(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setAnchor({ cx: rect.left + rect.width / 2, top: rect.top });
+  }, [open]);
+
   return (
-    <span className="relative inline-flex shrink-0">
+    <>
       <button
+        ref={buttonRef}
         type="button"
         aria-describedby={open ? tooltipId : undefined}
         aria-label={`${label}: ${value}`}
-        className="group flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40 md:px-3"
+        className="group flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40 md:px-3"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setFocused(true)}
@@ -82,12 +99,18 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
           style={{ boxShadow: style.glow }}
         />
       </button>
-      {open && (
+      {open && anchor && (
         <div
           id={tooltipId}
           role="tooltip"
+          style={{
+            position: "fixed",
+            left: anchor.cx,
+            top: anchor.top,
+            transform: "translate(-50%, calc(-100% - 8px))",
+          }}
           className={cn(
-            "absolute bottom-full left-1/2 z-30 mb-2 w-56 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border bg-slate-950/95 p-2.5 text-left shadow-hud backdrop-blur-xl",
+            "pointer-events-none z-50 w-56 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-2.5 text-left shadow-hud backdrop-blur-xl",
             style.border
           )}
         >
@@ -105,7 +128,7 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
           />
         </div>
       )}
-    </span>
+    </>
   );
 }
 

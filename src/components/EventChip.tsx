@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { EventDef, EventEffectTone } from "@/game/events/eventDefs";
 import type { ActiveEvent } from "@/game/types";
 
@@ -40,6 +40,8 @@ const EFFECT_TEXT_TONE: Record<EventEffectTone, string> = {
 export function EventChip({ event, def }: Props) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const open = hovered || focused;
 
   const tone = def?.tone ?? "neutral";
@@ -47,9 +49,23 @@ export function EventChip({ event, def }: Props) {
   const secondsRemaining = Math.ceil(event.ticksRemaining / 30);
   const describedById = `event-chip-${event.id}`;
 
+  // Tooltip uses position:fixed to escape every clipping ancestor. The event
+  // chips sit in a flex-wrap row inside the field card; on narrow screens they
+  // can wrap to a second line where an absolute bottom-full tooltip would
+  // point into the first-line chips rather than clear space.
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setAnchor(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setAnchor({ left: rect.left, top: rect.top });
+  }, [open]);
+
   return (
-    <span className="relative inline-block">
+    <>
       <button
+        ref={buttonRef}
         type="button"
         className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${style.chip} cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30`}
         onMouseEnter={() => setHovered(true)}
@@ -63,11 +79,17 @@ export function EventChip({ event, def }: Props) {
         <span className="text-white/55">({secondsRemaining}s)</span>
       </button>
 
-      {open && (
+      {open && anchor && (
         <div
           id={describedById}
           role="tooltip"
-          className={`absolute bottom-full left-0 z-30 mb-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border ${style.tooltipAccent} bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl`}
+          style={{
+            position: "fixed",
+            left: anchor.left,
+            top: anchor.top,
+            transform: "translateY(calc(-100% - 8px))",
+          }}
+          className={`pointer-events-none z-50 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border ${style.tooltipAccent} bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="text-sm font-semibold text-white">{def?.label ?? event.label}</div>
@@ -100,6 +122,6 @@ export function EventChip({ event, def }: Props) {
           />
         </div>
       )}
-    </span>
+    </>
   );
 }
