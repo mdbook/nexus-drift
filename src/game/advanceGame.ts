@@ -22,6 +22,27 @@ export function advanceGame(prev: GameState): GameState {
   state.timers.event += 1;
   state.timers.enemy += 1;
 
+  // Order is load-bearing. Changing it without understanding the data-flow between
+  // subsystems will introduce one-frame lag or missed interactions.
+  //
+  // 1. Economy — income applied before anything spends or reacts to resources.
+  // 2. Spawns — wave decisions read the timers set above; new enemies have no target
+  //    yet so they won't act until the following tick.
+  // 3. Workers / Tourist / Enemies — movement resolves against the freshly spawned
+  //    enemy list so targeting is consistent within the tick.
+  // 4. Corruption — runs after movement so corruptors act on their new position.
+  // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
+  //    damage via hp reduction + flash markers.
+  // 6. resolveEnemyDeaths (first pass) — removes turret/scout kills before stepCombat
+  //    so workers don't target already-dead enemies.
+  // 7. Combat — workers deal melee damage; a second resolveEnemyDeaths follows so
+  //    enemies killed this tick don't persist into mining or autobuy.
+  // 8. Mining — after combat so a node destroyed by an enemy this tick doesn't also
+  //    yield resources.
+  // 9. Autobuy — reads final resource totals after income + combat rewards.
+  // 10. Projectiles — visual-only; life counters decay after all game logic.
+  // 11. Events / Achievements — read final state so unlock conditions are accurate.
+
   stepEconomy(state);
   stepSpawns(state);
   stepWorkers(state);

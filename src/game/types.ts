@@ -182,6 +182,7 @@ export type TouristWorker = {
 };
 
 export type GameState = {
+  schemaVersion: number;
   citySeed: number;
   rng: Rng;
   resources: ResourceMap;

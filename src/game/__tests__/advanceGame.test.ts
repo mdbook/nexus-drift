@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
-import { createInitialGameState, spawnEnemy } from "@/game/factories";
+import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths } from "@/game/subsystems/combat";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -383,5 +383,58 @@ describe("advanceGame simulation invariants", () => {
     const after = runTicks(seeded, 12);
 
     expect(after.sentinels[0].targetId).toBe(brute.id);
+  });
+});
+
+describe("save / load round-trip", () => {
+  it("migrateGameState round-trips through JSON without data loss", () => {
+    const original = runTicks(createInitialGameState(42), 300);
+    original.upgrades.miner = 2;
+    original.upgrades.scout = 1;
+    original.level = 4;
+    original.resources.gold = 150;
+    original.resources.gems = 12;
+
+    const serialized = JSON.parse(JSON.stringify(original)) as Parameters<typeof migrateGameState>[0];
+    const restored = migrateGameState(serialized);
+
+    expect(restored.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(restored.level).toBe(original.level);
+    expect(restored.resources.gold).toBe(original.resources.gold);
+    expect(restored.resources.gems).toBe(original.resources.gems);
+    expect(restored.upgrades.miner).toBe(original.upgrades.miner);
+    expect(restored.upgrades.scout).toBe(original.upgrades.scout);
+    expect(restored.nodes).toHaveLength(original.nodes.length);
+    expect(restored.agents).toHaveLength(original.agents.length);
+  });
+
+  it("migrateGameState fills missing fields from a v1 save (no schemaVersion)", () => {
+    const v1Save = {
+      citySeed: 12345,
+      level: 3,
+      resources: { gold: 80, ore: 20, gems: 5, energy: 0, cores: 0, flux: 0 },
+      upgrades: { miner: 1, drill: 0, reactor: 0, bot: 0, turret: 0, shield: 0, scout: 0, arsenal: 0, foundry: 0, sentinel: 0, archive: 0 },
+    };
+
+    const restored = migrateGameState(v1Save);
+
+    expect(restored.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(restored.level).toBe(3);
+    expect(restored.resources.gold).toBe(80);
+    expect(restored.agents.length).toBeGreaterThan(0);
+    expect(restored.nodes.length).toBeGreaterThan(0);
+    expect(restored.timers).toBeDefined();
+  });
+
+  it("advanceGame produces no NaN after a round-trip restore", () => {
+    const original = runTicks(createInitialGameState(99), 150);
+    const serialized = JSON.parse(JSON.stringify(original)) as Parameters<typeof migrateGameState>[0];
+    const restored = migrateGameState(serialized);
+    const after = runTicks(restored, 60);
+
+    expect(after.resources.gold).not.toBeNaN();
+    expect(after.resources.ore).not.toBeNaN();
+    expect(after.level).not.toBeNaN();
+    expect(after.combo).not.toBeNaN();
   });
 });

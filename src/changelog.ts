@@ -16,6 +16,28 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.5",
+    badge: "Code Hardening",
+    summary: "Internal quality pass — save versioning, subsystem documentation, stricter linting, and expanded test coverage.",
+    sections: [
+      {
+        title: "Save System",
+        items: [
+          "Save files now carry a schemaVersion field, enabling explicit migration paths as the game evolves.",
+          "Migration always stamps the current schema version on load, so future version checks are unambiguous.",
+        ],
+      },
+      {
+        title: "Code Quality",
+        items: [
+          "Subsystem execution order in the game loop is now fully documented with per-step rationale.",
+          "ESLint no-explicit-any rule elevated to error — any future type escapes will fail the build.",
+          "Round-trip save/load tests added: data integrity, v1 back-compat, and post-restore NaN checks.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.4a",
     badge: "Field First",
     summary: "Layout overhaul for every screen size — the game field is now the focal point on mobile and desktop alike.",

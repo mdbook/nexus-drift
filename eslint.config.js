@@ -39,7 +39,7 @@ export default tseslint.config(
       ],
 
       // Downgrade / disable noisy TS rules
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "off",
 
       // React Refresh

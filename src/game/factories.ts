@@ -14,6 +14,8 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
+export const SCHEMA_VERSION = 2;
+
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
 
@@ -262,6 +264,7 @@ export function createInitialGameState(seed?: number): GameState {
   const citySeed = seed ?? Date.now();
   const rng = new Rng(citySeed);
   return {
+    schemaVersion: SCHEMA_VERSION,
     citySeed,
     rng,
     resources: { gold: 24, ore: 8, gems: 0, energy: 0, cores: 0, flux: 0 },
@@ -363,10 +366,12 @@ export function cloneGameState(prev: GameState): GameState {
 }
 
 type SerializedGameState = Partial<GameState> & {
+  schemaVersion?: number;
   rng?: GameState["rng"] | { state?: number };
 };
 
 export function migrateGameState(raw: SerializedGameState): GameState {
+  // v1 saves have no schemaVersion field; all fields are merged defensively below.
   const base = createInitialGameState(
     typeof raw.citySeed === "number" ? raw.citySeed : Date.now()
   );
@@ -378,6 +383,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
   return {
     ...base,
     ...raw,
+    schemaVersion: SCHEMA_VERSION,
     rng: rawRngState !== undefined ? Rng.fromState(rawRngState) : base.rng,
     resources: { ...base.resources, ...raw.resources },
     upgrades: { ...base.upgrades, ...raw.upgrades },
