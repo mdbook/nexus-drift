@@ -2,106 +2,129 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-Current release: `2.2.8`.
+**Current release:** `2.2.8` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
-## Highlights
+![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
-- Fully browser-run simulation with no network gameplay dependency.
-- Deterministic seeded RNG in the simulation layer for reproducible runs.
-- In-game release history: click the version badge next to `Autonomous Colony Sim`.
-- GitLab source link sits in the top project chrome beside the version badge.
-- Site chrome now uses the branded `nexus-drift` mark for the favicon and touch icon, while social embeds continue using `public/og-image.png`.
-- Public speed presets for `1x`, `2x`, and `4x`, plus a hidden admin speed panel for deeper tuning: press `Space` five times.
-- Mid-game enemy roster now includes rushers, brutes, sappers, blights, leeches, phantoms, and zappers. Zappers are a late-game (tier 7+) ranged threat that holds at firing distance and fires slow energy bolts — a hit disables a worker or turret for ~7 seconds.
-- Seeded random events can temporarily bend yields, speed, corruption pressure, and surprise spawns. Each active event now drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) and surfaces a tone-coded HUD chip with a hover/focus tooltip listing flavor text and every buff and debuff.
-- Flux and Cores now feed multi-resource upgrades, including Foundry, Data Archive, and Sentinel Mechs.
-- Long runs now autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden. Save files carry a schema version so future migrations are explicit.
-- 44 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories (combat, corruption, mining, progression, survival, secret). The achievement modal groups by category, colour-codes by rarity, masks hidden achievements as "???" until unlocked, and shows a completion progress bar. Corruption purge milestones now track actual node cleanses, sentinel kill credit only lands on lethal sentinel hits, and the synthwave Konami easter egg unlocks its own hidden badge.
-- Glanceable upgrade rail and field stats strip live inside the field card — colour-coded upgrade dots (yield / defense / support / elite) and compact stat pills each expose hover/focus tooltips with full detail. Designed mobile-first so the sidebar no longer needs to be open to monitor the colony.
-- Activity log shows up to 40 structured entries with per-category icons (combat, corruption, mining, upgrade, event, system, achievement, ambient), relative-age timestamps, and a filter tab bar so you can focus on the stream that matters.
-- Responsive layout activates the two-column desktop view at 1024px (lg) instead of 1280px, so 11-inch iPads in landscape get the full side-by-side field and sidebar without scrolling.
-- On desktop iPad layouts, the field footer now reserves its own height below the canvas instead of overlaying the city strip, so the bottom HUD stays readable without covering the home district.
-- Entities fade in and out instead of popping: nodes fade in on spawn and respawn, temporary nodes fade out as they near their despawn deadline, enemies fade in on entry and play a short death fade-out before removal, and agents fade in on reboot.
+---
+
+## Features
+
+### Simulation & Economy
+- Fully browser-run simulation with no network gameplay dependency
+- Deterministic seeded RNG in the simulation layer for reproducible runs
+- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units — slots unlock at upgrade levels 3 and 6
+- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
+- Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns
+
+### Combat & Enemies
+- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers
+- Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
+- Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
+- Turrets fire homing missiles that travel visibly and steer toward their target; the Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
+- 44 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories
+
+### HUD & UI
+- Glanceable upgrade rail and field stats strip inside the field card — colour-coded upgrade dots and compact stat pills with hover/focus tooltips
+- Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip
+- Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
+- Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
+
+### Controls & Persistence
+- Speed presets: `1x`, `2x`, `4x` public; hidden admin speed panel behind `Space` × 5
+- Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
+- Save files carry a schema version for explicit forward-compatible migration
+- In-game release history: click the version badge next to `Autonomous Colony Sim`
+- GitLab source link sits in the top project chrome beside the version badge
+
+### Layout
+- Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
+- Field footer reserves its own height below the canvas on desktop iPad layouts — bottom HUD stays readable without covering the home district
+
+---
 
 ## Development
-
-Install dependencies and start the dev server:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Useful commands:
-
 ```bash
-npm run typecheck
-npm test
+npm run typecheck   # type checking
+npm test            # unit tests (24 tests in src/game/__tests__/)
 npm run lint
 npm run build
 npm run preview
 npm run format:check
 ```
 
+---
+
 ## Architecture
 
-- `src/App.tsx`: top-level shell, save bootstrap, speed presets, achievement UI, admin panel, event test triggers, and release-history modal
-- `src/changelog.ts`: in-game release notes sourced from repo milestones
-- `index.html`: app metadata, favicon links, and Open Graph / Twitter embed tags
-- `src/hooks/useGameLoop.ts`: `requestAnimationFrame` loop, pause-on-hidden handling, autosave cadence, live field snapshots, and a throttled UI snapshot for sidebar/chrome rendering
-- `src/game/advanceGame.ts`: thin orchestrator that runs the simulation step order
-- `src/game/achievements.ts`: achievement definitions and unlock helper
-- `src/game/persistence.ts`: localStorage save/load bootstrap and migration entry point; saves carry a `schemaVersion` field for forward-compatible migration
-- `src/game/subsystems/`: focused simulation modules for economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, and events
-- `src/game/balance.ts`: central tuning constants
-- `src/game/events/eventDefs.ts`: seeded mechanical event definitions and event activation helpers
-- `src/game/rng.ts`: seeded Mulberry32 PRNG used by simulation paths
-- `src/game/targeting.ts`: shared targeting helpers
-- `src/components/ActivityLog.tsx`: structured log panel with category icons, relative timestamps, and filter tabs (including Awards)
-- `src/components/AchievementsModal.tsx`: achievements modal with category tabs, rarity colouring, hidden masking, and progress bar
-- `src/components/`: battlefield rendering, HUD widgets, sidebar panels, and presentational overlays
-- `src/components/EventBackdrop.tsx`: full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion`) so long-running countdown ticks do not force full overlay rerenders
-- `src/components/FieldSvg.tsx`: battlefield SVG rendering. Static district geometry is memoized by seed/turret layout so decorative skyline work does not rebuild every sim tick.
-- `src/components/EventChip.tsx`: active-event HUD chip with hover/focus tooltip showing flavor and per-effect tone breakdown
-- `src/components/UpgradeIndicatorRail.tsx`: horizontal rail of one dot per visible upgrade. Dots glow harder with level, pulse when the next level is affordable, and open a tooltip (name, level, effect, cost) on hover/focus. Hidden upgrades match the sidebar's visibility rules.
-- `src/components/FieldStatsStrip.tsx`: compact pill row of live field stats (crews, integrity, turrets, scouts, sentinels, combat, corruption, threat tier, combo) with tone colours and detail tooltips. Replaces the old verbose crew/task text footer.
-- `reference/`: preserved single-file reference artifact
+| Path | Role |
+|------|------|
+| `src/App.tsx` | Top-level shell: save bootstrap, speed presets, achievement UI, admin panel, event test triggers, release-history modal |
+| `src/changelog.ts` | In-game release notes sourced from repo milestones |
+| `index.html` | App metadata, favicon links, Open Graph / Twitter embed tags |
+| `src/hooks/useGameLoop.ts` | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot |
+| `src/game/advanceGame.ts` | Thin orchestrator that runs the simulation step order |
+| `src/game/achievements.ts` | Achievement definitions and unlock helper |
+| `src/game/persistence.ts` | localStorage save/load bootstrap and migration entry point |
+| `src/game/balance.ts` | Central tuning constants |
+| `src/game/events/eventDefs.ts` | Seeded mechanical event definitions and activation helpers |
+| `src/game/rng.ts` | Seeded Mulberry32 PRNG used by all simulation paths |
+| `src/game/targeting.ts` | Shared targeting helpers |
+| `src/game/subsystems/` | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events |
+| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout |
+| `src/components/EventBackdrop.tsx` | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion`) |
+| `src/components/EventChip.tsx` | Active-event HUD chip with hover/focus tooltip |
+| `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus |
+| `src/components/FieldStatsStrip.tsx` | Compact pill row of live field stats with tone colours and detail tooltips |
+| `src/components/ActivityLog.tsx` | Structured log panel with category icons, relative timestamps, and filter tabs |
+| `src/components/AchievementsModal.tsx` | Achievements modal with category tabs, rarity colouring, hidden masking, and progress bar |
+| `src/components/Sidebar.tsx` | Economy, automation, and threat panels |
+| `src/components/Background.tsx` | Animated starfield and atmosphere layers |
+| `src/components/HudPrimitives.tsx` | Shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile) |
+| `src/components/Tooltip.tsx` | Shared `TooltipPanel` primitive; `useTooltip` hook in `src/hooks/useTooltip.ts` |
+| `src/components/ui/` | Local card and progress bar primitives |
+| `reference/` | Preserved single-file reference artifact |
 
-## Build And Delivery
+---
 
-Production build:
+## Build & Delivery
 
 ```bash
+# Production build
 npm run build
-```
 
-Docker:
-
-```bash
+# Docker
 docker build -t nexus-drift .
 docker run --rm -p 8080:80 nexus-drift
-```
 
-Or with compose:
-
-```bash
+# Compose
 docker compose up --build
 ```
 
 The production image serves the static Vite build with Nginx on port `80`.
 
+---
+
 ## CI
 
-GitLab CI currently runs:
+GitLab CI runs:
 
-- a `verify` stage with `npm ci`, `npm run typecheck`, and `npm test`
-- a Kaniko-based image build stage that publishes the container image
-- success and failure notifications after the pipeline completes
+- **verify** — `npm ci`, `npm run typecheck`, `npm test`
+- **image build** — Kaniko-based build that publishes the container image
+- **notifications** — success and failure alerts after the pipeline completes
+
+---
 
 ## Notes For Contributors
 
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
-- If the user does not explicitly say otherwise, assume follow-up UI/docs tweaks belong to the current in-flight release rather than forcing a new version bump.
 - If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
+- Follow-up UI/docs tweaks belong to the current in-flight release unless the user says otherwise.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
-- Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover work do not compete with the 30 Hz simulation loop.
+- Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover do not compete with the 30 Hz simulation loop.
