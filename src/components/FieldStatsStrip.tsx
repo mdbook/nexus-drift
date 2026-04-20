@@ -73,7 +73,15 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
       return;
     }
     const rect = buttonRef.current.getBoundingClientRect();
-    setAnchor({ cx: rect.left + rect.width / 2, top: rect.top });
+    const tooltipW = 224; // w-56 = 14rem = 224px
+    const margin = 8;
+    const cx = rect.left + rect.width / 2;
+    // Clamp so the tooltip never bleeds past either viewport edge.
+    const left = Math.min(
+      Math.max(cx - tooltipW / 2, margin),
+      window.innerWidth - tooltipW - margin
+    );
+    setAnchor({ cx: left, top: rect.top });
   }, [open]);
 
   return (
@@ -108,7 +116,7 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
             position: "fixed",
             left: anchor.cx,
             top: anchor.top,
-            transform: "translate(-50%, calc(-100% - 8px))",
+            transform: "translateY(calc(-100% - 8px))",
           }}
           className={cn(
             "pointer-events-none z-50 w-56 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-2.5 text-left shadow-hud backdrop-blur-xl",

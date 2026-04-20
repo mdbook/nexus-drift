@@ -105,7 +105,14 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
       return;
     }
     const rect = buttonRef.current.getBoundingClientRect();
-    setAnchor({ cx: rect.left + rect.width / 2, top: rect.top });
+    const tooltipW = 240; // w-60 = 15rem = 240px
+    const margin = 8;
+    const cx = rect.left + rect.width / 2;
+    const left = Math.min(
+      Math.max(cx - tooltipW / 2, margin),
+      window.innerWidth - tooltipW - margin
+    );
+    setAnchor({ cx: left, top: rect.top });
   }, [open]);
 
   return (
@@ -164,7 +171,7 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
             position: "fixed",
             left: anchor.cx,
             top: anchor.top,
-            transform: "translate(-50%, calc(-100% - 8px))",
+            transform: "translateY(calc(-100% - 8px))",
           }}
           className={cn(
             "pointer-events-none z-50 w-60 max-w-[calc(100vw-2rem)] rounded-2xl border bg-slate-950/95 p-3 text-left shadow-hud backdrop-blur-xl",

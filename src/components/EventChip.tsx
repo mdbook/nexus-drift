@@ -60,7 +60,10 @@ export function EventChip({ event, def }: Props) {
       return;
     }
     const rect = buttonRef.current.getBoundingClientRect();
-    setAnchor({ left: rect.left, top: rect.top });
+    const tooltipW = 256; // w-64 = 16rem = 256px
+    const margin = 8;
+    const left = Math.min(rect.left, window.innerWidth - tooltipW - margin);
+    setAnchor({ left: Math.max(left, margin), top: rect.top });
   }, [open]);
 
   return (
