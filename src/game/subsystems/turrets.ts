@@ -1,5 +1,5 @@
 import { FOCUSED_BEAM, TURRET } from "@/game/balance";
-import { isCloaked } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { addMissile, addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -86,7 +86,7 @@ export function stepTurrets(state: GameState) {
           TURRET.projectileLife,
           "instant-beam"
         );
-        target.hp -= baseDamage;
+        damageEnemy(target, baseDamage);
         target.flash = 6;
       } else {
         const vx = (target.x - turret.x) / Math.max(1, d);

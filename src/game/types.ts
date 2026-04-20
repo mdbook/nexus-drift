@@ -169,6 +169,19 @@ export type Enemy = {
    * fade-out. Removed from state.enemies once this reaches 0.
    */
   dyingTicks: number;
+  /**
+   * Current shield HP. Damage is absorbed by the shield before reaching hp.
+   * Present only on enemies that have shields (leech, phantom, zapper).
+   * undefined = no shield mechanic.
+   */
+  shield?: number;
+  /** Maximum shield HP. */
+  shieldMax?: number;
+  /**
+   * Ticks since the last time this enemy took damage. Once this exceeds
+   * ENEMY_SHIELD.regenDelayticks the shield begins regenerating each tick.
+   */
+  shieldRegenCooldown?: number;
 };
 
 export type Projectile = {

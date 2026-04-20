@@ -237,6 +237,27 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
+    // Leeches bypass worker targeting — they head straight for the home district
+    // to drain resources on arrival. They still push workers around if they
+    // happen to be adjacent, but their movement goal is the home zone.
+    if (enemy.kind === "leech") {
+      const HOME_DISTRICT_X = 500;
+      const HOME_DISTRICT_Y = 490;
+      const dx = HOME_DISTRICT_X - enemy.x;
+      const dy = HOME_DISTRICT_Y - enemy.y;
+      const d = Math.max(1, Math.hypot(dx, dy));
+      if (d > ENEMY_MOVEMENT.approachMinDistance) {
+        enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        // Gentle weaving so multiple leeches don't stack on the same path.
+        const drift = Math.sin((state.timers.tick + enemy.id * 13) / 18) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
+        enemy.x += (-dy / d) * drift;
+        enemy.y += (dx / d) * drift;
+      }
+      enemy.targetId = null;
+      return;
+    }
+
     const target = findClosestAgent(enemy, state.agents.filter((a) => a.active));
 
     if (!target) return;

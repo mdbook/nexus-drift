@@ -1,5 +1,6 @@
 import { ENEMY_SPECIAL, FLUX, SCOUT } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
+import { damageEnemy } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
@@ -125,7 +126,7 @@ export function stepScouts(state: GameState) {
         ) {
           effectiveDamage *= 1 - ENEMY_SPECIAL.blight.scoutDamageResistance;
         }
-        interceptTarget.hp -= effectiveDamage;
+        damageEnemy(interceptTarget, effectiveDamage);
         interceptTarget.flash = 7;
       }
 

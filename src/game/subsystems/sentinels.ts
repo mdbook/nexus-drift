@@ -1,5 +1,6 @@
 import { SENTINEL } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
+import { damageEnemy } from "@/game/enemyUtils";
 import { findClosestEnemy } from "@/game/targeting";
 import type { EnemyKind, GameState } from "@/game/types";
 
@@ -70,11 +71,12 @@ export function stepSentinels(state: GameState) {
 
       if (distance <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
         const damage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
-        const nextHp = target.hp - damage;
-        if (nextHp <= 0) {
+        // Check lethal hit before applying (shield absorption may reduce effective damage).
+        const effectiveHpAfter = target.hp - Math.max(0, damage - (target.shield ?? 0));
+        if (effectiveHpAfter <= 0) {
           state.stats.sentinelKills += 1;
         }
-        target.hp = nextHp;
+        damageEnemy(target, damage);
         target.flash = 7;
         sentinel.cooldown = Math.max(
           SENTINEL.cooldownFloor,

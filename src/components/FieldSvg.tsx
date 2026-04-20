@@ -780,6 +780,65 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           <circle cx={enemy.x} cy={enemy.y} r={style.radius + 18} fill={`rgba(220,30,30,${threatPulse.toFixed(2)})`} stroke="rgba(255,60,60,0.45)" strokeWidth="1.2" opacity={enemyOpacity} />
         );
 
+        // Shield overlay — rendered for any enemy that carries a shield layer
+        // (leech, phantom, zapper). Draws a translucent arc ring around the
+        // enemy whose opacity tracks shield fullness, plus a small shield bar
+        // above the HP bar. Regenerating shields pulse subtly to telegraph that
+        // damage was recently absorbed.
+        const hasShield =
+          enemy.shield !== undefined &&
+          enemy.shieldMax !== undefined &&
+          enemy.shieldMax > 0;
+        const shieldPct = hasShield ? clamp((enemy.shield! / enemy.shieldMax!) * 100, 0, 100) : 0;
+        const shieldRegenerating =
+          hasShield &&
+          enemy.shield! < enemy.shieldMax! &&
+          (enemy.shieldRegenCooldown ?? 0) === 0;
+        const shieldPulse = shieldRegenerating
+          ? 0.55 + Math.sin((game.timers.tick + enemy.id * 9) / 6) * 0.25
+          : 0.7;
+        const shieldRing = hasShield && shieldPct > 0 ? (
+          <circle
+            cx={enemy.x}
+            cy={enemy.y}
+            r={style.radius + 7}
+            fill="none"
+            stroke={`rgba(140,220,255,${((shieldPct / 100) * shieldPulse * 0.85).toFixed(2)})`}
+            strokeWidth="1.8"
+            strokeDasharray="3 2.5"
+          />
+        ) : null;
+        const shieldGlow = hasShield && shieldPct > 0 ? (
+          <circle
+            cx={enemy.x}
+            cy={enemy.y}
+            r={style.radius + 12}
+            fill={`rgba(140,220,255,${((shieldPct / 100) * 0.09).toFixed(2)})`}
+          />
+        ) : null;
+        const shieldBar = hasShield ? (
+          <>
+            <rect
+              x={enemy.x - 16}
+              y={enemy.y + style.radius + 14}
+              rx="3"
+              ry="3"
+              width="32"
+              height="3"
+              fill="rgba(255,255,255,0.10)"
+            />
+            <rect
+              x={enemy.x - 16}
+              y={enemy.y + style.radius + 14}
+              rx="3"
+              ry="3"
+              width={(32 * shieldPct) / 100}
+              height="3"
+              fill="rgba(140,220,255,0.95)"
+            />
+          </>
+        ) : null;
+
         if (enemy.kind === "raider") {
           return (
             <g key={enemy.id} opacity={enemyOpacity}>
@@ -839,6 +898,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
           return (
             <g key={enemy.id} opacity={enemyOpacity}>
               {threatRing}
+              {shieldGlow}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
               {/* triangular body */}
               <path
@@ -853,8 +913,10 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
               {/* charge orb at antenna tip — pulses brighter when ready to fire */}
               <circle cx={enemy.x - 10} cy={enemy.y - 19} r="2.5" fill={charged ? "rgba(230,160,255,0.98)" : `rgba(180,80,255,${arcPulse.toFixed(2)})`} />
               <circle cx={enemy.x + 10} cy={enemy.y - 19} r="2.5" fill={charged ? "rgba(230,160,255,0.98)" : `rgba(180,80,255,${arcPulse.toFixed(2)})`} />
+              {shieldRing}
               <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
               <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(180,80,255,0.95)" />
+              {shieldBar}
             </g>
           );
         }
@@ -876,6 +938,7 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
         return (
           <g key={enemy.id} opacity={enemyOpacity}>
             {threatRing}
+            {shieldGlow}
             <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
             <circle cx={enemy.x} cy={enemy.y} r={style.radius} fill={enemy.flash ? "rgba(255,255,255,0.82)" : style.fill} stroke={style.stroke} strokeWidth="1.5" />
             {/* sharp antenna spikes */}
@@ -883,8 +946,10 @@ export function FieldSvg({ game, derived }: FieldSvgProps) {
             <line x1={enemy.x + 5} y1={enemy.y - 7} x2={enemy.x + 10} y2={enemy.y - 16} stroke="rgba(255,200,100,0.75)" strokeWidth="1.5" />
             <circle cx={enemy.x - 10} cy={enemy.y - 16} r="1.5" fill="rgba(255,230,160,0.9)" />
             <circle cx={enemy.x + 10} cy={enemy.y - 16} r="1.5" fill="rgba(255,230,160,0.9)" />
+            {shieldRing}
             <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width="32" height="4" fill="rgba(255,255,255,0.12)" />
             <rect x={enemy.x - 16} y={enemy.y + style.radius + 8} rx="4" ry="4" width={(32 * hpPct) / 100} height="4" fill="rgba(255,165,60,0.95)" />
+            {shieldBar}
           </g>
         );
       })}

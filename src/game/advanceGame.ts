@@ -14,6 +14,7 @@ import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepSpawns } from "@/game/subsystems/spawns";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
+import { stepEnemyShields } from "@/game/subsystems/enemyShields";
 import type { GameState } from "@/game/types";
 
 export function advanceGame(prev: GameState): GameState {
@@ -33,9 +34,12 @@ export function advanceGame(prev: GameState): GameState {
   //    enemy list so targeting is consistent within the tick.
   // 4. Corruption — runs after movement so corruptors act on their new position.
   // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
-  //    damage via hp reduction + flash markers.
+  //    damage via hp reduction + flash markers. Damage flows through damageEnemy()
+  //    which absorbs into the shield layer before hitting HP.
   // 5b. ZapperFire — after movement so zappers aim at current positions; before
   //     resolveEnemyDeaths so freshly killed zappers don't fire.
+  // 5c. EnemyShields — regen step runs after all damage for this tick has been applied
+  //     so a shield that reaches 0 this tick cannot also regen this tick.
   // 6. resolveEnemyDeaths (first pass) — removes turret/scout kills before stepCombat
   //    so workers don't target already-dead enemies.
   // 7. Combat — workers deal melee damage; a second resolveEnemyDeaths follows so
@@ -57,6 +61,7 @@ export function advanceGame(prev: GameState): GameState {
   stepScouts(state);
   stepSentinels(state);
   stepZapperFire(state);
+  stepEnemyShields(state);
   resolveEnemyDeaths(state);
   stepCombat(state);
   resolveEnemyDeaths(state);

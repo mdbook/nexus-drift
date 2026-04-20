@@ -67,9 +67,12 @@ export const ENEMY_STATS: Record<
   brute: { hpBase: 160, hpWave: 8, speedBase: 0.55, speedWave: 0.01 },
   sapper: { hpBase: 35, hpWave: 5, speedBase: 1.1, speedWave: 0.02 },
   blight: { hpBase: 95, hpWave: 7, speedBase: 0.8, speedWave: 0.012 },
-  leech: { hpBase: 70, hpWave: 6, speedBase: 0.85, speedWave: 0.015 },
+  // Leech: 40 HP replaced by 50-HP shield; remaining 30 base HP.
+  leech: { hpBase: 30, hpWave: 6, speedBase: 0.85, speedWave: 0.015 },
+  // Phantom: gains 10-HP shield on top of existing 55 HP.
   phantom: { hpBase: 55, hpWave: 5, speedBase: 1.3, speedWave: 0.018 },
-  zapper: { hpBase: 45, hpWave: 4, speedBase: 0.75, speedWave: 0.01 },
+  // Zapper: 10 HP replaced by 20-HP shield; remaining 35 base HP.
+  zapper: { hpBase: 35, hpWave: 4, speedBase: 0.75, speedWave: 0.01 },
 };
 
 export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
@@ -99,6 +102,26 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
   phantom: 5,
   zapper: 0,
 };
+
+/**
+ * Enemy shield system — leech, phantom, and zapper carry a shield layer that
+ * absorbs damage before their HP pool. Shields don't regen while the enemy is
+ * being shot; once REGEN_DELAY_TICKS have passed without incoming damage, the
+ * shield recovers at REGEN_RATE_PER_TICK per tick.
+ */
+export const ENEMY_SHIELD: {
+  shieldMax: Partial<Record<import("@/game/types").EnemyKind, number>>;
+  regenDelayTicks: number;
+  regenRatePerTick: number;
+} = {
+  shieldMax: {
+    leech: 50,
+    phantom: 10,
+    zapper: 20,
+  },
+  regenDelayTicks: 90, // ~3 seconds at 30 ticks/s
+  regenRatePerTick: 0.25,
+} as const;
 
 export const ZAPPER = {
   holdDistance: 140,

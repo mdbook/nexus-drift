@@ -1,4 +1,4 @@
-import { ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -275,6 +275,13 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     enemy.fireCooldown = 0;
   }
 
+  const shieldMax = ENEMY_SHIELD.shieldMax[kind];
+  if (shieldMax !== undefined) {
+    enemy.shield = shieldMax;
+    enemy.shieldMax = shieldMax;
+    enemy.shieldRegenCooldown = 0;
+  }
+
   return enemy;
 }
 
@@ -468,12 +475,22 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       ? raw.sentinels.map((sentinel) => ({ ...sentinel }))
       : base.sentinels,
     enemies: Array.isArray(raw.enemies)
-      ? raw.enemies.map((enemy) => ({
-          ...enemy,
-          trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
-          spawnTick: enemy.spawnTick ?? 0,
-          dyingTicks: enemy.dyingTicks ?? 0,
-        }))
+      ? raw.enemies.map((enemy) => {
+          const shieldMax = ENEMY_SHIELD.shieldMax[enemy.kind as import("@/game/types").EnemyKind];
+          return {
+            ...enemy,
+            trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
+            spawnTick: enemy.spawnTick ?? 0,
+            dyingTicks: enemy.dyingTicks ?? 0,
+            // Shield fields: fall back to full shield for enemies that have one,
+            // so mid-combat saves from before shields existed don't start at 0.
+            ...(shieldMax !== undefined && {
+              shield: enemy.shield ?? shieldMax,
+              shieldMax: enemy.shieldMax ?? shieldMax,
+              shieldRegenCooldown: enemy.shieldRegenCooldown ?? 0,
+            }),
+          };
+        })
       : base.enemies,
     projectiles: Array.isArray(raw.projectiles)
       ? raw.projectiles.map((projectile) => ({ ...projectile }))

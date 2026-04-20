@@ -16,6 +16,32 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.2.13",
+    badge: "Hardened Targets",
+    summary:
+      "Combat-behavior pass. Leeches now bypass worker targeting and charge the home district directly. Three late-game enemies (leech, phantom, zapper) gain regenerating shields that absorb damage before their HP pool, adding a sustained-fire check to late-game pressure.",
+    sections: [
+      {
+        title: "Leech Homing Behavior",
+        items: [
+          "Leeches now bypass worker targeting entirely and drive straight for the home district (500, 490) as soon as they spawn. The drain mechanic is unchanged — once within 100 px of the home anchor they start siphoning gold and energy every combat tick.",
+          "This makes leech pressure read clearly on the battlefield: a lone leech cutting a lane to the colony is an obvious turret/sentinel priority call, rather than a vague chaser mingling with other hostiles.",
+        ],
+      },
+      {
+        title: "Enemy Shields",
+        items: [
+          "Three late-game enemies now carry a regenerating shield layer that absorbs damage before their HP pool: phantom (10-HP shield, HP unchanged), zapper (20-HP shield, HP cut from 45 → 35), leech (50-HP shield, HP cut from 70 → 30).",
+          "All turret, sentinel, scout, and focused-beam damage now flows through the new `damageEnemy()` helper in `enemyUtils.ts`, which deducts from the shield first and spills overflow into HP. This preserves existing balance intent while adding a fresh meaningful defensive layer.",
+          "Shields regenerate at 0.25 HP/tick after 90 ticks (~3 s) without taking damage. Any hit — to shield or raw HP — resets the regen delay, so sustained fire prevents regen while strafing or pauses in incoming fire let shields recover.",
+          "New render pass: shielded enemies show a dashed cyan ring whose opacity tracks current shield %, a soft blue outer glow, and a thin shield bar above the HP bar. Regenerating shields pulse subtly to telegraph recovery.",
+          "Sentinel kill-credit now checks effective lethal damage after shield absorption, so shield-absorbed hits don't falsely award sentinel kill achievements.",
+          "Save migration adds shield fields with full-shield defaults so mid-combat saves from before this change don't load with 0-shield enemies.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.2.12",
     badge: "True Viewport",
     summary:

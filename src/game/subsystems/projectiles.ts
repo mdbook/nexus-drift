@@ -1,5 +1,5 @@
 import { TURRET, ZAPPER } from "@/game/balance";
-import { isCloaked } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 
 export function stepProjectiles(state: GameState) {
@@ -21,7 +21,7 @@ export function stepProjectiles(state: GameState) {
         p.vx = vx;
         p.vy = vy;
         if (d <= TURRET.missileHitRadius) {
-          target.hp -= p.damage ?? 0;
+          damageEnemy(target, p.damage ?? 0);
           target.flash = 6;
           p.life = 0;
         }

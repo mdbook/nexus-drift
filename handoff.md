@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.2.12**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.2.13**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -77,13 +77,27 @@ Workers pick targets autonomously via a scored target-selection function in `fac
 
 ### Enemies
 
-**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`, `zapper`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death. Zappers (tier 7+) hold at firing range and fire energy bolts (`tag: "zapper-bolt"`) that disable the struck target for 210 ticks (~7s); disabled workers freeze with task `"Disabled"` and disabled turrets skip firing.
+**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`, `zapper`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death. Zappers (tier 7+) hold at firing range and fire energy bolts (`tag: "zapper-bolt"`) that disable the struck target for 210 ticks (~7s); disabled workers freeze with task `"Disabled"` and disabled turrets skip firing. **Leeches (tier 6+) bypass worker targeting entirely and drive directly for the home district** to activate their gold/energy drain; they no longer pursue the nearest worker — their movement goal is a hardcoded home anchor (`HOME_DISTRICT_X = 500`, `HOME_DISTRICT_Y = 490`) in `movement.ts`.
 
 **Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance.
 
 ### Turrets
 
 Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers. Carry a `disabledTicks` counter; while > 0 the turret skips targeting and firing entirely.
+
+### Enemy Shield System
+
+Three enemy kinds carry a regenerating shield layer that absorbs damage before their HP pool: `leech` (50 HP shield), `phantom` (10 HP shield), `zapper` (20 HP shield). Shield amounts are declared once in `ENEMY_SHIELD.shieldMax` in `balance.ts`.
+
+Fields on `Enemy` (all optional — `undefined` means "no shield mechanic"): `shield`, `shieldMax`, `shieldRegenCooldown`. `spawnEnemy()` in `factories.ts` sets all three for enemies whose kind is in `ENEMY_SHIELD.shieldMax`; migration populates them with full-shield defaults for existing saves.
+
+**Damage routing**: all hostile damage paths (turret missile/beam, sentinel shot, scout shot) now go through `damageEnemy(enemy, amount)` in `enemyUtils.ts` rather than subtracting from `enemy.hp` directly. `damageEnemy` deducts from the shield first, spills overflow into HP, and resets `shieldRegenCooldown` to `ENEMY_SHIELD.regenDelayTicks` (90). Any new damage source must use this helper, not raw `enemy.hp -=`.
+
+**Regeneration**: `stepEnemyShields()` runs after `stepZapperFire()` and before `resolveEnemyDeaths()`. While `shieldRegenCooldown > 0` it decrements by 1; otherwise, if `shield < shieldMax`, shield recovers by `ENEMY_SHIELD.regenRatePerTick` (0.25). Dying enemies (`hp <= 0`) skip regen.
+
+**Render**: `FieldSvg.tsx` computes `hasShield`, `shieldPct`, and pulsing state once per enemy and injects a dashed cyan ring + soft glow + thin shield bar (above the HP bar) into the render blocks for shielded kinds. Because leech and phantom share the fallback render block, the shield overlay is embedded there too.
+
+**Sentinel kill credit**: `sentinels.ts` checks lethal damage *after* shield absorption (`target.hp - max(0, damage - shield)`) so shield-absorbed hits don't falsely credit a sentinel kill.
 
 ### Disable System
 
