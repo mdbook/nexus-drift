@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { upgradeDefs } from "@/game/data";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import { canAffordUpgrade, formatUpgradeCost, nextUpgradeCost } from "@/game/utils";
@@ -155,7 +156,7 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
         )}
       </button>
 
-      {open && anchor && (
+      {open && anchor && createPortal(
         <div
           id={tooltipId}
           role="tooltip"
@@ -200,7 +201,8 @@ function UpgradeDot({ def, level, category, canAfford, costLine, Icon }: DotProp
               style.tooltipBorder
             )}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

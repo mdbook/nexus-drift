@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { EventDef, EventEffectTone } from "@/game/events/eventDefs";
 import type { ActiveEvent } from "@/game/types";
 
@@ -79,7 +80,7 @@ export function EventChip({ event, def }: Props) {
         <span className="text-white/55">({secondsRemaining}s)</span>
       </button>
 
-      {open && anchor && (
+      {open && anchor && createPortal(
         <div
           id={describedById}
           role="tooltip"
@@ -120,7 +121,8 @@ export function EventChip({ event, def }: Props) {
             className={`absolute left-4 top-full h-2 w-2 -translate-y-1 rotate-45 border-b border-r bg-slate-950/95 ${style.tooltipAccent}`}
             aria-hidden
           />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

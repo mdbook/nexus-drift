@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Users } from "lucide-react";
 import type { DerivedState, GameState } from "@/game/types";
 import { cn } from "@/lib/cn";
@@ -99,7 +100,7 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
           style={{ boxShadow: style.glow }}
         />
       </button>
-      {open && anchor && (
+      {open && anchor && createPortal(
         <div
           id={tooltipId}
           role="tooltip"
@@ -126,7 +127,8 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
               style.border
             )}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
