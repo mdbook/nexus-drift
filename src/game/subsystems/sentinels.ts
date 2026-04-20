@@ -69,7 +69,12 @@ export function stepSentinels(state: GameState) {
       }
 
       if (distance <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
-        target.hp -= SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
+        const damage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
+        const nextHp = target.hp - damage;
+        if (nextHp <= 0) {
+          state.stats.sentinelKills += 1;
+        }
+        target.hp = nextHp;
         target.flash = 7;
         sentinel.cooldown = Math.max(
           SENTINEL.cooldownFloor,

@@ -88,7 +88,7 @@ Workers and turrets carry `disabledTicks: number`. While > 0, the entity is iner
 
 ### Scouts
 
-Dedicated anti-corruption units. Priority: live corruptors → high-corruption nodes → patrol home. Not mobile turrets. Multi-scout synergy: a second scout on the same node purges faster than the sum of two solo rates. Four physical scout slots in state; activation gated by upgrade level.
+Dedicated anti-corruption units. Priority: live corruptors → corrupted nodes (all the way down to the cleanse threshold) → patrol home. Not mobile turrets. Multi-scout synergy: a second scout on the same node purges faster than the sum of two solo rates. Four physical scout slots in state; activation gated by upgrade level.
 
 ### Sentinels
 
@@ -166,10 +166,12 @@ Categories and examples:
 - **Combat** — kill counts (10/100/500/1000), brutes (10/25), phantoms (5), leeches (3), sappers (10), first sentinel kill, turret level 8
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
 - **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types)
-- **Survival** — 15m/30m/1h/2h runtime, colony health 95% under pressure, all workers full HP simultaneously
+- **Survival** — 15m/30m/1h/2h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
 - **Secret** — drift easter egg, tourist spotted, lost drone, synthwave Konami, all 7 events, 3+ simultaneous events (legendary)
 
-New stats tracked on `GameState.stats`: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `sentinelKills`. Migration adds `?? 0` fallbacks for all four.
+New stats tracked on `GameState.stats`: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `sentinelKills`. `sentinelKills` is credited only when a sentinel lands the lethal hit; do not infer it later from target selection or corpse cleanup. Migration adds `?? 0` fallbacks for all four.
+
+`state.stats.purges` counts completed node cleanses only. It increments in `stepScouts()` when a node crosses back under the corruption threshold and must not be incremented for corruptor or blight deaths.
 
 `AchievementsModal` (`src/components/AchievementsModal.tsx`) replaces the inline modal in `App.tsx`. Features: category tab bar with per-tab unlock counts, rarity-coloured rows and badges, hidden-achievement masking toggle (eye icon), completion progress bar, and a rarity legend footer.
 
@@ -177,7 +179,7 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 
 ### Easter Eggs
 
-- Konami code toggles synthwave palette and logs a message.
+- Konami code toggles synthwave palette, logs a message, and unlocks the hidden `synthwave` achievement.
 - Typing `drift` anywhere logs "The drift remembers." and unlocks an achievement.
 - Tourist drone wanders the field after 15 real-time minutes at city stage 5.
 - At tier 9+, a 1% chance per big-event roll recruits a lost drone permanently.

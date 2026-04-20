@@ -22,7 +22,7 @@ function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number;
 export function stepScouts(state: GameState) {
   const corruptors = state.enemies.filter((enemy) => enemy.role === "corruptor");
   const corruptedNodes = [...state.nodes]
-    .filter((node) => node.corruption > 8 && node.kind !== "gold")
+    .filter((node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3))
     .sort((a, b) => b.corruption - a.corruption || a.id - b.id);
   const liveScouts = Math.min(
     state.scouts.length,
@@ -170,6 +170,7 @@ export function stepScouts(state: GameState) {
         if (wasActiveCorruption && sweepNode.corruption <= 3) {
           sweepNode.corrupted = false;
           sweepNode.corruptedBy = null;
+          state.stats.purges += 1;
           state.resources.flux = Math.min(
             FLUX.softCap,
             state.resources.flux + FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)

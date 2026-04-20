@@ -89,10 +89,12 @@ export function stepAchievements(state: GameState) {
     unlockAchievement(state, "stable_colony");
   }
 
-  // Immaculate Grid: all workers at full HP simultaneously
+  // Immaculate Grid: every active worker is fully repaired while hostiles are present.
+  const activeAgents = state.agents.filter((agent) => agent.active);
   if (
-    state.agents.length > 0 &&
-    state.agents.every((agent) => agent.hp >= agent.maxHp)
+    derived.hostilePressure &&
+    activeAgents.length > 0 &&
+    activeAgents.every((agent) => agent.hp >= agent.maxHp)
   ) {
     unlockAchievement(state, "full_health");
   }

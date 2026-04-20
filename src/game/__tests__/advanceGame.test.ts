@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
+import { unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
+import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
+import { stepScouts } from "@/game/subsystems/scouts";
+import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -389,6 +393,80 @@ describe("advanceGame simulation invariants", () => {
 
     expect(after.sentinels[0].targetId).toBe(brute.id);
   });
+
+  it("credits purges when scouts cleanse a node instead of when corruptors die", () => {
+    const state = createInitialGameState();
+    state.upgrades.scout = 1;
+    const scout = state.scouts[0];
+    const node = state.nodes[0];
+    node.kind = "ore";
+    node.corruption = 3.05;
+    node.corrupted = true;
+    node.corruptedBy = 99;
+    scout.x = node.x;
+    scout.y = node.y;
+    scout.tx = node.x;
+    scout.ty = node.y;
+    state.stats.purges = 0;
+
+    stepScouts(state);
+
+    expect(state.stats.purges).toBe(1);
+
+    const corruptor = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    corruptor.hp = 0;
+    state.enemies.push(corruptor);
+    resolveEnemyDeaths(state);
+
+    expect(state.stats.purges).toBe(1);
+  });
+
+  it("credits sentinel kills only when a sentinel lands the lethal hit", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+    const target = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    target.x = state.sentinels[0].x + 10;
+    target.y = state.sentinels[0].y;
+    target.hp = 1;
+    state.enemies.push(target);
+
+    stepSentinels(state);
+
+    expect(state.stats.sentinelKills).toBe(1);
+
+    const other = createInitialGameState();
+    other.upgrades.sentinel = 1;
+    const turretKillTarget = spawnEnemy(other.rng, other.nextEnemyId++, 0, "mite");
+    turretKillTarget.x = other.sentinels[0].x + 10;
+    turretKillTarget.y = other.sentinels[0].y;
+    turretKillTarget.hp = 0;
+    other.sentinels[0].targetId = turretKillTarget.id;
+    other.enemies.push(turretKillTarget);
+
+    resolveEnemyDeaths(other);
+
+    expect(other.stats.sentinelKills).toBe(0);
+  });
+
+  it("does not unlock Immaculate Grid on a fresh save", () => {
+    const state = createInitialGameState();
+
+    stepAchievements(state);
+
+    expect(state.achievements.full_health).toBeUndefined();
+
+    const pressureState = createInitialGameState();
+    for (let i = 0; i < 4; i += 1) {
+      const hostile = spawnEnemy(pressureState.rng, pressureState.nextEnemyId++, 0, "raider");
+      hostile.x = pressureState.agents[0].x + 10 + i * 4;
+      hostile.y = pressureState.agents[0].y;
+      pressureState.enemies.push(hostile);
+    }
+
+    stepAchievements(pressureState);
+
+    expect(pressureState.achievements.full_health).toBe(true);
+  });
 });
 
 describe("save / load round-trip", () => {
@@ -558,6 +636,15 @@ describe("zapper enemy", () => {
     expect(restored.agents[0].disabledTicks).toBe(0);
     expect(restored.turrets[0].disabledTicks).toBe(0);
   });
+
+  it("secret synthwave trigger unlocks Neon Protocol instead of Residual Signal", () => {
+    const state = createInitialGameState();
+
+    unlockSecretAchievement(state, "synthwave");
+
+    expect(state.achievements.synthwave).toBe(true);
+    expect(state.achievements.drift_heard).toBeUndefined();
+  });
 });
 
 describe("turret missiles and focused beam (2.2.6)", () => {
@@ -660,7 +747,7 @@ describe("turret missiles and focused beam (2.2.6)", () => {
   it("focusedBeam upgrade defaults to 0 in new game and migration", () => {
     const state = createInitialGameState();
     expect(state.upgrades.focusedBeam).toBe(0);
-    const restored = migrateGameState({ citySeed: 1 } as any);
+    const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
     expect(restored.upgrades.focusedBeam).toBe(0);
   });
 });

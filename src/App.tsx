@@ -30,7 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { PANEL_CLASS } from "@/theme";
-import { ACHIEVEMENT_DEFS, unlockAchievement } from "@/game/achievements";
+import { ACHIEVEMENT_DEFS, unlockSecretAchievement } from "@/game/achievements";
 import type { AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
@@ -188,7 +188,7 @@ export default function App() {
       if (driftRef.current === "drift") {
         mutateGame((next) => {
           next.log = pushLog(next.log, "The drift remembers.", "system", next.timers.tick);
-          unlockAchievement(next, "drift_heard");
+          unlockSecretAchievement(next, "drift");
         });
         driftRef.current = "";
       }
@@ -203,7 +203,7 @@ export default function App() {
             "system",
             next.timers.tick
           );
-          unlockAchievement(next, "drift_heard");
+          unlockSecretAchievement(next, "synthwave");
         });
         konamiRef.current = [];
       }

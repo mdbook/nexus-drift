@@ -33,17 +33,11 @@ export function resolveEnemyDeaths(state: GameState) {
   const regular = killed.length - purged;
   const killedIds = new Set(killed.map((enemy) => enemy.id));
 
-  // Count kills attributed to sentinels (sentinel's current target is among the dead).
-  const sentinelKillCount = state.sentinels.filter(
-    (s) => s.targetId != null && killedIds.has(s.targetId)
-  ).length;
-  state.stats.sentinelKills += sentinelKillCount;
   let goldReward = 0;
   let energyReward = 0;
 
   state.stats.hostileKills += killed.length;
   state.stats.totalEnemiesKilled += killed.length;
-  state.stats.purges += purged;
 
   killed.forEach((enemy) => {
     if (enemy.role !== "corruptor") {

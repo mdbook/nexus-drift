@@ -86,6 +86,8 @@ export type AchievementDef = {
   hidden?: boolean;
 };
 
+export type SecretAchievementTrigger = "drift" | "synthwave";
+
 // ─── Definitions (44 total) ───────────────────────────────────────────────────
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
@@ -416,7 +418,7 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   {
     id: "full_health",
     label: "Immaculate Grid",
-    description: "All workers at full health simultaneously.",
+    description: "Keep every active worker at full health while hostiles are on the field.",
     rarity: "uncommon",
     category: "survival",
   },
@@ -487,4 +489,8 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
     );
   }
   return true;
+}
+
+export function unlockSecretAchievement(state: GameState, trigger: SecretAchievementTrigger) {
+  return unlockAchievement(state, trigger === "drift" ? "drift_heard" : "synthwave");
 }

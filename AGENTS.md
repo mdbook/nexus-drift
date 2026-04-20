@@ -99,6 +99,8 @@ Rules for adding achievements:
 - Add a `AchievementDef` entry with `id`, `label`, `description`, `rarity`, `category`, and optionally `hidden: true`.
 - Add the condition check in `stepAchievements()` in `subsystems/achievements.ts`.
 - If the condition needs a new stat counter, add it to `Stats` in `types.ts`, initialise it in `createInitialGameState()`, and add a `?? 0` fallback in `migrateGameState()` — the same save-state migration checklist as any other field change.
+- `state.stats.purges` counts completed node cleanses only. Increment it in `stepScouts()` when a node is actually cleansed; do not increment it for corruptor or blight deaths.
+- `state.stats.sentinelKills` counts lethal sentinel hits only. Credit it at the damage site in `stepSentinels()`, not later in `resolveEnemyDeaths()` based on `targetId`.
 - Rarity tiers: `common` (tutorial-level), `uncommon` (mid-game), `rare` (late-game / specific combos), `legendary` (exceptional / near-impossible feats).
 - Hidden achievements (`hidden: true`) show as "???" placeholders in the modal until unlocked. Use sparingly — only for genuine easter eggs and surprises.
 - The `AchievementsModal` component renders all `ACHIEVEMENT_DEFS` entries. If you add a def without a matching condition in `stepAchievements`, it will appear permanently locked but won't break anything.
