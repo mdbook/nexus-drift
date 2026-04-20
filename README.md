@@ -26,7 +26,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### HUD & UI
 - Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it floats in the top-right chrome band so the footer can prioritize events and live field stats without shrinking the field
-- Active events now live inside the footer HUD stack itself, so the event strip stays visible instead of getting chopped off at the bottom edge
+- Active events live in a persistent footer strip that's always visible — shows event chips when active, a muted placeholder when idle, so the canvas size never jumps as events come and go
 - Each active event drives a distinct ambient backdrop effect (meteor streaks, xeno spore fog, dust storm haze, solar flare pulses, and more) plus a tone-coded HUD chip; coarse-pointer desktop layouts such as iPadOS landscape fall back to a cheaper static variant so the visual identity stays intact without the Safari lag hit
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death

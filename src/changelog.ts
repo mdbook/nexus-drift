@@ -26,7 +26,14 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "The field card now has `lg:h-full overflow-hidden` so it is hard-clamped to its grid cell height at the desktop breakpoint. Without this, the card could grow past the viewport bottom, taking its `absolute bottom-0` footer — events, stats strip, upgrade rail — with it, where it was clipped by the grid's `overflow-hidden`.",
           "The app shell now uses `100dvh` (dynamic viewport height) instead of `100svh`. WebKit misreports `svh` on iPadOS when the URL bar is visible, returning the full physical height rather than the visible area. `dvh` tracks the actual usable viewport and is supported on Safari 15.4+ (all currently shipping iPadOS versions).",
-          "At `lg`, the field SVG wrapper no longer reserves a fixed bottom margin — the SVG fills its card space edge to edge and the footer overlays the bottom naturally. The fixed margin was calibrated before `lg:h-full` clamped the card, causing a visible gap between the canvas and the events bar.",
+          "The `lg` footer inset is now calibrated to the actual footer height (stats strip only at `lg` since the upgrade rail is hidden): `lg:mb-[83px]` with active events, `lg:mb-[42px]` without. This removes the gap that appeared between the canvas and the events bar after the card height was clamped.",
+        ],
+      },
+      {
+        title: "Events Bar & Title Polish",
+        items: [
+          "The events bar is now always visible in the footer. When no events are active it shows a muted 'No ongoing events' placeholder so the footer height — and therefore the canvas size — stays stable instead of jumping when events start or end.",
+          "The title reflows: 'NEXUS DRIFT' stays at full size, '//' acts as a tall inline divider, and 'purge wing online' sits inline at a smaller size with a downward offset so it tucks beneath the slashes without consuming extra vertical space.",
         ],
       },
     ],
