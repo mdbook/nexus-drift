@@ -1,4 +1,6 @@
-import type { GameState } from "@/game/types";
+import { makeWorker } from "@/game/factories";
+import { EVENT_DEFS } from "@/game/events/eventDefs";
+import type { EventId, GameState } from "@/game/types";
 import { pushLog } from "@/game/utils";
 
 // ─── Rarity & Category ────────────────────────────────────────────────────────
@@ -69,10 +71,20 @@ export type AchievementId =
   // Secret
   | "drift_heard"
   | "tourist_spotted"
+  | "tour_guide"
+  | "tourist_clicks_50"
   | "lost_drone"
   | "synthwave"
   | "all_events"
-  | "event_streak";
+  | "event_streak"
+  | "field_report"
+  | "stormwatch"
+  | "last_look"
+  | "signal_trace"
+  | "warhead_whisperer"
+  | "archivist"
+  | "release_reader"
+  | "manual_override";
 
 // ─── Def ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +100,9 @@ export type AchievementDef = {
 
 export type SecretAchievementTrigger = "drift" | "synthwave";
 
-// ─── Definitions (44 total) ───────────────────────────────────────────────────
+const EVENT_IDS = EVENT_DEFS.map((def) => def.id);
+
+// ─── Definitions (54 total) ───────────────────────────────────────────────────
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // ── Progression ─────────────────────────────────────────────────────────────
@@ -441,9 +455,25 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     hidden: true,
   },
   {
+    id: "tour_guide",
+    label: "Tour Guide",
+    description: "Click the tourist drone on 3 separate passes.",
+    rarity: "uncommon",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "tourist_clicks_50",
+    label: "Public Curiosity",
+    description: "Click the tourist drone 50 times in a run.",
+    rarity: "legendary",
+    category: "secret",
+    hidden: true,
+  },
+  {
     id: "lost_drone",
     label: "Stray Signal",
-    description: "A damaged drone emerged from the outer zone.",
+    description: "Recover the damaged drone from the outer zone.",
     rarity: "rare",
     category: "secret",
     hidden: true,
@@ -459,15 +489,77 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   {
     id: "all_events",
     label: "Strange Tides",
-    description: "Experience all 7 random events.",
+    description: "Experience every current random event.",
     rarity: "uncommon",
     category: "secret",
   },
   {
     id: "event_streak",
-    label: "Cascading Anomaly",
-    description: "Have 3 or more events active simultaneously.",
+    label: "Anomaly Witness",
+    description: "Click the anomaly artifact while 3 event cards are active.",
     rarity: "legendary",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "field_report",
+    label: "Field Report",
+    description: "Inspect every event card.",
+    rarity: "uncommon",
+    category: "secret",
+  },
+  {
+    id: "stormwatch",
+    label: "Stormwatch",
+    description: "Inspect a Dust Storm or Solar Flare event card.",
+    rarity: "common",
+    category: "secret",
+  },
+  {
+    id: "last_look",
+    label: "Last Look",
+    description: "Click an enemy during its fade-out.",
+    rarity: "rare",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "signal_trace",
+    label: "Signal Trace",
+    description: "Click a live zapper bolt.",
+    rarity: "rare",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "warhead_whisperer",
+    label: "Warhead Whisperer",
+    description: "Click an in-flight missile.",
+    rarity: "legendary",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "archivist",
+    label: "Archivist",
+    description: "Open the achievements archive after uncovering a hidden badge.",
+    rarity: "common",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "release_reader",
+    label: "Patch Notes",
+    description: "Open the release history from the version badge.",
+    rarity: "common",
+    category: "secret",
+    hidden: true,
+  },
+  {
+    id: "manual_override",
+    label: "Manual Override",
+    description: "Switch from 1x to 4x and back to 1x within the override window.",
+    rarity: "uncommon",
     category: "secret",
     hidden: true,
   },
@@ -493,12 +585,97 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
 
 export function spotTourist(state: GameState) {
   if (!state.touristWorker?.active) return false;
-  if (state.touristWorker.spotted && state.achievements.tourist_spotted) return false;
 
-  state.touristWorker.spotted = true;
-  return unlockAchievement(state, "tourist_spotted");
+  const tourist = state.touristWorker;
+  tourist.spotted = true;
+  tourist.squishTicks = 9;
+  state.stats.touristClicks += 1;
+
+  if (tourist.lastClickedPassId !== tourist.passId) {
+    tourist.lastClickedPassId = tourist.passId;
+    state.stats.touristPassesClicked += 1;
+  }
+
+  let changed = unlockAchievement(state, "tourist_spotted");
+  if (state.stats.touristPassesClicked >= 3) {
+    changed = unlockAchievement(state, "tour_guide") || changed;
+  }
+  if (state.stats.touristClicks >= 50) {
+    changed = unlockAchievement(state, "tourist_clicks_50") || changed;
+  }
+  return changed;
 }
 
 export function unlockSecretAchievement(state: GameState, trigger: SecretAchievementTrigger) {
   return unlockAchievement(state, trigger === "drift" ? "drift_heard" : "synthwave");
+}
+
+export function inspectEventTag(state: GameState, eventId: EventId) {
+  if (!state.stats.eventTagsInspected.includes(eventId)) {
+    state.stats.eventTagsInspected = [...state.stats.eventTagsInspected, eventId];
+  }
+
+  let changed = false;
+  if (eventId === "dust_storm" || eventId === "solar_flare") {
+    changed = unlockAchievement(state, "stormwatch") || changed;
+  }
+  if (state.stats.eventTagsInspected.length >= EVENT_IDS.length) {
+    changed = unlockAchievement(state, "field_report") || changed;
+  }
+  return changed;
+}
+
+export function recoverLostDrone(state: GameState) {
+  if (!state.lostDrone || state.lostWorkerFound) return false;
+
+  const recovered = makeWorker("drone", state.agents.length + 1, state.timers.tick, 3, true);
+  recovered.x = state.lostDrone.x;
+  recovered.y = state.lostDrone.y;
+  recovered.tx = recovered.homeX;
+  recovered.ty = recovered.homeY;
+  recovered.task = "Recovering";
+
+  state.agents.push(recovered);
+  state.lostDrone = null;
+  state.lostWorkerFound = true;
+  state.log = pushLog(state.log, "Recovered the damaged drone and folded it into the roster.", "event", state.timers.tick);
+  return unlockAchievement(state, "lost_drone");
+}
+
+export function witnessAnomaly(state: GameState) {
+  if (state.activeEvents.length < 3) return false;
+  return unlockAchievement(state, "event_streak");
+}
+
+export function clickProjectile(state: GameState, projectileId: number) {
+  const projectile = state.projectiles.find((candidate) => candidate.id === projectileId);
+  if (!projectile || projectile.life <= 0) return false;
+
+  if (projectile.tag === "zapper-bolt") {
+    return unlockAchievement(state, "signal_trace");
+  }
+  if (projectile.tag === "turret-missile") {
+    return unlockAchievement(state, "warhead_whisperer");
+  }
+  return false;
+}
+
+export function clickDyingEnemy(state: GameState, enemyId: number) {
+  const enemy = state.enemies.find((candidate) => candidate.id === enemyId);
+  if (!enemy || enemy.hp > 0 || enemy.dyingTicks <= 0) return false;
+  return unlockAchievement(state, "last_look");
+}
+
+export function recordAchievementsOpen(state: GameState) {
+  const hiddenUnlocked = ACHIEVEMENT_DEFS.some((def) => def.hidden && state.achievements[def.id]);
+  if (!hiddenUnlocked) return false;
+  return unlockAchievement(state, "archivist");
+}
+
+export function recordChangelogOpen(state: GameState) {
+  return unlockAchievement(state, "release_reader");
+}
+
+export function completeManualOverride(state: GameState) {
+  return unlockAchievement(state, "manual_override");
 }

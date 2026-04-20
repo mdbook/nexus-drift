@@ -1,9 +1,12 @@
+import { PROGRESSION } from "@/game/balance";
 import { unlockAchievement } from "@/game/achievements";
+import { EVENT_DEFS } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
 export function stepAchievements(state: GameState) {
   const derived = computeDerived(state);
+  const threatRank = Math.floor(derived.progression.score / PROGRESSION.tiersPerScore);
 
   // ── Progression ─────────────────────────────────────────────────────────────
   if (state.prestige >= 1) unlockAchievement(state, "first_prestige");
@@ -14,9 +17,9 @@ export function stepAchievements(state: GameState) {
   if (state.level >= 20) unlockAchievement(state, "level_20");
   if (state.level >= 30) unlockAchievement(state, "level_30");
 
-  if (derived.progression.tier >= 5) unlockAchievement(state, "tier_5");
-  if (derived.progression.tier >= 8) unlockAchievement(state, "tier_8");
-  if (derived.progression.tier >= 10) unlockAchievement(state, "tier_10");
+  if (threatRank >= 5) unlockAchievement(state, "tier_5");
+  if (threatRank >= 8) unlockAchievement(state, "tier_8");
+  if (threatRank >= 10) unlockAchievement(state, "tier_10");
 
   // All upgrade tracks have at least 1 level
   const upgradeValues = Object.values(state.upgrades);
@@ -100,10 +103,10 @@ export function stepAchievements(state: GameState) {
   }
 
   // ── Secret ────────────────────────────────────────────────────────────────────
-  if (state.stats.eventsExperienced.length >= 7) unlockAchievement(state, "all_events");
-
-  // Cascading Anomaly: 3+ simultaneous active events
-  if (state.activeEvents.length >= 3) unlockAchievement(state, "event_streak");
+  if (state.stats.eventsExperienced.length >= EVENT_DEFS.length) unlockAchievement(state, "all_events");
+  if (state.stats.eventTagsInspected.length >= EVENT_DEFS.length) unlockAchievement(state, "field_report");
+  if (state.stats.touristPassesClicked >= 3) unlockAchievement(state, "tour_guide");
+  if (state.stats.touristClicks >= 50) unlockAchievement(state, "tourist_clicks_50");
 
   // Lost Drone: the lostWorkerFound flag (easter egg drone from outer zone)
   if (state.lostWorkerFound) unlockAchievement(state, "lost_drone");

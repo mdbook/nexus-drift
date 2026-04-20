@@ -7,7 +7,18 @@ export function stepProjectiles(state: GameState) {
     p.life -= 1;
 
     if (p.tag === "turret-missile" && p.vx !== undefined && p.vy !== undefined) {
-      const target = state.enemies.find((e) => e.id === p.targetId && e.hp > 0 && !isCloaked(e));
+      let target = state.enemies.find((e) => e.id === p.targetId && e.hp > 0 && !isCloaked(e));
+      if (!target) {
+        const range = p.turretRange ?? Infinity;
+        let best: (typeof state.enemies)[0] | undefined;
+        let bestDist = Infinity;
+        for (const e of state.enemies) {
+          if (e.hp <= 0 || isCloaked(e)) continue;
+          const dist = Math.hypot(e.x - p.x1, e.y - p.y1);
+          if (dist <= range && dist < bestDist) { bestDist = dist; best = e; }
+        }
+        if (best) { p.targetId = best.id; target = best; }
+      }
       if (target) {
         const dx = target.x - p.x1;
         const dy = target.y - p.y1;

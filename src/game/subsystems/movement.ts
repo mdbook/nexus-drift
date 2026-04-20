@@ -163,18 +163,49 @@ export function stepTourist(state: GameState) {
   const minutesAlive = state.stats.runtimeMs / 60_000;
 
   if (!state.touristWorker && derived.cityStage >= 5 && minutesAlive >= 15) {
-    state.touristWorker = { x: -30, y: 300, angle: 0, active: true, spotted: false };
+    state.touristWorker = {
+      x: -30,
+      y: 300,
+      angle: 0,
+      active: true,
+      spotted: false,
+      passId: 1,
+      lastClickedPassId: null,
+      squishTicks: 0,
+    };
   }
 
   if (!state.touristWorker?.active) return;
 
   const tourist = state.touristWorker;
+  tourist.squishTicks = Math.max(0, tourist.squishTicks - 1);
   tourist.x += 0.3;
   tourist.y = 300 + Math.sin(state.timers.tick / 45) * 80;
   tourist.angle = Math.atan2((Math.cos(state.timers.tick / 45) * 80) / 45, 0.3);
 
   if (tourist.x > 1050) {
     tourist.x = -30;
+    tourist.passId += 1;
+  }
+}
+
+export function stepLostDrone(state: GameState) {
+  if (!state.lostDrone) return;
+
+  const lostDrone = state.lostDrone;
+  lostDrone.wobblePhase += 0.07;
+  lostDrone.x += lostDrone.vx;
+  lostDrone.y =
+    lostDrone.baseY +
+    Math.sin(lostDrone.wobblePhase) * 18 +
+    Math.sin(lostDrone.wobblePhase * 0.42 + state.timers.tick / 55) * 6;
+  lostDrone.angle =
+    Math.sin(lostDrone.wobblePhase * 0.9) * 0.22 +
+    Math.sin(lostDrone.wobblePhase * 0.37) * 0.08;
+
+  if (lostDrone.x > WORLD_W + 48) {
+    lostDrone.x = -48;
+    lostDrone.baseY = clamp(lostDrone.baseY + state.rng.range(-24, 25), 190, 390);
   }
 }
 

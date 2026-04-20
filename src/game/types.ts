@@ -207,6 +207,8 @@ export type Projectile = {
   speed?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
+  /** Turret range used for missile retargeting. */
+  turretRange?: number;
 };
 
 export type Stats = {
@@ -224,6 +226,9 @@ export type Stats = {
   corruptions: number;
   purges: number;
   eventsExperienced: string[];
+  eventTagsInspected: string[];
+  touristClicks: number;
+  touristPassesClicked: number;
   runtimeMs: number;
 };
 
@@ -236,9 +241,10 @@ export type Timers = {
 };
 
 export type ActiveEvent = {
-  id: string;
+  id: EventId;
   label: string;
   ticksRemaining: number;
+  revertOnExpire: boolean;
 };
 
 export type TouristWorker = {
@@ -247,6 +253,19 @@ export type TouristWorker = {
   angle: number;
   active: boolean;
   spotted: boolean;
+  passId: number;
+  lastClickedPassId: number | null;
+  squishTicks: number;
+};
+
+export type LostDrone = {
+  x: number;
+  y: number;
+  baseY: number;
+  angle: number;
+  vx: number;
+  wobblePhase: number;
+  spawnTick: number;
 };
 
 export type GameState = {
@@ -271,6 +290,7 @@ export type GameState = {
   stats: Stats;
   timers: Timers;
   touristWorker: TouristWorker | null;
+  lostDrone: LostDrone | null;
   lostWorkerFound: boolean;
   activeEvents: ActiveEvent[];
   eventModifiers: {
@@ -296,6 +316,20 @@ export type UpgradeDef = {
   effectText: string;
   minTier?: number;
 };
+
+export type EventId =
+  | "meteor_shower"
+  | "solar_flare"
+  | "cache_discovery"
+  | "pirate_caravan"
+  | "xeno_bloom"
+  | "dust_storm"
+  | "echo_signal"
+  | "core_breach"
+  | "hunter_pack"
+  | "signal_drought"
+  | "starcall"
+  | "null_surge";
 
 export type ResourceDef = {
   key: VisibleResourceKey;

@@ -1,5 +1,5 @@
 import { spawnEnemy } from "@/game/factories";
-import type { GameState } from "@/game/types";
+import type { EventId, GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
 
 export type EventEffectTone = "boon" | "threat" | "mixed" | "neutral";
@@ -10,13 +10,14 @@ export type EventEffect = {
 };
 
 export type EventDef = {
-  id: string;
+  id: EventId;
   label: string;
   description: string;
   flavor: string;
   effects: EventEffect[];
   tone: EventEffectTone;
   durationTicks: number;
+  hudDurationTicks: number;
   weight: number;
   minTier: number;
   apply: (state: GameState) => void;
@@ -24,6 +25,7 @@ export type EventDef = {
 };
 
 const TICKS_PER_SEC = 30;
+const ONE_SHOT_CARD_TICKS = 10 * TICKS_PER_SEC;
 const HOME_X = 500;
 const HOME_Y = 540;
 
@@ -68,6 +70,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 60 seconds", tone: "neutral" },
     ],
     durationTicks: 60 * TICKS_PER_SEC,
+    hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 1,
     minTier: 0,
     apply: (state) => {
@@ -89,6 +92,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 45 seconds", tone: "neutral" },
     ],
     durationTicks: 45 * TICKS_PER_SEC,
+    hudDurationTicks: 45 * TICKS_PER_SEC,
     weight: 0.9,
     minTier: 1,
     apply: (state) => {
@@ -117,6 +121,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Despawns once exhausted or in ~3 min", tone: "neutral" },
     ],
     durationTicks: 0,
+    hudDurationTicks: ONE_SHOT_CARD_TICKS,
     weight: 0.8,
     minTier: 0,
     apply: (state) => {
@@ -136,6 +141,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "One-shot event", tone: "neutral" },
     ],
     durationTicks: 0,
+    hudDurationTicks: ONE_SHOT_CARD_TICKS,
     weight: 0.7,
     minTier: 2,
     apply: (state) => {
@@ -161,6 +167,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 90 seconds", tone: "neutral" },
     ],
     durationTicks: 90 * TICKS_PER_SEC,
+    hudDurationTicks: 90 * TICKS_PER_SEC,
     weight: 0.6,
     minTier: 3,
     apply: (state) => {
@@ -190,6 +197,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 60 seconds", tone: "neutral" },
     ],
     durationTicks: 60 * TICKS_PER_SEC,
+    hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 0.7,
     minTier: 2,
     apply: (state) => {
@@ -219,6 +227,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "One-shot event", tone: "neutral" },
     ],
     durationTicks: 0,
+    hudDurationTicks: ONE_SHOT_CARD_TICKS,
     weight: 0.2,
     minTier: 5,
     apply: (state) => {
@@ -243,6 +252,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 60 seconds", tone: "neutral" },
     ],
     durationTicks: 60 * TICKS_PER_SEC,
+    hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 0.55,
     minTier: 2,
     apply: (state) => {
@@ -265,6 +275,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 40 seconds", tone: "neutral" },
     ],
     durationTicks: 40 * TICKS_PER_SEC,
+    hudDurationTicks: 40 * TICKS_PER_SEC,
     weight: 0.45,
     minTier: 3,
     apply: (state) => {
@@ -290,6 +301,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 50 seconds", tone: "neutral" },
     ],
     durationTicks: 50 * TICKS_PER_SEC,
+    hudDurationTicks: 50 * TICKS_PER_SEC,
     weight: 0.4,
     minTier: 2,
     apply: (state) => {
@@ -312,6 +324,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 30 seconds", tone: "neutral" },
     ],
     durationTicks: 30 * TICKS_PER_SEC,
+    hudDurationTicks: 30 * TICKS_PER_SEC,
     weight: 0.12,
     minTier: 6,
     apply: (state) => {
@@ -336,6 +349,7 @@ export const EVENT_DEFS: EventDef[] = [
       { text: "Duration: 45 seconds", tone: "neutral" },
     ],
     durationTicks: 45 * TICKS_PER_SEC,
+    hudDurationTicks: 45 * TICKS_PER_SEC,
     weight: 0.1,
     minTier: 7,
     apply: (state) => {
@@ -358,7 +372,9 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
   const activeIndex = state.activeEvents.findIndex((event) => event.id === eventDef.id);
 
   if (activeIndex >= 0) {
-    eventDef.revert(state);
+    if (state.activeEvents[activeIndex]?.revertOnExpire) {
+      eventDef.revert(state);
+    }
     state.activeEvents.splice(activeIndex, 1);
   }
 
@@ -368,11 +384,12 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
     state.log = pushLog(state.log, `Event: ${eventDef.label} - ${eventDef.description}`, "event", state.timers.tick);
   }
 
-  if (eventDef.durationTicks > 0) {
+  if (eventDef.hudDurationTicks > 0) {
     state.activeEvents.push({
       id: eventDef.id,
       label: eventDef.label,
-      ticksRemaining: eventDef.durationTicks,
+      ticksRemaining: eventDef.hudDurationTicks,
+      revertOnExpire: eventDef.durationTicks > 0,
     });
   }
 }

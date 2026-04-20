@@ -16,10 +16,10 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.2.14",
-    badge: "Hardened Targets",
+    version: "2.3.0",
+    badge: "Hidden Signals",
     summary:
-      "Combat-behavior pass. Leeches now bypass worker targeting and charge the home district directly. Three late-game enemies (leech, phantom, zapper) gain regenerating shields that absorb damage before their HP pool, adding a sustained-fire check to late-game pressure, and the tourist easter egg now requires a deliberate click to claim its hidden badge.",
+      "Late-game pressure and secret-interaction pass. Leeches still bypass worker targeting and charge the home district directly, late-game shields still add a sustained-fire check, and the release now layers a much broader click-driven hidden system on top: inspectable event cards, one-shot event linger/backdrops, a recoverable broken drone, anomaly/projectile/corpse targets, tourist repeat-click chains, and UI/speed-sequence secrets.",
     sections: [
       {
         title: "Leech Homing Behavior",
@@ -40,10 +40,21 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
-        title: "Tourist Click Target",
+        title: "Event Cards & One-Shots",
         items: [
-          "The hidden `Taking Notes` achievement no longer unlocks automatically when the tourist drone drifts on-screen. You now have to click the drone itself.",
-          "The tourist sprite is keyboard-focusable and rendered with an expanded transparent hit area, so the interaction stays intentional without turning the tiny ship into a pixel hunt.",
+          "All 12 event defs now share the same inspectable footer lane. Timed events stay as the familiar pill-style cards, while the 3 one-shot events (`Cache Discovery`, `Pirate Caravan`, `Echo Signal`) now linger for about 10 seconds as dedicated cards instead of disappearing immediately after their mechanical effect fires.",
+          "Mechanical duration and HUD visibility are now split: `durationTicks` still controls gameplay modifiers, `hudDurationTicks` controls how long the event card/backdrop stays visible, and `ActiveEvent.revertOnExpire` distinguishes revertable timed effects from display-only one-shots.",
+          "Each of those one-shot cards now also gets its matching short-lived backdrop again because the footer/event-backdrop stack keys off the same active-event entries.",
+          "New inspection secrets hang off this lane: `Field Report` requires clicking all 12 event surfaces, `Stormwatch` triggers on `Dust Storm` or `Solar Flare`, and `Strange Tides` now keys off the full current event list instead of the older hard-coded 7-event count.",
+        ],
+      },
+      {
+        title: "Interactive Secrets",
+        items: [
+          "The tourist drone still unlocks `Taking Notes` on first click, but it now stays clickable after discovery, plays a short squish/bounce response on press, tracks distinct passes across the field for `Tour Guide`, and tracks total clicks for the legendary 50-click secret.",
+          "Lost Drone is no longer passive. A damaged, cracked, greyed-out drone can now drift through the outer zone on late-game big-event rolls; clicking it recovers the unit, clears the field prop, unlocks the hidden achievement, and permanently adds an extra drone beyond the normal slot system.",
+          "The old passive 3-event-stack secret is now an explicit field target: when 3 event cards overlap, a dedicated anomaly artifact appears until clicked. Additional field-only secrets now unlock from clicking zapper bolts, in-flight turret missiles, and enemies during their death-fade window.",
+          "The shell now contributes secrets too: opening the achievements modal after finding a hidden achievement unlocks `Archivist`, clicking the version badge unlocks `Patch Notes`, and `Manual Override` requires the exact `1x -> 4x -> 1x` speed sequence with a 10–60 second wait before the reset click.",
         ],
       },
     ],

@@ -1,12 +1,13 @@
+import { PROGRESSION } from "@/game/balance";
 import { EVENT_TICK } from "@/game/constants";
 import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
-import { makeWorker } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { pushLog } from "@/game/utils";
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
+const LOST_DRONE_SCORE_THRESHOLD = 9 * PROGRESSION.tiersPerScore;
 
 function rollBigEventInterval(state: GameState) {
   return Math.floor(BIG_EVENT_TICK_MIN + state.rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
@@ -55,19 +56,21 @@ function stepAmbientMessages(state: GameState) {
 export function stepEvents(state: GameState) {
   stepAmbientMessages(state);
 
-  const expiredIds: string[] = [];
+  const expiredEvents: GameState["activeEvents"] = [];
   for (const active of state.activeEvents) {
     active.ticksRemaining -= 1;
     if (active.ticksRemaining <= 0) {
-      expiredIds.push(active.id);
+      expiredEvents.push(active);
     }
   }
 
-  for (const id of expiredIds) {
-    const eventDef = EVENT_DEFS.find((def) => def.id === id);
-    eventDef?.revert(state);
-    state.activeEvents = state.activeEvents.filter((event) => event.id !== id);
-    state.log = pushLog(state.log, `${eventDef?.label ?? id} has ended.`, "event", state.timers.tick);
+  for (const active of expiredEvents) {
+    const eventDef = EVENT_DEFS.find((def) => def.id === active.id);
+    if (active.revertOnExpire) {
+      eventDef?.revert(state);
+      state.log = pushLog(state.log, `${eventDef?.label ?? active.id} has ended.`, "event", state.timers.tick);
+    }
+    state.activeEvents = state.activeEvents.filter((event) => event.id !== active.id);
   }
 
   state.nodes = state.nodes.filter((node) => {
@@ -109,15 +112,27 @@ export function stepEvents(state: GameState) {
   activateEvent(state, chosen);
   state.stats.eventsExperienced = [...new Set([...state.stats.eventsExperienced, chosen.id])];
 
-  if (!state.lostWorkerFound && derived.progression.tier >= 9 && state.rng.chance(0.01)) {
-    state.lostWorkerFound = true;
-    const lostWorker = makeWorker("drone", state.agents.length + 1, state.timers.tick);
-    lostWorker.x = -30;
-    lostWorker.y = 300;
-    lostWorker.tx = lostWorker.homeX;
-    lostWorker.ty = lostWorker.homeY;
-    lostWorker.task = "Traversing";
-    state.agents.push(lostWorker);
-    state.log = pushLog(state.log, "A damaged drone emerged from the outer zone - folded into the roster.", "event", state.timers.tick);
+  if (
+    !state.lostWorkerFound &&
+    !state.lostDrone &&
+    derived.progression.score >= LOST_DRONE_SCORE_THRESHOLD &&
+    state.rng.chance(0.01)
+  ) {
+    const baseY = state.rng.range(220, 360);
+    state.lostDrone = {
+      x: -42,
+      y: baseY,
+      baseY,
+      angle: 0,
+      vx: 0.2 + state.rng.next() * 0.09,
+      wobblePhase: state.rng.next() * Math.PI * 2,
+      spawnTick: state.timers.tick,
+    };
+    state.log = pushLog(
+      state.log,
+      "Outer zone telemetry caught a damaged drone drifting through the haze.",
+      "event",
+      state.timers.tick
+    );
   }
 }

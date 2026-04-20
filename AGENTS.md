@@ -105,9 +105,20 @@ Rules for adding achievements:
 - `state.stats.purges` counts completed node cleanses only. Increment it in `stepScouts()` when a node is actually cleansed; do not increment it for corruptor or blight deaths.
 - `state.stats.sentinelKills` counts lethal sentinel hits only. Credit it at the damage site in `stepSentinels()`, not later in `resolveEnemyDeaths()` based on `targetId`.
 - `tourist_spotted` is intentionally input-driven. `App.tsx` calls `spotTourist()` when the player clicks the tourist drone rendered in `FieldSvg.tsx`; do not reintroduce a passive visibility unlock in `stepAchievements()`.
+- Keep the input-driven helper layer authoritative. `App.tsx`, `EventChip.tsx`, and `FieldSvg.tsx` should route achievement-relevant interactions through the exported helpers in `src/game/achievements.ts` (`inspectEventTag`, `spotTourist`, `recoverLostDrone`, `witnessAnomaly`, `clickProjectile`, `clickDyingEnemy`, `recordAchievementsOpen`, `recordChangelogOpen`, `completeManualOverride`) rather than mutating achievement state inline.
+- `derived.progression.tier` is a capped display tier (max 5). Any legacy late-game gate that talks about tier 8/9/10 must use `derived.progression.score / PROGRESSION.tiersPerScore` instead of the capped tier field. Current examples: threat-rank achievements and the lost-drone event roll.
 - Rarity tiers: `common` (tutorial-level), `uncommon` (mid-game), `rare` (late-game / specific combos), `legendary` (exceptional / near-impossible feats).
 - Hidden achievements (`hidden: true`) show as "???" placeholders in the modal until unlocked. Use sparingly — only for genuine easter eggs and surprises.
 - The `AchievementsModal` component renders all `ACHIEVEMENT_DEFS` entries. If you add a def without a matching condition in `stepAchievements`, it will appear permanently locked but won't break anything.
+
+## Event Card Invariants
+
+`EventDef.durationTicks` is the mechanical lifetime. `EventDef.hudDurationTicks` is the footer-card / backdrop lifetime. They are deliberately separate.
+
+- Timed modifier events set both values and create `ActiveEvent` entries with `revertOnExpire: true`.
+- One-shot events (`cache_discovery`, `pirate_caravan`, `echo_signal`) keep `durationTicks = 0` but set `hudDurationTicks` so they still surface as inspectable cards and backdrops for roughly 10 seconds.
+- `stepEvents()` must only call `eventDef.revert()` when `activeEvent.revertOnExpire` is true.
+- Event inspection is click-only. Hover/focus tooltip behaviour in `EventChip.tsx` must never count as inspection progress.
 
 ## Activity Log Invariants
 
@@ -121,13 +132,14 @@ Rules for adding achievements:
 
 ## Worker Slot Invariants
 
-`state.agents` always holds exactly 9 agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active; slots 1 and 2 are unlocked by upgrade level.
+`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active; slots 1 and 2 are unlocked by upgrade level. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
 
 - `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the number of active slots for a given upgrade level.
 - `stepWorkerSlots()` (called after `stepEconomy`) reconciles `agent.active` against current upgrade levels. It only ever activates, never deactivates — workers stay in the field once deployed.
 - All subsystems that iterate `state.agents` must guard on `agent.active` before processing. Check combat, movement, mining, and zapper targeting when touching those subsystems.
 - `FieldSvg.tsx` filters `game.agents` to active-only before rendering.
 - Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.
+- Do not try to fold the recovered lost drone back into `WORKER_SLOTS_BY_UPGRADE`; it is intentionally outside the normal 9-slot invariant.
 
 ## Key Invariants (Do Not Break)
 
@@ -140,7 +152,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-46 tests in `src/game/__tests__/advanceGame.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, achievement edge cases, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+56 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, event-card linger behavior, manual-override timing, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

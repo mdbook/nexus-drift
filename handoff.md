@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.2.14**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.3.0**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -147,14 +147,19 @@ The `ActivityLog` component (see `src/components/ActivityLog.tsx`) renders the l
 
 ### Random Events
 
-Two event layers: ambient flavor log chatter (original), and seeded mechanical events (30–90 second timer). Mechanical events write into `state.activeEvents`, push multipliers into `state.eventModifiers`, and render countdown banners in the HUD. Night (day/night cycle) slightly biases toward harsher events. Active events are visible in the HUD above the field.
+Two event layers: ambient flavor log chatter (original), and seeded mechanical events (30–90 second timer). Mechanical events write into `state.activeEvents`, push multipliers into `state.eventModifiers`, and render inspectable countdown surfaces in the HUD footer. Night (day/night cycle) slightly biases toward harsher events.
 
-Each `EventDef` in `src/game/events/eventDefs.ts` carries presentational metadata alongside its mechanical `apply` / `revert`: `flavor` (short narrative line), `tone` (`boon` / `threat` / `mixed` / `neutral` — drives chip colour), and `effects: { text, tone }[]` (per-line breakdown shown in the tooltip). Keep these in sync when tuning an event's mechanics — the tooltip is the player's only source of truth for what the event actually does.
+Each `EventDef` in `src/game/events/eventDefs.ts` carries presentational metadata alongside its mechanical `apply` / `revert`: `flavor` (short narrative line), `tone` (`boon` / `threat` / `mixed` / `neutral` — drives chip colour), `effects: { text, tone }[]` (per-line breakdown shown in the tooltip), and `hudDurationTicks` (HUD linger duration, separate from mechanical `durationTicks`). Keep these in sync when tuning an event's mechanics — the tooltip/card is the player's only source of truth for what the event actually does.
+
+`durationTicks` and `hudDurationTicks` are deliberately separate:
+- Timed modifier events set both and expire with `revertOnExpire: true`.
+- The 3 one-shot events (`cache_discovery`, `pirate_caravan`, `echo_signal`) keep `durationTicks = 0` but now set `hudDurationTicks ≈ 10s`, so they still surface as inspectable cards and short-lived backdrop effects.
+- `EventChip` click counts as inspection via `inspectEventTag()`; hover/focus tooltip alone must never mark an event as inspected.
 
 Two presentational layers consume that metadata:
 
 - `EventBackdrop` renders a distinct ambient effect per active event id (color wash + particles + blurs). Effects compose additively when multiple events are active. The component now keys off event ids rather than per-tick countdown state so long-running events do not rerender the full overlay every sim tick.
-- `EventChip` renders the HUD pill with hover/focus tooltip. Tone colours are centralized in a `TONE_STYLE` map inside the component.
+- `EventChip` renders the HUD pill/card with hover/focus tooltip. Timed events keep the compact pill treatment; one-shot events render as short-lived cards. Tone colours are centralized in a `TONE_STYLE` map inside the component.
 
 `getEventDef(id)` is exported from `eventDefs.ts` for presentational lookups — never mutate the returned def.
 
@@ -168,15 +173,15 @@ Auto-triggers when the colony is rich, stable, and clear enough. Combo bonus sta
 
 ### City / Home District
 
-The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5; the hidden `Taking Notes` achievement now requires clicking that drone instead of merely letting it drift on-screen.
+The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5. The tourist now tracks `passId`, `lastClickedPassId`, and `squishTicks` so repeated clicks can count toward separate-pass and total-click secrets without letting one pass spam the pass counter.
 
 ### Persistence And Idle UX
 
-Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 3`; `migrateGameState()` handles v1/v2 saves (pre-multi-slot) and future versions by stamping current schema on load. Existing saves with 3 agents get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
+Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 4`; `migrateGameState()` handles older saves by stamping current schema on load and backfilling the newer interaction fields: `stats.eventTagsInspected`, `stats.touristClicks`, `stats.touristPassesClicked`, `touristWorker.passId`, `touristWorker.lastClickedPassId`, `touristWorker.squishTicks`, `lostDrone`, and `activeEvents[].revertOnExpire`. Existing saves with 3 agents still get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
 
 ### Achievements
 
-44 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
+54 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
 
 Categories and examples:
 - **Progression** — level milestones (10/20/30), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation
@@ -184,22 +189,28 @@ Categories and examples:
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
 - **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types)
 - **Survival** — 15m/30m/1h/2h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
-- **Secret** — drift easter egg, click-spotted tourist drone, lost drone, synthwave Konami, all 7 events, 3+ simultaneous events (legendary)
+- **Secret** — drift easter egg, click-spotted tourist drone, multi-pass tourist secrets, broken lost-drone recovery, synthwave Konami, all 12 events experienced, all 12 event cards inspected, anomaly witness, projectile/corpse clicks, changelog/modal opens, manual override
 
 New stats tracked on `GameState.stats`: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `sentinelKills`. `sentinelKills` is credited only when a sentinel lands the lethal hit; do not infer it later from target selection or corpse cleanup. Migration adds `?? 0` fallbacks for all four.
 
 `state.stats.purges` counts completed node cleanses only. It increments in `stepScouts()` when a node crosses back under the corruption threshold and must not be incremented for corruptor or blight deaths.
 
+Interaction-driven achievement helpers now live in `src/game/achievements.ts` and own the shell/renderer mutation points: `inspectEventTag`, `spotTourist`, `recoverLostDrone`, `witnessAnomaly`, `clickProjectile`, `clickDyingEnemy`, `recordAchievementsOpen`, `recordChangelogOpen`, and `completeManualOverride`. Keep those helpers authoritative — `App.tsx` and `FieldSvg.tsx` should forward interaction intent into them, not inline achievement state mutations.
+
 `AchievementsModal` (`src/components/AchievementsModal.tsx`) replaces the inline modal in `App.tsx`. Features: category tab bar with per-tab unlock counts, rarity-coloured rows and badges, hidden-achievement masking toggle (eye icon), completion progress bar, and a rarity legend footer.
 
-The achievement ribbon in the field card now uses rarity-coded border/background colours instead of flat indigo. An unlock count badge (e.g. `3/44`) appears at the right end of the strip.
+The achievement ribbon in the field card now uses rarity-coded border/background colours instead of flat indigo. An unlock count badge (e.g. `3/54`) appears at the right end of the strip. Opening the ribbon can itself unlock `archivist` once any hidden secret is already revealed.
+
+Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cataclysm`). Any legacy “tier 8/9/10” style unlock or spawn gate must key off `derived.progression.score / PROGRESSION.tiersPerScore`, not the capped `derived.progression.tier`. `stepAchievements()` and the lost-drone event roll now follow that rule.
 
 ### Easter Eggs
 
 - Konami code toggles synthwave palette, logs a message, and unlocks the hidden `synthwave` achievement.
 - Typing `drift` anywhere logs "The drift remembers." and unlocks an achievement.
-- Tourist drone wanders the field after 15 real-time minutes at city stage 5; click it to unlock `Taking Notes`.
-- At tier 9+, a 1% chance per big-event roll recruits a lost drone permanently.
+- Tourist drone wanders the field after 15 real-time minutes at city stage 5; click it to unlock `Taking Notes`, keep clicking it across 3 separate passes for `Tour Guide`, and mash it 50 times in one run for the legendary click-total secret.
+- While 3 event cards overlap, a dedicated anomaly artifact appears in the field. Clicking it is now the only way to unlock the repurposed `event_streak` secret (`Anomaly Witness`).
+- A damaged lost drone can drift through the outer zone on late-game big-event rolls (score threshold equivalent to old tier 9+). Click it to recover the unit and permanently add an extra drone beyond the normal 9-slot roster.
+- Zapper bolts, in-flight turret missiles, and death-fading corpses are all valid click targets for hidden secrets.
 - Admin panel: press `Space` five times with page focus. Exposes speed controls and event trigger buttons.
 
 ## Invariants
@@ -218,8 +229,9 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 ## Current Operational Notes
 
 - Header version badge opens the in-game changelog.
+- Header version badge click records the hidden `release_reader` achievement.
 - Top project chrome also carries a GitLab source link beside the version badge.
-- Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers.
+- Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers. Hidden `manual_override` is specifically `1x -> 4x -> 1x` with 10–60 seconds between the 4x and 1x clicks and no other speed click in between.
 - Sector card, resource bar, and sidebar intentionally read the throttled `uiGame` / `uiDerived` snapshot. The field SVG and field-card live indicators still read the per-tick snapshot.
 - Favicon assets now live across `public/nexus-drift.svg`, `public/nexus-drift.png`, `public/favicon.ico`, `public/favicon-32x32.png`, `public/favicon-16x16.png`, `public/apple-touch-icon.png`, and `public/site.webmanifest`. Social embeds intentionally remain pointed at `public/og-image.png`; do not swap embed art when only the favicon changes.
 - ESLint intentionally ignores `.claude/worktrees/` so auxiliary local agent worktrees do not create parser-root conflicts during `npm run lint`.
@@ -228,7 +240,7 @@ The achievement ribbon in the field card now uses rarity-coded border/background
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 24 tests in `src/game/__tests__/advanceGame.test.ts` cover simulation invariants, subsystem behavior, and save/load round-trips.
+- 56 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts` cover simulation invariants, interaction achievements, event HUD linger behavior, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 

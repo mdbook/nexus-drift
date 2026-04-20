@@ -7,6 +7,7 @@ import type { ActiveEvent } from "@/game/types";
 type Props = {
   event: ActiveEvent;
   def: EventDef | undefined;
+  onInspect?: (eventId: ActiveEvent["id"]) => void;
 };
 
 const TONE_STYLE: Record<EventEffectTone, { chip: string; tooltipAccent: string; dot: string }> = {
@@ -39,10 +40,11 @@ const EFFECT_TEXT_TONE: Record<EventEffectTone, string> = {
   neutral: "text-white/60",
 };
 
-export const EventChip = memo(function EventChip({ event, def }: Props) {
+export const EventChip = memo(function EventChip({ event, def, onInspect }: Props) {
   const tone = def?.tone ?? "neutral";
   const style = TONE_STYLE[tone];
-  const secondsRemaining = Math.ceil(event.ticksRemaining / 30);
+  const secondsRemaining = Math.max(1, Math.ceil(event.ticksRemaining / 30));
+  const isOneShotCard = !event.revertOnExpire;
   const describedById = `event-chip-${event.id}`;
   const { open, triggerRef, triggerProps, anchor } = useTooltip(describedById, 256, "start");
 
@@ -51,12 +53,30 @@ export const EventChip = memo(function EventChip({ event, def }: Props) {
       <button
         ref={triggerRef}
         type="button"
-        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${style.chip} cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30`}
+        onClick={() => onInspect?.(event.id)}
+        className={`border text-xs font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 ${
+          isOneShotCard
+            ? `flex min-w-[168px] flex-col items-start gap-1 rounded-2xl px-3 py-2 text-left ${style.chip}`
+            : `flex items-center gap-1.5 rounded-full px-2.5 py-0.5 ${style.chip}`
+        } cursor-pointer`}
         {...triggerProps}
       >
-        <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden />
-        <span>{event.label}</span>
-        <span className="text-white/55">({secondsRemaining}s)</span>
+        {isOneShotCard ? (
+          <>
+            <div className="flex w-full items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${style.dot}`} aria-hidden />
+              <span className="flex-1">{event.label}</span>
+              <span className="text-white/55">{secondsRemaining}s</span>
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">One-Shot Signal</div>
+          </>
+        ) : (
+          <>
+            <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden />
+            <span>{event.label}</span>
+            <span className="text-white/55">({secondsRemaining}s)</span>
+          </>
+        )}
       </button>
 
       <TooltipPanel id={describedById} open={open} anchor={anchor} width={256} borderClass={style.tooltipAccent} arrowAlign="left">

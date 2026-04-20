@@ -7,7 +7,7 @@ import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
 import { stepMining } from "@/game/subsystems/mining";
-import { stepEnemies, stepTourist, stepWorkers } from "@/game/subsystems/movement";
+import { stepEnemies, stepLostDrone, stepTourist, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -30,8 +30,8 @@ export function advanceGame(prev: GameState): GameState {
   // 1. Economy — income applied before anything spends or reacts to resources.
   // 2. Spawns — wave decisions read the timers set above; new enemies have no target
   //    yet so they won't act until the following tick.
-  // 3. Workers / Tourist / Enemies — movement resolves against the freshly spawned
-  //    enemy list so targeting is consistent within the tick.
+  // 3. Workers / Tourist / Lost Drone / Enemies — movement resolves against the
+  //    freshly spawned enemy list so targeting is consistent within the tick.
   // 4. Corruption — runs after movement so corruptors act on their new position.
   // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
   //    damage via hp reduction + flash markers. Damage flows through damageEnemy()
@@ -55,6 +55,7 @@ export function advanceGame(prev: GameState): GameState {
   stepSpawns(state);
   stepWorkers(state);
   stepTourist(state);
+  stepLostDrone(state);
   stepEnemies(state);
   stepCorruption(state);
   stepTurrets(state);

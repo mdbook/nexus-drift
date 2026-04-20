@@ -91,7 +91,7 @@ export function stepTurrets(state: GameState) {
       } else {
         const vx = (target.x - turret.x) / Math.max(1, d);
         const vy = (target.y - turret.y) / Math.max(1, d);
-        addMissile(state, turret.x, turret.y, vx, vy, target.id, Math.round(baseDamage * TURRET.missileDamageBonus));
+        addMissile(state, turret.x, turret.y, vx, vy, target.id, Math.round(baseDamage * TURRET.missileDamageBonus), turret.range);
       }
     }
   });

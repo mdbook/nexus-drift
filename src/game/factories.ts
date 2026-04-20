@@ -15,7 +15,7 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -339,6 +339,9 @@ export function createInitialGameState(seed?: number): GameState {
       corruptions: 0,
       purges: 0,
       eventsExperienced: [],
+      eventTagsInspected: [],
+      touristClicks: 0,
+      touristPassesClicked: 0,
       runtimeMs: 0,
     },
     timers: {
@@ -349,6 +352,7 @@ export function createInitialGameState(seed?: number): GameState {
       bigEvent: 0,
     },
     touristWorker: null,
+    lostDrone: null,
     lostWorkerFound: false,
     activeEvents: [],
     eventModifiers: {
@@ -376,9 +380,11 @@ export function cloneGameState(prev: GameState): GameState {
     stats: {
       ...prev.stats,
       eventsExperienced: [...prev.stats.eventsExperienced],
+      eventTagsInspected: [...prev.stats.eventTagsInspected],
     },
     timers: { ...prev.timers },
     touristWorker: prev.touristWorker ? { ...prev.touristWorker } : null,
+    lostDrone: prev.lostDrone ? { ...prev.lostDrone } : null,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
     log: prev.log.map((entry) => ({ ...entry })),
@@ -428,6 +434,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
         ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
         : base.stats.eventsExperienced,
+      eventTagsInspected: Array.isArray(raw.stats?.eventTagsInspected)
+        ? [...new Set(raw.stats.eventTagsInspected.filter((value): value is string => typeof value === "string"))]
+        : base.stats.eventTagsInspected,
+      touristClicks: raw.stats?.touristClicks ?? 0,
+      touristPassesClicked: raw.stats?.touristPassesClicked ?? 0,
     },
     timers: { ...base.timers, ...raw.timers },
     touristWorker: raw.touristWorker
@@ -437,11 +448,28 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           angle: raw.touristWorker.angle ?? 0,
           active: raw.touristWorker.active ?? true,
           spotted: raw.touristWorker.spotted ?? false,
+          passId: raw.touristWorker.passId ?? 1,
+          lastClickedPassId: raw.touristWorker.lastClickedPassId ?? null,
+          squishTicks: raw.touristWorker.squishTicks ?? 0,
+        }
+      : null,
+    lostDrone: raw.lostDrone
+      ? {
+          x: raw.lostDrone.x ?? -42,
+          y: raw.lostDrone.y ?? 300,
+          baseY: raw.lostDrone.baseY ?? raw.lostDrone.y ?? 300,
+          angle: raw.lostDrone.angle ?? 0,
+          vx: raw.lostDrone.vx ?? 0.24,
+          wobblePhase: raw.lostDrone.wobblePhase ?? 0,
+          spawnTick: raw.lostDrone.spawnTick ?? 0,
         }
       : null,
     lostWorkerFound: raw.lostWorkerFound ?? false,
     activeEvents: Array.isArray(raw.activeEvents)
-      ? raw.activeEvents.map((event) => ({ ...event }))
+      ? raw.activeEvents.map((event) => ({
+          ...event,
+          revertOnExpire: event.revertOnExpire ?? true,
+        }))
       : base.activeEvents,
     eventModifiers: { ...base.eventModifiers, ...raw.eventModifiers },
     log: Array.isArray(raw.log)
@@ -534,7 +562,8 @@ export function addMissile(
   vx: number,
   vy: number,
   targetId: number,
-  damage: number
+  damage: number,
+  turretRange: number
 ) {
   state.projectiles.push({
     id: state.nextProjectileId++,
@@ -552,6 +581,7 @@ export function addMissile(
     vy,
     speed: TURRET.missileSpeed,
     damage,
+    turretRange,
   });
 }
 

@@ -29,10 +29,18 @@ function despawnAlpha(currentTick: number, despawnAt: number): number {
   return clamp(remaining / DESPAWN_WARN_TICKS, 0, 1);
 }
 
+type FieldInteractionHandlers = {
+  onTouristClick?: () => void;
+  onLostDroneClick?: () => void;
+  onAnomalyClick?: () => void;
+  onProjectileClick?: (projectileId: number) => void;
+  onEnemyClick?: (enemyId: number) => void;
+};
+
 type FieldSvgProps = {
   game: GameState;
   derived: DerivedState;
-  onTouristClick?: () => void;
+  interactions?: FieldInteractionHandlers;
 };
 
 const CITY_PALETTE = [
@@ -472,7 +480,7 @@ function renderHomeDistrict(game: GameState, district: DistrictRenderData | null
   );
 }
 
-export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
+export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
   const lowFxMode = useLowFxMode();
   const activeTurretXs = useMemo(
     () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
@@ -527,18 +535,19 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
   const skyLight = Math.round(dayFactor * 18);
   const skyColor = `rgb(${skyLight}, ${skyLight + 4}, ${skyLight + 10})`;
   const nightOverlayOpacity = dayFactor < 0.5 ? 1 - dayFactor * 2 : 0;
-  const touristInteractive =
-    Boolean(onTouristClick) &&
-    Boolean(game.touristWorker?.active) &&
-    !game.touristWorker?.spotted &&
-    !game.achievements.tourist_spotted;
+  const touristInteractive = Boolean(interactions?.onTouristClick) && Boolean(game.touristWorker?.active);
+  const lostDroneInteractive = Boolean(interactions?.onLostDroneClick) && Boolean(game.lostDrone);
+  const anomalyInteractive =
+    Boolean(interactions?.onAnomalyClick) &&
+    game.activeEvents.length >= 3 &&
+    !game.achievements.event_streak;
 
-  const onTouristKeyDown = (event: ReactKeyboardEvent<SVGGElement>) => {
-    if (!touristInteractive) return;
+  const onSvgActivate = (event: ReactKeyboardEvent<SVGElement>, handler?: () => void) => {
+    if (!handler) return;
     if (event.key !== "Enter" && event.key !== " ") return;
 
     event.preventDefault();
-    onTouristClick?.();
+    handler();
   };
 
   return (
@@ -727,12 +736,20 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
         if (projectile.tag === "turret-missile") {
           const angle = Math.atan2(projectile.vy ?? -1, projectile.vx ?? 0) * (180 / Math.PI);
           const opacity = Math.min(1, projectile.life / 12);
+          const missileInteractive = Boolean(interactions?.onProjectileClick);
           return (
             <g
               key={projectile.id}
               transform={`translate(${projectile.x1},${projectile.y1}) rotate(${angle})`}
               opacity={opacity}
+              role={missileInteractive ? "button" : undefined}
+              tabIndex={missileInteractive ? 0 : undefined}
+              aria-label={missileInteractive ? "Track the in-flight missile" : undefined}
+              onClick={missileInteractive ? () => interactions?.onProjectileClick?.(projectile.id) : undefined}
+              onKeyDown={missileInteractive ? (event) => onSvgActivate(event, () => interactions?.onProjectileClick?.(projectile.id)) : undefined}
+              style={missileInteractive ? { cursor: "pointer" } : undefined}
             >
+              {missileInteractive && <rect x={-5.5} y={-5} width="11.5" height="10" fill="rgba(0,0,0,0.001)" />}
               {/* nose cone — red tip */}
               <polygon points="6,0 3,-2.5 3,2.5" fill="#e53e3e" />
               {/* body — white/grey */}
@@ -746,30 +763,119 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
           );
         }
         return (
-          <line
-            key={projectile.id}
-            x1={projectile.x1}
-            y1={projectile.y1}
-            x2={projectile.x2}
-            y2={projectile.y2}
-            stroke={projectile.color}
-            strokeWidth={projectile.width}
-            opacity={projectile.life / projectile.maxLife}
-            strokeLinecap="round"
-          />
+          <g key={projectile.id}>
+            <line
+              x1={projectile.x1}
+              y1={projectile.y1}
+              x2={projectile.x2}
+              y2={projectile.y2}
+              stroke={projectile.color}
+              strokeWidth={projectile.width}
+              opacity={projectile.life / projectile.maxLife}
+              strokeLinecap="round"
+            />
+            {projectile.tag === "zapper-bolt" && interactions?.onProjectileClick && (
+              <line
+                x1={projectile.x1}
+                y1={projectile.y1}
+                x2={projectile.x2}
+                y2={projectile.y2}
+                stroke="rgba(0,0,0,0.001)"
+                strokeWidth={Math.max(12, projectile.width + 10)}
+                strokeLinecap="round"
+                role="button"
+                tabIndex={0}
+                aria-label="Trace the zapper bolt"
+                onClick={() => interactions.onProjectileClick?.(projectile.id)}
+                onKeyDown={(event) => onSvgActivate(event, () => interactions.onProjectileClick?.(projectile.id))}
+                style={{ cursor: "pointer" }}
+              />
+            )}
+          </g>
         );
       })}
+
+      {anomalyInteractive && (
+        <g
+          transform="translate(868 132)"
+          role="button"
+          tabIndex={0}
+          aria-label="Witness the anomaly artifact"
+          onClick={interactions?.onAnomalyClick}
+          onKeyDown={(event) => onSvgActivate(event, interactions?.onAnomalyClick)}
+          style={{ cursor: "pointer" }}
+        >
+          <circle r="34" fill="rgba(0,0,0,0.001)" />
+          <circle r="26" fill="rgba(167, 139, 250, 0.09)" stroke="rgba(196, 181, 253, 0.48)" strokeWidth="1.2" />
+          <circle r="18" fill="rgba(109, 40, 217, 0.18)" stroke="rgba(233, 213, 255, 0.3)" strokeWidth="1" strokeDasharray="4 5" />
+          <path
+            d="M 0 -16 L 9 -3 L 4 15 L -4 15 L -9 -3 Z"
+            fill="rgba(221, 214, 254, 0.82)"
+            stroke="rgba(255,255,255,0.72)"
+            strokeWidth="1.1"
+          />
+          <path
+            d="M -2 -10 L 4 -2 L -1 9"
+            fill="none"
+            stroke="rgba(91, 33, 182, 0.9)"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+          <circle cx="11" cy="-12" r="3" fill="rgba(244, 114, 182, 0.82)" />
+        </g>
+      )}
+
+      {game.lostDrone && (
+        <g
+          transform={`translate(${game.lostDrone.x}, ${game.lostDrone.y}) rotate(${(game.lostDrone.angle * 180) / Math.PI})`}
+          opacity={spawnAlpha(game.timers.tick, game.lostDrone.spawnTick)}
+          role={lostDroneInteractive ? "button" : undefined}
+          tabIndex={lostDroneInteractive ? 0 : undefined}
+          aria-label={lostDroneInteractive ? "Recover the damaged drone" : undefined}
+          onClick={lostDroneInteractive ? interactions?.onLostDroneClick : undefined}
+          onKeyDown={lostDroneInteractive ? (event) => onSvgActivate(event, interactions?.onLostDroneClick) : undefined}
+          style={lostDroneInteractive ? { cursor: "pointer" } : undefined}
+        >
+          {lostDroneInteractive && <circle r="22" fill="rgba(0,0,0,0.001)" />}
+          <ellipse rx="15" ry="11" fill="rgba(209, 213, 219, 0.12)" />
+          <ellipse rx="10.5" ry="8.2" fill="rgba(148, 163, 184, 0.55)" stroke="rgba(229, 231, 235, 0.42)" strokeWidth="1" />
+          <path d="M -7 -6 L 2 0 L -4 7" fill="none" stroke="rgba(31, 41, 55, 0.82)" strokeWidth="1.2" strokeLinecap="round" />
+          <path d="M 4 -7 L 8 -2 L 3 4" fill="none" stroke="rgba(55, 65, 81, 0.75)" strokeWidth="1.2" strokeLinecap="round" />
+          <rect x="-3" y="-15" width="8" height="5" rx="1.5" fill="rgba(100, 116, 139, 0.85)" />
+          <circle
+            cx="2"
+            cy="-12"
+            r="2.1"
+            fill={game.timers.tick % 16 < 6 ? "rgba(148, 163, 184, 0.45)" : "rgba(248, 113, 113, 0.85)"}
+          />
+          <path d="M 8 5 L 16 10" stroke="rgba(100, 116, 139, 0.8)" strokeWidth="1.4" strokeLinecap="round" />
+          <circle cx="17.5" cy="10.5" r="1.4" fill="rgba(226, 232, 240, 0.4)" />
+        </g>
+      )}
 
       {game.enemies.map((enemy) => {
         const hpPct = clamp((enemy.hp / enemy.maxHp) * 100, 0, 100);
         const enemyFadeAlpha = enemy.hp <= 0
           ? deathAlpha(enemy.dyingTicks)
           : spawnAlpha(game.timers.tick, enemy.spawnTick);
+        const corpseInteractive = Boolean(interactions?.onEnemyClick) && enemy.hp <= 0 && enemy.dyingTicks > 0;
+        const enemyInteractiveProps = corpseInteractive
+          ? {
+              role: "button" as const,
+              tabIndex: 0,
+              "aria-label": "Inspect the fading enemy wreck",
+              onClick: () => interactions?.onEnemyClick?.(enemy.id),
+              onKeyDown: (event: ReactKeyboardEvent<SVGElement>) =>
+                onSvgActivate(event, () => interactions?.onEnemyClick?.(enemy.id)),
+              style: { cursor: "pointer" },
+            }
+          : {};
 
         if (enemy.role === "corruptor") {
           const wobble = Math.sin((game.timers.tick + enemy.id * 11) / 7) * 2;
           return (
-            <g key={enemy.id} opacity={enemyFadeAlpha}>
+            <g key={enemy.id} opacity={enemyFadeAlpha} {...enemyInteractiveProps}>
+              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r="24" fill="rgba(0,0,0,0.001)" />}
               <circle cx={enemy.x} cy={enemy.y} r="22" fill="rgba(160,70,255,0.08)" />
               <circle
                 cx={enemy.x}
@@ -855,7 +961,8 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
 
         if (enemy.kind === "raider") {
           return (
-            <g key={enemy.id} opacity={enemyOpacity}>
+            <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
+              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />}
               {threatRing}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
               {/* thick outer armour ring */}
@@ -873,7 +980,8 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
 
         if (enemy.kind === "wisp") {
           return (
-            <g key={enemy.id}>
+            <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
+              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />}
               {/* motion trail — diamonds fading out behind the wisp */}
               {enemy.trail.map(([tx, ty], i) => {
                 const t = (i + 1) / enemy.trail.length;
@@ -910,7 +1018,8 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
           const arcPulse = Math.sin((game.timers.tick + enemy.id * 5) / 8) * 0.4 + 0.6;
           const charged = enemy.fireCooldown !== undefined && enemy.fireCooldown < 15;
           return (
-            <g key={enemy.id} opacity={enemyOpacity}>
+            <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
+              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />}
               {threatRing}
               {shieldGlow}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
@@ -938,7 +1047,8 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
         // mite — small fast circle with sharp antenna spikes
         if (enemy.kind === "sapper") {
           return (
-            <g key={enemy.id} opacity={enemyOpacity}>
+            <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
+              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />}
               <circle cx={enemy.x} cy={enemy.y} r="60" fill="none" stroke="#f43f5e" strokeWidth="0.5" opacity="0.3" />
               {threatRing}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
@@ -950,7 +1060,8 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
         }
 
         return (
-          <g key={enemy.id} opacity={enemyOpacity}>
+          <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
+            {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />}
             {threatRing}
             {shieldGlow}
             <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
@@ -1041,20 +1152,20 @@ export function FieldSvg({ game, derived, onTouristClick }: FieldSvgProps) {
 
       {game.touristWorker?.active && (
         <g
-          transform={`translate(${game.touristWorker.x}, ${game.touristWorker.y}) rotate(${(game.touristWorker.angle * 180) / Math.PI})`}
+          transform={`translate(${game.touristWorker.x}, ${game.touristWorker.y}) rotate(${(game.touristWorker.angle * 180) / Math.PI}) scale(${1 + Math.sin((game.touristWorker.squishTicks / 9) * Math.PI) * 0.16} ${1 - Math.sin((game.touristWorker.squishTicks / 9) * Math.PI) * 0.1})`}
           role={touristInteractive ? "button" : undefined}
           tabIndex={touristInteractive ? 0 : undefined}
           aria-label={touristInteractive ? "Spot the tourist drone" : undefined}
-          onClick={touristInteractive ? onTouristClick : undefined}
-          onKeyDown={touristInteractive ? onTouristKeyDown : undefined}
+          onClick={touristInteractive ? interactions?.onTouristClick : undefined}
+          onKeyDown={touristInteractive ? (event) => onSvgActivate(event, interactions?.onTouristClick) : undefined}
           style={touristInteractive ? { cursor: "pointer" } : undefined}
         >
           {/* Transparent hit area so the tiny tourist is still reasonably clickable. */}
-          {touristInteractive && <circle r="14" fill="rgba(0,0,0,0.001)" />}
+          {touristInteractive && <circle r="16" fill="rgba(0,0,0,0.001)" />}
           <circle r="8" fill="rgba(253, 230, 138, 0.16)" />
           <circle r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1" />
           <rect x="5" y="-3" width="6" height="4" rx="1" fill="#374151" />
-          <circle cx="8" cy="-1" r="1.5" fill="#60a5fa" />
+          <circle cx="8" cy="-1" r="1.5" fill={game.touristWorker.squishTicks > 0 ? "#93c5fd" : "#60a5fa"} />
         </g>
       )}
 

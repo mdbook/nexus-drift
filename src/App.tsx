@@ -31,7 +31,19 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
 import { PANEL_CLASS } from "@/theme";
-import { ACHIEVEMENT_DEFS, spotTourist, unlockSecretAchievement } from "@/game/achievements";
+import {
+  ACHIEVEMENT_DEFS,
+  clickDyingEnemy,
+  clickProjectile,
+  completeManualOverride,
+  inspectEventTag,
+  recordAchievementsOpen,
+  recordChangelogOpen,
+  recoverLostDrone,
+  spotTourist,
+  unlockSecretAchievement,
+  witnessAnomaly,
+} from "@/game/achievements";
 import type { AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
@@ -39,6 +51,7 @@ import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, pushLog } from "@/game/utils";
 import { useGameLoop } from "@/hooks/useGameLoop";
+import { INITIAL_MANUAL_OVERRIDE_SEQUENCE, recordManualOverrideClick } from "@/lib/manualOverride";
 
 function useAdminPanel() {
   const [open, setOpen] = useState(false);
@@ -283,6 +296,7 @@ export default function App() {
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
+  const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
   const synthwaveRef = useRef(synthwave);
   useEffect(() => { synthwaveRef.current = synthwave; }, [synthwave]);
   const uiXpPct = clamp((uiGame.xp / Math.max(1, uiDerived.targetXp)) * 100, 0, 100);
@@ -337,6 +351,37 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [mutateGame]);
 
+  const handleSpeedSelect = (value: number) => {
+    const { sequence, unlocked } = recordManualOverrideClick(
+      manualOverrideRef.current,
+      speed,
+      value,
+      performance.now()
+    );
+    manualOverrideRef.current = sequence;
+    setSpeed(value);
+
+    if (!unlocked) return;
+
+    mutateGame((next) => {
+      completeManualOverride(next);
+    });
+  };
+
+  const openChangelog = () => {
+    mutateGame((next) => {
+      recordChangelogOpen(next);
+    });
+    setChangelogOpen(true);
+  };
+
+  const openAchievements = () => {
+    mutateGame((next) => {
+      recordAchievementsOpen(next);
+    });
+    setAchievementsOpen(true);
+  };
+
   return (
     <div
       className={`relative min-h-[100dvh] bg-[#050814] text-white lg:h-[100dvh] lg:overflow-hidden ${
@@ -353,7 +398,7 @@ export default function App() {
             <span>Autonomous Colony Sim</span>
             <button
               type="button"
-              onClick={() => setChangelogOpen(true)}
+              onClick={openChangelog}
               className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
               aria-expanded={changelogOpen}
               aria-haspopup="dialog"
@@ -384,7 +429,7 @@ export default function App() {
           </p>
           <HeaderControls
             speed={speed}
-            setSpeed={setSpeed}
+            setSpeed={handleSpeedSelect}
             onNewGame={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }}
           />
         </div>
@@ -441,7 +486,7 @@ export default function App() {
               <button
                 type="button"
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5 text-left [scrollbar-width:none] hover:bg-white/3"
-                onClick={() => setAchievementsOpen(true)}
+                onClick={openAchievements}
                 title="View achievements"
               >
                 {Object.keys(game.achievements).map((id) => {
@@ -472,10 +517,32 @@ export default function App() {
               <FieldSvg
                 game={game}
                 derived={derived}
-                onTouristClick={() => {
-                  mutateGame((next) => {
-                    spotTourist(next);
-                  });
+                interactions={{
+                  onTouristClick: () => {
+                    mutateGame((next) => {
+                      spotTourist(next);
+                    });
+                  },
+                  onLostDroneClick: () => {
+                    mutateGame((next) => {
+                      recoverLostDrone(next);
+                    });
+                  },
+                  onAnomalyClick: () => {
+                    mutateGame((next) => {
+                      witnessAnomaly(next);
+                    });
+                  },
+                  onProjectileClick: (projectileId) => {
+                    mutateGame((next) => {
+                      clickProjectile(next, projectileId);
+                    });
+                  },
+                  onEnemyClick: (enemyId) => {
+                    mutateGame((next) => {
+                      clickDyingEnemy(next, enemyId);
+                    });
+                  },
                 }}
               />
             </div>
@@ -485,7 +552,16 @@ export default function App() {
                 <div className="flex flex-wrap gap-2 px-4 py-2 lg:flex-nowrap lg:overflow-x-auto lg:[scrollbar-width:none]">
                   {hasActiveEvents ? (
                     derived.activeEvents.map((event) => (
-                      <EventChip key={event.id} event={event} def={getEventDef(event.id)} />
+                      <EventChip
+                        key={event.id}
+                        event={event}
+                        def={getEventDef(event.id)}
+                        onInspect={(eventId) => {
+                          mutateGame((next) => {
+                            inspectEventTag(next, eventId);
+                          });
+                        }}
+                      />
                     ))
                   ) : (
                     <span className="text-xs text-white/25">No ongoing events</span>
@@ -518,7 +594,7 @@ export default function App() {
               {[1, 2, 5, 10].map((value) => (
                 <button
                   key={value}
-                  onClick={() => setSpeed(value)}
+                  onClick={() => handleSpeedSelect(value)}
                   className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
                     speed === value
                       ? "bg-white/20 text-white"

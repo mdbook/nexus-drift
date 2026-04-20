@@ -470,16 +470,25 @@ describe("advanceGame simulation invariants", () => {
 
   it("requires clicking the tourist drone before Taking Notes unlocks", () => {
     const state = createInitialGameState();
-    state.touristWorker = { x: 512, y: 300, angle: 0, active: true, spotted: false };
+    state.touristWorker = {
+      x: 512,
+      y: 300,
+      angle: 0,
+      active: true,
+      spotted: false,
+      passId: 1,
+      lastClickedPassId: null,
+      squishTicks: 0,
+    };
 
     stepAchievements(state);
 
     expect(state.achievements.tourist_spotted).toBeUndefined();
-    expect(state.touristWorker.spotted).toBe(false);
+    expect(state.touristWorker?.spotted).toBe(false);
 
     spotTourist(state);
 
-    expect(state.touristWorker.spotted).toBe(true);
+    expect(state.touristWorker?.spotted).toBe(true);
     expect(state.achievements.tourist_spotted).toBe(true);
   });
 });
@@ -715,20 +724,54 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missile fizzles when its target dies mid-flight", () => {
+  it("missile flies straight (no NaN) when target dies and no other enemies exist", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     stepTurrets(state);
-    // Kill the target
     enemy.hp = 0;
     enemy.dyingTicks = 1;
-    // Run a few ticks — missile should not crash and eventually fizzle
     for (let i = 0; i < 5; i++) stepProjectiles(state);
     const missile = state.projectiles.find((p) => p.tag === "turret-missile");
-    // It is still present (flying) but no NaN on position
     if (missile) {
       expect(isNaN(missile.x1)).toBe(false);
       expect(isNaN(missile.y1)).toBe(false);
     }
+  });
+
+  it("missile retargets to nearest living enemy when original target dies", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    const turret = state.turrets[0];
+    // stepTurrets recomputes range to 140px (rangeBase 125 + turret*15); enemy is at 120px, enemy2 at 130px (both in range)
+    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy2.x = turret.x;
+    enemy2.y = turret.y - 130;
+    enemy2.hp = 100;
+    state.enemies.push(enemy2);
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile.targetId).toBe(enemy.id);
+    // Kill original target
+    enemy.hp = 0;
+    stepProjectiles(state);
+    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(updated.targetId).toBe(enemy2.id);
+  });
+
+  it("missile does not retarget to an enemy outside turret range", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    const turret = state.turrets[0];
+    // stepTurrets recomputes range to 140px; place enemy2 at 200px (out of range)
+    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy2.x = turret.x;
+    enemy2.y = turret.y - 200;
+    enemy2.hp = 100;
+    state.enemies.push(enemy2);
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile.targetId).toBe(enemy.id);
+    enemy.hp = 0;
+    stepProjectiles(state);
+    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(updated.targetId).toBe(enemy.id); // no retarget — enemy2 is out of range
   });
 
   it("turret uses instant beam when focusedBeam > 0 and target is within beam range", () => {

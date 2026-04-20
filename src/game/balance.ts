@@ -192,7 +192,7 @@ export const TURRET = {
   cooldownFloor: 7,
   projectileLife: 7,
   missileSpeed: 3.5,
-  missileSteering: 0.12,
+  missileSteering: 0.18,
   missileMaxLife: 90,
   missileHitRadius: 14,
   missileDamageBonus: 1.15,
