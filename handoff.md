@@ -29,7 +29,7 @@ Current version: **2.3.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/components/FieldStatsStrip.tsx` — horizontal stat pill row with per-pill tooltips. Each pill carries a tone (`calm` / `warn` / `danger` / `ready` / `toxic`) driven by derived state (integrity thresholds, `hostilePressure`, `corruptionPressure`, `progression.recoveryMode`, tier). Labels hide on mobile; icons + values + dots remain. Corruption pill shows a single combined count (corruptors + infected nodes) to stay compact. Tooltip uses `position: fixed` for the same reason as `UpgradeIndicatorRail` (inner scroll row clips upward tooltips).
 - `src/components/FieldSvg.tsx` — battlefield SVG rendering (workers, enemies, nodes, sentinels, projectiles, day/night cycle). Home-district building geometry is memoized by `citySeed` + active turret layout so decorative skyline generation is not repeated every tick. In low-FX mode the extra SVG text blur pass is disabled, but the foreground labels still render normally. The late-game tourist drone is also rendered here as a keyboard/click target with an expanded transparent hit area so the hidden achievement is intentional rather than accidental.
 - `src/components/ActivityLog.tsx` — structured activity log panel: category icons, relative-age timestamps, filter tabs (including Awards), scrollable 40-entry history
-- `src/components/AchievementsModal.tsx` — full achievements modal: category tabs, rarity colouring, hidden masking, progress bar, rarity legend
+- `src/components/AchievementsModal.tsx` — full achievements modal: category tabs, rarity colouring, hidden masking, progress bar, rarity legend, and target-aware scroll/focus support when the field ribbon opens a specific achievement
 - `src/components/Sidebar.tsx` — economy, automation, and threat panels
 - `src/components/HudPrimitives.tsx` — shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)
 - `src/components/ui/` — local card and progress bar primitives
@@ -97,7 +97,7 @@ Fields on `Enemy` (all optional — `undefined` means "no shield mechanic"): `sh
 
 **Render**: `FieldSvg.tsx` computes `hasShield`, `shieldPct`, and pulsing state once per enemy and injects a dashed cyan ring + soft glow + thin shield bar (above the HP bar) into the render blocks for shielded kinds. Because leech and phantom share the fallback render block, the shield overlay is embedded there too.
 
-**Sentinel kill credit**: `sentinels.ts` checks lethal damage *after* shield absorption (`target.hp - max(0, damage - shield)`) so shield-absorbed hits don't falsely credit a sentinel kill.
+**Sentinel kill credit**: `sentinels.ts` checks lethal damage _after_ shield absorption (`target.hp - max(0, damage - shield)`) so shield-absorbed hits don't falsely credit a sentinel kill.
 
 ### Disable System
 
@@ -123,7 +123,7 @@ Nodes, enemies, and agents all fade in and out rather than popping. Three fields
 - **`dyingTicks: number`** on `Enemy` — counts from `DEATH_FADE_TICKS` (18) down to 0 after `hp` hits 0. While `dyingTicks > 0`, the enemy stays in `state.enemies` but is skipped by movement, targeting, and combat (all those paths already guarded on `hp > 0`). Removed from state once `dyingTicks` reaches 0.
 - Temporary nodes use their existing `despawnAt` field for a fade-out warning: `despawnAlpha` begins fading 60 ticks before the deadline.
 
-`resolveEnemyDeaths` (in `combat.ts`) owns the `dyingTicks` lifecycle: it sets the countdown on newly killed enemies, ticks it down for already-dying ones, and filters the array. Order matters — the countdown is set *before* the filter runs so newly killed enemies are not immediately removed.
+`resolveEnemyDeaths` (in `combat.ts`) owns the `dyingTicks` lifecycle: it sets the countdown on newly killed enemies, ticks it down for already-dying ones, and filters the array. Order matters — the countdown is set _before_ the filter runs so newly killed enemies are not immediately removed.
 
 Renderer helpers in `FieldSvg.tsx`: `spawnAlpha(tick, spawnTick)`, `deathAlpha(dyingTicks)`, `despawnAlpha(tick, despawnAt)`. Each entity wraps its render in a `<g opacity={...}>` combining whichever alphas apply.
 
@@ -138,6 +138,7 @@ Renderer helpers in `FieldSvg.tsx`: `spawnAlpha(tick, spawnTick)`, `deathAlpha(d
 `pushLog(log, message, category, tick)` is the sole write path. Every subsystem passes its category and `state.timers.tick`. `migrateGameState()` handles old saves that stored plain `string[]` entries by mapping them to `{ tick: 0, category: "system", message: entry }`.
 
 The `ActivityLog` component (see `src/components/ActivityLog.tsx`) renders the log with:
+
 - Per-category icon (lucide-react) and colour coding
 - Relative-age timestamp ("3s ago", "1m ago")
 - Category filter tab bar: All / Combat / Corrupt / Upgrade / Event
@@ -152,6 +153,7 @@ Two event layers: ambient flavor log chatter (original), and seeded mechanical e
 Each `EventDef` in `src/game/events/eventDefs.ts` carries presentational metadata alongside its mechanical `apply` / `revert`: `flavor` (short narrative line), `tone` (`boon` / `threat` / `mixed` / `neutral` — drives chip colour), `effects: { text, tone }[]` (per-line breakdown shown in the tooltip), and `hudDurationTicks` (HUD linger duration, separate from mechanical `durationTicks`). Keep these in sync when tuning an event's mechanics — the tooltip/card is the player's only source of truth for what the event actually does.
 
 `durationTicks` and `hudDurationTicks` are deliberately separate:
+
 - Timed modifier events set both and expire with `revertOnExpire: true`.
 - The 3 one-shot events (`cache_discovery`, `pirate_caravan`, `echo_signal`) keep `durationTicks = 0` but now set `hudDurationTicks ≈ 10s`, so they still surface as inspectable cards and short-lived backdrop effects.
 - `EventChip` click counts as inspection via `inspectEventTag()`; hover/focus tooltip alone must never mark an event as inspected.
@@ -184,6 +186,7 @@ Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 4`; `mig
 54 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
 
 Categories and examples:
+
 - **Progression** — level milestones (10/20/30), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation
 - **Combat** — kill counts (10/100/500/1000), brutes (10/25), phantoms (5), leeches (3), sappers (10), first sentinel kill, turret level 8
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
@@ -201,6 +204,7 @@ Interaction-driven achievement helpers now live in `src/game/achievements.ts` an
 
 The achievement ribbon in the field card now uses rarity-coded border/background colours instead of flat indigo. An unlock count badge (e.g. `3/54`) appears at the right end of the strip. Opening the ribbon can itself unlock `archivist` once any hidden secret is already revealed.
 The ribbon renders newest unlocks first by reversing the unlocked id list at render time, so fresh badges appear on the left edge and push older ones rightward instead of being appended off to the far right.
+Each ribbon badge is now its own button: clicking one opens `AchievementsModal`, switches to the matching category, scrolls the corresponding row into view, focuses it, and plays a brief highlight flash so the player lands on the right achievement immediately.
 
 Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cataclysm`). Any legacy “tier 8/9/10” style unlock or spawn gate must key off `derived.progression.score / PROGRESSION.tiersPerScore`, not the capped `derived.progression.tier`. `stepAchievements()` and the lost-drone event roll now follow that rule.
 

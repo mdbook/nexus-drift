@@ -44,7 +44,7 @@ import {
   unlockSecretAchievement,
   witnessAnomaly,
 } from "@/game/achievements";
-import type { AchievementRarity } from "@/game/achievements";
+import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
@@ -186,7 +186,9 @@ const SectorStatusCard = memo(function SectorStatusCard({
   xpPct: number;
 }) {
   return (
-    <Card className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}>
+    <Card
+      className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}
+    >
       <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
@@ -290,6 +292,7 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
@@ -298,12 +301,18 @@ export default function App() {
   const driftRef = useRef("");
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
   const synthwaveRef = useRef(synthwave);
-  useEffect(() => { synthwaveRef.current = synthwave; }, [synthwave]);
+  useEffect(() => {
+    synthwaveRef.current = synthwave;
+  }, [synthwave]);
   const uiXpPct = clamp((uiGame.xp / Math.max(1, uiDerived.targetXp)) * 100, 0, 100);
-  const uiStabilityPct = clamp((uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100, 0, 100);
+  const uiStabilityPct = clamp(
+    (uiDerived.defenseScore / Math.max(2, uiDerived.threatScore + 2)) * 100,
+    0,
+    100
+  );
   const activeEventBackdropKey = derived.activeEvents.map((event) => event.id).join("|");
   const hasActiveEvents = derived.activeEvents.length > 0;
-  const unlockedAchievementIds = Object.keys(game.achievements).reverse();
+  const unlockedAchievementIds = (Object.keys(game.achievements) as AchievementId[]).reverse();
   const fieldFooterInsetClass = "mb-[124px] lg:mb-[83px]";
 
   useEffect(() => {
@@ -376,10 +385,11 @@ export default function App() {
     setChangelogOpen(true);
   };
 
-  const openAchievements = () => {
+  const openAchievements = (achievementId?: AchievementId) => {
     mutateGame((next) => {
       recordAchievementsOpen(next);
     });
+    setAchievementFocusId(achievementId ?? null);
     setAchievementsOpen(true);
   };
 
@@ -421,17 +431,21 @@ export default function App() {
           <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
             NEXUS DRIFT
             <span className="mx-2 font-thin text-white/40"> //</span>
-            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">purge wing online</span>
+            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
+              purge wing online
+            </span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
-            Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the
-            grid, raiders push the perimeter. The colony runs itself - your job is to keep it that
-            way.
+            Autonomous extraction in a contested sector. Miners work the nodes, corruptors rot the grid,
+            raiders push the perimeter. The colony runs itself - your job is to keep it that way.
           </p>
           <HeaderControls
             speed={speed}
             setSpeed={handleSpeedSelect}
-            onNewGame={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }}
+            onNewGame={() => {
+              localStorage.removeItem(SAVE_KEY);
+              window.location.reload();
+            }}
           />
         </div>
 
@@ -484,34 +498,41 @@ export default function App() {
             </div>
 
             {unlockedAchievementIds.length > 0 && (
-              <button
-                type="button"
-                className="flex shrink-0 cursor-pointer items-center gap-1.5 overflow-x-auto border-b border-white/5 px-4 py-1.5 text-left [scrollbar-width:none] hover:bg-white/3"
-                onClick={openAchievements}
-                title="View achievements"
-              >
-                {unlockedAchievementIds.map((id) => {
-                  const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
-                  const rarity: AchievementRarity = def?.rarity ?? "common";
-                  const RARITY_BADGE: Record<AchievementRarity, string> = {
-                    common: "border-white/15 bg-white/8 text-white/60",
-                    uncommon: "border-cyan-400/25 bg-cyan-900/30 text-cyan-200/90",
-                    rare: "border-violet-400/30 bg-violet-900/30 text-violet-200/90",
-                    legendary: "border-amber-400/35 bg-amber-900/30 text-amber-200/90",
-                  };
-                  return (
-                    <span
-                      key={id}
-                      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${RARITY_BADGE[rarity]}`}
-                    >
-                      {def?.label ?? id}
-                    </span>
-                  );
-                })}
-                <span className="ml-auto shrink-0 text-[10px] text-white/25">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-4 py-1.5">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
+                  {unlockedAchievementIds.map((id) => {
+                    const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
+                    const rarity: AchievementRarity = def?.rarity ?? "common";
+                    const RARITY_BADGE: Record<AchievementRarity, string> = {
+                      common: "border-white/15 bg-white/8 text-white/60",
+                      uncommon: "border-cyan-400/25 bg-cyan-900/30 text-cyan-200/90",
+                      rare: "border-violet-400/30 bg-violet-900/30 text-violet-200/90",
+                      legendary: "border-amber-400/35 bg-amber-900/30 text-amber-200/90",
+                    };
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] transition hover:bg-white/12 hover:text-white ${RARITY_BADGE[rarity]}`}
+                        onClick={() => openAchievements(id)}
+                        title={`Jump to ${def?.label ?? id} in achievements`}
+                        aria-label={`Open achievements and focus ${def?.label ?? id}`}
+                      >
+                        {def?.label ?? id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/35 transition hover:bg-white/10 hover:text-white/70"
+                  onClick={() => openAchievements()}
+                  title="View achievements"
+                  aria-label={`Open achievements (${unlockedAchievementIds.length} of ${ACHIEVEMENT_DEFS.length} unlocked)`}
+                >
                   {unlockedAchievementIds.length}/{ACHIEVEMENT_DEFS.length}
-                </span>
-              </button>
+                </button>
+              </div>
             )}
 
             <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
@@ -590,9 +611,7 @@ export default function App() {
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
           <div className={`${PANEL_CLASS} flex flex-col gap-3 px-4 py-3`}>
             <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                Admin // Speed
-              </span>
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Admin // Speed</span>
               {[1, 2, 5, 10].map((value) => (
                 <button
                   key={value}
@@ -615,9 +634,7 @@ export default function App() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                Trigger Event
-              </span>
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Trigger Event</span>
               {EVENT_DEFS.map((eventDef) => (
                 <button
                   key={eventDef.id}
@@ -657,8 +674,8 @@ export default function App() {
                   Nexus Drift // v{CURRENT_VERSION}
                 </div>
                 <p className="mt-2 max-w-2xl text-sm text-white/55 md:text-base">
-                  Release notes rebuilt from the repo history, from the first rough prototype to the
-                  current build.
+                  Release notes rebuilt from the repo history, from the first rough prototype to the current
+                  build.
                 </p>
               </div>
               <button
@@ -677,23 +694,16 @@ export default function App() {
                   className="rounded-[28px] border border-white/10 bg-black/20 p-4 md:p-5"
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-xl font-semibold text-white md:text-2xl">
-                      v{entry.version}
-                    </div>
+                    <div className="text-xl font-semibold text-white md:text-2xl">v{entry.version}</div>
                     <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-cyan-100/75">
                       {entry.badge}
                     </div>
                   </div>
-                  <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
-                    {entry.summary}
-                  </p>
+                  <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">{entry.summary}</p>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2">
                     {entry.sections.map((section) => (
-                      <div
-                        key={section.title}
-                        className="rounded-3xl border border-white/10 bg-white/5 p-4"
-                      >
+                      <div key={section.title} className="rounded-3xl border border-white/10 bg-white/5 p-4">
                         <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">
                           {section.title}
                         </div>
@@ -716,8 +726,13 @@ export default function App() {
 
       {achievementsOpen && (
         <AchievementsModal
+          key={achievementFocusId ?? "all-achievements"}
           achievements={game.achievements}
-          onClose={() => setAchievementsOpen(false)}
+          targetAchievementId={achievementFocusId}
+          onClose={() => {
+            setAchievementsOpen(false);
+            setAchievementFocusId(null);
+          }}
         />
       )}
     </div>

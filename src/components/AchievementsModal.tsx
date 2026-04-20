@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Award,
   Biohazard,
@@ -100,12 +100,21 @@ const CATEGORY_TABS: Array<AchievementCategory | "all"> = [
 
 type AchievementsModalProps = {
   achievements: Partial<Record<AchievementId, true>>;
+  targetAchievementId?: AchievementId | null;
   onClose: () => void;
 };
 
-export function AchievementsModal({ achievements, onClose }: AchievementsModalProps) {
-  const [activeCategory, setActiveCategory] = useState<AchievementCategory | "all">("all");
+export function AchievementsModal({
+  achievements,
+  targetAchievementId = null,
+  onClose,
+}: AchievementsModalProps) {
+  const [activeCategory, setActiveCategory] = useState<AchievementCategory | "all">(
+    () => ACHIEVEMENT_DEFS.find((def) => def.id === targetAchievementId)?.category ?? "all"
+  );
   const [showHidden, setShowHidden] = useState(false);
+  const [flashAchievementId, setFlashAchievementId] = useState<AchievementId | null>(null);
+  const achievementRefs = useRef<Partial<Record<AchievementId, HTMLDivElement | null>>>({});
 
   const unlockedCount = Object.keys(achievements).length;
   const totalCount = ACHIEVEMENT_DEFS.length;
@@ -143,6 +152,23 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
   const totalByCategory = (cat: AchievementCategory | "all") =>
     ACHIEVEMENT_DEFS.filter((def) => cat === "all" || def.category === cat).length;
 
+  useEffect(() => {
+    if (!targetAchievementId) return;
+
+    const node = achievementRefs.current[targetAchievementId];
+    if (!node) return;
+
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    node.focus({ preventScroll: true });
+    setFlashAchievementId(targetAchievementId);
+
+    const timeout = window.setTimeout(() => {
+      setFlashAchievementId((current) => (current === targetAchievementId ? null : current));
+    }, 1600);
+
+    return () => window.clearTimeout(timeout);
+  }, [sorted, targetAchievementId]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6"
@@ -158,7 +184,9 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-white">Achievements</h2>
             <div className="mt-1 flex items-center gap-2 text-xs text-white/40">
-              <span>{unlockedCount} / {totalCount} unlocked</span>
+              <span>
+                {unlockedCount} / {totalCount} unlocked
+              </span>
               <span className="h-1 w-1 rounded-full bg-white/20" />
               <span>{Math.round((unlockedCount / totalCount) * 100)}% complete</span>
             </div>
@@ -203,12 +231,16 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
                 type="button"
                 onClick={() => setActiveCategory(cat)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] transition-colors ${
-                  isActive ? meta.activeClass : "bg-white/5 text-white/35 hover:bg-white/10 hover:text-white/60"
+                  isActive
+                    ? meta.activeClass
+                    : "bg-white/5 text-white/35 hover:bg-white/10 hover:text-white/60"
                 }`}
               >
                 <Icon className="h-3 w-3" />
                 <span>{meta.label}</span>
-                <span className={`rounded-full px-1 text-[9px] ${isActive ? "bg-white/20" : "bg-white/8 text-white/30"}`}>
+                <span
+                  className={`rounded-full px-1 text-[9px] ${isActive ? "bg-white/20" : "bg-white/8 text-white/30"}`}
+                >
                   {unlocked}/{total}
                 </span>
               </button>
@@ -228,6 +260,10 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
               return (
                 <div
                   key={def.id}
+                  ref={(node) => {
+                    achievementRefs.current[def.id] = node;
+                  }}
+                  tabIndex={-1}
                   className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/3 px-3 py-2.5 opacity-50"
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -244,11 +280,17 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
             return (
               <div
                 key={def.id}
+                ref={(node) => {
+                  achievementRefs.current[def.id] = node;
+                }}
+                tabIndex={-1}
                 className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 transition-colors ${
-                  unlocked
-                    ? `${meta.border} ${meta.bg}`
-                    : "border-white/8 bg-white/3 opacity-55"
-                }`}
+                  flashAchievementId === def.id
+                    ? "ring-2 ring-cyan-300/55 shadow-[0_0_0_1px_rgba(103,232,249,0.28),0_0_28px_rgba(34,211,238,0.16)]"
+                    : ""
+                } ${
+                  unlocked ? `${meta.border} ${meta.bg}` : "border-white/8 bg-white/3 opacity-55"
+                } focus:outline-none focus:ring-2 focus:ring-cyan-300/55 focus:ring-offset-0`}
               >
                 {/* Icon / check */}
                 <div
@@ -268,7 +310,9 @@ export function AchievementsModal({ achievements, onClose }: AchievementsModalPr
                   <div className={`text-sm font-medium ${unlocked ? meta.text : "text-white/30"}`}>
                     {def.label}
                   </div>
-                  <div className={`mt-0.5 text-xs leading-snug ${unlocked ? "text-white/50" : "text-white/25"}`}>
+                  <div
+                    className={`mt-0.5 text-xs leading-snug ${unlocked ? "text-white/50" : "text-white/25"}`}
+                  >
                     {def.description}
                   </div>
                 </div>

@@ -33,6 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "The click feedback itself is now a small pond-ripple pulse centered on that leading dot instead of a louder full-card pulse.",
           "Polished the desktop top-right upgrade rail spacing so it sits closer to the sector card and no longer crowds the resource row, and slimmed its horizontal scrollbar to reduce chrome weight.",
           "The in-field achievement ribbon now renders newest unlocks first, so fresh badges appear on the left edge and push older ones rightward.",
+          "Clicking an achievement badge in that ribbon now opens the archive already filtered to the right category, scrolls the matching row into view, focuses it, and flashes it for quick orientation.",
         ],
       },
     ],
@@ -166,9 +167,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         title: "Project Chrome",
-        items: [
-          "The top metadata row now includes a direct GitLab source link beside the version badge.",
-        ],
+        items: ["The top metadata row now includes a direct GitLab source link beside the version badge."],
       },
       {
         title: "Contributor Tooling",
@@ -181,7 +180,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.7",
     badge: "True Signal",
-    summary: "Achievement tracking is now aligned with real gameplay outcomes: synthwave unlocks its own secret badge, purge milestones count cleansed nodes, sentinel kills require a lethal sentinel hit, and Immaculate Grid no longer auto-completes on a fresh save.",
+    summary:
+      "Achievement tracking is now aligned with real gameplay outcomes: synthwave unlocks its own secret badge, purge milestones count cleansed nodes, sentinel kills require a lethal sentinel hit, and Immaculate Grid no longer auto-completes on a fresh save.",
     sections: [
       {
         title: "Achievement Integrity Fixes",
@@ -204,7 +204,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.6",
     badge: "Locked On",
-    summary: "Turrets now fire visible homing missiles instead of instant shots. A new Focused Beam upgrade (tier 4+) unlocks instant-hit fire for close targets while missiles handle the longer range.",
+    summary:
+      "Turrets now fire visible homing missiles instead of instant shots. A new Focused Beam upgrade (tier 4+) unlocks instant-hit fire for close targets while missiles handle the longer range.",
     sections: [
       {
         title: "Turret Missile Rework",
@@ -228,7 +229,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.5",
     badge: "Crowded House",
-    summary: "Each worker kind can now field up to three units — slots unlock at upgrade levels 3 and 6. Workers spawn at staggered home pads and activate or deactivate as upgrade levels change.",
+    summary:
+      "Each worker kind can now field up to three units — slots unlock at upgrade levels 3 and 6. Workers spawn at staggered home pads and activate or deactivate as upgrade levels change.",
     sections: [
       {
         title: "Multiple Workers Per Kind",
@@ -245,7 +247,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.4",
     badge: "Informed Colony",
-    summary: "Tooltip coverage pass — every interactive surface now explains itself on hover or focus, backed by a shared Tooltip primitive that replaces three hand-rolled implementations.",
+    summary:
+      "Tooltip coverage pass — every interactive surface now explains itself on hover or focus, backed by a shared Tooltip primitive that replaces three hand-rolled implementations.",
     sections: [
       {
         title: "Tooltip System",
@@ -261,7 +264,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.3",
     badge: "Breathing Room",
-    summary: "Enemies no longer pile on a cornered worker — a soft-repulsion pass makes them orbit at staggered angles instead of collapsing to zero distance.",
+    summary:
+      "Enemies no longer pile on a cornered worker — a soft-repulsion pass makes them orbit at staggered angles instead of collapsing to zero distance.",
     sections: [
       {
         title: "Enemy AI — Soft Repulsion",
@@ -276,7 +280,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.2",
     badge: "Pressure Front",
-    summary: "Five new events fill the event roster with threat-tone pressure: three sustained modifiers and two rare late-game shocks.",
+    summary:
+      "Five new events fill the event roster with threat-tone pressure: three sustained modifiers and two rare late-game shocks.",
     sections: [
       {
         title: "New Events",
@@ -293,7 +298,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.2.1",
     badge: "Disruptor",
-    summary: "A new late-game threat: the Zapper. This ranged enemy holds its distance and fires slow energy bolts that disable workers and turrets for several seconds on impact.",
+    summary:
+      "A new late-game threat: the Zapper. This ranged enemy holds its distance and fires slow energy bolts that disable workers and turrets for several seconds on impact.",
     sections: [
       {
         title: "New Enemy — Zapper",
@@ -322,7 +328,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.1.0",
     badge: "Signal & Record",
-    summary: "Two major quality-of-life systems land together: a fully structured activity log with category filtering and timestamps, and a 44-achievement roster with rarity tiers, category tabs, and a dedicated modal.",
+    summary:
+      "Two major quality-of-life systems land together: a fully structured activity log with category filtering and timestamps, and a 44-achievement roster with rarity tiers, category tabs, and a dedicated modal.",
     sections: [
       {
         title: "Activity Log Revamp",
@@ -366,7 +373,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "2.0.0",
     badge: "Living Field",
-    summary: "A major visual and UX pass — the field now breathes with event atmosphere, glanceable HUD indicators, smooth entity transitions, and a thorough overflow/clipping fix across all screen sizes.",
+    summary:
+      "A major visual and UX pass — the field now breathes with event atmosphere, glanceable HUD indicators, smooth entity transitions, and a thorough overflow/clipping fix across all screen sizes.",
     sections: [
       {
         title: "Event Atmosphere",
@@ -420,7 +428,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "1.5.0",
     badge: "Code Hardening",
-    summary: "Internal quality pass — save versioning, subsystem documentation, stricter linting, and expanded test coverage.",
+    summary:
+      "Internal quality pass — save versioning, subsystem documentation, stricter linting, and expanded test coverage.",
     sections: [
       {
         title: "Save System",
@@ -442,7 +451,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "1.4.1",
     badge: "Field First",
-    summary: "Layout overhaul for every screen size — the game field is now the focal point on mobile and desktop alike.",
+    summary:
+      "Layout overhaul for every screen size — the game field is now the focal point on mobile and desktop alike.",
     sections: [
       {
         title: "Layout",
@@ -564,7 +574,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "1.1.0",
     badge: "Slow Burn",
-    summary: "Economy and drone rebalance. Slower pacing, weaker early drones, and cooperative cleanse synergy.",
+    summary:
+      "Economy and drone rebalance. Slower pacing, weaker early drones, and cooperative cleanse synergy.",
     sections: [
       {
         title: "Balance",
@@ -766,7 +777,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     sections: [
       {
         title: "First Cut",
-        items: ["Shipped the initial autonomous colony sim with mining, hostiles, upgrades, and the basic wallpaper feel."],
+        items: [
+          "Shipped the initial autonomous colony sim with mining, hostiles, upgrades, and the basic wallpaper feel.",
+        ],
       },
     ],
   },

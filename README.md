@@ -11,6 +11,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ## Features
 
 ### Simulation & Economy
+
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
 - Each worker kind (miner / runner / drone) supports up to 3 simultaneous units — slots unlock at upgrade levels 3 and 6
@@ -18,6 +19,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns; the 3 one-shot events now surface as short-lived inspectable cards instead of disappearing immediately, then fade away without a visible countdown
 
 ### Combat & Enemies
+
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers
 - Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
 - Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
@@ -25,6 +27,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - 54 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including click-driven secrets for event inspection, anomaly witnessing, corpse/projectile interactions, UI opens, and a timed speed-sequence
 
 ### HUD & UI
+
 - Glanceable upgrade rail and field stats strip — on mobile the rail stays in the field footer; on desktop it floats in the top-right chrome band so the footer can prioritize events and live field stats without shrinking the field
 - The desktop top-right upgrade rail now sits a touch closer to the sector card and uses a thinner horizontal scrollbar so it doesn't crowd the resource pills beneath it
 - Active events live in a persistent footer strip that's always visible — timed events render as inspectable pills with countdowns, one-shot events now use the same compact chip size but fade away without counters, crowded rows stay a single horizontal scroller instead of wrapping labels into stacked chips, inspected cards simply dim their existing marker dot, and the canvas size never jumps as events come and go
@@ -33,9 +36,10 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
 - Mature colonies can attract a tiny tourist drone; repeated clicks now squish it, count per pass, and feed multiple hidden achievements
 - Late-game interaction props live directly in the field: a broken recoverable lost drone, a 3-event anomaly artifact, clickable zapper bolts, unforgiving in-flight missiles, and corpse clicks during enemy death-fade windows
-- The in-field achievement ribbon now shows newly unlocked badges first on the left, pushing older ones rightward so fresh unlocks are immediately visible
+- The in-field achievement ribbon now shows newly unlocked badges first on the left, pushing older ones rightward so fresh unlocks are immediately visible, and clicking a badge jumps the archive modal straight to that achievement with a scroll/focus flash
 
 ### Controls & Persistence
+
 - Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
@@ -44,6 +48,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Favicon stack now includes SVG, PNG, ICO, Apple touch icon, and web manifest fallbacks for broader browser coverage
 
 ### Layout
+
 - Responsive: two-column desktop layout activates at 1024px (`lg`), so 11-inch iPads in landscape get the full side-by-side view
 - Desktop iPad layouts use dynamic viewport sizing (`100dvh`) plus safe-area bottom padding so the field card and its overlay footer stay inside the visible viewport when Safari's URL bar is present, and the field reserves an inset above the overlay footer on every breakpoint so the bottom HUD stays readable without covering the home district
 - On coarse-pointer `lg` desktops, the heaviest ambient background / event animation paths and SVG text blur are intentionally reduced so scrolling stays smooth on iPadOS Safari without flattening the overall look
@@ -71,35 +76,35 @@ npm run format:check
 
 ## Architecture
 
-| Path | Role |
-|------|------|
-| `src/App.tsx` | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin panel, event test triggers, release-history modal |
-| `src/changelog.ts` | In-game release notes sourced from repo milestones |
-| `index.html` | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags |
-| `src/hooks/useLowFxMode.ts` | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic |
-| `src/hooks/useGameLoop.ts` | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot |
-| `src/game/advanceGame.ts` | Thin orchestrator that runs the simulation step order |
-| `src/game/achievements.ts` | Achievement definitions plus the UI/field interaction helpers for tourist, event cards, projectiles, corpses, modal opens, and lost-drone recovery |
-| `src/game/persistence.ts` | localStorage save/load bootstrap and migration entry point |
-| `src/game/balance.ts` | Central tuning constants |
-| `src/game/events/eventDefs.ts` | Seeded mechanical event definitions, HUD linger metadata, and activation helpers |
-| `src/game/rng.ts` | Seeded Mulberry32 PRNG used by all simulation paths |
-| `src/game/targeting.ts` | Shared targeting helpers |
-| `src/game/subsystems/` | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events |
-| `src/components/FieldSvg.tsx` | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode and interactive targets for the tourist, lost drone, anomaly artifact, projectiles, and death-fade corpses |
-| `src/components/EventBackdrop.tsx` | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode) |
-| `src/components/EventChip.tsx` | Active-event HUD pill/card with hover/focus tooltip and click-to-inspect behavior |
-| `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus |
-| `src/components/FieldStatsStrip.tsx` | Compact pill row of live field stats with tone colours and detail tooltips |
-| `src/components/ActivityLog.tsx` | Structured log panel with category icons, relative timestamps, and filter tabs |
-| `src/components/AchievementsModal.tsx` | Achievements modal with category tabs, rarity colouring, hidden masking, and progress bar |
-| `src/components/Sidebar.tsx` | Economy, automation, and threat panels |
-| `src/components/Background.tsx` | Animated starfield and atmosphere layers; swaps to a static cheaper variant on coarse-pointer desktop layouts |
-| `src/components/HudPrimitives.tsx` | Shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile) |
-| `src/components/Tooltip.tsx` | Shared `TooltipPanel` primitive; `useTooltip` hook in `src/hooks/useTooltip.ts` |
-| `src/lib/manualOverride.ts` | Pure helper for the hidden `1x -> 4x -> 1x` speed-sequence achievement timing |
-| `src/components/ui/` | Local card and progress bar primitives |
-| `reference/` | Preserved single-file reference artifact |
+| Path                                      | Role                                                                                                                                                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.tsx`                             | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin panel, event test triggers, release-history modal                                                                                                            |
+| `src/changelog.ts`                        | In-game release notes sourced from repo milestones                                                                                                                                                                                                   |
+| `index.html`                              | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags                                                                                                                                                     |
+| `src/hooks/useLowFxMode.ts`               | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic                                                                                                      |
+| `src/hooks/useGameLoop.ts`                | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot                                                                                                                                         |
+| `src/game/advanceGame.ts`                 | Thin orchestrator that runs the simulation step order                                                                                                                                                                                                |
+| `src/game/achievements.ts`                | Achievement definitions plus the UI/field interaction helpers for tourist, event cards, projectiles, corpses, modal opens, and lost-drone recovery                                                                                                   |
+| `src/game/persistence.ts`                 | localStorage save/load bootstrap and migration entry point                                                                                                                                                                                           |
+| `src/game/balance.ts`                     | Central tuning constants                                                                                                                                                                                                                             |
+| `src/game/events/eventDefs.ts`            | Seeded mechanical event definitions, HUD linger metadata, and activation helpers                                                                                                                                                                     |
+| `src/game/rng.ts`                         | Seeded Mulberry32 PRNG used by all simulation paths                                                                                                                                                                                                  |
+| `src/game/targeting.ts`                   | Shared targeting helpers                                                                                                                                                                                                                             |
+| `src/game/subsystems/`                    | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events                                                                                                          |
+| `src/components/FieldSvg.tsx`             | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode and interactive targets for the tourist, lost drone, anomaly artifact, projectiles, and death-fade corpses |
+| `src/components/EventBackdrop.tsx`        | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode)                                                                                                |
+| `src/components/EventChip.tsx`            | Active-event HUD pill/card with hover/focus tooltip and click-to-inspect behavior                                                                                                                                                                    |
+| `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus                                                                                                                                                       |
+| `src/components/FieldStatsStrip.tsx`      | Compact pill row of live field stats with tone colours and detail tooltips                                                                                                                                                                           |
+| `src/components/ActivityLog.tsx`          | Structured log panel with category icons, relative timestamps, and filter tabs                                                                                                                                                                       |
+| `src/components/AchievementsModal.tsx`    | Achievements modal with category tabs, rarity colouring, hidden masking, progress bar, and target-aware scroll/focus navigation from the ribbon                                                                                                      |
+| `src/components/Sidebar.tsx`              | Economy, automation, and threat panels                                                                                                                                                                                                               |
+| `src/components/Background.tsx`           | Animated starfield and atmosphere layers; swaps to a static cheaper variant on coarse-pointer desktop layouts                                                                                                                                        |
+| `src/components/HudPrimitives.tsx`        | Shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)                                                                                                                                                                                |
+| `src/components/Tooltip.tsx`              | Shared `TooltipPanel` primitive; `useTooltip` hook in `src/hooks/useTooltip.ts`                                                                                                                                                                      |
+| `src/lib/manualOverride.ts`               | Pure helper for the hidden `1x -> 4x -> 1x` speed-sequence achievement timing                                                                                                                                                                        |
+| `src/components/ui/`                      | Local card and progress bar primitives                                                                                                                                                                                                               |
+| `reference/`                              | Preserved single-file reference artifact                                                                                                                                                                                                             |
 
 ---
 
