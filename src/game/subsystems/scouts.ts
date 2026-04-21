@@ -45,8 +45,17 @@ export function stepScouts(state: GameState) {
     const bFinish = b.corruption <= SCOUT_AI.finishNodeThreshold ? SCOUT_AI.finishNodeBias : 0;
     const aBleed = a.corruptedBy != null && a.corruption < 100 ? SCOUT_AI.stopBleedBias : 0;
     const bBleed = b.corruptedBy != null && b.corruption < 100 ? SCOUT_AI.stopBleedBias : 0;
-    const aScore = a.corruption - (preferFinish ? aFinish * 2 : aFinish) - (preferFinish ? aBleed : aBleed * 2);
-    const bScore = b.corruption - (preferFinish ? bFinish * 2 : bFinish) - (preferFinish ? bBleed : bBleed * 2);
+    // Higher score = higher priority. preferFinish doubles the finish bias;
+    // otherwise bleed gets the double. Raw corruption is a small tiebreaker
+    // so ties between equally-biased nodes favour the dirtier one.
+    const aScore =
+      (preferFinish ? aFinish * 2 : aFinish) +
+      (preferFinish ? aBleed : aBleed * 2) +
+      a.corruption * 0.05;
+    const bScore =
+      (preferFinish ? bFinish * 2 : bFinish) +
+      (preferFinish ? bBleed : bBleed * 2) +
+      b.corruption * 0.05;
     return bScore - aScore || a.id - b.id;
   });
 
