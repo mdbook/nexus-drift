@@ -5,7 +5,10 @@ export const MAX_LOG = 40;
 
 export const EVADE_ENTER_RADIUS = 92;
 export const EVADE_EXIT_RADIUS = 150;
-export const EVADE_PERSIST_TICKS = 80;
+// 2.4.0: raised from 48 → 70. Regroup centroid bias partially compensates
+// for drift during prolonged evasion. Revisit if workers are staying away
+// from nodes too long in mid-field fights — see handoff.md.
+export const EVADE_PERSIST_TICKS = 70;
 export const EVADE_BONUS_PER_THREAT = 10;
 
 export const MINING_TICK = 21;
