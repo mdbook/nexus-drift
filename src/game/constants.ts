@@ -3,12 +3,12 @@ export const WORLD_W = 1000;
 export const WORLD_H = 620;
 export const MAX_LOG = 40;
 
-export const EVADE_ENTER_RADIUS = 92;
-export const EVADE_EXIT_RADIUS = 150;
-// 2.4.0: raised from 48 → 70. Regroup centroid bias partially compensates
-// for drift during prolonged evasion. Revisit if workers are staying away
-// from nodes too long in mid-field fights — see handoff.md.
-export const EVADE_PERSIST_TICKS = 70;
+export const EVADE_ENTER_RADIUS = 62;
+export const EVADE_EXIT_RADIUS = 104;
+// 2.4.2: trimmed so workers commit harder to resources and stop treating
+// distant threats as immediate panic triggers. Multi-threat pressure still
+// extends evasion via EVADE_BONUS_PER_THREAT.
+export const EVADE_PERSIST_TICKS = 52;
 export const EVADE_BONUS_PER_THREAT = 10;
 
 export const MINING_TICK = 21;
@@ -30,4 +30,3 @@ export const WORKER_KIND_PREFERENCES = {
   runner: ["ore", "energy", "gold", "gems"],
   drone: ["gems", "energy", "ore", "energy"],
 } as const;
-

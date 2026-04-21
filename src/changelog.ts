@@ -16,6 +16,45 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    badge: "Commitment Pass",
+    summary:
+      "Field-feel patch for the 2.4 line. Turret missiles now get a small terminal grace window after launch without ever retargeting, brutes keep their target long enough to stop twitching, workers commit much harder to resource nodes, and corruption residue lingers longer so purge pressure is easier to read.",
+    sections: [
+      {
+        title: "Field Feel",
+        items: [
+          "Turret missiles remain locked to their original target, but now get a small launched-flight grace radius so shots that arrive just behind a moving enemy still connect.",
+          "If the original target dies right before impact, a missile close to that death-fade position now resolves cleanly there instead of feeling like it vanished a frame early.",
+          "Missiles still never retarget, never splash onto another enemy, and still fizzle if the original target cloaks, disappears, or dies outside the small grace radius.",
+          "Brutes now hold a valid target for short refresh windows, smoothing slow tank movement and reducing path jitter while preserving their direct-march pressure.",
+        ],
+      },
+      {
+        title: "Worker Commitment",
+        items: [
+          "Workers now treat distant hostiles as less urgent: proactive evade range, harvesting evade range, path-fear scoring, and panic persistence were all trimmed so crews stay on resources longer.",
+          "Partially mined current targets now get a stronger finish bias, so workers are less likely to abandon nearly completed nodes for a fresh deposit unless the alternative is clearly better.",
+          "Recently worked resource bars now leave a fading ghost segment and small deterministic particles over the mined portion, making interrupted progress fade visually instead of simply snapping smaller.",
+          "Resource nodes do not regenerate mined HP from idleness; the new deterioration cue is visual only.",
+        ],
+      },
+      {
+        title: "Corruption Linger",
+        items: [
+          "Passive corruption cleanup now runs more slowly, leaving toxic residue on the field longer after corruptors detach or die.",
+          "Scout cleansing, purge rewards, corruption spread, and active anti-corruption upgrade value are unchanged.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added coverage for missile terminal grace/no-retarget behavior, slower corruption residue cleanup, brute target stability, worker harvesting commitment, and partially mined target stickiness.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.1",
     badge: "AI Polish",
     summary:

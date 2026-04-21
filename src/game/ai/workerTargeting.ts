@@ -21,7 +21,8 @@ function scoreWorkerNode(
   agent: Agent,
   node: ResourceNode,
   enemies: Enemy[],
-  contestedMap: Map<number, ContestEntry>
+  contestedMap: Map<number, ContestEntry>,
+  isCurrentTarget = false
 ): number {
   const d = dist(agent.x, agent.y, node.x, node.y);
   const hpFactor = node.hp / node.maxHp;
@@ -70,6 +71,9 @@ function scoreWorkerNode(
   if (node.workTicks > WORKER_AI.progressActiveThreshold && contested === 0) {
     score += WORKER_AI.progressActiveBonus;
   }
+  if (isCurrentTarget && hpFactor < 0.95) {
+    score += WORKER_AI.currentTargetProgressBonus * (1 - hpFactor);
+  }
   if (hpFactor > 0.95) {
     score += WORKER_AI.progressFreshBonus;
   }
@@ -95,7 +99,10 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   }
 
   const ranked = state.nodes
-    .map((node) => ({ id: node.id, score: scoreWorkerNode(agent, node, enemies, contestedMap) }))
+    .map((node) => ({
+      id: node.id,
+      score: scoreWorkerNode(agent, node, enemies, contestedMap, node.id === agent.target),
+    }))
     .sort((a, b) => a.score - b.score);
 
   const best = ranked[0];
@@ -104,7 +111,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   // Sticky retargeting — stay on current node unless a candidate is materially better.
   const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
   if (current) {
-    const currentScore = scoreWorkerNode(agent, current, enemies, contestedMap);
+    const currentScore = scoreWorkerNode(agent, current, enemies, contestedMap, true);
     if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
       return current.id;
     }

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK } from "@/game/constants";
+import { CORRUPTION, TURRET } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
+import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -356,6 +358,21 @@ describe("advanceGame simulation invariants", () => {
     expect(derived.activeCorruptionNodes).toBe(1);
     expect(derived.corruptedNodes).toBe(0);
     expect(derived.corruptionPressure).toBe(true);
+  });
+
+  it("lets passive corruption residue linger after corruptors detach", () => {
+    const state = createInitialGameState();
+    const node = state.nodes[0];
+    node.kind = "ore";
+    node.corruption = 10;
+    node.corrupted = true;
+    node.corruptedBy = null;
+    state.enemies = [];
+
+    stepCorruption(state);
+
+    expect(node.corruption).toBeCloseTo(10 - CORRUPTION.purgeBase, 5);
+    expect(node.corruption).toBeGreaterThan(9.8);
   });
 
   it("fast-tracks scout upgrades once corrupters are active", () => {
@@ -758,6 +775,21 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
+  it("missile gets terminal leeway beyond the direct hit radius after launch", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    missile.x1 = enemy.x - (TURRET.missileHitRadius + 6);
+    missile.y1 = enemy.y;
+    missile.vx = 1;
+    missile.vy = 0;
+
+    stepProjectiles(state);
+
+    expect(enemy.hp).toBeLessThan(100);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
   it("missile fizzles out when target dies and no other enemies exist", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     stepTurrets(state);
@@ -783,6 +815,32 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     enemy.hp = 0;
     stepProjectiles(state);
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
+  it("missile can finish near a death-fading original target without retargeting", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    const turret = state.turrets[0];
+    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy2.x = enemy.x + 8;
+    enemy2.y = enemy.y;
+    enemy2.hp = 100;
+    state.enemies.push(enemy2);
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile.targetId).toBe(enemy.id);
+
+    enemy.hp = 0;
+    enemy.dyingTicks = 12;
+    missile.x1 = enemy.x - 8;
+    missile.y1 = enemy.y;
+    missile.vx = 1;
+    missile.vy = 0;
+
+    stepProjectiles(state);
+
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+    expect(enemy2.hp).toBe(100);
+    expect(turret.cooldown).toBeGreaterThan(0);
   });
 
   it("missile also fizzles instead of retargeting when another enemy is out of range", () => {

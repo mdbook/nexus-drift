@@ -388,7 +388,15 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
-    const target = pickEnemyTarget(enemy, state);
+    const currentTankTarget =
+      enemy.kind === "brute" && enemy.targetId !== null
+        ? state.agents.find((agent) => agent.id === enemy.targetId && agent.active && agent.hp > 0) ?? null
+        : null;
+    const shouldRefreshTankTarget =
+      enemy.kind !== "brute" || (state.timers.tick + enemy.id * 7) % ENEMY_AI.tankTargetRefreshTicks === 0;
+    const target = currentTankTarget && !shouldRefreshTankTarget
+      ? currentTankTarget
+      : pickEnemyTarget(enemy, state);
 
     if (!target) return;
 

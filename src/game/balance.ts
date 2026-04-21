@@ -197,7 +197,9 @@ export const TURRET = {
   missileSpeed: 3.5,
   missileSteering: 0.18,
   missileMaxLife: 90,
-  missileHitRadius: 14,
+  missileHitRadius: 16,
+  missileGraceRadius: 28,
+  missileCorpseGraceRadius: 24,
   missileDamageBonus: 1.15,
 } as const;
 
@@ -257,8 +259,8 @@ export const SENTINEL = {
 export const CORRUPTION = {
   ratePerTick: 0.65,
   ratePerLevel: 0.01,
-  purgeBase: 0.25,
-  purgePerArsenal: 0.04,
+  purgeBase: 0.12,
+  purgePerArsenal: 0.025,
   purgePerShield: 0.01,
   purgeThreshold: 3,
   nodeActiveThreshold: 3,
@@ -547,6 +549,7 @@ export const ENEMY_AI = {
   ghostRepositionPhaseEnd: 0.75, // cloakPhase fraction at which ghost stops repositioning
   squadBearingBuckets: 6,
   squadBucketTicks: 45, // spawn-tick / this = squadId bucket size
+  tankTargetRefreshTicks: 36,
   isolatedRadius: 120, // "alone" means no other active worker within this radius
   woundedHpRatio: 0.6,
 } as const;
@@ -592,17 +595,18 @@ export const WORKER_PERSONALITY: Record<WorkerKind, {
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {
-  pathSafetyPenalty: 55, // score penalty per threat-sample unit along the path
-  harvestingEvasionRadius: 56, // while at the node, only bolt when an enemy closes within this distance
+  pathSafetyPenalty: 34, // score penalty per threat-sample unit along the path
+  harvestingEvasionRadius: 42, // while at the node, only bolt when an enemy closes within this distance
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
   evadingContestedPenalty: 140, // extra score cost per evading worker currently targeting node
   progressFreshBonus: -12, // score bonus for freshly respawned nodes (small)
-  progressActiveBonus: -20, // score bonus for nodes with recent worker contact (workTicks > threshold)
+  progressActiveBonus: -34, // score bonus for nodes with recent worker contact (workTicks > threshold)
+  currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,
-  stickyThreshold: 0.72, // only switch target if candidate score is < this * current — lower = stickier
+  stickyThreshold: 0.64, // only switch target if candidate score is < this * current — lower = stickier
   threatMemoryDecay: 0.92,
   threatMemoryGain: 0.18,
   cornerRotationCandidates: [Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, Math.PI * 0.75, -Math.PI * 0.75],

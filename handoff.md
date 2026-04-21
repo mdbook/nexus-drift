@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.4.1**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.4.2**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -46,9 +46,9 @@ Current version: **2.4.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
 - `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
-- `src/game/__tests__/advanceGame.test.ts` — 48 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, worker-slot gating/costs, and save/load round-trip
+- `src/game/__tests__/advanceGame.test.ts` — 51 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, and save/load round-trip
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
-- `src/game/__tests__/aiBehavior.test.ts` — 16 tests: worker path safety, archetype targeting, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
+- `src/game/__tests__/aiBehavior.test.ts` — 19 tests: worker path safety and commitment, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
 - `.gitlab-ci.yml` — verify and container-build pipeline. Automatic release image builds only run on `main` and `dev`: `main` publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus `:dev`.
 - `docker/nginx.conf` — SPA serving config with security headers
@@ -78,7 +78,7 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 
 `WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
-Workers pick targets autonomously via a scored target-selection function in `src/game/ai/workerTargeting.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), a contested-by-evading-workers penalty (quadratic — third worker on a node is a strong deterrent), and a **region-distance penalty** that biases each kind toward its preferred field sector.
+Workers pick targets autonomously via a scored target-selection function in `src/game/ai/workerTargeting.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), a current-target finish bonus for partially mined nodes, a contested-by-evading-workers penalty (quadratic — third worker on a node is a strong deterrent), and a **region-distance penalty** that biases each kind toward its preferred field sector.
 
 **Worker personalities and territories** (`WORKER_PERSONALITY`, `WORKER_REGIONS` in `balance.ts`):
 
@@ -90,7 +90,7 @@ Each kind has a `groupRepelRadius` and `groupRepelMinCount`; when that many same
 
 When `hp < maxHp * 0.5` (hurt but not yet in full recovery), workers nudge toward their region center each tick (`lowHpPull`) instead of all converging on the home pad.
 
-Evasion direction blends 70% old heading / 30% new signal (smooth curves); persist ticks extended to 70 so workers clear the exit radius before reconsidering. **Worker panic duration** is 70 ticks as of 2.4.0 (was 48). The regroup centroid bias in `stepWorkers` partially covers drift during prolonged evasion, but this value hasn't been playtested under sustained mid-field pressure. If miners spend too long away from nodes after a skirmish, lower this toward 55–60 and re-evaluate. Workers at their node use a tighter `harvestingEvasionRadius` (56 px) so they finish a harvest under mild pressure. Sticky retarget threshold: a candidate needs a 28% score advantage to unseat the current assignment. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
+Evasion direction blends 70% old heading / 30% new signal (smooth curves). As of 2.4.2, workers are intentionally less proactive about distant threats: enter radius is 62 px, exit radius is 104 px, evasion persistence is 52 ticks, and `WORKER_AI.pathSafetyPenalty` is 34. Workers at their node use a tighter `harvestingEvasionRadius` (42 px) so they finish a harvest under mild pressure. Sticky retarget threshold is 0.64, meaning a candidate must be much better before it unseats the current assignment; partially mined current nodes also get `currentTargetProgressBonus`. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 ### Enemies
 
@@ -98,7 +98,7 @@ Evasion direction blends 70% old heading / 30% new signal (smooth curves); persi
 
 **Archetypes** (2.4.0+). Every enemy carries an `archetype` field derived from `ENEMY_ARCHETYPE` in `balance.ts`, plus a `squadId` bucketed by `spawnTick / ENEMY_AI.squadBucketTicks` used for emergent group flanking. Target selection in `targeting.ts` (`pickEnemyTarget`) is archetype-aware:
 
-- **direct** (mite, rusher, brute) — straight-line pursuit; prefer wounded or stationary workers; brute ignores crowding so it anchors through groups.
+- **direct** (mite, rusher, brute) — straight-line pursuit; prefer wounded or stationary workers; brute ignores crowding so it anchors through groups. Brutes also reuse a valid target for short `ENEMY_AI.tankTargetRefreshTicks` windows to prevent slow tank movement from jittering.
 - **flanker** (raider, wisp) — aim at the worker's predicted position (`target + workerVelocity * ENEMY_AI.flankerLeadTicks`) with a tangent blend so the arrival arcs in; prefer isolated, unalert workers.
 - **ambusher** (sapper) — approach at `ambusherApproachScale`; once inside `ambusherDashTrigger`, flip on `dashTicks` for a `ambusherDashDuration`-tick burst at `ambusherDashSpeedScale` (1.8×).
 - **ghost** (phantom) — while cloaked, reposition behind the worker's movement vector by `ghostRepositionOffset` px so it uncloaks behind the victim.
@@ -108,7 +108,7 @@ Evasion direction blends 70% old heading / 30% new signal (smooth curves); persi
 
 Squadmates sharing a target spread across `ENEMY_AI.squadBearingBuckets` (6) bearing slices; each enemy prefers the bucket with fewest same-squad competitors, producing emergent flanking without an explicit coordinator.
 
-**Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance.
+**Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance. Passive residue cleanup is deliberately slow as of 2.4.2 (`CORRUPTION.purgeBase = 0.12`, `purgePerArsenal = 0.025`) so corruption effects stay visible after corruptors detach; scout cleansing rates are the active cleanup path and should not be conflated with passive fade.
 
 ### Turrets
 
@@ -122,7 +122,7 @@ Fields on `Enemy` (all optional — `undefined` means "no shield mechanic"): `sh
 
 **Damage routing**: all hostile damage paths (turret missile/beam, sentinel shot, scout shot) now go through `damageEnemy(enemy, amount)` in `enemyUtils.ts` rather than subtracting from `enemy.hp` directly. `damageEnemy` deducts from the shield first, spills overflow into HP, and resets `shieldRegenCooldown` to `ENEMY_SHIELD.regenDelayTicks` (90). Any new damage source must use this helper, not raw `enemy.hp -=`.
 
-**Turret missile behavior**: homing missiles steer only toward their original live target. If that target dies or cloaks before impact, the missile immediately fizzles out instead of retargeting another enemy. This is an intentional DPS cap, not a bug.
+**Turret missile behavior**: homing missiles steer only toward their original live target. Launched missiles have a small terminal grace radius (`missileGraceRadius`) so a shot that arrives just behind a moving target can still connect. If the original target dies right before impact, a missile close to that enemy's death-fade position can resolve there and disappear without dealing splash. Missiles still never retarget; if the original target cloaks, disappears, or dies outside corpse grace, the missile fizzles.
 
 **Regeneration**: `stepEnemyShields()` runs after `stepZapperFire()` and before `resolveEnemyDeaths()`. While `shieldRegenCooldown > 0` it decrements by 1; otherwise, if `shield < shieldMax`, shield recovers by `ENEMY_SHIELD.regenRatePerTick` (0.25). Dying enemies (`hp <= 0`) skip regen.
 
@@ -144,7 +144,7 @@ Heavy late-game ground mechs. Target priority weights the threat's distance to i
 
 ### Mining
 
-Workers harvest assigned nodes with kind-specific behavior and crit chances. Corrupted nodes yield less. Foundry upgrades increase yield and respawn speed. Temporary cache nodes disappear on exhaustion instead of respawning.
+Workers harvest assigned nodes with kind-specific behavior and crit chances. Corrupted nodes yield less. Foundry upgrades increase yield and respawn speed. Temporary cache nodes disappear on exhaustion instead of respawning. Recently worked, partially mined nodes use `workTicks` to render a fading mined-progress ghost segment and deterministic particles over the missing health-bar span; this is presentation only and must never restore `ResourceNode.hp` or regenerate resources.
 
 ### Entity Spawn / Death Animation
 
@@ -278,7 +278,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 81 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
+- 87 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, missile grace behavior, corruption linger, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 

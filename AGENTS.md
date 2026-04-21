@@ -83,6 +83,10 @@ Rules for these fields:
 - Do not use `dyingTicks` for any sim logic. Movement, targeting, and combat all guard on `enemy.hp > 0`. Dying enemies linger in `state.enemies` for visual purposes only — they must not participate in gameplay.
 - If you add a new entity type that spawns/despawns at runtime, follow the same pattern: `spawnTick` on the entity, set at construction, used only in the renderer.
 
+## Resource Node Progress Visuals
+
+Partially mined resource nodes may show fading recent-work visuals in `FieldSvg.tsx` based on `ResourceNode.workTicks`, but idle nodes must **not** regenerate mined HP. `ResourceNode.hp` only decreases through mining and resets through exhaustion/respawn (or temporary-node removal). If you add more progress or deterioration presentation, keep it visual-only unless the user explicitly asks for resource regeneration.
+
 ## Save State And Migration (Check On Every Feature)
 
 Any change that adds, removes, or renames a field on `GameState` (or any nested type) requires updates in three places. Before finishing a feature, explicitly ask: *does this change the shape of what gets saved to localStorage?* If yes:
@@ -154,7 +158,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-65 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+87 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, corruption linger, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENEMY_AI } from "@/game/balance";
+import { ENEMY_AI, WORKER_AI } from "@/game/balance";
 import {
   createInitialGameState,
   migrateGameState,
@@ -9,7 +9,7 @@ import {
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
-import { stepEnemies } from "@/game/subsystems/movement";
+import { stepEnemies, stepWorkers } from "@/game/subsystems/movement";
 import { computeAndApplyGroupDispersal } from "@/game/subsystems/workerAI";
 import { pickEnemyTarget } from "@/game/targeting";
 import { threatAlongPath } from "@/game/subsystems/threatField";
@@ -231,6 +231,71 @@ describe("sticky retarget", () => {
     miner.target = nodeA.id;
     expect(chooseWorkerTarget(state, miner)).toBe(nodeC.id);
   });
+
+  it("stays committed to a partially mined current node over a closer fresh peer", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    state.enemies = [];
+    miner.x = 200; miner.y = 250;
+    const currentNode: ResourceNode = {
+      id: 9001, kind: "ore", x: 340, y: 250, size: 22, hp: 20, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0,
+      workTicks: WORKER_AI.progressActiveThreshold + 20,
+    };
+    const freshNode: ResourceNode = {
+      ...currentNode,
+      id: 9002,
+      x: 290,
+      hp: 40,
+      workTicks: 0,
+    };
+    state.nodes = [currentNode, freshNode];
+    miner.target = currentNode.id;
+    expect(chooseWorkerTarget(state, miner)).toBe(currentNode.id);
+  });
+});
+
+describe("worker evasion commitment", () => {
+  it("holds a harvesting worker until hostiles enter the trimmed harvesting radius", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    const node: ResourceNode = {
+      id: 9101, kind: "gold", x: 260, y: 260, size: 30, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    state.nodes = [node];
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.target = node.id;
+    state.timers.tick = 1;
+    const rusher = addEnemy(state, {
+      kind: "rusher",
+      x: node.x + WORKER_AI.harvestingEvasionRadius + 8,
+      y: node.y,
+      hp: 30,
+      role: "combat",
+    });
+
+    stepWorkers(state);
+    expect(miner.evadeTicks).toBe(0);
+    expect(miner.task).not.toBe("Evading");
+
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.evadeTicks = 0;
+    miner.evadeDx = 0;
+    miner.evadeDy = -1;
+    rusher.x = node.x + WORKER_AI.harvestingEvasionRadius - 2;
+    rusher.y = node.y;
+
+    stepWorkers(state);
+    expect(miner.evadeTicks).toBeGreaterThan(0);
+    expect(miner.task).toBe("Evading");
+  });
 });
 
 describe("ambusher dash", () => {
@@ -260,6 +325,32 @@ describe("ambusher dash", () => {
     expect(sapper.dashTicks).toBe(ENEMY_AI.ambusherDashDuration);
     stepEnemies(state);
     expect(sapper.dashTicks).toBe(ENEMY_AI.ambusherDashDuration - 1);
+  });
+});
+
+describe("brute movement stability", () => {
+  it("keeps a brute on its current valid target between target refresh ticks", () => {
+    const state = baseState();
+    for (const agent of state.agents) agent.active = false;
+    const currentTarget = state.agents[0];
+    const closerTarget = state.agents[1];
+    currentTarget.active = true;
+    closerTarget.active = true;
+    currentTarget.x = 820; currentTarget.y = 360;
+    closerTarget.x = 180; closerTarget.y = 360;
+    const brute = addEnemy(state, {
+      kind: "brute",
+      x: 120,
+      y: 360,
+      hp: 80,
+      role: "combat",
+      targetId: currentTarget.id,
+    });
+    state.timers.tick = 1;
+
+    stepEnemies(state);
+
+    expect(brute.targetId).toBe(currentTarget.id);
   });
 });
 
