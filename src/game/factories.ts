@@ -555,17 +555,16 @@ export function addProjectile(
   });
 }
 
-export function addMissile(
-  state: GameState,
-  fromX: number,
-  fromY: number,
-  vx: number,
-  vy: number,
-  targetId: number,
-  damage: number,
-  turretRange: number
-) {
-  state.projectiles.push({
+  export function addMissile(
+    state: GameState,
+    fromX: number,
+    fromY: number,
+    vx: number,
+    vy: number,
+    targetId: number,
+    damage: number
+  ) {
+    state.projectiles.push({
     id: state.nextProjectileId++,
     x1: fromX,
     y1: fromY,
@@ -577,13 +576,12 @@ export function addMissile(
     width: 3,
     tag: "turret-missile",
     targetId,
-    vx,
-    vy,
-    speed: TURRET.missileSpeed,
-    damage,
-    turretRange,
-  });
-}
+      vx,
+      vy,
+      speed: TURRET.missileSpeed,
+      damage,
+    });
+  }
 
 // Tier 1 = strongly preferred, Tier 2 = acceptable, anything else = avoided
 const WORKER_TIER1: Record<Agent["kind"], string[]> = {

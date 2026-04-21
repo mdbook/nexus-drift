@@ -31,6 +31,13 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Turret Missile Tuning",
+        items: [
+          "Homing missiles no longer retarget when their chosen enemy dies first.",
+          "Instead, a missile whose target dies or cloaks before impact now fizzles out immediately, trimming the accidental follow-through damage that made the missile buff read too hot.",
+        ],
+      },
+      {
         title: "Event Card Copy",
         items: [
           "Removed the extra `ONE SHOT SIGNAL` label from one-shot event cards.",

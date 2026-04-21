@@ -207,9 +207,7 @@ export type Projectile = {
   speed?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
-  /** Turret range used for missile retargeting. */
-  turretRange?: number;
-};
+  };
 
 export type Stats = {
   mined: number;

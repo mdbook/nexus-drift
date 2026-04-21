@@ -758,20 +758,16 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missile flies straight (no NaN) when target dies and no other enemies exist", () => {
+  it("missile fizzles out when target dies and no other enemies exist", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     stepTurrets(state);
     enemy.hp = 0;
     enemy.dyingTicks = 1;
     for (let i = 0; i < 5; i++) stepProjectiles(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
-    if (missile) {
-      expect(isNaN(missile.x1)).toBe(false);
-      expect(isNaN(missile.y1)).toBe(false);
-    }
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missile retargets to nearest living enemy when original target dies", () => {
+  it("missile does not retarget to a new enemy when original target dies", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     const turret = state.turrets[0];
     // stepTurrets recomputes range to 140px (rangeBase 125 + turret*15); enemy is at 120px, enemy2 at 130px (both in range)
@@ -786,11 +782,10 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     // Kill original target
     enemy.hp = 0;
     stepProjectiles(state);
-    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(updated.targetId).toBe(enemy2.id);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missile does not retarget to an enemy outside turret range", () => {
+  it("missile also fizzles instead of retargeting when another enemy is out of range", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     const turret = state.turrets[0];
     // stepTurrets recomputes range to 140px; place enemy2 at 200px (out of range)
@@ -804,8 +799,7 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(missile.targetId).toBe(enemy.id);
     enemy.hp = 0;
     stepProjectiles(state);
-    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(updated.targetId).toBe(enemy.id); // no retarget — enemy2 is out of range
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
   it("turret uses instant beam when focusedBeam > 0 and target is within beam range", () => {

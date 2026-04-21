@@ -93,6 +93,8 @@ Fields on `Enemy` (all optional — `undefined` means "no shield mechanic"): `sh
 
 **Damage routing**: all hostile damage paths (turret missile/beam, sentinel shot, scout shot) now go through `damageEnemy(enemy, amount)` in `enemyUtils.ts` rather than subtracting from `enemy.hp` directly. `damageEnemy` deducts from the shield first, spills overflow into HP, and resets `shieldRegenCooldown` to `ENEMY_SHIELD.regenDelayTicks` (90). Any new damage source must use this helper, not raw `enemy.hp -=`.
 
+**Turret missile behavior**: homing missiles steer only toward their original live target. If that target dies or cloaks before impact, the missile immediately fizzles out instead of retargeting another enemy. This is an intentional DPS cap, not a bug.
+
 **Regeneration**: `stepEnemyShields()` runs after `stepZapperFire()` and before `resolveEnemyDeaths()`. While `shieldRegenCooldown > 0` it decrements by 1; otherwise, if `shield < shieldMax`, shield recovers by `ENEMY_SHIELD.regenRatePerTick` (0.25). Dying enemies (`hp <= 0`) skip regen.
 
 **Render**: `FieldSvg.tsx` computes `hasShield`, `shieldPct`, and pulsing state once per enemy and injects a dashed cyan ring + soft glow + thin shield bar (above the HP bar) into the render blocks for shielded kinds. Because leech and phantom share the fallback render block, the shield overlay is embedded there too.

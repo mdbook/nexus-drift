@@ -23,7 +23,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers
 - Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
 - Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
-- Turrets fire homing missiles that travel visibly and steer toward their target; the Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
+- Turrets fire homing missiles that travel visibly and steer toward their target; if that target dies first, the missile now fizzles instead of rehoming onto a different enemy. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
 - 54 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including click-driven secrets for event inspection, anomaly witnessing, corpse/projectile interactions, UI opens, and a timed speed-sequence
 
 ### HUD & UI
