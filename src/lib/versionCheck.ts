@@ -38,6 +38,11 @@ export function compareFlatVersions(left: string, right: string): number {
   return 0;
 }
 
+export function getPreviewLiveVersion(currentVersion: string): string {
+  const [major = "0", minor = "0", patch = "0"] = currentVersion.split(".");
+  return `${parseInt(major, 10) || 0}.${parseInt(minor, 10) || 0}.${(parseInt(patch, 10) || 0) + 1}`;
+}
+
 export async function fetchLiveVersion(
   fetchImpl: typeof fetch = fetch,
   endpoint = VERSION_CHECK_ENDPOINT

@@ -298,7 +298,7 @@ export default function App() {
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
-  const { liveVersion, updateAvailable, dismissForSession, ignoreVersion, refreshForUpdate } = useVersionCheck(CURRENT_VERSION);
+  const { liveVersion, updateAvailable, dismissForSession, ignoreVersion, showPreviewBanner, refreshForUpdate } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
@@ -686,6 +686,16 @@ export default function App() {
                   {eventDef.label}
                 </button>
               ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Shell</span>
+              <button
+                className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
+                onClick={showPreviewBanner}
+              >
+                Show Update Banner
+              </button>
             </div>
           </div>
         </div>

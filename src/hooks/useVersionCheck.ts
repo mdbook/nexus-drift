@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   compareFlatVersions,
   fetchLiveVersion,
+  getPreviewLiveVersion,
   VERSION_CHECK_INTERVAL_MS,
 } from "@/lib/versionCheck";
 
@@ -69,6 +70,12 @@ export function useVersionCheck(currentVersion: string) {
     ignoreVersion: () => {
       if (!liveVersion) return;
       setIgnoredVersion(liveVersion);
+    },
+    showPreviewBanner: () => {
+      const previewVersion = getPreviewLiveVersion(currentVersion);
+      setDismissedVersion(null);
+      setIgnoredVersion(null);
+      setLiveVersion(previewVersion);
     },
     refreshForUpdate: () => {
       window.location.reload();

@@ -4,6 +4,7 @@ import {
   extractFlatVersion,
   extractVersionFromPayload,
   fetchLiveVersion,
+  getPreviewLiveVersion,
 } from "@/lib/versionCheck";
 
 describe("version check helpers", () => {
@@ -23,6 +24,11 @@ describe("version check helpers", () => {
     expect(compareFlatVersions("2.3.4", "2.3.3")).toBeGreaterThan(0);
     expect(compareFlatVersions("2.3.3", "2.3.3")).toBe(0);
     expect(compareFlatVersions("2.3.3", "2.4.0")).toBeLessThan(0);
+  });
+
+  it("builds a preview version one patch ahead of the current build", () => {
+    expect(getPreviewLiveVersion("2.3.3")).toBe("2.3.4");
+    expect(getPreviewLiveVersion("4.9.19")).toBe("4.9.20");
   });
 
   it("reads plain text version responses", async () => {

@@ -41,7 +41,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ### Controls & Persistence
 
 - Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
-- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live
+- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live; the hidden admin panel can also force that banner open for testing
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
 - In-game release history: click the version badge next to `Autonomous Colony Sim`; the version badge itself now also participates in a hidden secret achievement
@@ -66,7 +66,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (64 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (65 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview

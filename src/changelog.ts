@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "The app shell now polls `/version` roughly every 5 minutes and again when the tab regains focus, then extracts a flat `x.y.z` version string from the response body.",
           "If that live version is newer than the currently running build, a banner appears with `Refresh`, `Close`, and `Don't Show Again` actions.",
           "The `Don't Show Again` action is intentionally session-only; it hides the current live version until reload or a newer version appears, but does not touch save data or add another persisted user setting.",
+          "The hidden admin panel now includes a `Show Update Banner` action so the live-update banner can be exercised on demand without waiting for a real deploy.",
         ],
       },
       {
