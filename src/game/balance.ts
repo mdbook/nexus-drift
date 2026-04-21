@@ -550,7 +550,8 @@ export const ENEMY_AI = {
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {
-  pathSafetyPenalty: 140, // score penalty per threat-sample unit along the path
+  pathSafetyPenalty: 55, // score penalty per threat-sample unit along the path
+  harvestingEvasionRadius: 56, // while at the node, only bolt when an enemy closes within this distance
   pathSampleWeights: [1, 1.4, 1.8] as const, // start, midpoint, destination — destination weighted highest
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers

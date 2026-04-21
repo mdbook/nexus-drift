@@ -128,7 +128,15 @@ export function stepWorkers(state: GameState) {
       state.nodes.find((candidate) => candidate.id === agent.target) ??
       state.nodes[index % state.nodes.length];
 
-    const threatRadius = agent.evadeTicks > 0 ? EVADE_EXIT_RADIUS : EVADE_ENTER_RADIUS;
+    // Workers already at the node get a tighter evasion trigger so they can
+    // finish a harvest before fleeing. Only applies when not already evading
+    // or recovering — if they're mid-panic the normal exit radius persists.
+    const recovering = agent.damageTicks > 0 && agent.hp < agent.maxHp * WORKER.recoveryHpThreshold;
+    const nodeWorkRadius = clamp(node.size * 0.45, 16, 24);
+    const atNode = !recovering && Math.hypot(node.x - agent.x, node.y - agent.y) <= nodeWorkRadius;
+    const threatRadius = agent.evadeTicks > 0
+      ? EVADE_EXIT_RADIUS
+      : atNode ? WORKER_AI.harvestingEvasionRadius : EVADE_ENTER_RADIUS;
     const evadeThreats = combatEnemies
       .map((enemy) => {
         const d = dist(enemy.x, enemy.y, agent.x, agent.y);
@@ -223,7 +231,6 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
-    const recovering = agent.damageTicks > 0 && agent.hp < agent.maxHp * WORKER.recoveryHpThreshold;
     const destination = recovering ? { x: agent.homeX, y: agent.homeY, size: 18, corrupted: false } : node;
 
     const dx = destination.x - agent.x;
