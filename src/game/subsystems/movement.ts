@@ -590,12 +590,17 @@ export function stepEnemies(state: GameState) {
         moveX = mx / ml;
         moveY = my / ml;
       } else if (crowded) {
-        // Generic crowded blend — squadmates spread across bearing buckets
-        // so groups arrive at staggered angles rather than piling up.
+        // Intentional: small squads (below crowdingThreshold) approach directly
+        // for a clean, readable attack. Bearing spread only activates for larger
+        // packs so the visual distinction between lone and group attacks is clear.
+        //
+        // Convert bucket index to a world-space bearing (6 slices, 60° apart)
+        // and use it as the desired approach direction, blended with pursuit.
         const bucket = pickSquadBearingBucket(enemy, state, target);
-        const tangentSign = bucket % 2 === 0 ? 1 : -1;
-        const tx = (-dy / d) * tangentSign;
-        const ty = (dx / d) * tangentSign;
+        const buckets = ENEMY_AI.squadBearingBuckets;
+        const bucketAngle = (bucket / buckets) * Math.PI * 2 - Math.PI;
+        const tx = Math.cos(bucketAngle);
+        const ty = Math.sin(bucketAngle);
         const blend = ENEMY_MOVEMENT.orbitBlend;
         const mx = moveX * (1 - blend) + tx * blend;
         const my = moveY * (1 - blend) + ty * blend;
