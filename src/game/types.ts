@@ -325,6 +325,8 @@ export type Stats = {
   corruptions: number;
   purges: number;
   corruptedPurified: number;
+  /** Running ticks with 3+ corrupted workers simultaneously — resets if count drops below 3. */
+  corruptedWorkerOutbreakTicks: number;
   turretsBroken: number;
   eventsExperienced: string[];
   eventTagsInspected: string[];
@@ -339,6 +341,8 @@ export type Timers = {
   event: number;
   enemy: number;
   bigEvent: number;
+  /** Cooldown between warden spawns. Increments each tick; resets on spawn. */
+  warden: number;
 };
 
 export type ActiveEvent = {

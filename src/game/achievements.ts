@@ -55,6 +55,11 @@ export type AchievementId =
   | "no_corruption"
   | "triple_rot"
   | "all_rot_types"
+  // Warden / worker corruption (3.0.0 Step 7)
+  | "purify_first"
+  | "warden_killed"
+  | "quarantine"
+  | "void_outbreak"
   // Mining
   | "first_crit"
   | "crits_25"
@@ -358,6 +363,34 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     label: "Full Spectrum",
     description: "Have ore, gem, and energy nodes corrupted at the same time.",
     rarity: "rare",
+    category: "corruption",
+  },
+  {
+    id: "purify_first",
+    label: "First Light",
+    description: "A sentinel cleanses its first corrupted worker.",
+    rarity: "uncommon",
+    category: "corruption",
+  },
+  {
+    id: "warden_killed",
+    label: "Cut the Thread",
+    description: "Destroy a void warden before it finishes attaching.",
+    rarity: "rare",
+    category: "corruption",
+  },
+  {
+    id: "quarantine",
+    label: "Quarantine Protocol",
+    description: "Cleanse 5 corrupted workers in a single run.",
+    rarity: "rare",
+    category: "corruption",
+  },
+  {
+    id: "void_outbreak",
+    label: "Void Outbreak",
+    description: "Survive with 3 or more workers simultaneously corrupted for over 30 seconds.",
+    rarity: "legendary",
     category: "corruption",
   },
 

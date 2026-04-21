@@ -315,6 +315,9 @@ export function stepCombat(state: GameState) {
 
   state.agents.forEach((agent) => {
     if (!agent.active) return;
+    // 3.0.0 Step 7: corrupted workers are immune to enemy contact damage.
+    // Only sentinel cleanse attacks (in stepSentinels) can reduce their HP.
+    if (agent.corrupted) return;
     const attackers = state.enemies.filter(
       (enemy) =>
         enemy.hp > 0 &&

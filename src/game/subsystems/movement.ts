@@ -154,6 +154,39 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
+    // 3.0.0 Step 7: corrupted workers freeze autonomous pathfinding.
+    // Their position and state are managed by stepWorkerCorruption.
+    if (agent.corrupted) {
+      agent.task = "Corrupted";
+      // Keep timers ticking down so state doesn't stale-freeze.
+      if (agent.sprintCooldown > 0) agent.sprintCooldown -= 1;
+      if (agent.sprintTicks > 0) agent.sprintTicks -= 1;
+      if (agent.kind === "miner") agent.overclockTicks = 0;
+      return;
+    }
+
+    // 3.0.0 Step 7: post-cleanse reboot — worker parks at home and skips
+    // all logic until the reboot countdown expires.
+    if (agent.rebootTicks > 0) {
+      agent.rebootTicks -= 1;
+      agent.x = agent.homeX;
+      agent.y = agent.homeY;
+      agent.tx = agent.homeX;
+      agent.ty = agent.homeY;
+      agent.target = null;
+      agent.task = "Rebooting";
+      if (agent.rebootTicks === 0) {
+        agent.hp = agent.maxHp;
+        state.log = pushLog(
+          state.log,
+          `${agent.kind} worker back online after cleanse.`,
+          "corruption",
+          state.timers.tick
+        );
+      }
+      return;
+    }
+
     // Decrement per-agent sprint timers every tick (runner ability).
     if (agent.sprintCooldown > 0) agent.sprintCooldown -= 1;
     if (agent.sprintTicks > 0) agent.sprintTicks -= 1;

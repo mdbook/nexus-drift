@@ -518,6 +518,48 @@ export const CORRUPTION = {
   corruptibleKindsBiasWeight: { ore: 0.18, gems: 0.22, energy: 0.2 } as Record<"ore" | "gems" | "energy", number>,
 } as const;
 
+/**
+ * Warden enemy and worker-corruption tuning — 3.0.0 Step 7.
+ *
+ * Wardens are rare, tanky void infesters that sneak up to isolated workers and
+ * attach for attachTicks, then the worker converts to a corrupted state and the
+ * warden despawns (not killed — it depletes itself on attach). Corrupted workers
+ * freeze pathfinding, drain nearby resource nodes, and can only be cleansed by
+ * sentinels. Healthy workers (especially drones) within workerReportRadius spot
+ * a corrupted worker and set spottedTicks, making the sentinel treat it as
+ * visible across the map. Cleansing rewards flux + cores and puts the worker
+ * slot into a long reboot.
+ */
+export const WARDEN = {
+  // Attach mechanics
+  attachRadius: 18,
+  attachTicks: 210,
+
+  // Node drain — corrupted worker bleeds nearby nodes over time
+  drainRatePerTick: 0.08,
+  drainRampDivisor: 1200,
+  drainRadius: 80,
+
+  // Cleanse rewards (given when sentinel kills a corrupted worker)
+  cleanseFluxReward: 6,
+  cleanseCoreReward: 2,
+
+  // Post-cleanse reboot (longer than normal respawn to reflect lasting damage)
+  corruptionRebootTicks: 1800,
+
+  // Sentinel vision radius for corrupted workers; outside this = invisible
+  corruptionVisionRadius: 140,
+
+  // Worker reporting — any healthy worker within this radius spots a corrupted one
+  workerReportRadius: 120,
+  workerDroneReportMult: 1.4,
+  workerReportDuration: 600,
+
+  // Warden spawn gate — separate from the normal wave system
+  wardenSpawnIntervalTicks: 3600,
+  wardenSpawnTierThreshold: 4,
+} as const;
+
 export const COMBAT = {
   detectionRadius: 32,
   minPerAttackerDamage: 0.6,

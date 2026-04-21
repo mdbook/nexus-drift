@@ -395,6 +395,7 @@ export function createInitialGameState(seed?: number): GameState {
       corruptions: 0,
       purges: 0,
       corruptedPurified: 0,
+      corruptedWorkerOutbreakTicks: 0,
       turretsBroken: 0,
       eventsExperienced: [],
       eventTagsInspected: [],
@@ -408,6 +409,7 @@ export function createInitialGameState(seed?: number): GameState {
       event: 0,
       enemy: 0,
       bigEvent: 0,
+      warden: 0,
     },
     touristWorker: null,
     lostDrone: null,
@@ -499,6 +501,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       wardensKilled: raw.stats?.wardensKilled ?? 0,
       sentinelKills: raw.stats?.sentinelKills ?? 0,
       corruptedPurified: raw.stats?.corruptedPurified ?? 0,
+      corruptedWorkerOutbreakTicks: raw.stats?.corruptedWorkerOutbreakTicks ?? 0,
       turretsBroken: raw.stats?.turretsBroken ?? 0,
       eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
         ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
@@ -509,7 +512,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       touristClicks: raw.stats?.touristClicks ?? 0,
       touristPassesClicked: raw.stats?.touristPassesClicked ?? 0,
     },
-    timers: { ...base.timers, ...raw.timers },
+    timers: { ...base.timers, ...raw.timers, warden: raw.timers?.warden ?? 0 },
     touristWorker: raw.touristWorker
       ? {
           x: raw.touristWorker.x ?? -30,

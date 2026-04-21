@@ -12,7 +12,8 @@ import { stepEnemies, stepLostDrone, stepTourist, stepWorkers } from "@/game/sub
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
-import { stepSpawns } from "@/game/subsystems/spawns";
+import { stepSpawns, stepWardenSpawn } from "@/game/subsystems/spawns";
+import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { stepEnemyShields } from "@/game/subsystems/enemyShields";
@@ -60,11 +61,13 @@ export function advanceGame(prev: GameState): GameState {
   stepCity(state);
   stepWorkerSlots(state);
   stepSpawns(state);
+  stepWardenSpawn(state);
   stepWorkers(state);
   stepTourist(state);
   stepLostDrone(state);
   stepEnemies(state);
   stepCorruption(state);
+  stepWorkerCorruption(state);
   stepTurrets(state);
   stepScouts(state);
   stepSentinels(state);

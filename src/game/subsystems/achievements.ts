@@ -50,6 +50,19 @@ export function stepAchievements(state: GameState) {
   if (state.stats.sentinelKills >= 1) unlockAchievement(state, "first_sentinel_kill");
 
   // ── Corruption ───────────────────────────────────────────────────────────────
+  if (state.stats.corruptedPurified >= 1) unlockAchievement(state, "purify_first");
+  if (state.stats.wardensKilled >= 1) unlockAchievement(state, "warden_killed");
+  if (state.stats.corruptedPurified >= 5) unlockAchievement(state, "quarantine");
+
+  // Void Outbreak: 3+ workers simultaneously corrupted for 30 continuous seconds.
+  // The running-ticks counter increments each tick the threshold is met, resets otherwise.
+  if (derived.corruptedWorkers >= 3) {
+    state.stats.corruptedWorkerOutbreakTicks += 1;
+    if (state.stats.corruptedWorkerOutbreakTicks >= 900) unlockAchievement(state, "void_outbreak");
+  } else {
+    state.stats.corruptedWorkerOutbreakTicks = 0;
+  }
+
   if (state.stats.purges >= 1) unlockAchievement(state, "first_purge");
   if (state.stats.purges >= 50) unlockAchievement(state, "purge_50");
   if (state.stats.purges >= 200) unlockAchievement(state, "purge_200");

@@ -10,9 +10,11 @@ import {
   ENEMY_TARGET_PRIORITY,
   MISSILE_SILO,
   SCOUT_HP,
+  SENTINEL,
   SENTINEL_HP,
   TARGET_ARMOR,
   TURRET_HP,
+  WARDEN,
   WORKER,
   WORKER_ABILITIES,
 } from "@/game/balance";
@@ -29,6 +31,8 @@ import { stepMining } from "@/game/subsystems/mining";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
+import { stepWardenSpawn } from "@/game/subsystems/spawns";
+import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
 import { damageCity, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
@@ -1698,5 +1702,280 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
 
     // Enemy should NOT have taken retaliation damage.
     expect(mite.hp).toBe(hpBefore);
+  });
+});
+
+describe("worker corruption system (3.0.0 Step 7)", () => {
+  // ── Warden attach ──────────────────────────────────────────────────────────
+
+  it("warden increments corruptingTicks each tick while within attachRadius", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x + WARDEN.attachRadius - 2; // inside attach radius
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    expect(worker.corruptingTicks).toBe(1);
+    expect(worker.corrupted).toBe(false);
+    // Warden should still be on the field
+    expect(state.enemies.some((e) => e.kind === "warden" && e.hp > 0)).toBe(true);
+  });
+
+  it("warden fully corrupts worker after attachTicks and removes itself", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = WARDEN.attachTicks - 1; // one tick away from threshold
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x + WARDEN.attachRadius - 2;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    expect(worker.corrupted).toBe(true);
+    // corruptionTicks resets to 0 on conversion, then stepCorruptedWorkers
+    // increments it once in the same stepWorkerCorruption call → lands at 1.
+    expect(worker.corruptionTicks).toBe(1);
+    // Warden should be removed from the enemy array (no rewards path)
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
+  });
+
+  it("corruptingTicks decays when warden is out of attachRadius", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = 5;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x + WARDEN.attachRadius + 50; // outside attach radius
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    // corruptingTicks should decay by 0.5
+    expect(worker.corruptingTicks).toBe(4.5);
+    expect(worker.corrupted).toBe(false);
+  });
+
+  // ── Corrupted worker node drain ─────────────────────────────────────────────
+
+  it("corrupted worker drains nearby resource nodes over time", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = true;
+    worker.corruptionTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    // Place a non-gold node within drain radius.
+    const node = state.nodes.find((n) => n.kind !== "gold")!;
+    node.x = worker.x + WARDEN.drainRadius - 5;
+    node.y = worker.y;
+    node.hp = 100;
+    const hpBefore = node.hp;
+
+    stepWorkerCorruption(state);
+
+    expect(node.hp).toBeLessThan(hpBefore);
+  });
+
+  // ── Worker reporting ────────────────────────────────────────────────────────
+
+  it("healthy worker within reportRadius refreshes corrupted worker spottedTicks", () => {
+    const state = createInitialGameState();
+    const corrupted = state.agents[0];
+    corrupted.active = true;
+    corrupted.corrupted = true;
+    corrupted.spottedTicks = 0;
+    corrupted.x = 300;
+    corrupted.y = 300;
+
+    const reporter = state.agents[1];
+    reporter.active = true;
+    reporter.corrupted = false;
+    reporter.kind = "miner";
+    reporter.x = corrupted.x + WARDEN.workerReportRadius - 5;
+    reporter.y = corrupted.y;
+
+    stepWorkerCorruption(state);
+
+    expect(corrupted.spottedTicks).toBe(WARDEN.workerReportDuration);
+  });
+
+  it("reporter outside workerReportRadius does not refresh spottedTicks", () => {
+    const state = createInitialGameState();
+    const corrupted = state.agents[0];
+    corrupted.active = true;
+    corrupted.corrupted = true;
+    corrupted.spottedTicks = 0;
+    corrupted.x = 300;
+    corrupted.y = 300;
+
+    const reporter = state.agents[1];
+    reporter.active = true;
+    reporter.corrupted = false;
+    reporter.kind = "miner";
+    reporter.x = corrupted.x + WARDEN.workerReportRadius + 50;
+    reporter.y = corrupted.y;
+
+    stepWorkerCorruption(state);
+
+    expect(corrupted.spottedTicks).toBe(0);
+  });
+
+  // ── Sentinel cleanse ────────────────────────────────────────────────────────
+
+  it("sentinel fires cleanse beam at visible corrupted worker and earns rewards on kill", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+
+    // Activate one sentinel close to a corrupted worker.
+    const sentinel = state.sentinels[0];
+    sentinel.rebootTicks = 0;
+    sentinel.retreating = false;
+    sentinel.cooldown = 0;
+    sentinel.hp = sentinel.maxHp;
+
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = true;
+    worker.corruptionTicks = 50;
+    // Position worker within corruptionVisionRadius of sentinel.
+    worker.x = sentinel.x + WARDEN.corruptionVisionRadius - 5;
+    worker.y = sentinel.y;
+    // Set HP low enough that one sentinel shot kills it.
+    const cleanseDamage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
+    worker.hp = cleanseDamage - 1;
+
+    // Also move sentinel within rangeBase of the worker.
+    sentinel.x = worker.x - SENTINEL.rangeBase + 5;
+    sentinel.y = worker.y;
+
+    const fluxBefore = state.resources.flux;
+    const coresBefore = state.resources.cores;
+
+    stepSentinels(state);
+
+    expect(worker.corrupted).toBe(false);
+    expect(worker.rebootTicks).toBe(WARDEN.corruptionRebootTicks);
+    expect(state.resources.flux).toBeGreaterThan(fluxBefore);
+    expect(state.resources.cores).toBe(coresBefore + WARDEN.cleanseCoreReward);
+    expect(state.stats.corruptedPurified).toBe(1);
+  });
+
+  it("sentinel cannot see corrupted worker beyond visionRadius without spotting", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+
+    const sentinel = state.sentinels[0];
+    sentinel.rebootTicks = 0;
+    sentinel.retreating = false;
+    sentinel.cooldown = 0;
+    sentinel.hp = sentinel.maxHp;
+
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = true;
+    worker.spottedTicks = 0; // not spotted
+    // Place far outside corruptionVisionRadius.
+    worker.x = sentinel.x + WARDEN.corruptionVisionRadius + 100;
+    worker.y = sentinel.y;
+    worker.hp = 50;
+
+    stepSentinels(state);
+
+    // Worker should remain corrupted — sentinel couldn't see it.
+    expect(worker.corrupted).toBe(true);
+    expect(worker.hp).toBe(50);
+  });
+
+  // ── Worker reboot ───────────────────────────────────────────────────────────
+
+  it("rebooting worker parks at home and skips pathfinding", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.rebootTicks = 100;
+    worker.x = 999;
+    worker.y = 888;
+    worker.target = 42;
+
+    stepWorkers(state);
+
+    expect(worker.x).toBe(worker.homeX);
+    expect(worker.y).toBe(worker.homeY);
+    expect(worker.target).toBeNull();
+    expect(worker.rebootTicks).toBe(99);
+    expect(worker.task).toBe("Rebooting");
+  });
+
+  it("worker HP is restored to max when rebootTicks expires", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.rebootTicks = 1; // last tick of reboot
+    worker.hp = 1;
+    worker.maxHp = 80;
+
+    stepWorkers(state);
+
+    expect(worker.rebootTicks).toBe(0);
+    expect(worker.hp).toBe(worker.maxHp);
+  });
+
+  // ── stepWardenSpawn gates ───────────────────────────────────────────────────
+
+  it("stepWardenSpawn does not spawn below tier threshold", () => {
+    const state = createInitialGameState();
+    // tier is low on initial state; ensure warden timer is past interval
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks + 1;
+    const enemiesBefore = state.enemies.length;
+
+    stepWardenSpawn(state);
+
+    // No warden should spawn at low tier regardless of timer
+    expect(state.enemies.filter((e) => e.kind === "warden").length).toBe(0);
+    expect(state.enemies.length).toBe(enemiesBefore);
+  });
+
+  it("stepWardenSpawn does not spawn a second warden while one is already on field", () => {
+    const state = createInitialGameState();
+    // Force tier high enough via level.
+    state.level = 20;
+    state.prestige = 1;
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks + 1;
+
+    // Place a live warden on the field already.
+    const existing = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    existing.hp = 50;
+    state.enemies.push(existing);
+
+    stepWardenSpawn(state);
+
+    expect(state.enemies.filter((e) => e.kind === "warden").length).toBe(1);
   });
 });

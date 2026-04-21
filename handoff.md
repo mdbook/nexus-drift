@@ -45,8 +45,8 @@ Current version: **2.4.5**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/rng.ts` — deterministic Mulberry32 PRNG
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
-- `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
-- `src/game/__tests__/advanceGame.test.ts` — 84 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, and worker class abilities (Step 6)
+- `src/game/subsystems/` — economy, spawns (+ stepWardenSpawn), movement, workers (slot activation), corruption, workerCorruption (warden attach + node drain + worker reporting), turrets, scouts, sentinels (+ cleanse path), combat, mining, autobuy, projectiles, events, achievements
+- `src/game/__tests__/advanceGame.test.ts` — 96 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, worker class abilities (Step 6), and worker corruption system including warden attach cycle, node drain, worker reporting, sentinel cleanse, worker reboot, and stepWardenSpawn gates (Step 7)
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
 - `src/game/__tests__/aiBehavior.test.ts` — 23 tests: worker path safety, commitment, flee-direction retargeting, and crowded-node avoidance, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
@@ -94,6 +94,22 @@ Class-specific abilities (constants in `WORKER_ABILITIES`, `balance.ts`):
 
 **Worker self-defense retaliation**: at the end of each `stepCombat` worker-damage loop, if the worker is not recovering (`hp >= maxHp * 0.6`), not disabled, and not corrupted, it deals `WORKER_ABILITIES.retaliateBase (0.35) + upgrades.bot * retaliatePerBot (0.05)` damage to each attacker via `damageEnemy`. This routed through the existing `damageEnemy` funnel so shield absorption applies. Retaliation is suppressed for corrupted workers (Step 7) since they cannot self-defend.
 
+**3.0.0 Step 7 — Void warden infection and worker corruption.** Late-game (tier ≥ 4) a new subsystem `stepWorkerCorruption` (in `subsystems/workerCorruption.ts`) runs three phases each tick after `stepCorruption`:
+
+1. **Warden attach** (`stepWardenAttach`): Each live warden enemy seeks the closest non-corrupted, non-rebooting active worker within `WARDEN.attachRadius` (18 px) and increments `agent.corruptingTicks`. When `corruptingTicks >= WARDEN.attachTicks` (210), the worker converts: `corrupted = true`, `corruptionTicks = 0`, and the warden is spliced directly from `state.enemies` without going through `resolveEnemyDeaths` (so no gold reward is given and `wardensKilled` is not incremented). If the warden drifts outside attach radius, `corruptingTicks` decays by 0.5/tick.
+
+2. **Corrupted worker tick** (`stepCorruptedWorkers`): Each corrupted worker sets `task = "Corrupted"`, increments `corruptionTicks`, ticks down `spottedTicks`, and drains nearby resource nodes at rate `WARDEN.drainRatePerTick * (1 + corruptionTicks / WARDEN.drainRampDivisor)`. Nodes at 0 hp are respawned immediately (non-gold) or removed (temporary) without awarding resources. Corrupted workers skip all normal pathfinding (movement.ts returns early on `agent.corrupted`) and are immune to enemy contact damage (`stepCombat` guards on `agent.corrupted`).
+
+3. **Worker reporting** (`stepWorkerReporting`): healthy workers within `WARDEN.workerReportRadius` (120 px, ×1.4 for drones) of a corrupted worker set that agent's `spottedTicks = WARDEN.workerReportDuration` (600). Any sentinel treats a corrupted worker as visible while `spottedTicks > 0`, regardless of distance.
+
+**Warden spawning** (`stepWardenSpawn` in `spawns.ts`, wired in `advanceGame` after `stepSpawns`): gates on `tier >= WARDEN.wardenSpawnTierThreshold` (4). The `state.timers.warden` counter increments each tick; when it reaches `WARDEN.wardenSpawnIntervalTicks` (3600 ≈ 2 min), a warden spawns only if no warden is already on the field and no worker is currently corrupted (one infestation at a time). The warden timer resets on spawn.
+
+**Sentinel cleanse**: sentinels check for visible corrupted workers (`dist <= WARDEN.corruptionVisionRadius (140)` OR `spottedTicks > 0`) before regular enemy targeting. On finding one, the sentinel moves toward it and fires a purple cleanse beam (projectile color `rgba(192,132,252,0.9)`) using its normal cooldown and damage. On the shot that drops the worker's HP to ≤ 0: corruption is cleared (`corrupted = false`, resets corruptionTicks/corruptingTicks), worker HP is restored to maxHp, `rebootTicks = WARDEN.corruptionRebootTicks` (1800 ≈ 60 s) is set, `WARDEN.cleanseFluxReward` (6) flux and `WARDEN.cleanseCoreReward` (2) cores are awarded, and `state.stats.corruptedPurified` increments. Worker reboot parks the agent at homeX/homeY, skips all sim logic, and restores HP to maxHp when the counter hits 0.
+
+**Corruption visual**: in `FieldSvg.tsx`, corrupted workers render with a purple body fill (`rgba(120,40,180,0.55)`) and a pulsing void-purple outer ring. Shake amplitude scales with `corruptionTicks` (up to 3 px). While a warden is mid-attach (`corruptingTicks > 0`), a dashed amber warning ring scales with attach progress. Rebooting workers are rendered at 45% opacity.
+
+New balance constants: `WARDEN` block in `balance.ts` (attachRadius, attachTicks, drain params, cleanse rewards, reboot duration, vision radius, report radius, spawn interval/tier). New stat field: `corruptedWorkerOutbreakTicks` (running ticks with 3+ simultaneous corrupted workers — used by the `void_outbreak` achievement; resets to 0 when count drops below 3).
+
 **Worker personalities and territories** (`WORKER_PERSONALITY`, `WORKER_REGIONS` in `balance.ts`):
 
 - **Miner** — left sector (cx 200, cy 250), brave (`pathFearScale 0.60`), pushes through moderate threats.
@@ -133,6 +149,8 @@ Squadmates sharing a target spread across `ENEMY_AI.squadBearingBuckets` (6) bea
 - **zapper**: scout 0.8 — bolts scouts at range.
 
 Contact damage against non-worker targets runs at the end of `stepCombat`: enemies with `targetKind ∈ {turret, scout, sentinel, city}` inside `ENEMY_CONTACT_RADIUS.<kind>` apply `ENEMY_CONTACT_DAMAGE[enemy.kind] * TARGET_ARMOR.<kindArmor>` through the existing `damageTurret / damageScout / damageSentinel / damageCity` funnels. Target-class armor (`turretArmor 0.55, scoutArmor 0.80, sentinelArmor 0.25, cityArmor 0.35`) means you tune per target type once instead of re-tuning every enemy's damage row.
+
+**Warden** (`warden`): late-game infiltrator that spawns separately from the normal wave budget (see `stepWardenSpawn` above). Does not fight workers directly — instead it attaches to the nearest accessible worker and slowly corrupts them. Wardens that successfully corrupt a worker are removed from the enemy array without death rewards; wardens killed by combat units before attach completes do count toward `wardensKilled` and trigger the `warden_killed` achievement. Wardens have their own spawn timer (`state.timers.warden`) and are gated to `tier >= 4`. At most one warden is on the field at a time, and no new warden spawns while a worker is already corrupted.
 
 **Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance. Passive residue cleanup is deliberately slow as of 2.4.2 (`CORRUPTION.purgeBase = 0.12`, `purgePerArsenal = 0.025`) so corruption effects stay visible after corruptors detach; scout cleansing rates are the active cleanup path and should not be conflated with passive fade.
 
@@ -185,6 +203,8 @@ Dedicated anti-corruption units. Priority: live corruptors → corrupted nodes �
 Heavy late-game ground mechs. Target priority weights the threat's distance to its nearest worker (not just distance to the sentinel) plus a priority bonus for `leech > brute > sapper > general combat`. A brute near a worker outranks a closer brute drifting alone. Active sentinels move to an **intercept point** between the threat and the worker the threat is targeting (lerp factor `SENTINEL_AI.interceptLerp`, predicting worker position forward by `interceptLeadTicks`) so they feel like bodyguards rather than chasers. Patrol position blends `homeX` with the active-worker centroid so off-center late-game deployments still get cover. Two physical sentinel slots; activation gated by upgrade level.
 
 3.0.0 gave sentinels the same HP/retreat/reboot shape as scouts (Step 3b) but tuned for the tankier role. `Sentinel.hp`/`maxHp` scale from `SENTINEL_HP` in `balance.ts` (`hpBase 220 + 40·sentinel + 10·shield`). All incoming damage routes through `damageSentinel(state, sentinel, amount)` in `combat.ts`; damage while rebooting is a no-op. Retreat engages below 35% HP (tankier than scouts) and exits at 90%. Healing on the home pad ticks at `healRatePerTick` (0.6/tick — faster recovery than scouts since sentinels take worse hits). On death the sentinel reboots for `rebootDurationTicks` (1200) — about 40s — and respawns at full HP. The renderer hides sentinels while rebooting, tints the chassis warmer while retreating, and draws an HP bar when HP is below max.
+
+3.0.0 Step 7 extended sentinels with **corrupted-worker cleanse** duty. Before checking for enemy targets, each sentinel calls `pickCleanseTarget()` to find the nearest visible corrupted worker (`dist <= WARDEN.corruptionVisionRadius` or `spottedTicks > 0`). While a cleanse target exists, the sentinel repositions toward it, sets `task = "Cleansing"`, and fires a purple projectile beam on its normal cooldown. Cleanse damage is the standard sentinel `damageBase + sentinel * damagePerSentinel`. On the killing shot: corruption is purged, the worker enters reboot, and flux + cores are awarded. Cleanse targeting takes full priority over combat targeting so sentinels always address infested workers first.
 
 ### Mining
 
@@ -262,14 +282,14 @@ The app shell separately polls `/version` about every 5 minutes (and when the ta
 
 ### Achievements
 
-54 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
+58 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
 
 Categories and examples:
 
 - **Progression** — level milestones (10/20/30/50/75), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation
 - **Combat** — kill counts (10/100/500/1000), brutes (10/25), phantoms (5), leeches (3), sappers (10), first sentinel kill, turret level 8
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
-- **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types)
+- **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types), first sentinel cleanse (`purify_first`), warden killed before attach completes (`warden_killed`), 5 cleanses in one run (`quarantine`), 3+ workers corrupted for 30 continuous seconds (`void_outbreak` — legendary)
 - **Survival** — 15m/30m/1h/2h/4h/8h/24h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
 - **Secret** — drift easter egg, click-spotted tourist drone, multi-pass tourist secrets, broken lost-drone recovery, synthwave Konami, all 12 events experienced, all 12 event cards inspected, anomaly witness, projectile/corpse clicks, changelog/modal opens, manual override
 
@@ -326,7 +346,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 97 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
+- 138 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, save/load round-trips, and worker corruption + sentinel cleanse (Step 7).
 
 ## Remaining Work
 

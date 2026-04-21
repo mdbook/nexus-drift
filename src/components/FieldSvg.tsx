@@ -1516,11 +1516,35 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         const panicOpacity = clamp(agent.panic / 100, 0, 1) * 0.22;
         const dotColor = AGENT_STYLE[agent.kind];
         const damaged = agent.hp < 35;
-        const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";
-        const bodyStroke = damaged ? "rgba(255,150,150,0.75)" : "rgba(120,220,255,0.80)";
         const agentAlpha = spawnAlpha(game.timers.tick, agent.spawnTick);
         const agentDisabled = agent.disabledTicks > 0;
         const agentDisablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
+        // 3.0.0 Step 7: Corruption visuals.
+        const isCorrupted = agent.corrupted;
+        const isRebooting = agent.rebootTicks > 0;
+        // Shake amplitude grows with corruptionTicks, capped at 3 px.
+        const corruptShake = isCorrupted ? Math.min(3, agent.corruptionTicks / 400) : 0;
+        const corruptShakeX = corruptShake * Math.sin(game.timers.tick * 1.7 + agent.id);
+        const corruptShakeY = corruptShake * Math.cos(game.timers.tick * 2.3 + agent.id * 0.7);
+        const corruptPulse = 0.45 + Math.sin(game.timers.tick / 9) * 0.2;
+        const attachProgress = agent.corruptingTicks > 0 && !isCorrupted
+          ? agent.corruptingTicks / 210 // WARDEN.attachTicks
+          : 0;
+        // Override body colours when corrupted or rebooting.
+        const bodyFill = isCorrupted
+          ? "rgba(120,40,180,0.55)"
+          : isRebooting
+            ? "rgba(60,60,90,0.45)"
+            : damaged
+              ? "rgba(255,130,130,0.32)"
+              : "rgba(40,110,180,0.50)";
+        const bodyStroke = isCorrupted
+          ? "rgba(192,132,252,0.85)"
+          : isRebooting
+            ? "rgba(140,140,180,0.55)"
+            : damaged
+              ? "rgba(255,150,150,0.75)"
+              : "rgba(120,220,255,0.80)";
 
         // hexagon points helper
         const hex = (cx: number, cy: number, r: number) =>
@@ -1530,9 +1554,33 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           }).join(" ");
 
         return (
-          <g key={agent.id} opacity={agentAlpha} style={agentDisabled ? { filter: "grayscale(1)" } : undefined}>
+          <g
+            key={agent.id}
+            opacity={isRebooting ? agentAlpha * 0.45 : agentAlpha}
+            style={agentDisabled ? { filter: "grayscale(1)" } : undefined}
+            transform={corruptShakeX !== 0 || corruptShakeY !== 0 ? `translate(${corruptShakeX.toFixed(2)},${corruptShakeY.toFixed(2)})` : undefined}
+          >
             {agentDisabled && (
               <circle cx={agent.x} cy={agent.y + bob} r="26" fill="none" stroke={`rgba(255,120,40,${agentDisablePulse.toFixed(2)})`} strokeWidth="2.5" />
+            )}
+            {/* 3.0.0 Step 7: warden-attach warning ring (pre-corruption) */}
+            {attachProgress > 0 && (
+              <circle
+                cx={agent.x} cy={agent.y + bob} r="28"
+                fill="none"
+                stroke={`rgba(220,160,60,${(attachProgress * 0.6).toFixed(2)})`}
+                strokeWidth="2"
+                strokeDasharray={`${(attachProgress * 30).toFixed(1)} 5`}
+              />
+            )}
+            {/* 3.0.0 Step 7: pulsing void-purple ring when fully corrupted */}
+            {isCorrupted && (
+              <circle
+                cx={agent.x} cy={agent.y + bob} r="30"
+                fill={`rgba(120,40,180,${(corruptPulse * 0.18).toFixed(2)})`}
+                stroke={`rgba(192,132,252,${corruptPulse.toFixed(2)})`}
+                strokeWidth="2.5"
+              />
             )}
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
             {agent.veteranRank > 0 &&

@@ -1,4 +1,4 @@
-import { ENEMY_BUDGET_COST } from "@/game/balance";
+import { ENEMY_BUDGET_COST, WARDEN } from "@/game/balance";
 import { spawnEnemy } from "@/game/factories";
 import { getCombatEnemyWeights, getCorruptorSpawnChance, getEnemyWavePower } from "@/game/progression";
 import { computeDerived } from "@/game/selectors";
@@ -113,4 +113,32 @@ export function stepSpawns(state: GameState) {
   if (message) {
     state.log = pushLog(state.log, message, "combat", state.timers.tick);
   }
+}
+
+/**
+ * 3.0.0 Step 7 — Warden spawn gate.
+ *
+ * Wardens bypass the regular wave budget. They have their own long cooldown
+ * (wardenSpawnIntervalTicks) and are gated behind tier threshold. At most one
+ * warden is ever on the field at a time, and we don't spawn a new one while a
+ * worker is already corrupted (one infestation at a time — give the player a
+ * chance to cleanse before another wave).
+ */
+export function stepWardenSpawn(state: GameState) {
+  const derived = computeDerived(state);
+  if (derived.progression.tier < WARDEN.wardenSpawnTierThreshold) return;
+
+  state.timers.warden += 1;
+  if (state.timers.warden < WARDEN.wardenSpawnIntervalTicks) return;
+
+  // Check field limits before spawning.
+  const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
+  if (wardenOnField) return;
+  const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
+  if (corruptedWorker) return;
+
+  state.timers.warden = 0;
+  const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
+  state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, "warden", state.timers.tick));
+  state.log = pushLog(state.log, "Void warden detected on perimeter. Infestation risk.", "corruption", state.timers.tick);
 }
