@@ -19,15 +19,26 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.4.0",
     badge: "AI Overhaul",
     summary:
-      "Workers, enemies, sentinels, and scouts all picked up proper judgement. Workers factor path threat, corruption tolerance, and node progress into target selection and rotate escape vectors away from walls when cornered. Enemies split into archetypes — flankers arc in, ambushers stalk then dash, ghosts reposition behind workers during cloak, and same-squad attackers spread across bearing buckets for emergent flanking. Sentinels now intercept between threats and their worker victims, and scouts weight corruptor kills by corruption rate while alternating between finish-the-node and stop-the-bleed cleanse priorities.",
+      "Workers, enemies, sentinels, and scouts all picked up proper judgement. Workers now have individual personalities and field territories — miners push left and brave threats, runners roam mid-field, drones work the right sector and play it safe. Same-kind group dispersal, low-hp regional homing, and smoother evasion curves round out the worker feel. Enemies split into archetypes — flankers arc in, ambushers stalk then dash, ghosts reposition behind workers during cloak, and same-squad attackers spread across bearing buckets for emergent flanking. Sentinels intercept between threats and their worker victims, and scouts weight corruptor kills by corruption rate while alternating between finish-the-node and stop-the-bleed cleanse priorities.",
     sections: [
+      {
+        title: "Worker Personalities & Territories",
+        items: [
+          "Each worker kind has a preferred field region: miners claim the left sector, runners roam the mid-field corridor, drones occupy the right. Node scoring adds a region-distance penalty so workers stay in their zone unless a clearly better node pulls them out.",
+          "Per-kind courage: miners have a 0.6× path-fear scale (will cut through moderate threat), drones are 1.3× cautious and take safer routes, runners are in between.",
+          "Same-kind group dispersal: when 2+ peers of the same kind cluster within the worker's groupRepelRadius, a centroid-repulsion force scales with crowd size — so 4 miners bunched together are pushed apart harder than 2.",
+          "Low-hp regional homing: below 50% HP (hurt but not yet in full recovery), workers nudge toward their region center each tick — injured miners drift left, drones right — instead of all streaming to the same home pad.",
+          "Workers already at their node now hold their ground until an enemy closes within 56 px (down from 92), so they finish a harvest under pressure if they have a clear line out.",
+          "Evasion direction blend shifted to 70/30 old/new (was 45/55) and persist ticks extended to 80 (was 48), producing smooth flight curves instead of per-tick direction snapping.",
+          "Retarget interval extended and sticky threshold tightened — a candidate needs a 28% score advantage (was 15%) to override the current node assignment.",
+        ],
+      },
       {
         title: "Worker AI",
         items: [
-          "Target selection now scores nodes by path safety (sampled along start/midpoint/destination), progress bias (freshly respawned or already being mined), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), and contested-by-evading-workers penalty.",
-          "Sticky retargeting keeps workers on their current node unless a candidate scores materially better, eliminating oscillation between two near-equal options.",
+          "Target selection scores nodes by path safety (sampled along start/midpoint/destination), progress bias (freshly respawned or already being mined), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), and contested-by-evading-workers penalty.",
+          "Contested penalty is now quadratic — a second worker on a node is tolerable, a third is a strong deterrent, so workers spread across nodes rather than piling on the best one.",
           "Evasion adds anti-corner logic — when a projected flight path would hit a wall, the escape vector rotates to the lowest-threat candidate heading.",
-          "Panicked workers drift toward the centroid of non-evading teammates so fugitives reconverge on home rather than scattering into ambushes.",
           "Per-worker threat memory (EMA of nearby enemy weight) drives the regroup trigger and scales panic with sustained exposure.",
         ],
       },

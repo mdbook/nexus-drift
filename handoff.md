@@ -77,7 +77,18 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 
 `WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
-Workers pick targets autonomously via a scored target-selection function in `factories.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), and a contested-by-evading-workers penalty. Sticky retargeting keeps workers on their current node unless a candidate scores materially better (see `WORKER_AI.stickyThreshold`). Evasion uses sticky enter/exit hysteresis, adds an anti-corner rotation when the projected flight path would hit a wall, and blends in a regroup vector toward the non-evading worker centroid when panic is high. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
+Workers pick targets autonomously via a scored target-selection function in `factories.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), a contested-by-evading-workers penalty (quadratic — third worker on a node is a strong deterrent), and a **region-distance penalty** that biases each kind toward its preferred field sector.
+
+**Worker personalities and territories** (`WORKER_PERSONALITY`, `WORKER_REGIONS` in `balance.ts`):
+- **Miner** — left sector (cx 200, cy 250), brave (`pathFearScale 0.60`), pushes through moderate threats.
+- **Runner** — mid-field (cx 500, cy 280), moderate courage, loose territory.
+- **Drone** — right sector (cx 780, cy 240), cautious (`pathFearScale 1.30`), takes safer routes.
+
+Each kind has a `groupRepelRadius` and `groupRepelMinCount`; when that many same-kind peers are nearby, a centroid-repulsion force (scaled with crowd size) disperses the cluster. Applied after the per-frame separation pass in `movement.ts`.
+
+When `hp < maxHp * 0.5` (hurt but not yet in full recovery), workers nudge toward their region center each tick (`lowHpPull`) instead of all converging on the home pad.
+
+Evasion direction blends 70% old heading / 30% new signal (smooth curves); persist ticks extended to 80 so workers clear the exit radius before reconsidering. Workers at their node use a tighter `harvestingEvasionRadius` (56 px) so they finish a harvest under mild pressure. Sticky retarget threshold: a candidate needs a 28% score advantage to unseat the current assignment. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 ### Enemies
 
