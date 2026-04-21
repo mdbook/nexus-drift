@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.4.4",
     badge: "Surround Pressure",
     summary:
-      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, so overlapping enemies are less likely to let them slip free of a surround without taking serious damage.",
+      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, and live enemy bodies also act like real obstacles, so surrounds are less likely to let them slip free without taking serious damage.",
     sections: [
       {
         title: "Combat Pressure",
@@ -30,9 +30,17 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Worker Blocking",
+        items: [
+          "Live enemy hitboxes now slow workers down before contact, so crowded lanes trim forward progress instead of letting crews slide through bodies at full speed.",
+          "Workers are now pushed back out of overlapping enemy bodies after movement, using render-aligned radii for each worker and enemy kind.",
+          "Only live enemies block movement; dying enemies still fade out visually without continuing to affect the sim.",
+        ],
+      },
+      {
         title: "Tests",
         items: [
-          "Added coverage for heavier multi-attacker worker damage.",
+          "Added coverage for heavier multi-attacker worker damage plus worker-vs-enemy blocking and overlap pushback.",
         ],
       },
     ],

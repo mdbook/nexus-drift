@@ -14,6 +14,7 @@ import {
   ENEMY_SEPARATION,
   ENEMY_SPECIAL,
   WORKER,
+  WORKER_BLOCKING,
   WORKER_AI,
   ZAPPER,
 } from "@/game/balance";
@@ -74,9 +75,86 @@ function pickSquadTangentSign(enemy: Enemy, squadmates: Enemy[], target: Agent):
   return leftCount > rightCount ? -1 : 1;
 }
 
+type WorkerEnemyBlockingSample = {
+  speedScale: number;
+  blockers: number;
+  touching: number;
+  pushX: number;
+  pushY: number;
+};
+
+function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
+  const workerRadius = WORKER_BLOCKING.workerRadius[agent.kind];
+  let blockers = 0;
+  let touching = 0;
+  let pushX = 0;
+  let pushY = 0;
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0) continue;
+
+    const enemyRadius = WORKER_BLOCKING.enemyRadius[enemy.kind];
+    const dx = agent.x - enemy.x;
+    const dy = agent.y - enemy.y;
+    const d = Math.hypot(dx, dy);
+    const contactRadius = workerRadius + enemyRadius;
+    const influenceRadius = contactRadius + WORKER_BLOCKING.softBuffer;
+
+    if (d >= influenceRadius) continue;
+
+    blockers += 1;
+
+    if (d < contactRadius) {
+      touching += 1;
+      const overlap = contactRadius - d;
+      if (d > 0.001) {
+        const direction = normalize(dx, dy, agent.x - agent.tx, agent.y - agent.ty);
+        pushX += direction.x * overlap;
+        pushY += direction.y * overlap;
+      } else {
+        const angle = ((agent.id * 37 + enemy.id * 17) % 360) * (Math.PI / 180);
+        pushX += Math.cos(angle) * overlap;
+        pushY += Math.sin(angle) * overlap;
+      }
+    } else {
+      const softPressure = influenceRadius - d;
+      const drift = softPressure * 0.18;
+      if (d > 0.001) {
+        const direction = normalize(dx, dy, agent.x - agent.tx, agent.y - agent.ty);
+        pushX += direction.x * drift;
+        pushY += direction.y * drift;
+      } else {
+        const angle = ((agent.id * 37 + enemy.id * 17) % 360) * (Math.PI / 180);
+        pushX += Math.cos(angle) * drift;
+        pushY += Math.sin(angle) * drift;
+      }
+    }
+  }
+
+  const speedScale =
+    1 - Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap);
+
+  return { speedScale, blockers, touching, pushX, pushY };
+}
+
+export function measureWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
+  return computeWorkerEnemyBlocking(agent, enemies);
+}
+
+export function resolveWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): void {
+  const sample = computeWorkerEnemyBlocking(agent, enemies);
+  if (sample.touching <= 0) return;
+
+  const direction = normalize(sample.pushX, sample.pushY, agent.x - agent.tx, agent.y - agent.ty);
+  const shove = WORKER_BLOCKING.pushStrength * Math.min(1, 0.45 + sample.touching * 0.2);
+  agent.x = clamp(agent.x + direction.x * shove, 20, WORLD_W - 20);
+  agent.y = clamp(agent.y + direction.y * shove, 50, WORLD_H - 32);
+}
+
 export function stepWorkers(state: GameState) {
   if (!state.nodes.length) return;
-  const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor" && enemy.hp > 0);
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
+  const combatEnemies = liveEnemies.filter((enemy) => enemy.role !== "corruptor");
 
   // Decay node workTicks each tick; subsystems/mining.ts will bump nodes currently being mined.
   for (const node of state.nodes) {
@@ -107,6 +185,7 @@ export function stepWorkers(state: GameState) {
     const node =
       state.nodes.find((candidate) => candidate.id === agent.target) ??
       state.nodes[index % state.nodes.length];
+    const blocking = measureWorkerEnemyBlocking(agent, liveEnemies);
 
     // Workers already at the node get a tighter evasion trigger so they can
     // finish a harvest before fleeing. Only applies when not already evading
@@ -188,7 +267,8 @@ export function stepWorkers(state: GameState) {
       const evadeSpeed =
         agent.speed *
         veteranBonus *
-        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor));
+        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor)) *
+        blocking.speedScale;
       agent.x = clamp(agent.x + agent.evadeDx * evadeSpeed, 20, WORLD_W - 20);
       agent.y = clamp(agent.y + agent.evadeDy * evadeSpeed, 50, WORLD_H - 32);
       agent.tx = clamp(agent.x + agent.evadeDx * 84, 20, WORLD_W - 20);
@@ -198,6 +278,7 @@ export function stepWorkers(state: GameState) {
       agent.panic = clamp(agent.panic + (evadeThreats.length > 0 ? WORKER.panicDelta.evadingWithThreat : WORKER.panicDelta.evadingPassive), 0, 100);
       agent.hp = clamp(agent.hp + WORKER.healRate.evading + state.upgrades.shield * WORKER.healRate.evadingShield, 0, agent.maxHp);
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+      resolveWorkerEnemyBlocking(agent, liveEnemies);
       return;
     }
 
@@ -224,13 +305,15 @@ export function stepWorkers(state: GameState) {
         agent.maxHp
       );
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+      resolveWorkerEnemyBlocking(agent, liveEnemies);
       return;
     }
 
     const speedMultiplier = recovering ? WORKER.recoverySpeed : agent.damageTicks > 0 ? WORKER.damagedSpeed : WORKER.traversingSpeed;
     const veteranBonus = 1 + agent.veteranRank * 0.05;
-    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus;
-    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus;
+    const blockingSpeed = blocking.speedScale;
+    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
+    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
 
     // Low-hp region pull: hurt but not yet in recovery mode → nudge toward
     // the worker's home territory so they drift to a safer part of the field.
@@ -244,6 +327,7 @@ export function stepWorkers(state: GameState) {
     agent.panic = clamp(agent.panic - (recovering ? WORKER.panicDelta.traversingRecovering : WORKER.panicDelta.traversing), 0, 100);
     agent.hp = clamp(agent.hp + WORKER.healRate.traversing + state.upgrades.shield * WORKER.healRate.traversingShield, 0, agent.maxHp);
     agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+    resolveWorkerEnemyBlocking(agent, liveEnemies);
   });
 
   // separate overlapping workers

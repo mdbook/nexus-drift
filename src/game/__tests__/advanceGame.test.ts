@@ -9,6 +9,7 @@ import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
+import { measureWorkerEnemyBlocking, resolveWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -336,6 +337,62 @@ describe("advanceGame simulation invariants", () => {
     }
     const later = advanceGame(afterTrigger);
     expect(later.agents[0].evadeTicks).toBeGreaterThan(0);
+  });
+
+  it("enemy hitboxes slow and push workers out of overlap", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.x = 220;
+    worker.y = 250;
+    worker.tx = 320;
+    worker.ty = 250;
+
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    enemy.x = worker.x + 8;
+    enemy.y = worker.y;
+    state.enemies.push(enemy);
+
+    const pressure = measureWorkerEnemyBlocking(worker, state.enemies);
+    expect(pressure.speedScale).toBeLessThan(1);
+
+    const before = Math.hypot(worker.x - enemy.x, worker.y - enemy.y);
+    resolveWorkerEnemyBlocking(worker, state.enemies);
+    const after = Math.hypot(worker.x - enemy.x, worker.y - enemy.y);
+
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it("enemy blocking reduces how far a worker can push through a lane", () => {
+    const clear = createInitialGameState();
+    const blocked = createInitialGameState();
+
+    const clearWorker = clear.agents[0];
+    const blockedWorker = blocked.agents[0];
+    clearWorker.x = 200;
+    clearWorker.y = 250;
+    blockedWorker.x = 200;
+    blockedWorker.y = 250;
+
+    clear.nodes[0].kind = "ore";
+    clear.nodes[0].x = 420;
+    clear.nodes[0].y = 250;
+    clearWorker.target = clear.nodes[0].id;
+
+    blocked.nodes[0].kind = "ore";
+    blocked.nodes[0].x = 420;
+    blocked.nodes[0].y = 250;
+    blockedWorker.target = blocked.nodes[0].id;
+
+    const enemy = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "brute");
+    enemy.x = blockedWorker.x + 30;
+    enemy.y = blockedWorker.y;
+    blocked.enemies.push(enemy);
+
+    stepWorkers(clear);
+    stepWorkers(blocked);
+
+    expect(blockedWorker.x).toBeLessThan(clearWorker.x);
+    expect(blockedWorker.x).toBeLessThan(enemy.x);
   });
 
   it("derived state stays consistent with simulation", () => {

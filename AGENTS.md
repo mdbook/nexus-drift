@@ -155,6 +155,13 @@ Workers in persistent evasion may retarget to nodes ahead of their flee directio
 
 Harvesting workers are intentionally stubborn under light pressure. While at a node, one or two nearby enemies should not trigger evasion unless the worker has actually taken damage (`damageTicks > 0`). Three or more nearby enemies still force early evasion. Keep this rule scoped to active node work; workers that are already recovering, disabled, or away from a node should use the normal evasion logic.
 
+## Worker Hitbox Blocking
+
+`stepWorkers()` now treats live enemy bodies as physical obstacles. It uses `WORKER_BLOCKING` radii in `balance.ts` to slow workers in crowded hostile lanes and push them back out of overlap after movement.
+
+- Keep those blocking radii aligned with the rendered body sizes in `FieldSvg.tsx` if you tune worker or enemy visuals.
+- Use live enemies only. Dying enemies (`hp <= 0`) still fade out visually, but they must not block movement.
+
 ## Surround Combat Pressure
 
 Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.

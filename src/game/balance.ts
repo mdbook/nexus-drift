@@ -55,6 +55,36 @@ export const WORKER = {
   heavyFireThreshold: 24,
 } as const;
 
+/**
+ * Worker-vs-enemy collision tuning used by movement.ts.
+ * Radii intentionally track the rendered bodies rather than the larger panic
+ * / threat radii so blocking feels physical without inflating fear range.
+ */
+export const WORKER_BLOCKING = {
+  workerRadius: {
+    miner: 14,
+    runner: 15,
+    drone: 14,
+  } satisfies Record<WorkerKind, number>,
+  enemyRadius: {
+    mite: 15,
+    raider: 24,
+    wisp: 13,
+    corruptor: 16,
+    rusher: 12,
+    brute: 27,
+    sapper: 10,
+    blight: 18,
+    leech: 16,
+    phantom: 17,
+    zapper: 14,
+  } satisfies Record<EnemyKind, number>,
+  softBuffer: 10,
+  pushStrength: 0.88,
+  speedPenaltyPerEnemy: 0.13,
+  speedPenaltyCap: 0.55,
+} as const;
+
 export const ENEMY_STATS: Record<
   EnemyKind,
   { hpBase: number; hpWave: number; speedBase: number; speedWave: number }
