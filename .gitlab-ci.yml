@@ -29,6 +29,7 @@ build:
     - export IMAGE_DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:latest --destination $CI_REGISTRY_IMAGE:$IMAGE_VERSION_TAG"
     - if [ "$CI_COMMIT_BRANCH" = "dev" ]; then export IMAGE_DESTINATIONS="$IMAGE_DESTINATIONS --destination $CI_REGISTRY_IMAGE:dev"; fi
     - |
+      mkdir -p /tmp
       wget -S -q -O /tmp/registry-repositories.json \
         --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories" 2>/tmp/repos-headers.txt || true
