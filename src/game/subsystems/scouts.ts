@@ -1,4 +1,4 @@
-import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI } from "@/game/balance";
+import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI, SCOUT_HP } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
@@ -81,9 +81,92 @@ export function stepScouts(state: GameState) {
   }
 
   state.scouts.forEach((scout, index) => {
+    // 3.0.0: live maxHp recomputation so scout/arsenal upgrades buff HP while
+    // the scout is in the field. Scale current hp proportionally so mid-fight
+    // upgrades don't reset damage progress.
+    const nextMaxHp =
+      SCOUT_HP.hpBase +
+      state.upgrades.scout * SCOUT_HP.hpPerScoutUpgrade +
+      state.upgrades.arsenal * SCOUT_HP.hpPerArsenalUpgrade;
+    if (scout.maxHp !== nextMaxHp && scout.maxHp > 0) {
+      const ratio = scout.hp / scout.maxHp;
+      scout.hp = nextMaxHp * ratio;
+    }
+    scout.maxHp = nextMaxHp;
+    scout.hp = Math.min(scout.hp, scout.maxHp);
+
+    if (scout.damageTicks > 0) scout.damageTicks -= 1;
+
     const live = index < liveScouts;
     scout.pulse = (scout.pulse + 0.08) % (Math.PI * 2);
     scout.cooldown = Math.max(0, scout.cooldown - 1);
+
+    // 3.0.0: reboot lifecycle. While rebootTicks > 0 the scout is fully
+    // offline and parked at home. On the tick rebootTicks reaches 0 the
+    // scout respawns at full HP.
+    if (scout.rebootTicks > 0) {
+      scout.rebootTicks -= 1;
+      scout.x = scout.homeX;
+      scout.y = scout.homeY;
+      scout.tx = scout.homeX;
+      scout.ty = scout.homeY;
+      scout.targetId = null;
+      scout.task = "Rebooting";
+      if (scout.rebootTicks === 0) {
+        scout.hp = scout.maxHp;
+        scout.retreating = false;
+        state.log = pushLog(state.log, "Scout redeployed from home pad.", "combat", state.timers.tick);
+      }
+      return;
+    }
+
+    // 3.0.0: retreat state machine. Enter retreat at half HP, exit at 90%.
+    if (!scout.retreating && scout.hp < scout.maxHp * SCOUT_HP.retreatHpRatio) {
+      scout.retreating = true;
+      scout.targetId = null;
+    } else if (scout.retreating && scout.hp >= scout.maxHp * SCOUT_HP.exitRetreatHpRatio) {
+      scout.retreating = false;
+    }
+
+    // While retreating: sprint back to home pad, skip targeting and firing.
+    // Heal happens here (and only here) while near home pad.
+    if (scout.retreating) {
+      const dxHome = scout.homeX - scout.x;
+      const dyHome = scout.homeY - scout.y;
+      const dHome = Math.hypot(dxHome, dyHome);
+      if (dHome > 1) {
+        const { ax, ay } = scoutAvoidance(state, scout.x, scout.y);
+        const mx = dxHome / dHome + ax * 1.2;
+        const my = dyHome / dHome + ay * 1.2;
+        const ml = Math.max(1, Math.hypot(mx, my));
+        const spd = Math.min(dHome, scout.speed * SCOUT_HP.retreatSpeedScale);
+        scout.x += (mx / ml) * spd;
+        scout.y += (my / ml) * spd;
+        scout.angle = Math.atan2(my, mx);
+        const wb = SCOUT_AI.cornerWallBuffer;
+        if (scout.x < wb) scout.x += (wb - scout.x) * 0.04;
+        if (scout.x > WORLD_W - wb) scout.x -= (scout.x - (WORLD_W - wb)) * 0.04;
+        if (scout.y < 50 + wb) scout.y += (50 + wb - scout.y) * 0.04;
+        if (scout.y > WORLD_H - wb) scout.y -= (scout.y - (WORLD_H - wb)) * 0.04;
+      }
+      if (dist(scout.x, scout.y, scout.homeX, scout.homeY) <= SCOUT_HP.homeHealRadius) {
+        scout.hp = Math.min(scout.maxHp, scout.hp + SCOUT_HP.healRatePerTick);
+      }
+      scout.task = "Retreating";
+      scout.tx = scout.homeX;
+      scout.ty = scout.homeY;
+      return;
+    }
+
+    // Passive heal while near home pad even when not in retreat (applies to
+    // standby / patrol). Gives lightly dinged scouts a chance to top up
+    // between sweeps without needing to cross the retreat threshold.
+    if (
+      scout.hp < scout.maxHp &&
+      dist(scout.x, scout.y, scout.homeX, scout.homeY) <= SCOUT_HP.homeHealRadius
+    ) {
+      scout.hp = Math.min(scout.maxHp, scout.hp + SCOUT_HP.healRatePerTick * 0.5);
+    }
 
     if (!live) {
       scout.targetId = null;

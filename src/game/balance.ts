@@ -267,6 +267,29 @@ export const FOCUSED_BEAM = {
   rangePerLevel: 8,
 } as const;
 
+/**
+ * 3.0.0 — scout HP, retreat, and heal tuning.
+ *
+ * Scouts now take contact damage from combat enemies (routed through
+ * damageScout in combat.ts). When hp drops below `retreatHpRatio` the scout
+ * abandons its current target and moves toward its home pad; while within
+ * `homeHealRadius` of home pad it heals `healRatePerTick` per tick until
+ * `exitRetreatHpRatio` is reached. On hp ≤ 0 the scout is destroyed and
+ * rebooted in `rebootDurationTicks`, respawning at home with full HP.
+ */
+export const SCOUT_HP = {
+  hpBase: 45,
+  hpPerScoutUpgrade: 5,
+  hpPerArsenalUpgrade: 5,
+  retreatHpRatio: 0.5,
+  exitRetreatHpRatio: 0.9,
+  homeHealRadius: 40,
+  healRatePerTick: 0.25,
+  rebootDurationTicks: 600,
+  damageFlashTicks: 12,
+  retreatSpeedScale: 1.3,
+} as const;
+
 export const SCOUT = {
   damageBase: 6,
   damagePerScout: 2.0,

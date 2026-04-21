@@ -1,8 +1,8 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
-import type { GameState, Turret } from "@/game/types";
+import type { GameState, Scout, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 const HOME_X = 500;
@@ -32,6 +32,31 @@ export function damageTurret(state: GameState, turret: Turret, amount: number) {
     turret.cooldown = 0;
     state.stats.turretsBroken += 1;
     state.log = pushLog(state.log, "Turret structure failed. Recalibrating.", "combat", state.timers.tick);
+  }
+}
+
+/**
+ * 3.0.0 — damage funnel for scouts.
+ *
+ * Scouts now carry an HP pool. Damage sets the hit-flash and, on reaching 0,
+ * knocks the scout offline for SCOUT_HP.rebootDurationTicks; stepScouts
+ * handles the timer and respawn at the home pad. Damage landed while
+ * rebooting is a no-op. Scouts below the retreat threshold do not take
+ * additional structural hits while they're already retreating — they still
+ * take the hit flash, but we never double-count them into reboot.
+ */
+export function damageScout(state: GameState, scout: Scout, amount: number) {
+  if (amount <= 0) return;
+  if (scout.rebootTicks > 0) return;
+
+  scout.hp = Math.max(0, scout.hp - amount);
+  scout.damageTicks = SCOUT_HP.damageFlashTicks;
+
+  if (scout.hp <= 0) {
+    scout.rebootTicks = SCOUT_HP.rebootDurationTicks;
+    scout.retreating = false;
+    scout.targetId = null;
+    state.log = pushLog(state.log, "Scout destroyed. Rebuilding at home pad.", "combat", state.timers.tick);
   }
 }
 

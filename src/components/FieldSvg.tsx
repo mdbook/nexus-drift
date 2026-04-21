@@ -1,6 +1,6 @@
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
-import { SENTINEL } from "@/game/balance";
+import { SCOUT_HP, SENTINEL } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -1239,13 +1239,32 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
 
         if (!live) return null;
 
+        // 3.0.0: during reboot the pad is empty — we already hide the scout
+        // sprite. While retreating the chrome shifts to a warmer tint; the
+        // hp bar appears any time hp is below max.
+        const rebooting = scout.rebootTicks > 0;
+        if (rebooting) return null;
+
+        const retreating = scout.retreating;
+        const hpPct = scout.maxHp > 0 ? clamp(scout.hp / scout.maxHp, 0, 1) : 1;
+        const showHpBar = hpPct < 1 - 1e-3;
+        const damageFlash = scout.damageTicks > 0 ? Math.min(0.85, scout.damageTicks / 12) : 0;
+        const bodyStroke = retreating ? "rgba(255,180,120,0.6)" : "rgba(120,220,255,0.42)";
+        const hullFill = retreating ? "rgba(255,180,120,0.18)" : "rgba(160,235,255,0.86)";
+        const beamStroke = retreating ? "rgba(255,180,120,0.7)" : "rgba(120,220,255,0.90)";
+
         return (
           <g key={scout.id}>
-            <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
-            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(80,200,255,0.10)" stroke="rgba(120,220,255,0.42)" strokeWidth="1.1" />
+            {!retreating && (
+              <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
+            )}
+            {damageFlash > 0 && (
+              <circle cx={scout.x} cy={scout.y + bob} r="18" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
+            )}
+            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(80,200,255,0.10)" stroke={bodyStroke} strokeWidth="1.1" />
             <path
               d={`M ${scout.x} ${scout.y + bob - 8} L ${scout.x + 5.5} ${scout.y + bob + 1.5} L ${scout.x} ${scout.y + bob + 8} L ${scout.x - 5.5} ${scout.y + bob + 1.5} Z`}
-              fill="rgba(160,235,255,0.86)"
+              fill={hullFill}
               stroke="rgba(210,248,255,0.82)"
               strokeWidth="1"
               opacity="0.94"
@@ -1256,10 +1275,24 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
               y1={scout.y + bob}
               x2={scout.x + Math.cos(scout.angle) * 18}
               y2={scout.y + bob + Math.sin(scout.angle) * 18}
-              stroke="rgba(120,220,255,0.90)"
+              stroke={beamStroke}
               strokeWidth="2.5"
               strokeLinecap="round"
             />
+            {showHpBar && (
+              <>
+                <rect x={scout.x - 14} y={scout.y + bob + 14} rx="2" ry="2" width="28" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={scout.x - 14}
+                  y={scout.y + bob + 14}
+                  rx="2"
+                  ry="2"
+                  width={28 * hpPct}
+                  height="3"
+                  fill={hpPct < SCOUT_HP.retreatHpRatio ? "rgba(255,160,120,0.9)" : "rgba(160,235,255,0.85)"}
+                />
+              </>
+            )}
           </g>
         );
       })}

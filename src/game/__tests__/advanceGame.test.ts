@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
-import { COMBAT, CORRUPTION, TURRET, TURRET_HP } from "@/game/balance";
+import { COMBAT, CORRUPTION, SCOUT_HP, TURRET, TURRET_HP } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
@@ -14,7 +14,7 @@ import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movem
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
-import { damageTurret } from "@/game/subsystems/combat";
+import { damageScout, damageTurret } from "@/game/subsystems/combat";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
@@ -1106,5 +1106,81 @@ describe("turret HP and break state (3.0.0)", () => {
       if (state.projectiles.length > projectilesBefore) fired = true;
     }
     expect(fired).toBe(true);
+  });
+});
+
+describe("scout HP, retreat, and reboot (3.0.0)", () => {
+  it("scales maxHp off scout + arsenal upgrades", () => {
+    const state = createInitialGameState();
+    state.upgrades.scout = 3;
+    state.upgrades.arsenal = 2;
+
+    stepScouts(state);
+
+    const expected =
+      SCOUT_HP.hpBase +
+      3 * SCOUT_HP.hpPerScoutUpgrade +
+      2 * SCOUT_HP.hpPerArsenalUpgrade;
+    expect(state.scouts[0].maxHp).toBe(expected);
+    expect(state.scouts[0].hp).toBeCloseTo(expected, 5);
+  });
+
+  it("enters retreat at half hp, heals at home, and exits retreat at 90%", () => {
+    const state = createInitialGameState();
+    state.upgrades.scout = 1;
+    const scout = state.scouts[0];
+
+    // Warm up so maxHp is populated.
+    stepScouts(state);
+    const maxHp = scout.maxHp;
+
+    // Damage to just above the retreat threshold — should not yet be retreating.
+    damageScout(state, scout, maxHp * 0.4);
+    stepScouts(state);
+    expect(scout.retreating).toBe(false);
+
+    // Push past the retreat threshold.
+    damageScout(state, scout, maxHp * 0.2);
+    stepScouts(state);
+    expect(scout.retreating).toBe(true);
+    expect(scout.targetId).toBeNull();
+
+    // Force the scout onto its home pad. Heal rate should tick up at
+    // SCOUT_HP.healRatePerTick until we clear the 90% exit bar.
+    scout.x = scout.homeX;
+    scout.y = scout.homeY;
+    let guard = 0;
+    while (scout.retreating && guard < 10_000) {
+      stepScouts(state);
+      guard += 1;
+    }
+    expect(scout.retreating).toBe(false);
+    expect(scout.hp).toBeGreaterThanOrEqual(maxHp * SCOUT_HP.exitRetreatHpRatio);
+  });
+
+  it("reboots at home for rebootDurationTicks after death, then respawns at full hp", () => {
+    const state = createInitialGameState();
+    const scout = state.scouts[0];
+    stepScouts(state);
+    const maxHp = scout.maxHp;
+
+    damageScout(state, scout, maxHp * 2);
+    expect(scout.hp).toBe(0);
+    expect(scout.rebootTicks).toBe(SCOUT_HP.rebootDurationTicks);
+    expect(scout.retreating).toBe(false);
+
+    // While rebooting, further damage is a no-op.
+    damageScout(state, scout, 99);
+    expect(scout.rebootTicks).toBe(SCOUT_HP.rebootDurationTicks);
+
+    // Tick down the reboot window. The scout parks at home every tick and
+    // comes back at full HP on the tick the counter hits 0.
+    for (let i = 0; i < SCOUT_HP.rebootDurationTicks; i += 1) {
+      stepScouts(state);
+      expect(scout.x).toBe(scout.homeX);
+      expect(scout.y).toBe(scout.homeY);
+    }
+    expect(scout.rebootTicks).toBe(0);
+    expect(scout.hp).toBe(scout.maxHp);
   });
 });
