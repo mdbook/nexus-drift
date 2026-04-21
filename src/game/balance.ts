@@ -963,7 +963,7 @@ export const SCOUT_AI = {
   finishNodeBias: 18, // score bonus for nodes within X% of cleanse threshold
   finishNodeThreshold: 18, // corruption% at which we call a node "near cleanse"
   stopBleedBias: 14, // bonus for nodes actively being corrupted (corruptedBy != null)
-  pairUpScoutCount: 3, // minimum active scouts needed before pair-up activates
+  pairUpScoutCount: 2, // minimum active scouts needed before pair-up activates (lowered 3→2 in 3.0.0)
   pairUpCorruptionThreshold: 70, // node corruption% required before a second scout stacks
   cornerWallBuffer: 60,
 } as const;

@@ -5,6 +5,12 @@ import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { dist } from "@/game/utils";
 
+// 3.0.0 Step 8: turret coordination — home-district anchor and bonus radius.
+const HOME_X = 500;
+const HOME_Y = 490;
+const TURRET_COORD_RADIUS = 200;  // px from home centre that qualifies a worker as "near home"
+const TURRET_COORD_BONUS  = 60;   // score reduction (lower = higher priority)
+
 export function getTurretTargetScore(state: GameState, turret: GameState["turrets"][number], enemy: GameState["enemies"][number]) {
   const distanceScore = dist(enemy.x, enemy.y, turret.x, turret.y);
   const threatWeight =
@@ -14,7 +20,20 @@ export function getTurretTargetScore(state: GameState, turret: GameState["turret
         ? 1.45 + state.upgrades.turret * 0.18
         : 1.1;
 
-  return distanceScore / threatWeight + enemy.hp * 0.1;
+  let score = distanceScore / threatWeight + enemy.hp * 0.1;
+
+  // Coordination bonus: prioritize enemies that are actively chasing workers
+  // near the home district. A brute marching toward a miner close to the pad
+  // outranks a brute drifting at max range, even if the latter is closer to
+  // this turret.
+  if (enemy.targetKind === "agent" && enemy.targetId !== null) {
+    const victim = state.agents.find((a) => a.id === enemy.targetId && a.active);
+    if (victim && Math.hypot(victim.x - HOME_X, victim.y - HOME_Y) < TURRET_COORD_RADIUS) {
+      score -= TURRET_COORD_BONUS;
+    }
+  }
+
+  return score;
 }
 
 export function stepTurrets(state: GameState) {

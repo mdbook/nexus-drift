@@ -268,10 +268,13 @@ export function stepWorkers(state: GameState) {
 
       agent.evadeDx = blendedDirection.x;
       agent.evadeDy = blendedDirection.y;
-      agent.evadeTicks = Math.max(
-        agent.evadeTicks,
-        EVADE_PERSIST_TICKS + Math.max(0, evadeThreats.length - 1) * EVADE_BONUS_PER_THREAT
+      // 3.0.0 Step 8: super-linear panic cascade. Single-enemy encounters barely
+      // extend evasion; real surrounds (3-4+) compound hard so fleeing workers
+      // don't casually walk back through a pile of bodies.
+      const cascadeBonus = Math.round(
+        Math.max(0, Math.pow(evadeThreats.length, 1.5) - 1) * EVADE_BONUS_PER_THREAT
       );
+      agent.evadeTicks = Math.max(agent.evadeTicks, EVADE_PERSIST_TICKS + cascadeBonus);
 
       // Runner sprint: triggered when threatened with high enough panic and
       // the cooldown has elapsed. Gives a short speed burst during evasion.
