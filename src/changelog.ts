@@ -16,7 +16,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.3.2",
+    version: "2.3.3",
     badge: "Signal Trim",
     summary:
       "Small HUD polish patch plus a worker-progression trim. One-shot event cards keep their distinct short-lived card treatment without the oversized explanatory label or visible countdown, and extra worker slots now wait for much later colony progression and premium resource unlocks before they deploy.",
