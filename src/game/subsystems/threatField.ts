@@ -37,6 +37,7 @@ export function threatAlongPath(
 ): number {
   const weights = AI_THREAT.weight;
   if (!enemies.length) return 0;
+  // Weights intentionally inlined: [1, 1.4, 1.8] destination-biased. Tune here, not in balance.ts.
   const [w0, w1, w2] = [1, 1.4, 1.8];
   const mx = (x1 + x2) * 0.5;
   const my = (y1 + y2) * 0.5;

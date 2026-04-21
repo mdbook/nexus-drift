@@ -494,7 +494,7 @@ export function stepEnemies(state: GameState) {
     } else if (archetype === "ghost") {
       // Ghost: while cloaked, reposition behind worker's movement vector.
       const cloakPhase = (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
-      if (cloakPhase > 0.3 && cloakPhase < 0.75) {
+      if (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart && cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd) {
         const wdx = target.tx - target.x;
         const wdy = target.ty - target.y;
         const wmag = Math.hypot(wdx, wdy);

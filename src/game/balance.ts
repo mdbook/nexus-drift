@@ -139,6 +139,9 @@ export const ENEMY_SPECIAL = {
     explosionDamage: 18,
     triggerRadius: 22,
   },
+  corruptor: {
+    corruptionRatePerTick: 0.12,
+  },
   blight: {
     corruptionRatePerTick: 0.95,
     scoutDamageResistance: 0.6,
@@ -540,6 +543,8 @@ export const ENEMY_AI = {
   ambusherDashSpeedScale: 1.8,
   ghostRepositionOffset: 120, // px behind worker's movement direction
   ghostRepositionLead: 24,
+  ghostRepositionPhaseStart: 0.3, // cloakPhase fraction at which ghost begins repositioning
+  ghostRepositionPhaseEnd: 0.75, // cloakPhase fraction at which ghost stops repositioning
   squadBearingBuckets: 6,
   squadBucketTicks: 45, // spawn-tick / this = squadId bucket size
   isolatedRadius: 120, // "alone" means no other active worker within this radius
@@ -589,7 +594,6 @@ export const WORKER_PERSONALITY: Record<WorkerKind, {
 export const WORKER_AI = {
   pathSafetyPenalty: 55, // score penalty per threat-sample unit along the path
   harvestingEvasionRadius: 56, // while at the node, only bolt when an enemy closes within this distance
-  pathSampleWeights: [1, 1.4, 1.8] as const, // start, midpoint, destination — destination weighted highest
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
   evadingContestedPenalty: 140, // extra score cost per evading worker currently targeting node

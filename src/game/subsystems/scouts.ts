@@ -1,4 +1,5 @@
 import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI } from "@/game/balance";
+import { WORLD_H, WORLD_W } from "@/game/constants";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
@@ -100,6 +101,11 @@ export function stepScouts(state: GameState) {
         scout.x += (mx / ml) * s;
         scout.y += (my / ml) * s;
         scout.angle = Math.atan2(my, mx);
+        const wb = SCOUT_AI.cornerWallBuffer;
+        if (scout.x < wb) scout.x += (wb - scout.x) * 0.04;
+        if (scout.x > WORLD_W - wb) scout.x -= (scout.x - (WORLD_W - wb)) * 0.04;
+        if (scout.y < 50 + wb) scout.y += (50 + wb - scout.y) * 0.04;
+        if (scout.y > WORLD_H - wb) scout.y -= (scout.y - (WORLD_H - wb)) * 0.04;
       }
       scout.task = "Standby";
       return;
@@ -114,7 +120,7 @@ export function stepScouts(state: GameState) {
         const rate =
           enemy.kind === "blight"
             ? ENEMY_SPECIAL.blight.corruptionRatePerTick
-            : 0.12;
+            : ENEMY_SPECIAL.corruptor.corruptionRatePerTick;
         const attachedNode = enemy.targetNodeId != null
           ? state.nodes.find((node) => node.id === enemy.targetNodeId)
           : undefined;
@@ -206,6 +212,11 @@ export function stepScouts(state: GameState) {
       if (d > 28) {
         scout.x += (dx / d) * (0.6 + scout.speed * 0.55);
         scout.y += (dy / d) * (0.6 + scout.speed * 0.55);
+        const wb = SCOUT_AI.cornerWallBuffer;
+        if (scout.x < wb) scout.x += (wb - scout.x) * 0.04;
+        if (scout.x > WORLD_W - wb) scout.x -= (scout.x - (WORLD_W - wb)) * 0.04;
+        if (scout.y < 50 + wb) scout.y += (50 + wb - scout.y) * 0.04;
+        if (scout.y > WORLD_H - wb) scout.y -= (scout.y - (WORLD_H - wb)) * 0.04;
       } else {
         const tickFlux =
           FLUX.cleanseTickReward *
@@ -257,6 +268,11 @@ export function stepScouts(state: GameState) {
       scout.x += (mx / ml) * s;
       scout.y += (my / ml) * s;
       scout.angle = Math.atan2(my, mx);
+      const wb = SCOUT_AI.cornerWallBuffer;
+      if (scout.x < wb) scout.x += (wb - scout.x) * 0.04;
+      if (scout.x > WORLD_W - wb) scout.x -= (scout.x - (WORLD_W - wb)) * 0.04;
+      if (scout.y < 50 + wb) scout.y += (50 + wb - scout.y) * 0.04;
+      if (scout.y > WORLD_H - wb) scout.y -= (scout.y - (WORLD_H - wb)) * 0.04;
     }
     scout.task = "Patrolling";
   });
