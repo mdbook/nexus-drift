@@ -8,7 +8,6 @@ import {
   WORLD_W,
 } from "@/game/constants";
 import {
-  AI_THREAT,
   CORRUPTION,
   ENEMY_AI,
   ENEMY_MOVEMENT,
@@ -16,14 +15,18 @@ import {
   ENEMY_SPECIAL,
   WORKER,
   WORKER_AI,
-  WORKER_PERSONALITY,
-  WORKER_REGIONS,
   ZAPPER,
 } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import { pickEnemyTarget } from "@/game/targeting";
-import { threatAt } from "@/game/subsystems/threatField";
+import {
+  applyLowHpRegionPull,
+  computeAndApplyGroupDispersal,
+  computeRegroupCentroid,
+  resolveAntiCornerEvasion,
+  updateThreatMemory,
+} from "@/game/subsystems/workerAI";
 import type { Agent, Enemy, GameState } from "@/game/types";
 import { clamp, dist, normalize, pushLog } from "@/game/utils";
 
@@ -71,16 +74,6 @@ function pickSquadTangentSign(enemy: Enemy, squadmates: Enemy[], target: Agent):
   return leftCount > rightCount ? -1 : 1;
 }
 
-/** Penalty term for being out-of-bounds or near a wall. Used by anti-corner evasion. */
-function wallPenalty(x: number, y: number): number {
-  let penalty = 0;
-  if (x < AI_THREAT.cornerWallBuffer) penalty += (AI_THREAT.cornerWallBuffer - x) * 0.002;
-  if (x > WORLD_W - AI_THREAT.cornerWallBuffer) penalty += (x - (WORLD_W - AI_THREAT.cornerWallBuffer)) * 0.002;
-  if (y < 50 + AI_THREAT.cornerWallBuffer) penalty += (50 + AI_THREAT.cornerWallBuffer - y) * 0.002;
-  if (y > WORLD_H - AI_THREAT.cornerWallBuffer) penalty += (y - (WORLD_H - AI_THREAT.cornerWallBuffer)) * 0.002;
-  return penalty;
-}
-
 export function stepWorkers(state: GameState) {
   if (!state.nodes.length) return;
   const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor" && enemy.hp > 0);
@@ -90,18 +83,7 @@ export function stepWorkers(state: GameState) {
     if (node.workTicks > 0) node.workTicks = Math.max(0, node.workTicks - 1);
   }
 
-  // Precompute centroid of non-evading active workers for regroup bias.
-  let regroupX = 0, regroupY = 0, regroupCount = 0;
-  for (const other of state.agents) {
-    if (!other.active || other.evadeTicks > 0 || other.disabledTicks > 0) continue;
-    regroupX += other.x;
-    regroupY += other.y;
-    regroupCount += 1;
-  }
-  if (regroupCount > 0) {
-    regroupX /= regroupCount;
-    regroupY /= regroupCount;
-  }
+  const regroup = computeRegroupCentroid(state.agents);
 
   state.agents.forEach((agent, index) => {
     if (!agent.active) return;
@@ -111,11 +93,7 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
-    // Threat memory — EMA of local threat. Drives regroup + panic scaling.
-    const localThreat = threatAt(agent.x, agent.y, combatEnemies);
-    agent.threatMemory =
-      agent.threatMemory * WORKER_AI.threatMemoryDecay +
-      localThreat * WORKER_AI.threatMemoryGain;
+    updateThreatMemory(agent, combatEnemies);
 
     const needsTarget =
       agent.target == null ||
@@ -160,43 +138,19 @@ export function stepWorkers(state: GameState) {
 
       // Regroup bias when the worker is genuinely panicked — pulls toward
       // centroid of non-evading workers so fugitives reconverge on home.
-      if (regroupCount > 0 && agent.panic > WORKER_AI.regroupPanicThreshold) {
-        const rdx = regroupX - agent.x;
-        const rdy = regroupY - agent.y;
+      if (regroup.count > 0 && agent.panic > WORKER_AI.regroupPanicThreshold) {
+        const rdx = regroup.x - agent.x;
+        const rdy = regroup.y - agent.y;
         const rmag = Math.max(1, Math.hypot(rdx, rdy));
         vx += (rdx / rmag) * WORKER_AI.regroupWeight;
         vy += (rdy / rmag) * WORKER_AI.regroupWeight;
       }
 
-      let direction = normalize(vx, vy, agent.evadeDx, agent.evadeDy);
-
-      // Anti-corner: if projecting forward puts us in a wall, try rotated
-      // escape headings and pick the lowest-threat one that stays in bounds.
-      const lookahead = AI_THREAT.cornerLookaheadTicks;
-      const projX = agent.x + direction.x * agent.speed * lookahead;
-      const projY = agent.y + direction.y * agent.speed * lookahead;
-      const nearWall =
-        projX < AI_THREAT.cornerWallBuffer ||
-        projX > WORLD_W - AI_THREAT.cornerWallBuffer ||
-        projY < 50 + AI_THREAT.cornerWallBuffer ||
-        projY > WORLD_H - AI_THREAT.cornerWallBuffer;
-
-      if (nearWall) {
-        const baseAngle = Math.atan2(direction.y, direction.x);
-        let bestAngle = baseAngle;
-        let bestCost = threatAt(projX, projY, combatEnemies) + wallPenalty(projX, projY);
-        for (const offset of WORKER_AI.cornerRotationCandidates) {
-          const a = baseAngle + offset;
-          const cx = agent.x + Math.cos(a) * agent.speed * lookahead;
-          const cy = agent.y + Math.sin(a) * agent.speed * lookahead;
-          const cost = threatAt(cx, cy, combatEnemies) + wallPenalty(cx, cy);
-          if (cost < bestCost) {
-            bestCost = cost;
-            bestAngle = a;
-          }
-        }
-        direction = { x: Math.cos(bestAngle), y: Math.sin(bestAngle) };
-      }
+      const direction = resolveAntiCornerEvasion(
+        normalize(vx, vy, agent.evadeDx, agent.evadeDy),
+        agent,
+        combatEnemies
+      );
 
       const blendedDirection = normalize(
         agent.evadeDx * 0.70 + direction.x * 0.30,
@@ -267,13 +221,7 @@ export function stepWorkers(state: GameState) {
     // Low-hp region pull: hurt but not yet in recovery mode → nudge toward
     // the worker's home territory so they drift to a safer part of the field.
     if (!recovering && agent.hp < agent.maxHp * 0.5) {
-      const region = WORKER_REGIONS[agent.kind];
-      const personality = WORKER_PERSONALITY[agent.kind];
-      const rdx = region.cx - agent.x;
-      const rdy = region.cy - agent.y;
-      const rmag = Math.max(1, Math.hypot(rdx, rdy));
-      agent.x += (rdx / rmag) * personality.lowHpPull;
-      agent.y += (rdy / rmag) * personality.lowHpPull;
+      applyLowHpRegionPull(agent);
     }
     agent.tx = destination.x;
     agent.ty = destination.y;
@@ -306,34 +254,7 @@ export function stepWorkers(state: GameState) {
     }
   }
 
-  // Same-kind dispersal: when a worker has too many peers of the same kind
-  // nearby, apply a soft repulsion away from the group centroid so miners
-  // stay in the left sector, runners mid-field, and drones on the right.
-  for (const agent of state.agents) {
-    if (!agent.active || agent.evadeTicks > 0) continue;
-    const personality = WORKER_PERSONALITY[agent.kind];
-    let pcx = 0, pcy = 0, count = 0;
-    for (const other of state.agents) {
-      if (!other.active || other.id === agent.id || other.kind !== agent.kind) continue;
-      const d = dist(agent.x, agent.y, other.x, other.y);
-      if (d < personality.groupRepelRadius) {
-        pcx += other.x;
-        pcy += other.y;
-        count += 1;
-      }
-    }
-    if (count >= personality.groupRepelMinCount) {
-      pcx /= count;
-      pcy /= count;
-      const rdx = agent.x - pcx;
-      const rdy = agent.y - pcy;
-      const rmag = Math.max(1, Math.hypot(rdx, rdy));
-      // Repulsion strength scales with how crowded the group is.
-      const strength = 0.5 + (count - personality.groupRepelMinCount) * 0.25;
-      agent.x = clamp(agent.x + (rdx / rmag) * strength, 20, WORLD_W - 20);
-      agent.y = clamp(agent.y + (rdy / rmag) * strength, 50, WORLD_H - 32);
-    }
-  }
+  computeAndApplyGroupDispersal(state.agents);
 }
 
 export function stepTourist(state: GameState) {
