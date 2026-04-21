@@ -80,7 +80,6 @@ export const WORKER_BLOCKING = {
     zapper: 14,
   } satisfies Record<EnemyKind, number>,
   softBuffer: 10,
-  pushStrength: 0.88,
   speedPenaltyPerEnemy: 0.13,
   speedPenaltyCap: 0.55,
 } as const;

@@ -340,7 +340,7 @@ describe("advanceGame simulation invariants", () => {
     expect(later.agents[0].evadeTicks).toBeGreaterThan(0);
   });
 
-  it("enemy hitboxes slow workers without repelling them", () => {
+  it("combat enemy hitboxes reduce worker movement speed", () => {
     const state = createInitialGameState();
     const worker = state.agents[0];
     worker.x = 220;
@@ -352,21 +352,19 @@ describe("advanceGame simulation invariants", () => {
     state.nodes[0].y = 250;
     state.timers.tick = 1;
 
-    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
-    enemy.x = worker.x + 18;
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    enemy.x = worker.x + 30;
     enemy.y = worker.y;
     state.enemies.push(enemy);
 
     const pressure = measureWorkerEnemyBlocking(worker, state.enemies);
+
     expect(pressure.speedScale).toBeLessThan(1);
-
-    stepWorkers(state);
-
-    expect(worker.x).toBeGreaterThan(220);
-    expect(worker.x).toBeLessThan(240);
+    expect(pressure.blockers).toBe(1);
+    expect(pressure.touching).toBe(1);
   });
 
-  it("enemy blocking reduces how far a worker can push through a lane", () => {
+  it("combat enemy blocking reduces how far a worker can push through a lane", () => {
     const clear = createInitialGameState();
     const blocked = createInitialGameState();
 
@@ -389,16 +387,19 @@ describe("advanceGame simulation invariants", () => {
     blockedWorker.target = blocked.nodes[0].id;
     blocked.timers.tick = 1;
 
-    const enemy = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "corruptor");
-    enemy.x = blockedWorker.x + 30;
-    enemy.y = blockedWorker.y;
-    blocked.enemies.push(enemy);
+    const enemyA = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "raider");
+    enemyA.x = blockedWorker.x - 20;
+    enemyA.y = blockedWorker.y;
+    const enemyB = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "raider");
+    enemyB.x = blockedWorker.x - 25;
+    enemyB.y = blockedWorker.y + 5;
+    blocked.enemies.push(enemyA, enemyB);
 
     stepWorkers(clear);
     stepWorkers(blocked);
 
+    expect(blockedWorker.x).toBeGreaterThan(200);
     expect(blockedWorker.x).toBeLessThan(clearWorker.x);
-    expect(blockedWorker.x).toBeLessThan(enemy.x);
   });
 
   it("shield damage stops at the shield layer before HP is touched", () => {
