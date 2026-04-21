@@ -1158,7 +1158,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           aria-label={touristInteractive ? "Spot the tourist drone" : undefined}
           onClick={touristInteractive ? interactions?.onTouristClick : undefined}
           onKeyDown={touristInteractive ? (event) => onSvgActivate(event, interactions?.onTouristClick) : undefined}
-          style={touristInteractive ? { cursor: "pointer" } : undefined}
+          style={touristInteractive ? { cursor: "pointer", outline: "none" } : undefined}
         >
           {/* Transparent hit area so the tiny tourist is still reasonably clickable. */}
           {touristInteractive && <circle r="16" fill="rgba(0,0,0,0.001)" />}

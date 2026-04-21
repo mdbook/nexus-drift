@@ -22,6 +22,13 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Small HUD polish patch plus a shell-and-balance trim. One-shot event cards keep their distinct short-lived card treatment without the oversized explanatory label or visible countdown, extra worker slots now wait for much later colony progression and premium resource unlocks, and the shell now checks `/version` for newer live builds so players can refresh into updates without guessing.",
     sections: [
       {
+        title: "Tourist Click Polish",
+        items: [
+          "Clicking the tourist drone now keeps only the squish animation.",
+          "The oversized white outline that briefly appeared around the tourist on click has been removed so the interaction reads as a tiny in-world easter egg instead of a selected UI control.",
+        ],
+      },
+      {
         title: "Live Update Banner",
         items: [
           "The app shell now polls `/version` roughly every 5 minutes and again when the tab regains focus, then extracts a flat `x.y.z` version string from the response body.",

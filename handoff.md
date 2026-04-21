@@ -181,7 +181,7 @@ Auto-triggers when the colony is rich, stable, and clear enough. Combo bonus sta
 
 ### City / Home District
 
-The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5. The tourist now tracks `passId`, `lastClickedPassId`, and `squishTicks` so repeated clicks can count toward separate-pass and total-click secrets without letting one pass spam the pass counter.
+The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5. The tourist now tracks `passId`, `lastClickedPassId`, and `squishTicks` so repeated clicks can count toward separate-pass and total-click secrets without letting one pass spam the pass counter. Its click feedback is intentionally just the squish animation now; the old oversized white click/focus outline is suppressed in `FieldSvg.tsx`.
 
 ### Persistence And Idle UX
 
