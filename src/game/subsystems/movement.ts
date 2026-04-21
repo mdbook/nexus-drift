@@ -20,7 +20,7 @@ import {
   WORKER_REGIONS,
   ZAPPER,
 } from "@/game/balance";
-import { chooseWorkerTarget } from "@/game/factories";
+import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import { pickEnemyTarget } from "@/game/targeting";
 import { threatAt } from "@/game/subsystems/threatField";

@@ -1,6 +1,7 @@
 import { COMBAT_TICK } from "@/game/constants";
 import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, WORKER, ZAPPER } from "@/game/balance";
-import { addProjectile, chooseWorkerTarget } from "@/game/factories";
+import { addProjectile } from "@/game/factories";
+import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 

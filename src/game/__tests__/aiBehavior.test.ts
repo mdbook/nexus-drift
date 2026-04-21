@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ENEMY_AI } from "@/game/balance";
 import {
-  chooseWorkerTarget,
   createInitialGameState,
   migrateGameState,
   SCHEMA_VERSION,
   spawnEnemy,
 } from "@/game/factories";
+import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { pickEnemyTarget } from "@/game/targeting";
