@@ -2,6 +2,17 @@ import { TURRET, ZAPPER } from "@/game/balance";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 
+function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const vx = bx - ax;
+  const vy = by - ay;
+  const lenSq = vx * vx + vy * vy;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / lenSq));
+  const cx = ax + vx * t;
+  const cy = ay + vy * t;
+  return Math.hypot(px - cx, py - cy);
+}
+
 export function stepProjectiles(state: GameState) {
   // Tick frozen missile; when it expires, spawn the gold explosion
   if (state.frozenMissile !== null) {
@@ -30,10 +41,10 @@ export function stepProjectiles(state: GameState) {
     p.life -= 1;
 
     if (p.tag === "turret-missile" && p.vx !== undefined && p.vy !== undefined) {
-      const target = state.enemies.find((e) => e.id === p.targetId && e.hp > 0 && !isCloaked(e));
-      if (target) {
-        const dx = target.x - p.x1;
-        const dy = target.y - p.y1;
+      const originalTarget = state.enemies.find((e) => e.id === p.targetId);
+      if (originalTarget && originalTarget.hp > 0 && !isCloaked(originalTarget)) {
+        const dx = originalTarget.x - p.x1;
+        const dy = originalTarget.y - p.y1;
         const d = Math.max(1, Math.hypot(dx, dy));
         const steer = TURRET.missileSteering;
         let vx = p.vx * (1 - steer) + (dx / d) * steer;
@@ -43,13 +54,32 @@ export function stepProjectiles(state: GameState) {
         vy /= vl;
         p.vx = vx;
         p.vy = vy;
-        if (d <= TURRET.missileHitRadius) {
-          damageEnemy(target, p.damage ?? 0);
-          target.flash = 6;
+        const speed = p.speed ?? TURRET.missileSpeed;
+        const nextX = p.x1 + p.vx * speed;
+        const nextY = p.y1 + p.vy * speed;
+        const stepDistance = distanceToSegment(originalTarget.x, originalTarget.y, p.x1, p.y1, nextX, nextY);
+        if (d <= TURRET.missileHitRadius || stepDistance <= TURRET.missileGraceRadius) {
+          damageEnemy(originalTarget, p.damage ?? 0);
+          originalTarget.flash = 6;
           p.life = 0;
         }
+      } else if (
+        originalTarget &&
+        originalTarget.hp <= 0 &&
+        originalTarget.dyingTicks > 0 &&
+        distanceToSegment(
+          originalTarget.x,
+          originalTarget.y,
+          p.x1,
+          p.y1,
+          p.x1 + (p.vx ?? 0) * (p.speed ?? TURRET.missileSpeed),
+          p.y1 + (p.vy ?? 0) * (p.speed ?? TURRET.missileSpeed)
+        ) <= TURRET.missileCorpseGraceRadius
+      ) {
+        p.life = 0;
       } else {
-        // Missiles fizzle instead of retargeting so a kill cleanly ends their threat.
+        // Missiles remain locked to the original target. If that target is
+        // gone, cloaked, or not close enough to the death-fade position, fizzle.
         p.life = 0;
       }
       if (p.life > 0) {

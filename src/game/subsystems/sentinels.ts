@@ -129,7 +129,10 @@ export function stepSentinels(state: GameState) {
 
       if (distTarget <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
         const damage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
-        const effectiveHpAfter = target.hp - Math.max(0, damage - (target.shield ?? 0));
+        const effectiveHpAfter =
+          target.shield !== undefined && target.shield > 0
+            ? target.hp
+            : target.hp - damage;
         if (effectiveHpAfter <= 0) {
           state.stats.sentinelKills += 1;
         }

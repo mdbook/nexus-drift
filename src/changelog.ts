@@ -16,6 +16,108 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.5",
+    badge: "Surround Pressure",
+    summary:
+      "Worker survival and combat-readability release. Workers now take harder punishment when they get properly boxed in, live enemy bodies slow escape routes, and shielded enemies read as a real two-layer threat instead of a single mixed health bar.",
+    sections: [
+      {
+        title: "Combat Pressure",
+        items: [
+          "Worker combat detection widened slightly so close-range contact starts registering sooner.",
+          "Incoming worker damage now scales up when multiple attackers are already in contact, making true surround situations much harder to escape cleanly.",
+          "The multi-enemy pressure change stays scoped to close combat; it does not alter worker flee logic or node selection rules.",
+        ],
+      },
+      {
+        title: "Worker Blocking",
+        items: [
+          "Live enemy hitboxes now slow workers down before contact, so crowded lanes trim forward progress instead of letting crews slide through bodies at full speed.",
+          "Enemy bodies only slow movement and prevent easy lane slipping; they no longer apply a hidden knockback force that shoves workers away from the threat.",
+          "Only live enemies block movement; dying enemies still fade out visually without continuing to affect the sim.",
+          "Worker target scoring and flee-direction retargeting now explicitly ignore death-fade enemies so visual corpses cannot scare workers off useful nodes.",
+        ],
+      },
+      {
+        title: "Shield Layer",
+        items: [
+          "Shielded enemies now show a distinct cyan shield bar above their HP bar, plus a ring/glow overlay that makes the outer layer obvious in the field.",
+          "Shield damage is consumed before HP, but overflow no longer spills through to health in the same hit. Once a shield breaks, the next hit is what starts cutting HP underneath.",
+          "All shield-carrying enemies still have normal HP underneath the shield layer; the shield is a buffer, not the whole health pool.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added coverage for heavier multi-attacker worker damage, worker-vs-enemy blocking, shield-first damage routing without HP spillover, and worker targeting around death-fade enemies.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "2.4.3",
+    badge: "Flee Routing",
+    summary:
+      "Worker routing follow-up for the commitment pass. When a worker has been pushed off a node and is coasting through the last safe part of an evasion path, it now looks for a useful resource node ahead instead of blindly returning to the abandoned assignment. Workers are also a little more stubborn at active nodes: light enemy pressure no longer forces a retreat until damage actually lands, while target selection now penalizes nodes with clustered hostiles nearby.",
+    sections: [
+      {
+        title: "Worker Routing",
+        items: [
+          "Workers in persistent evasion now scan along their flee direction once immediate threats clear.",
+          "If a safe node is ahead within the flee lane, the worker can retarget to it while still moving away, reducing wasted travel after being forced off a resource.",
+          "The scan rejects nodes behind the worker, far off the flee lane, too far ahead, or behind a threatened path, so panic movement still prioritizes survival.",
+          "Harvesting workers now hold position under one or two nearby enemies until they actually take damage; three or more nearby enemies still force an early retreat.",
+          "Worker target scoring now adds an explicit close-enemy count around each node, so a crowded resource becomes less attractive even before the path threat score dominates.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added worker-AI coverage for safe flee-direction retargeting, blocked-path refusal, stubborn harvesting under light pressure, swarm-triggered retreat, and crowded-node avoidance.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "2.4.2",
+    badge: "Commitment Pass",
+    summary:
+      "Field-feel patch for the 2.4 line. Turret missiles now get a small terminal grace window after launch without ever retargeting, brutes keep their target long enough to stop twitching, workers commit much harder to resource nodes, and corruption residue lingers longer so purge pressure is easier to read.",
+    sections: [
+      {
+        title: "Field Feel",
+        items: [
+          "Turret missiles remain locked to their original target, but now get a small launched-flight grace radius so shots that arrive just behind a moving enemy still connect.",
+          "If the original target dies right before impact, a missile close to that death-fade position now resolves cleanly there instead of feeling like it vanished a frame early.",
+          "Missiles still never retarget, never splash onto another enemy, and still fizzle if the original target cloaks, disappears, or dies outside the small grace radius.",
+          "Brutes now hold a valid target for short refresh windows, smoothing slow tank movement and reducing path jitter while preserving their direct-march pressure.",
+        ],
+      },
+      {
+        title: "Worker Commitment",
+        items: [
+          "Workers now treat distant hostiles as less urgent: proactive evade range, harvesting evade range, path-fear scoring, and panic persistence were all trimmed so crews stay on resources longer.",
+          "Partially mined current targets now get a stronger finish bias, so workers are less likely to abandon nearly completed nodes for a fresh deposit unless the alternative is clearly better.",
+          "Recently worked resource bars now leave a fading ghost segment and small deterministic particles over the mined portion, making interrupted progress fade visually instead of simply snapping smaller.",
+          "Resource nodes do not regenerate mined HP from idleness; the new deterioration cue is visual only.",
+        ],
+      },
+      {
+        title: "Corruption Linger",
+        items: [
+          "Passive corruption cleanup now runs more slowly, leaving toxic residue on the field longer after corruptors detach or die.",
+          "Scout cleansing, purge rewards, corruption spread, and active anti-corruption upgrade value are unchanged.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added coverage for missile terminal grace/no-retarget behavior, slower corruption residue cleanup, brute target stability, worker harvesting commitment, and partially mined target stickiness.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.1",
     badge: "AI Polish",
     summary:

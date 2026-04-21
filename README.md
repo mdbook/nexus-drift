@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.4.1` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `2.4.5` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -15,6 +15,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
 - Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, but extra crews are now a true late-game unlock: the relevant track still has to reach its slot levels, the colony must also hit sector levels 12 and 24, and those key unlock upgrades now charge both Flux and Cores
+- Workers now commit harder to partially mined resources: distant threats have less proactive pull, current nodes get a stronger finish bias, one or two nearby enemies no longer dislodge an undamaged harvesting worker, live enemy bodies now physically block and slow workers instead of letting them slip through, fleeing workers can opportunistically retarget to safe nodes ahead, and recently worked health bars leave a fading mined-progress cue without regenerating node HP
 - Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
 - Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns; the 3 one-shot events now surface as short-lived inspectable cards instead of disappearing immediately, then fade away without a visible countdown
 
@@ -23,7 +24,8 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers — each kind now maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking when multiple hostiles share a target
 - Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
 - Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
-- Turrets fire homing missiles that travel visibly and steer toward their target; if that target dies first, the missile now fizzles instead of rehoming onto a different enemy. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
+- Turrets fire homing missiles that travel visibly and steer toward their original target; launched missiles now have a small terminal grace window, but still never rehome or splash if that target dies first. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
+- Shielded enemies now show a separate cyan shield layer above their HP, and shield damage is consumed before HP without spilling excess damage through to the health underneath in the same hit
 - 54 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including click-driven secrets for event inspection, anomaly witnessing, corpse/projectile interactions, UI opens, and a timed speed-sequence
 
 ### HUD & UI
@@ -35,7 +37,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Activity log: up to 40 structured entries with per-category icons, relative-age timestamps, and a filter tab bar
 - Entities fade in and out instead of popping: nodes, enemies, and agents all animate on spawn and death
 - Mature colonies can attract a tiny tourist drone; repeated clicks now just squish it, count per pass, and feed multiple hidden achievements without flashing an oversized white click outline
-- Late-game interaction props live directly in the field: a broken recoverable lost drone, a 3-event anomaly artifact, clickable zapper bolts, unforgiving in-flight missiles, and corpse clicks during enemy death-fade windows
+- Late-game interaction props live directly in the field: a broken recoverable lost drone, a 3-event anomaly artifact, clickable zapper bolts, in-flight missiles, and corpse clicks during enemy death-fade windows
 - The in-field achievement ribbon now shows newly unlocked badges first on the left, pushing older ones rightward so fresh unlocks are immediately visible, and clicking a badge jumps the archive modal straight to that achievement with a scroll/focus pulse that fades out cleanly
 
 ### Controls & Persistence
@@ -66,7 +68,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (65 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (92 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview

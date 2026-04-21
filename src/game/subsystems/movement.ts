@@ -14,10 +14,11 @@ import {
   ENEMY_SEPARATION,
   ENEMY_SPECIAL,
   WORKER,
+  WORKER_BLOCKING,
   WORKER_AI,
   ZAPPER,
 } from "@/game/balance";
-import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
+import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import { pickEnemyTarget } from "@/game/targeting";
 import {
@@ -74,9 +75,68 @@ function pickSquadTangentSign(enemy: Enemy, squadmates: Enemy[], target: Agent):
   return leftCount > rightCount ? -1 : 1;
 }
 
+type WorkerEnemyBlockingSample = {
+  speedScale: number;
+  blockers: number;
+  touching: number;
+};
+
+function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
+  const workerRadius = WORKER_BLOCKING.workerRadius[agent.kind];
+  let blockers = 0;
+  let touching = 0;
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0) continue;
+
+    const enemyRadius = WORKER_BLOCKING.enemyRadius[enemy.kind];
+    const dx = agent.x - enemy.x;
+    const dy = agent.y - enemy.y;
+    const d = Math.hypot(dx, dy);
+    const contactRadius = workerRadius + enemyRadius;
+    const influenceRadius = contactRadius + WORKER_BLOCKING.softBuffer;
+
+    if (d >= influenceRadius) continue;
+
+    blockers += 1;
+
+    if (d < contactRadius) {
+      touching += 1;
+    }
+  }
+
+  const speedScale =
+    Math.max(
+      0.16,
+      1 -
+        Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap) -
+        Math.min(touching * WORKER_BLOCKING.touchingPenaltyPerEnemy, WORKER_BLOCKING.touchingPenaltyCap)
+    );
+
+  return { speedScale, blockers, touching };
+}
+
+export function measureWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
+  return computeWorkerEnemyBlocking(agent, enemies);
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function shouldScanFleeTarget(tick: number, agentId: number): boolean {
+  const interval = WORKER_AI.fleeTargetScanTicks;
+  // Fresh worker IDs start at 1, so id 1 keeps the original tick-0 scan.
+  // Normalize the phase so legacy/manual id 0 workers never rely on JS's
+  // negative remainder behavior.
+  const phase = positiveModulo(-(agentId - 1) * 7, interval);
+  return positiveModulo(tick, interval) === phase;
+}
+
 export function stepWorkers(state: GameState) {
   if (!state.nodes.length) return;
-  const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor" && enemy.hp > 0);
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
+  const combatEnemies = liveEnemies.filter((enemy) => enemy.role !== "corruptor");
 
   // Decay node workTicks each tick; subsystems/mining.ts will bump nodes currently being mined.
   for (const node of state.nodes) {
@@ -107,6 +167,10 @@ export function stepWorkers(state: GameState) {
     const node =
       state.nodes.find((candidate) => candidate.id === agent.target) ??
       state.nodes[index % state.nodes.length];
+    // Sample blocking before movement for the current tick. If future nodes can
+    // move, update node positions first and keep deriving worker velocity from
+    // previous/current x/y; tx/ty below are only destination anchors.
+    const blocking = measureWorkerEnemyBlocking(agent, liveEnemies);
 
     // Workers already at the node get a tighter evasion trigger so they can
     // finish a harvest before fleeing. Only applies when not already evading
@@ -123,8 +187,13 @@ export function stepWorkers(state: GameState) {
         return d < threatRadius ? { enemy, d } : null;
       })
       .filter(Boolean) as Array<{ enemy: Enemy; d: number }>;
+    const shouldHoldNodeUnderLightPressure =
+      atNode &&
+      agent.damageTicks <= 0 &&
+      evadeThreats.length > 0 &&
+      evadeThreats.length <= WORKER_AI.harvestingStubbornEnemyLimit;
 
-    if (evadeThreats.length > 0) {
+    if (evadeThreats.length > 0 && !shouldHoldNodeUnderLightPressure) {
       let vx = 0;
       let vy = 0;
 
@@ -170,11 +239,21 @@ export function stepWorkers(state: GameState) {
     }
 
     if (agent.evadeTicks > 0) {
+      if (
+        !recovering &&
+        evadeThreats.length === 0 &&
+        shouldScanFleeTarget(state.timers.tick, agent.id)
+      ) {
+        const fleeTarget = chooseFleeDirectionTarget(state, agent);
+        if (fleeTarget !== null) agent.target = fleeTarget;
+      }
+
       const veteranBonus = 1 + agent.veteranRank * 0.05;
       const evadeSpeed =
         agent.speed *
         veteranBonus *
-        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor));
+        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor)) *
+        blocking.speedScale;
       agent.x = clamp(agent.x + agent.evadeDx * evadeSpeed, 20, WORLD_W - 20);
       agent.y = clamp(agent.y + agent.evadeDy * evadeSpeed, 50, WORLD_H - 32);
       agent.tx = clamp(agent.x + agent.evadeDx * 84, 20, WORLD_W - 20);
@@ -195,6 +274,9 @@ export function stepWorkers(state: GameState) {
     const workRadius = recovering ? 22 : clamp(destination.size * 0.45, 16, 24);
 
     if (d <= workRadius) {
+      // tx/ty are render/intention anchors, not a movement delta source. If
+      // nodes become mobile, recompute destination after node motion and use
+      // actual x/y deltas for velocity-sensitive logic.
       agent.tx = destination.x;
       agent.ty = destination.y;
       agent.swing = recovering ? 0 : (agent.swing + 1) % 24;
@@ -215,14 +297,17 @@ export function stepWorkers(state: GameState) {
 
     const speedMultiplier = recovering ? WORKER.recoverySpeed : agent.damageTicks > 0 ? WORKER.damagedSpeed : WORKER.traversingSpeed;
     const veteranBonus = 1 + agent.veteranRank * 0.05;
-    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus;
-    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus;
+    const blockingSpeed = blocking.speedScale;
+    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
+    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
 
     // Low-hp region pull: hurt but not yet in recovery mode → nudge toward
     // the worker's home territory so they drift to a safer part of the field.
     if (!recovering && agent.hp < agent.maxHp * 0.5) {
       applyLowHpRegionPull(agent);
     }
+    // Keep tx/ty pinned to the intended destination for rendering. Do not use
+    // these fields as proof of worker velocity if a future node type moves.
     agent.tx = destination.x;
     agent.ty = destination.y;
     agent.swing = 0;
@@ -388,7 +473,15 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
-    const target = pickEnemyTarget(enemy, state);
+    const currentTankTarget =
+      enemy.kind === "brute" && enemy.targetId !== null
+        ? state.agents.find((agent) => agent.id === enemy.targetId && agent.active && agent.hp > 0) ?? null
+        : null;
+    const shouldRefreshTankTarget =
+      enemy.kind !== "brute" || (state.timers.tick + enemy.id * 7) % ENEMY_AI.tankTargetRefreshTicks === 0;
+    const target = currentTankTarget && !shouldRefreshTankTarget
+      ? currentTankTarget
+      : pickEnemyTarget(enemy, state);
 
     if (!target) return;
 

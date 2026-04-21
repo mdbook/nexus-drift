@@ -1,5 +1,5 @@
 import { WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
-import { threatAlongPath } from "@/game/subsystems/threatField";
+import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
 
@@ -17,11 +17,24 @@ const WORKER_TIER2: Record<Agent["kind"], string[]> = {
 
 type ContestEntry = { count: number; evading: number };
 
+function buildContestedMap(state: GameState, agent: Agent): Map<number, ContestEntry> {
+  const contestedMap = new Map<number, ContestEntry>();
+  for (const other of state.agents) {
+    if (!other.active || other.id === agent.id || other.target == null) continue;
+    const entry = contestedMap.get(other.target) ?? { count: 0, evading: 0 };
+    entry.count += 1;
+    if (other.evadeTicks > 0) entry.evading += 1;
+    contestedMap.set(other.target, entry);
+  }
+  return contestedMap;
+}
+
 function scoreWorkerNode(
   agent: Agent,
   node: ResourceNode,
   enemies: Enemy[],
-  contestedMap: Map<number, ContestEntry>
+  contestedMap: Map<number, ContestEntry>,
+  isCurrentTarget = false
 ): number {
   const d = dist(agent.x, agent.y, node.x, node.y);
   const hpFactor = node.hp / node.maxHp;
@@ -58,6 +71,11 @@ function scoreWorkerNode(
   if (enemies.length > 0) {
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
     score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale;
+
+    const nodeThreats = countThreats(node.x, node.y, WORKER_AI.nodeThreatRadius, enemies);
+    score +=
+      nodeThreats * WORKER_AI.nodeThreatCrowdPenalty +
+      nodeThreats * nodeThreats * WORKER_AI.nodeThreatCrowdPenalty * 0.25;
   }
 
   // Region bias — prefer nodes inside this worker kind's home territory.
@@ -70,6 +88,9 @@ function scoreWorkerNode(
   if (node.workTicks > WORKER_AI.progressActiveThreshold && contested === 0) {
     score += WORKER_AI.progressActiveBonus;
   }
+  if (isCurrentTarget && hpFactor < 0.95) {
+    score += WORKER_AI.currentTargetProgressBonus * (1 - hpFactor);
+  }
   if (hpFactor > 0.95) {
     score += WORKER_AI.progressFreshBonus;
   }
@@ -81,21 +102,17 @@ function scoreWorkerNode(
 
 export function chooseWorkerTarget(state: GameState, agent: Agent): number | null {
   if (!state.nodes.length) return null;
-  const enemies = state.enemies;
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
 
   // Precompute per-node contest counts once so scoreWorkerNode doesn't
   // iterate all agents for every node × every caller.
-  const contestedMap = new Map<number, ContestEntry>();
-  for (const other of state.agents) {
-    if (!other.active || other.id === agent.id || other.target == null) continue;
-    const entry = contestedMap.get(other.target) ?? { count: 0, evading: 0 };
-    entry.count += 1;
-    if (other.evadeTicks > 0) entry.evading += 1;
-    contestedMap.set(other.target, entry);
-  }
+  const contestedMap = buildContestedMap(state, agent);
 
   const ranked = state.nodes
-    .map((node) => ({ id: node.id, score: scoreWorkerNode(agent, node, enemies, contestedMap) }))
+    .map((node) => ({
+      id: node.id,
+      score: scoreWorkerNode(agent, node, liveEnemies, contestedMap, node.id === agent.target),
+    }))
     .sort((a, b) => a.score - b.score);
 
   const best = ranked[0];
@@ -104,11 +121,51 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   // Sticky retargeting — stay on current node unless a candidate is materially better.
   const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
   if (current) {
-    const currentScore = scoreWorkerNode(agent, current, enemies, contestedMap);
+    const currentScore = scoreWorkerNode(agent, current, liveEnemies, contestedMap, true);
     if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
       return current.id;
     }
   }
 
   return best.id;
+}
+
+export function chooseFleeDirectionTarget(state: GameState, agent: Agent): number | null {
+  if (!state.nodes.length) return null;
+  const mag = Math.hypot(agent.evadeDx, agent.evadeDy);
+  if (mag < 0.001) return null;
+
+  const dirX = agent.evadeDx / mag;
+  const dirY = agent.evadeDy / mag;
+  const contestedMap = buildContestedMap(state, agent);
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
+
+  let bestId: number | null = null;
+  let bestScore = Infinity;
+
+  for (const node of state.nodes) {
+    const dx = node.x - agent.x;
+    const dy = node.y - agent.y;
+    const forward = dx * dirX + dy * dirY;
+    if (forward < WORKER_AI.fleeTargetMinForward || forward > WORKER_AI.fleeTargetLookahead) continue;
+
+    const lateral = Math.abs(dx * dirY - dy * dirX);
+    if (lateral > WORKER_AI.fleeTargetLateralLimit) continue;
+
+    const pathThreat = liveEnemies.length > 0
+      ? threatAlongPath(agent.x, agent.y, node.x, node.y, liveEnemies)
+      : 0;
+    if (pathThreat > WORKER_AI.fleeTargetMaxPathThreat) continue;
+
+    const current = node.id === agent.target;
+    const baseScore = scoreWorkerNode(agent, node, liveEnemies, contestedMap, current);
+    const alignmentScore = forward * 0.2 + lateral * 1.15 + pathThreat * WORKER_AI.pathSafetyPenalty * 3;
+    const score = baseScore + alignmentScore;
+    if (score < bestScore) {
+      bestScore = score;
+      bestId = node.id;
+    }
+  }
+
+  return bestId;
 }

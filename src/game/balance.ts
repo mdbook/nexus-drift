@@ -55,6 +55,37 @@ export const WORKER = {
   heavyFireThreshold: 24,
 } as const;
 
+/**
+ * Worker-vs-enemy collision tuning used by movement.ts.
+ * Radii intentionally track the rendered bodies rather than the larger panic
+ * / threat radii so blocking feels physical without inflating fear range.
+ */
+export const WORKER_BLOCKING = {
+  workerRadius: {
+    miner: 14,
+    runner: 15,
+    drone: 14,
+  } satisfies Record<WorkerKind, number>,
+  enemyRadius: {
+    mite: 15,
+    raider: 24,
+    wisp: 13,
+    corruptor: 16,
+    rusher: 12,
+    brute: 27,
+    sapper: 10,
+    blight: 18,
+    leech: 16,
+    phantom: 17,
+    zapper: 14,
+  } satisfies Record<EnemyKind, number>,
+  softBuffer: 10,
+  speedPenaltyPerEnemy: 0.13,
+  speedPenaltyCap: 0.55,
+  touchingPenaltyPerEnemy: 0.18,
+  touchingPenaltyCap: 0.42,
+} as const;
+
 export const ENEMY_STATS: Record<
   EnemyKind,
   { hpBase: number; hpWave: number; speedBase: number; speedWave: number }
@@ -197,7 +228,9 @@ export const TURRET = {
   missileSpeed: 3.5,
   missileSteering: 0.18,
   missileMaxLife: 90,
-  missileHitRadius: 14,
+  missileHitRadius: 16,
+  missileGraceRadius: 28,
+  missileCorpseGraceRadius: 24,
   missileDamageBonus: 1.15,
 } as const;
 
@@ -257,8 +290,8 @@ export const SENTINEL = {
 export const CORRUPTION = {
   ratePerTick: 0.65,
   ratePerLevel: 0.01,
-  purgeBase: 0.25,
-  purgePerArsenal: 0.04,
+  purgeBase: 0.12,
+  purgePerArsenal: 0.025,
   purgePerShield: 0.01,
   purgeThreshold: 3,
   nodeActiveThreshold: 3,
@@ -269,8 +302,9 @@ export const CORRUPTION = {
 } as const;
 
 export const COMBAT = {
-  detectionRadius: 26,
+  detectionRadius: 32,
   minPerAttackerDamage: 0.6,
+  surroundBonusPerAttacker: 0.32,
   mitigation: {
     baselineShield: 0.95,
     baselineTurret: 0.12,
@@ -547,6 +581,7 @@ export const ENEMY_AI = {
   ghostRepositionPhaseEnd: 0.75, // cloakPhase fraction at which ghost stops repositioning
   squadBearingBuckets: 6,
   squadBucketTicks: 45, // spawn-tick / this = squadId bucket size
+  tankTargetRefreshTicks: 36,
   isolatedRadius: 120, // "alone" means no other active worker within this radius
   woundedHpRatio: 0.6,
 } as const;
@@ -592,17 +627,26 @@ export const WORKER_PERSONALITY: Record<WorkerKind, {
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {
-  pathSafetyPenalty: 55, // score penalty per threat-sample unit along the path
-  harvestingEvasionRadius: 56, // while at the node, only bolt when an enemy closes within this distance
+  pathSafetyPenalty: 34, // score penalty per threat-sample unit along the path
+  harvestingEvasionRadius: 42, // while at the node, only bolt when an enemy closes within this distance
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
   evadingContestedPenalty: 140, // extra score cost per evading worker currently targeting node
   progressFreshBonus: -12, // score bonus for freshly respawned nodes (small)
-  progressActiveBonus: -20, // score bonus for nodes with recent worker contact (workTicks > threshold)
+  progressActiveBonus: -34, // score bonus for nodes with recent worker contact (workTicks > threshold)
+  currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
+  nodeThreatRadius: 82,
+  nodeThreatCrowdPenalty: 44,
+  harvestingStubbornEnemyLimit: 2,
+  fleeTargetLookahead: 290, // max forward distance considered while persistent evasion is coasting
+  fleeTargetMinForward: 48,
+  fleeTargetLateralLimit: 125,
+  fleeTargetMaxPathThreat: 0.038,
+  fleeTargetScanTicks: 12,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,
-  stickyThreshold: 0.72, // only switch target if candidate score is < this * current — lower = stickier
+  stickyThreshold: 0.64, // only switch target if candidate score is < this * current — lower = stickier
   threatMemoryDecay: 0.92,
   threatMemoryGain: 0.18,
   cornerRotationCandidates: [Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, Math.PI * 0.75, -Math.PI * 0.75],

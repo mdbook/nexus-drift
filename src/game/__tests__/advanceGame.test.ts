@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
-import { AUTO_TICK } from "@/game/constants";
+import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
+import { COMBAT, CORRUPTION, TURRET } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
+import { stepCombat } from "@/game/subsystems/combat";
+import { stepCorruption } from "@/game/subsystems/corruption";
+import { damageEnemy } from "@/game/enemyUtils";
+import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -335,6 +340,85 @@ describe("advanceGame simulation invariants", () => {
     expect(later.agents[0].evadeTicks).toBeGreaterThan(0);
   });
 
+  it("combat enemy hitboxes reduce worker movement speed", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.x = 220;
+    worker.y = 250;
+    worker.tx = 420;
+    worker.ty = 250;
+    worker.target = state.nodes[0].id;
+    state.nodes[0].x = 420;
+    state.nodes[0].y = 250;
+    state.timers.tick = 1;
+
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    enemy.x = worker.x + 30;
+    enemy.y = worker.y;
+    state.enemies.push(enemy);
+
+    const pressure = measureWorkerEnemyBlocking(worker, state.enemies);
+
+    expect(pressure.speedScale).toBeLessThan(1);
+    expect(pressure.blockers).toBe(1);
+    expect(pressure.touching).toBe(1);
+  });
+
+  it("combat enemy blocking reduces how far a worker can push through a lane", () => {
+    const clear = createInitialGameState();
+    const blocked = createInitialGameState();
+
+    const clearWorker = clear.agents[0];
+    const blockedWorker = blocked.agents[0];
+    clearWorker.x = 200;
+    clearWorker.y = 250;
+    blockedWorker.x = 200;
+    blockedWorker.y = 250;
+
+    clear.nodes[0].kind = "ore";
+    clear.nodes[0].x = 420;
+    clear.nodes[0].y = 250;
+    clearWorker.target = clear.nodes[0].id;
+    clear.timers.tick = 1;
+
+    blocked.nodes[0].kind = "ore";
+    blocked.nodes[0].x = 420;
+    blocked.nodes[0].y = 250;
+    blockedWorker.target = blocked.nodes[0].id;
+    blocked.timers.tick = 1;
+
+    const enemyA = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "raider");
+    enemyA.x = blockedWorker.x - 20;
+    enemyA.y = blockedWorker.y;
+    const enemyB = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "raider");
+    enemyB.x = blockedWorker.x - 25;
+    enemyB.y = blockedWorker.y + 5;
+    blocked.enemies.push(enemyA, enemyB);
+
+    stepWorkers(clear);
+    stepWorkers(blocked);
+
+    expect(blockedWorker.x).toBeGreaterThan(200);
+    expect(blockedWorker.x).toBeLessThan(clearWorker.x);
+  });
+
+  it("shield damage stops at the shield layer before HP is touched", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 12;
+    enemy.shieldMax = 12;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 35;
+
+    damageEnemy(enemy, 20);
+
+    expect(enemy.shield).toBe(0);
+    expect(enemy.hp).toBe(35);
+
+    damageEnemy(enemy, 8);
+
+    expect(enemy.hp).toBe(27);
+  });
+
   it("derived state stays consistent with simulation", () => {
     const final = runTicks(createInitialGameState(), 500);
     const derived = computeDerived(final);
@@ -356,6 +440,21 @@ describe("advanceGame simulation invariants", () => {
     expect(derived.activeCorruptionNodes).toBe(1);
     expect(derived.corruptedNodes).toBe(0);
     expect(derived.corruptionPressure).toBe(true);
+  });
+
+  it("lets passive corruption residue linger after corruptors detach", () => {
+    const state = createInitialGameState();
+    const node = state.nodes[0];
+    node.kind = "ore";
+    node.corruption = 10;
+    node.corrupted = true;
+    node.corruptedBy = null;
+    state.enemies = [];
+
+    stepCorruption(state);
+
+    expect(node.corruption).toBeCloseTo(10 - CORRUPTION.purgeBase, 5);
+    expect(node.corruption).toBeGreaterThan(9.8);
   });
 
   it("fast-tracks scout upgrades once corrupters are active", () => {
@@ -683,6 +782,38 @@ describe("zapper enemy", () => {
     expect(after.agents[0].disabledTicks).toBe(0);
   });
 
+  it("surrounded workers take materially more damage from multiple nearby attackers", () => {
+    const soloState = createInitialGameState();
+    const swarmState = createInitialGameState();
+    soloState.timers.tick = COMBAT_TICK;
+    swarmState.timers.tick = COMBAT_TICK;
+
+    const soloWorker = soloState.agents[0];
+    const swarmWorker = swarmState.agents[0];
+    soloWorker.hp = 100;
+    swarmWorker.hp = 100;
+
+    const soloRaider = spawnEnemy(soloState.rng, soloState.nextEnemyId++, 0, "raider");
+    soloRaider.x = soloWorker.x;
+    soloRaider.y = soloWorker.y;
+    soloState.enemies.push(soloRaider);
+
+    const attackerKinds = ["raider", "mite", "wisp"] as const;
+    attackerKinds.forEach((kind, index) => {
+      const enemy = spawnEnemy(swarmState.rng, swarmState.nextEnemyId++, 0, kind);
+      enemy.x = swarmWorker.x + index * 3;
+      enemy.y = swarmWorker.y + index * 2;
+      swarmState.enemies.push(enemy);
+    });
+
+    stepCombat(soloState);
+    stepCombat(swarmState);
+
+    expect(soloWorker.hp).toBeLessThan(100);
+    expect(swarmWorker.hp).toBeLessThan(soloWorker.hp);
+    expect(100 - swarmWorker.hp).toBeGreaterThan((100 - soloWorker.hp) * (1 + COMBAT.surroundBonusPerAttacker));
+  });
+
   it("migration adds disabledTicks fallback to existing saves", () => {
     const save = {
       citySeed: 99,
@@ -758,6 +889,21 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
+  it("missile gets terminal leeway beyond the direct hit radius after launch", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    missile.x1 = enemy.x - (TURRET.missileHitRadius + 6);
+    missile.y1 = enemy.y;
+    missile.vx = 1;
+    missile.vy = 0;
+
+    stepProjectiles(state);
+
+    expect(enemy.hp).toBeLessThan(100);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
   it("missile fizzles out when target dies and no other enemies exist", () => {
     const { state, enemy } = makeStateWithEnemyInRange();
     stepTurrets(state);
@@ -783,6 +929,32 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     enemy.hp = 0;
     stepProjectiles(state);
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
+  it("missile can finish near a death-fading original target without retargeting", () => {
+    const { state, enemy } = makeStateWithEnemyInRange();
+    const turret = state.turrets[0];
+    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy2.x = enemy.x + 8;
+    enemy2.y = enemy.y;
+    enemy2.hp = 100;
+    state.enemies.push(enemy2);
+    stepTurrets(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile.targetId).toBe(enemy.id);
+
+    enemy.hp = 0;
+    enemy.dyingTicks = 12;
+    missile.x1 = enemy.x - 8;
+    missile.y1 = enemy.y;
+    missile.vx = 1;
+    missile.vy = 0;
+
+    stepProjectiles(state);
+
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+    expect(enemy2.hp).toBe(100);
+    expect(turret.cooldown).toBeGreaterThan(0);
   });
 
   it("missile also fizzles instead of retargeting when another enemy is out of range", () => {

@@ -231,7 +231,8 @@ export function stepCombat(state: GameState) {
 
       return sum + baseline + counterMitigation;
     }, 0);
-    const incoming = Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation);
+    const surroundBonus = Math.max(0, attackers.length - 1) * COMBAT.surroundBonusPerAttacker;
+    const incoming = Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation) * (1 + surroundBonus);
     const blocked = Math.max(0, rawIncoming - incoming);
     state.stats.blocked += blocked;
 

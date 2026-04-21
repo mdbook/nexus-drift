@@ -677,6 +677,14 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
       {game.nodes.map((node) => {
         const style = NODE_STYLE[node.kind];
         const hpPct = clamp((node.hp / node.maxHp) * 100, 0, 100);
+        const minedPct = clamp(1 - node.hp / node.maxHp, 0, 1);
+        const recentWorkAlpha = clamp(node.workTicks / 120, 0, 1);
+        const hpBarX = node.x - 22;
+        const hpBarY = node.y + node.size + 10;
+        const hpBarWidth = 44;
+        const hpWidth = (hpBarWidth * hpPct) / 100;
+        const minedWidth = hpBarWidth * minedPct;
+        const showRecentWork = minedWidth > 1.5 && recentWorkAlpha > 0.02;
         const corruptionPct = clamp(node.corruption, 0, 100);
         const toxicGlow = node.corruption > 0 ? 0.1 + node.corruption / 200 : 0;
         const nodeAlpha = node.temporary && node.despawnAt !== undefined
@@ -712,8 +720,38 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
               r={node.size * 0.32}
               fill={node.corrupted ? "rgba(220,150,255,0.32)" : style.core}
             />
-            <rect x={node.x - 22} y={node.y + node.size + 10} rx="4" ry="4" width="44" height="5" fill="rgba(255,255,255,0.12)" />
-            <rect x={node.x - 22} y={node.y + node.size + 10} rx="4" ry="4" width={(44 * hpPct) / 100} height="5" fill="rgba(255,255,255,0.7)" />
+            <rect x={hpBarX} y={hpBarY} rx="4" ry="4" width={hpBarWidth} height="5" fill="rgba(255,255,255,0.12)" />
+            {showRecentWork && (
+              <rect
+                x={hpBarX + hpWidth}
+                y={hpBarY}
+                rx="4"
+                ry="4"
+                width={minedWidth}
+                height="5"
+                fill={`rgba(255,255,255,${(recentWorkAlpha * 0.28).toFixed(2)})`}
+              />
+            )}
+            <rect x={hpBarX} y={hpBarY} rx="4" ry="4" width={hpWidth} height="5" fill="rgba(255,255,255,0.7)" />
+            {showRecentWork && !lowFxMode && (
+              <>
+                {Array.from({ length: 4 }, (_, i) => {
+                  const fraction = ((node.id * 37 + i * 23) % 100) / 100;
+                  const particleX = hpBarX + hpWidth + Math.max(2, minedWidth - 2) * fraction;
+                  const particleY = hpBarY + 2 + Math.sin(node.pulse + i * 1.7) * 3;
+                  const particleAlpha = recentWorkAlpha * (0.18 + i * 0.04);
+                  return (
+                    <circle
+                      key={`node-work-${node.id}-${i}`}
+                      cx={particleX}
+                      cy={particleY}
+                      r={0.9 + (i % 2) * 0.35}
+                      fill={`rgba(255,255,255,${particleAlpha.toFixed(2)})`}
+                    />
+                  );
+                })}
+              </>
+            )}
             {node.corruption > 0 && (
               <>
                 <rect x={node.x - 22} y={node.y + node.size + 18} rx="4" ry="4" width="44" height="4" fill="rgba(255,255,255,0.08)" />
@@ -954,8 +992,9 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         // Shield overlay — rendered for any enemy that carries a shield layer
         // (leech, phantom, zapper). Draws a translucent arc ring around the
         // enemy whose opacity tracks shield fullness, plus a small shield bar
-        // above the HP bar. Regenerating shields pulse subtly to telegraph that
-        // damage was recently absorbed.
+        // stacked above the HP bar so the shield reads as the outer layer.
+        // Regenerating shields pulse subtly to telegraph that damage was
+        // recently absorbed.
         const hasShield =
           enemy.shield !== undefined &&
           enemy.shieldMax !== undefined &&
@@ -991,7 +1030,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           <>
             <rect
               x={enemy.x - 16}
-              y={enemy.y + style.radius + 14}
+              y={enemy.y - style.radius - 18}
               rx="3"
               ry="3"
               width="32"
@@ -1000,7 +1039,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
             />
             <rect
               x={enemy.x - 16}
-              y={enemy.y + style.radius + 14}
+              y={enemy.y - style.radius - 18}
               rx="3"
               ry="3"
               width={(32 * shieldPct) / 100}

@@ -94,6 +94,10 @@ Rules for these fields:
 - Do not use `dyingTicks` for any sim logic. Movement, targeting, and combat all guard on `enemy.hp > 0`. Dying enemies linger in `state.enemies` for visual purposes only — they must not participate in gameplay.
 - If you add a new entity type that spawns/despawns at runtime, follow the same pattern: `spawnTick` on the entity, set at construction, used only in the renderer.
 
+## Resource Node Progress Visuals
+
+Partially mined resource nodes may show fading recent-work visuals in `FieldSvg.tsx` based on `ResourceNode.workTicks`, but idle nodes must **not** regenerate mined HP. `ResourceNode.hp` only decreases through mining and resets through exhaustion/respawn (or temporary-node removal). If you add more progress or deterioration presentation, keep it visual-only unless the user explicitly asks for resource regeneration.
+
 ## Save State And Migration (Check On Every Feature)
 
 Any change that adds, removes, or renames a field on `GameState` (or any nested type) requires updates in three places. Before finishing a feature, explicitly ask: _does this change the shape of what gets saved to localStorage?_ If yes:
@@ -155,6 +159,32 @@ Rules for adding achievements:
 - Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.
 - Do not try to fold the recovered lost drone back into `WORKER_SLOTS_BY_UPGRADE`; it is intentionally outside the normal 9-slot invariant.
 
+## Worker Flee-Retarget Invariant
+
+Workers in persistent evasion may retarget to nodes ahead of their flee direction via `chooseFleeDirectionTarget()`, but only when no immediate `evadeThreats` are present. Keep this opportunistic: reject nodes behind the worker, outside the flee lane, too far ahead, or behind a high-threat path. Do not let flee retargeting override active panic survival or recovery behavior.
+
+## Worker Harvesting Stubbornness
+
+Harvesting workers are intentionally stubborn under light pressure. While at a node, one or two nearby enemies should not trigger evasion unless the worker has actually taken damage (`damageTicks > 0`). Three or more nearby enemies still force early evasion. Keep this rule scoped to active node work; workers that are already recovering, disabled, or away from a node should use the normal evasion logic.
+
+## Worker Hitbox Blocking
+
+`stepWorkers()` now treats live enemy bodies as physical obstacles. It uses `WORKER_BLOCKING` radii in `balance.ts` to slow workers in crowded hostile lanes. The layer is intentionally slowdown-only: it must not apply a hidden knockback force that shoves workers away from nearby enemies.
+
+- Keep those blocking radii aligned with the rendered body sizes in `FieldSvg.tsx` if you tune worker or enemy visuals.
+- Use live enemies only. Dying enemies (`hp <= 0`) still fade out visually, but they must not block movement.
+
+## Enemy Shield Layer
+
+Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
+
+- Keep the shield bars and rings in `FieldSvg.tsx` stacked above the HP bar so the outer layer reads clearly in the field.
+- Do not add new direct `enemy.hp -=` damage paths. All hostile damage should keep flowing through `damageEnemy()`.
+
+## Surround Combat Pressure
+
+Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
@@ -166,7 +196,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-65 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+92 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 
