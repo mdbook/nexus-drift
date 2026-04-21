@@ -6,7 +6,6 @@ stages:
   - build
   - notification
 
-
 verify:
   stage: verify
   image: node:20-alpine
@@ -19,12 +18,13 @@ verify:
       when: never
     - when: on_success
 
-
 build:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  variables:
+    IMAGE_CHANNEL_TAG: "$CI_COMMIT_REF_SLUG"
   script:
     - mkdir -p /kaniko/.docker
     - printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > /kaniko/.docker/config.json
@@ -33,11 +33,16 @@ build:
       --context "$CI_PROJECT_DIR"
       --dockerfile "$CI_PROJECT_DIR/Dockerfile"
       --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
-      --destination "$CI_REGISTRY_IMAGE:latest"
+      --destination "$CI_REGISTRY_IMAGE:$IMAGE_CHANNEL_TAG"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
-    - when: on_success
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        IMAGE_CHANNEL_TAG: "latest"
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      variables:
+        IMAGE_CHANNEL_TAG: "dev"
 
 success_notification:
   stage: notification

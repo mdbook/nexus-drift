@@ -137,6 +137,10 @@ GitLab CI runs:
 - **image build** — Kaniko-based build that publishes the container image
 - **notifications** — success and failure alerts after the pipeline completes
 
+Container release images are built automatically only for `main` and `dev`: `main`
+publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus
+`:dev`.
+
 ---
 
 ## Notes For Contributors

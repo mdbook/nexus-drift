@@ -50,7 +50,7 @@ Current version: **2.4.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
 - `src/game/__tests__/aiBehavior.test.ts` — 16 tests: worker path safety, archetype targeting, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
-- `.gitlab-ci.yml` — verify and container-build pipeline
+- `.gitlab-ci.yml` — verify and container-build pipeline. Automatic release image builds only run on `main` and `dev`: `main` publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus `:dev`.
 - `docker/nginx.conf` — SPA serving config with security headers
 - `Dockerfile` — multi-stage production image build
 
@@ -81,6 +81,7 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 Workers pick targets autonomously via a scored target-selection function in `src/game/ai/workerTargeting.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), a contested-by-evading-workers penalty (quadratic — third worker on a node is a strong deterrent), and a **region-distance penalty** that biases each kind toward its preferred field sector.
 
 **Worker personalities and territories** (`WORKER_PERSONALITY`, `WORKER_REGIONS` in `balance.ts`):
+
 - **Miner** — left sector (cx 200, cy 250), brave (`pathFearScale 0.60`), pushes through moderate threats.
 - **Runner** — mid-field (cx 500, cy 280), moderate courage, loose territory.
 - **Drone** — right sector (cx 780, cy 240), cautious (`pathFearScale 1.30`), takes safer routes.
