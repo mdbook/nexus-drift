@@ -79,16 +79,12 @@ type WorkerEnemyBlockingSample = {
   speedScale: number;
   blockers: number;
   touching: number;
-  pushX: number;
-  pushY: number;
 };
 
 function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
   const workerRadius = WORKER_BLOCKING.workerRadius[agent.kind];
   let blockers = 0;
   let touching = 0;
-  let pushX = 0;
-  let pushY = 0;
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
@@ -106,49 +102,22 @@ function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemy
 
     if (d < contactRadius) {
       touching += 1;
-      const overlap = contactRadius - d;
-      if (d > 0.001) {
-        const direction = normalize(dx, dy, agent.x - agent.tx, agent.y - agent.ty);
-        pushX += direction.x * overlap;
-        pushY += direction.y * overlap;
-      } else {
-        const angle = ((agent.id * 37 + enemy.id * 17) % 360) * (Math.PI / 180);
-        pushX += Math.cos(angle) * overlap;
-        pushY += Math.sin(angle) * overlap;
-      }
-    } else {
-      const softPressure = influenceRadius - d;
-      const drift = softPressure * 0.18;
-      if (d > 0.001) {
-        const direction = normalize(dx, dy, agent.x - agent.tx, agent.y - agent.ty);
-        pushX += direction.x * drift;
-        pushY += direction.y * drift;
-      } else {
-        const angle = ((agent.id * 37 + enemy.id * 17) % 360) * (Math.PI / 180);
-        pushX += Math.cos(angle) * drift;
-        pushY += Math.sin(angle) * drift;
-      }
     }
   }
 
   const speedScale =
-    1 - Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap);
+    Math.max(
+      0.16,
+      1 -
+        Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap) -
+        Math.min(touching * 0.18, 0.42)
+    );
 
-  return { speedScale, blockers, touching, pushX, pushY };
+  return { speedScale, blockers, touching };
 }
 
 export function measureWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
   return computeWorkerEnemyBlocking(agent, enemies);
-}
-
-export function resolveWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): void {
-  const sample = computeWorkerEnemyBlocking(agent, enemies);
-  if (sample.touching <= 0) return;
-
-  const direction = normalize(sample.pushX, sample.pushY, agent.x - agent.tx, agent.y - agent.ty);
-  const shove = WORKER_BLOCKING.pushStrength * Math.min(1, 0.45 + sample.touching * 0.2);
-  agent.x = clamp(agent.x + direction.x * shove, 20, WORLD_W - 20);
-  agent.y = clamp(agent.y + direction.y * shove, 50, WORLD_H - 32);
 }
 
 export function stepWorkers(state: GameState) {
@@ -278,7 +247,6 @@ export function stepWorkers(state: GameState) {
       agent.panic = clamp(agent.panic + (evadeThreats.length > 0 ? WORKER.panicDelta.evadingWithThreat : WORKER.panicDelta.evadingPassive), 0, 100);
       agent.hp = clamp(agent.hp + WORKER.healRate.evading + state.upgrades.shield * WORKER.healRate.evadingShield, 0, agent.maxHp);
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
-      resolveWorkerEnemyBlocking(agent, liveEnemies);
       return;
     }
 
@@ -305,7 +273,6 @@ export function stepWorkers(state: GameState) {
         agent.maxHp
       );
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
-      resolveWorkerEnemyBlocking(agent, liveEnemies);
       return;
     }
 
@@ -327,7 +294,6 @@ export function stepWorkers(state: GameState) {
     agent.panic = clamp(agent.panic - (recovering ? WORKER.panicDelta.traversingRecovering : WORKER.panicDelta.traversing), 0, 100);
     agent.hp = clamp(agent.hp + WORKER.healRate.traversing + state.upgrades.shield * WORKER.healRate.traversingShield, 0, agent.maxHp);
     agent.damageTicks = Math.max(0, agent.damageTicks - 1);
-    resolveWorkerEnemyBlocking(agent, liveEnemies);
   });
 
   // separate overlapping workers

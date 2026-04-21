@@ -11,8 +11,9 @@ export function isCloaked(enemy: Enemy) {
 
 /**
  * Apply `amount` damage to an enemy, routing it through the shield first.
- * Mutates enemy.shield and enemy.hp in place and resets shieldRegenCooldown
- * on any hit so regen doesn't tick on the same frame as damage.
+ * Shield damage does not spill over into HP in the same hit. Mutates
+ * enemy.shield and enemy.hp in place and resets shieldRegenCooldown on any
+ * hit so regen doesn't tick on the same frame as damage.
  *
  * Usage:
  *   damageEnemy(enemy, 25);
@@ -24,9 +25,9 @@ export function damageEnemy(enemy: Enemy, amount: number): void {
   if (enemy.shield !== undefined && enemy.shield > 0) {
     const absorbed = Math.min(enemy.shield, amount);
     enemy.shield -= absorbed;
-    amount -= absorbed;
     // Reset regen cooldown on any hit that touches the shield.
     enemy.shieldRegenCooldown = ENEMY_SHIELD.regenDelayTicks;
+    amount = 0;
   }
 
   if (amount > 0) {

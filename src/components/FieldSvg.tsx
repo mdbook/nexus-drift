@@ -992,8 +992,9 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         // Shield overlay — rendered for any enemy that carries a shield layer
         // (leech, phantom, zapper). Draws a translucent arc ring around the
         // enemy whose opacity tracks shield fullness, plus a small shield bar
-        // above the HP bar. Regenerating shields pulse subtly to telegraph that
-        // damage was recently absorbed.
+        // stacked above the HP bar so the shield reads as the outer layer.
+        // Regenerating shields pulse subtly to telegraph that damage was
+        // recently absorbed.
         const hasShield =
           enemy.shield !== undefined &&
           enemy.shieldMax !== undefined &&
@@ -1029,7 +1030,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           <>
             <rect
               x={enemy.x - 16}
-              y={enemy.y + style.radius + 14}
+              y={enemy.y - style.radius - 18}
               rx="3"
               ry="3"
               width="32"
@@ -1038,7 +1039,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
             />
             <rect
               x={enemy.x - 16}
-              y={enemy.y + style.radius + 14}
+              y={enemy.y - style.radius - 18}
               rx="3"
               ry="3"
               width={(32 * shieldPct) / 100}

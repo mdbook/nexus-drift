@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.4.4",
     badge: "Surround Pressure",
     summary:
-      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, and live enemy bodies also act like real obstacles, so surrounds are less likely to let them slip free without taking serious damage.",
+      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, live enemy bodies act like real obstacles, and shielded enemies now read as a real two-layer threat instead of a single mixed health bar.",
     sections: [
       {
         title: "Combat Pressure",
@@ -33,14 +33,22 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Worker Blocking",
         items: [
           "Live enemy hitboxes now slow workers down before contact, so crowded lanes trim forward progress instead of letting crews slide through bodies at full speed.",
-          "Workers are now pushed back out of overlapping enemy bodies after movement, using render-aligned radii for each worker and enemy kind.",
+          "Enemy bodies only slow movement and prevent easy lane slipping; they no longer apply a hidden knockback force that shoves workers away from the threat.",
           "Only live enemies block movement; dying enemies still fade out visually without continuing to affect the sim.",
+        ],
+      },
+      {
+        title: "Shield Layer",
+        items: [
+          "Shielded enemies now show a distinct cyan shield bar above their HP bar, plus a ring/glow overlay that makes the outer layer obvious in the field.",
+          "Shield damage is consumed before HP, but overflow no longer spills through to health in the same hit. Once a shield breaks, the next hit is what starts cutting HP underneath.",
+          "All shield-carrying enemies still have normal HP underneath the shield layer; the shield is a buffer, not the whole health pool.",
         ],
       },
       {
         title: "Tests",
         items: [
-          "Added coverage for heavier multi-attacker worker damage plus worker-vs-enemy blocking and overlap pushback.",
+          "Added coverage for heavier multi-attacker worker damage, worker-vs-enemy blocking, and shield-first damage routing without HP spillover.",
         ],
       },
     ],

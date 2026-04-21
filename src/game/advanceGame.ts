@@ -35,7 +35,7 @@ export function advanceGame(prev: GameState): GameState {
   // 4. Corruption — runs after movement so corruptors act on their new position.
   // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
   //    damage via hp reduction + flash markers. Damage flows through damageEnemy()
-  //    which absorbs into the shield layer before hitting HP.
+  //    which drains the shield layer first and only hits HP once the shield is gone.
   // 5b. ZapperFire — after movement so zappers aim at current positions; before
   //     resolveEnemyDeaths so freshly killed zappers don't fire.
   // 5c. EnemyShields — regen step runs after all damage for this tick has been applied

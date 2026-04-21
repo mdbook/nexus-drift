@@ -92,7 +92,7 @@ When `hp < maxHp * 0.5` (hurt but not yet in full recovery), workers nudge towar
 
 Evasion direction blends 70% old heading / 30% new signal (smooth curves). As of 2.4.2, workers are intentionally less proactive about distant threats: enter radius is 62 px, exit radius is 104 px, evasion persistence is 52 ticks, and `WORKER_AI.pathSafetyPenalty` is 34. Workers at their node use a tighter `harvestingEvasionRadius` (42 px) so they finish a harvest under mild pressure. As of 2.4.3, harvesting workers ignore one or two nearby enemies until `damageTicks` shows actual damage; three or more nearby enemies still force early evasion. As of 2.4.4, close-combat pressure also scales up when multiple attackers are already in contact, so a real surround hurts harder instead of letting a worker slip out. Sticky retarget threshold is 0.64, meaning a candidate must be much better before it unseats the current assignment; partially mined current nodes also get `currentTargetProgressBonus`. Workers in persistent evasion with no immediate threat periodically call `chooseFleeDirectionTarget()` to look for a safe node ahead along `evadeDx/evadeDy`; candidates behind the worker, outside the flee lane, too far ahead, or behind a high-threat path are rejected. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
-Worker movement now treats live enemy bodies as physical obstacles. `stepWorkers()` samples `WORKER_BLOCKING` radii from `balance.ts`, slows workers that are moving through crowded hostile lanes, and pushes them back out of overlap after movement. Dying enemies (`hp <= 0`) do not block movement; only live hostile bodies participate.
+Worker movement now treats live enemy bodies as physical obstacles. `stepWorkers()` samples `WORKER_BLOCKING` radii from `balance.ts` and slows workers that are moving through crowded hostile lanes. The layer is intentionally slowdown-only: it must not apply a hidden knockback force that shoves workers away from nearby enemies. Dying enemies (`hp <= 0`) do not block movement; only live hostile bodies participate.
 
 ### Enemies
 
@@ -118,17 +118,17 @@ Static base defense. Target combat enemies only (never corruptors, never cloaked
 
 ### Enemy Shield System
 
-Three enemy kinds carry a regenerating shield layer that absorbs damage before their HP pool: `leech` (50 HP shield), `phantom` (10 HP shield), `zapper` (20 HP shield). Shield amounts are declared once in `ENEMY_SHIELD.shieldMax` in `balance.ts`.
+Three enemy kinds carry a regenerating shield layer that sits on top of their normal HP pool: `leech` (50 HP shield), `phantom` (10 HP shield), `zapper` (20 HP shield). Shield amounts are declared once in `ENEMY_SHIELD.shieldMax` in `balance.ts`.
 
 Fields on `Enemy` (all optional — `undefined` means "no shield mechanic"): `shield`, `shieldMax`, `shieldRegenCooldown`. `spawnEnemy()` in `factories.ts` sets all three for enemies whose kind is in `ENEMY_SHIELD.shieldMax`; migration populates them with full-shield defaults for existing saves.
 
-**Damage routing**: all hostile damage paths (turret missile/beam, sentinel shot, scout shot) now go through `damageEnemy(enemy, amount)` in `enemyUtils.ts` rather than subtracting from `enemy.hp` directly. `damageEnemy` deducts from the shield first, spills overflow into HP, and resets `shieldRegenCooldown` to `ENEMY_SHIELD.regenDelayTicks` (90). Any new damage source must use this helper, not raw `enemy.hp -=`.
+**Damage routing**: all hostile damage paths (turret missile/beam, sentinel shot, scout shot) now go through `damageEnemy(enemy, amount)` in `enemyUtils.ts` rather than subtracting from `enemy.hp` directly. `damageEnemy` deducts from the shield first, does not spill overflow into HP in the same hit, and resets `shieldRegenCooldown` to `ENEMY_SHIELD.regenDelayTicks` (90). Any new damage source must use this helper, not raw `enemy.hp -=`.
 
 **Turret missile behavior**: homing missiles steer only toward their original live target. Launched missiles have a small terminal grace radius (`missileGraceRadius`) so a shot that arrives just behind a moving target can still connect. If the original target dies right before impact, a missile close to that enemy's death-fade position can resolve there and disappear without dealing splash. Missiles still never retarget; if the original target cloaks, disappears, or dies outside corpse grace, the missile fizzles.
 
 **Regeneration**: `stepEnemyShields()` runs after `stepZapperFire()` and before `resolveEnemyDeaths()`. While `shieldRegenCooldown > 0` it decrements by 1; otherwise, if `shield < shieldMax`, shield recovers by `ENEMY_SHIELD.regenRatePerTick` (0.25). Dying enemies (`hp <= 0`) skip regen.
 
-**Render**: `FieldSvg.tsx` computes `hasShield`, `shieldPct`, and pulsing state once per enemy and injects a dashed cyan ring + soft glow + thin shield bar (above the HP bar) into the render blocks for shielded kinds. Because leech and phantom share the fallback render block, the shield overlay is embedded there too.
+**Render**: `FieldSvg.tsx` computes `hasShield`, `shieldPct`, and pulsing state once per enemy and injects a dashed cyan ring + soft glow + thin shield bar stacked above the HP bar into the render blocks for shielded kinds. Because leech and phantom share the fallback render block, the shield overlay is embedded there too.
 
 **Sentinel kill credit**: `sentinels.ts` checks lethal damage _after_ shield absorption (`target.hp - max(0, damage - shield)`) so shield-absorbed hits don't falsely credit a sentinel kill.
 

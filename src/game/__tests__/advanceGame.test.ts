@@ -9,7 +9,8 @@ import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
-import { measureWorkerEnemyBlocking, resolveWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
+import { damageEnemy } from "@/game/enemyUtils";
+import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -339,27 +340,30 @@ describe("advanceGame simulation invariants", () => {
     expect(later.agents[0].evadeTicks).toBeGreaterThan(0);
   });
 
-  it("enemy hitboxes slow and push workers out of overlap", () => {
+  it("enemy hitboxes slow workers without repelling them", () => {
     const state = createInitialGameState();
     const worker = state.agents[0];
     worker.x = 220;
     worker.y = 250;
-    worker.tx = 320;
+    worker.tx = 420;
     worker.ty = 250;
+    worker.target = state.nodes[0].id;
+    state.nodes[0].x = 420;
+    state.nodes[0].y = 250;
+    state.timers.tick = 1;
 
-    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
-    enemy.x = worker.x + 8;
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    enemy.x = worker.x + 18;
     enemy.y = worker.y;
     state.enemies.push(enemy);
 
     const pressure = measureWorkerEnemyBlocking(worker, state.enemies);
     expect(pressure.speedScale).toBeLessThan(1);
 
-    const before = Math.hypot(worker.x - enemy.x, worker.y - enemy.y);
-    resolveWorkerEnemyBlocking(worker, state.enemies);
-    const after = Math.hypot(worker.x - enemy.x, worker.y - enemy.y);
+    stepWorkers(state);
 
-    expect(after).toBeGreaterThan(before);
+    expect(worker.x).toBeGreaterThan(220);
+    expect(worker.x).toBeLessThan(240);
   });
 
   it("enemy blocking reduces how far a worker can push through a lane", () => {
@@ -377,13 +381,15 @@ describe("advanceGame simulation invariants", () => {
     clear.nodes[0].x = 420;
     clear.nodes[0].y = 250;
     clearWorker.target = clear.nodes[0].id;
+    clear.timers.tick = 1;
 
     blocked.nodes[0].kind = "ore";
     blocked.nodes[0].x = 420;
     blocked.nodes[0].y = 250;
     blockedWorker.target = blocked.nodes[0].id;
+    blocked.timers.tick = 1;
 
-    const enemy = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "brute");
+    const enemy = spawnEnemy(blocked.rng, blocked.nextEnemyId++, 0, "corruptor");
     enemy.x = blockedWorker.x + 30;
     enemy.y = blockedWorker.y;
     blocked.enemies.push(enemy);
@@ -393,6 +399,23 @@ describe("advanceGame simulation invariants", () => {
 
     expect(blockedWorker.x).toBeLessThan(clearWorker.x);
     expect(blockedWorker.x).toBeLessThan(enemy.x);
+  });
+
+  it("shield damage stops at the shield layer before HP is touched", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 12;
+    enemy.shieldMax = 12;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 35;
+
+    damageEnemy(enemy, 20);
+
+    expect(enemy.shield).toBe(0);
+    expect(enemy.hp).toBe(35);
+
+    damageEnemy(enemy, 8);
+
+    expect(enemy.hp).toBe(27);
   });
 
   it("derived state stays consistent with simulation", () => {

@@ -157,10 +157,17 @@ Harvesting workers are intentionally stubborn under light pressure. While at a n
 
 ## Worker Hitbox Blocking
 
-`stepWorkers()` now treats live enemy bodies as physical obstacles. It uses `WORKER_BLOCKING` radii in `balance.ts` to slow workers in crowded hostile lanes and push them back out of overlap after movement.
+`stepWorkers()` now treats live enemy bodies as physical obstacles. It uses `WORKER_BLOCKING` radii in `balance.ts` to slow workers in crowded hostile lanes. The layer is intentionally slowdown-only: it must not apply a hidden knockback force that shoves workers away from nearby enemies.
 
 - Keep those blocking radii aligned with the rendered body sizes in `FieldSvg.tsx` if you tune worker or enemy visuals.
 - Use live enemies only. Dying enemies (`hp <= 0`) still fade out visually, but they must not block movement.
+
+## Enemy Shield Layer
+
+Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
+
+- Keep the shield bars and rings in `FieldSvg.tsx` stacked above the HP bar so the outer layer reads clearly in the field.
+- Do not add new direct `enemy.hp -=` damage paths. All hostile damage should keep flowing through `damageEnemy()`.
 
 ## Surround Combat Pressure
 
