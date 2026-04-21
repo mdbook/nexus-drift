@@ -148,6 +148,6 @@ publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA pl
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
 - If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
 - Follow-up UI/docs tweaks belong to the current in-flight release unless the user says otherwise.
-- Local `.claude/worktrees/` copies are tooling noise; repo docs, git status summaries, and linting should treat them as ignored.
+- Local `.claude/` files are tooling noise; repo docs, git status summaries, and linting should treat the whole directory as ignored.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.
 - Performance rule of thumb: keep the field live, but prefer throttled or memoized snapshots for non-field chrome (resource bars, sector card, sidebar, logs) so scrolling and hover do not compete with the 30 Hz simulation loop. On coarse-pointer desktop layouts, preserve the visual direction but route expensive ambient motion and SVG filters through `useLowFxMode`.

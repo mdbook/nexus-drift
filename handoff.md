@@ -272,7 +272,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers. Hidden `manual_override` is specifically `1x -> 4x -> 1x` with 10–60 seconds between the 4x and 1x clicks and no other speed click in between.
 - Sector card, resource bar, and sidebar intentionally read the throttled `uiGame` / `uiDerived` snapshot. The field SVG and field-card live indicators still read the per-tick snapshot.
 - Favicon assets now live across `public/nexus-drift.svg`, `public/nexus-drift.png`, `public/favicon.ico`, `public/favicon-32x32.png`, `public/favicon-16x16.png`, `public/apple-touch-icon.png`, and `public/site.webmanifest`. Social embeds intentionally remain pointed at `public/og-image.png`; do not swap embed art when only the favicon changes.
-- ESLint intentionally ignores `.claude/worktrees/` so auxiliary local agent worktrees do not create parser-root conflicts during `npm run lint`.
+- ESLint intentionally ignores `.claude/` so local agent configuration and auxiliary worktrees do not create parser-root conflicts during `npm run lint`.
 - Coarse-pointer `lg` desktop layouts (notably iPadOS landscape Safari) intentionally run a lower-cost presentation path in `Background`, `EventBackdrop`, and `FieldSvg`. Preserve the same art direction there, but gate new expensive particles, long blur animations, and SVG filters behind `useLowFxMode`.
 - `package.json` version and `src/changelog.ts` must stay in sync for every release.
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.

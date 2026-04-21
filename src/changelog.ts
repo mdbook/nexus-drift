@@ -305,7 +305,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Contributor Tooling",
         items: [
-          "ESLint now ignores `.claude/worktrees/`, matching the documented local-tooling ignore rule so auxiliary agent worktrees do not break `npm run lint`.",
+          "The full `.claude/` directory is now treated as local tooling noise and removed from repo tracking, so editor/agent settings stay local while GitLab keeps project source clean.",
         ],
       },
     ],
