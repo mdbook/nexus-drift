@@ -1,4 +1,4 @@
-import { FOCUSED_BEAM, TURRET } from "@/game/balance";
+import { FOCUSED_BEAM, TURRET, TURRET_HP } from "@/game/balance";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { addMissile, addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
@@ -20,12 +20,41 @@ export function getTurretTargetScore(state: GameState, turret: GameState["turret
 export function stepTurrets(state: GameState) {
   const derived = computeDerived(state);
   state.turrets.forEach((turret, index) => {
+    // 3.0.0: recompute maxHp from current upgrades every tick so shield/turret
+    // ranks buff structural HP live. We scale current hp proportionally so a
+    // mid-combat upgrade doesn't reset damage progress, and clamp to the new
+    // ceiling so downgrades (never happens today, future-proofing) stay sane.
+    const nextMaxHp =
+      TURRET_HP.hpBase +
+      state.upgrades.turret * TURRET_HP.hpPerTurretUpgrade +
+      state.upgrades.shield * TURRET_HP.hpPerShieldUpgrade;
+    if (turret.maxHp !== nextMaxHp && turret.maxHp > 0) {
+      const ratio = turret.hp / turret.maxHp;
+      turret.hp = nextMaxHp * ratio;
+    }
+    turret.maxHp = nextMaxHp;
+    turret.hp = Math.min(turret.hp, turret.maxHp);
+
+    if (turret.damageTicks > 0) turret.damageTicks -= 1;
+
     // 3.0.0: activeTurrets already folds in the new TURRET_SLOTS_BY_LEVEL
     // gate, so read it from derived rather than recomputing here.
     const live = index < derived.activeTurrets;
     if (!live) {
       turret.cooldown = 0;
       turret.angle += (-1.57 - turret.angle) * 0.06;
+      return;
+    }
+
+    if (turret.brokenTicks > 0) {
+      turret.brokenTicks -= 1;
+      turret.cooldown = 0;
+      turret.angle += (-1.57 - turret.angle) * 0.06;
+      if (turret.brokenTicks === 0) {
+        // Partial restore so chained breaks stay punishing without becoming
+        // unrecoverable — re-engages the HP pool at half ceiling.
+        turret.hp = turret.maxHp * TURRET_HP.brokenRecoverRatio;
+      }
       return;
     }
 

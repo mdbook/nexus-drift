@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
-import { COMBAT, CORRUPTION, TURRET } from "@/game/balance";
+import { COMBAT, CORRUPTION, TURRET, TURRET_HP } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
@@ -14,6 +14,7 @@ import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movem
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
+import { damageTurret } from "@/game/subsystems/combat";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
@@ -1026,5 +1027,84 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.upgrades.focusedBeam).toBe(0);
     const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
     expect(restored.upgrades.focusedBeam).toBe(0);
+  });
+});
+
+describe("turret HP and break state (3.0.0)", () => {
+  it("scales maxHp off turret + shield upgrades via stepTurrets", () => {
+    const state = createInitialGameState();
+    // L3 gate so the first turret slot is live.
+    state.level = 3;
+    state.upgrades.turret = 2;
+    state.upgrades.shield = 1;
+
+    stepTurrets(state);
+
+    const expected =
+      TURRET_HP.hpBase +
+      2 * TURRET_HP.hpPerTurretUpgrade +
+      1 * TURRET_HP.hpPerShieldUpgrade;
+    expect(state.turrets[0].maxHp).toBe(expected);
+    expect(state.turrets[0].hp).toBeCloseTo(expected, 5);
+  });
+
+  it("enters broken state at 0 hp, skips firing, and recovers at half maxHp", () => {
+    const state = createInitialGameState();
+    state.level = 3;
+    const turret = state.turrets[0];
+    const originalBrokenCount = state.stats.turretsBroken;
+
+    // Seed an enemy within turret range so, were it firing, it would attack.
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy.x = turret.x + 40;
+    enemy.y = turret.y;
+    enemy.hp = 200;
+    enemy.maxHp = 200;
+    state.enemies.push(enemy);
+
+    // Damage past zero via the funnel.
+    damageTurret(state, turret, 10);
+    expect(turret.damageTicks).toBe(TURRET_HP.damageFlashTicks);
+    expect(turret.brokenTicks).toBe(0);
+
+    damageTurret(state, turret, turret.maxHp);
+    expect(turret.hp).toBe(0);
+    expect(turret.brokenTicks).toBe(TURRET_HP.brokenDurationTicks);
+    expect(state.stats.turretsBroken).toBe(originalBrokenCount + 1);
+
+    // Further damage while broken does NOT stack the break timer.
+    const brokenSnapshot = turret.brokenTicks;
+    damageTurret(state, turret, 50);
+    expect(turret.brokenTicks).toBe(brokenSnapshot);
+    expect(state.stats.turretsBroken).toBe(originalBrokenCount + 1);
+
+    // Broken turret never fires, even with a live enemy in range.
+    const projectilesBefore = state.projectiles.length;
+    for (let i = 0; i < 120; i += 1) {
+      state.timers.tick += 1;
+      stepTurrets(state);
+      expect(turret.brokenTicks).toBeGreaterThan(0);
+    }
+    expect(state.projectiles.length).toBe(projectilesBefore);
+
+    // Tick down the remaining break ticks. On the last tick brokenTicks
+    // decrements to 0 AND hp is restored to half maxHp.
+    const remaining = turret.brokenTicks;
+    for (let i = 0; i < remaining; i += 1) {
+      state.timers.tick += 1;
+      stepTurrets(state);
+    }
+    expect(turret.brokenTicks).toBe(0);
+    expect(turret.hp).toBeCloseTo(turret.maxHp * TURRET_HP.brokenRecoverRatio, 5);
+
+    // Once recovered, the turret will engage again. Advance until cooldown
+    // allows a shot; we should see at least one projectile within a frame.
+    let fired = false;
+    for (let i = 0; i < 120 && !fired; i += 1) {
+      state.timers.tick += 1;
+      stepTurrets(state);
+      if (state.projectiles.length > projectilesBefore) fired = true;
+    }
+    expect(fired).toBe(true);
   });
 });

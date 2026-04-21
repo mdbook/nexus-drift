@@ -217,6 +217,25 @@ export const ENEMY_MOVEMENT = {
   orbitBlend: 0.4,
 } as const;
 
+/**
+ * 3.0.0 — turret structural HP + break state.
+ *
+ * Turrets now have a health pool that enemies can damage (wiring lives in
+ * stepCombat / damageTurret). When HP reaches 0 the turret enters a
+ * `brokenTicks` downtime window (~80s at 30 ticks/s), during which it skips
+ * all targeting and firing. On recovery the turret is restored to
+ * `maxHp * brokenRecoverRatio` rather than full so chained breaks stay
+ * punishing without becoming unrecoverable.
+ */
+export const TURRET_HP = {
+  hpBase: 120,
+  hpPerTurretUpgrade: 20,
+  hpPerShieldUpgrade: 10,
+  brokenDurationTicks: 2400,
+  brokenRecoverRatio: 0.5,
+  damageFlashTicks: 12,
+} as const;
+
 export const TURRET = {
   rangeBase: 125,
   rangePerUpgrade: 15,

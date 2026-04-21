@@ -1,8 +1,8 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, WORKER, ZAPPER } from "@/game/balance";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
-import type { GameState } from "@/game/types";
+import type { GameState, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 const HOME_X = 500;
@@ -10,6 +10,30 @@ const HOME_Y = 540;
 
 // How many ticks a dead enemy lingers for its fade-out animation before removal.
 const DEATH_FADE_TICKS = 18;
+
+/**
+ * 3.0.0 — structural damage funnel for turrets.
+ *
+ * Mirrors damageEnemy's "single entry point" pattern: all places that deal
+ * damage to a turret (enemy contact in stepCombat, future missile splash,
+ * etc.) should route through this helper so the break-state + damage-flash
+ * bookkeeping stays consistent. While brokenTicks > 0 the turret is already
+ * offline, so extra hits do nothing (no stacking break timers).
+ */
+export function damageTurret(state: GameState, turret: Turret, amount: number) {
+  if (amount <= 0) return;
+  if (turret.brokenTicks > 0) return;
+
+  turret.hp = Math.max(0, turret.hp - amount);
+  turret.damageTicks = TURRET_HP.damageFlashTicks;
+
+  if (turret.hp <= 0) {
+    turret.brokenTicks = TURRET_HP.brokenDurationTicks;
+    turret.cooldown = 0;
+    state.stats.turretsBroken += 1;
+    state.log = pushLog(state.log, "Turret structure failed. Recalibrating.", "combat", state.timers.tick);
+  }
+}
 
 export function resolveEnemyDeaths(state: GameState) {
   // Find newly killed enemies (hp ≤ 0 but not yet started dying).

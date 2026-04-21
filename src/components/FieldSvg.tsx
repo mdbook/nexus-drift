@@ -652,24 +652,88 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         }
 
         const turretDisabled = turret.disabledTicks > 0;
+        const turretBroken = turret.brokenTicks > 0;
         const disablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
+        // 3.0.0: damageTicks drives a brief red flash after any structural
+        // hit; brokenTicks drives the longer cracked-sprite downtime.
+        const damageFlash = !turretBroken && turret.damageTicks > 0
+          ? Math.min(0.85, turret.damageTicks / 12)
+          : 0;
+        const hpPct = turret.maxHp > 0 ? clamp(turret.hp / turret.maxHp, 0, 1) : 1;
+        const showHpBar = !turretBroken && hpPct < 1 - 1e-3;
+        const groupFilter = turretBroken
+          ? "grayscale(1) brightness(0.55)"
+          : turretDisabled
+            ? "grayscale(1)"
+            : undefined;
         return (
-          <g key={turret.id} style={turretDisabled ? { filter: "grayscale(1)" } : undefined}>
-            <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
-            {turretDisabled && (
+          <g key={turret.id} style={groupFilter ? { filter: groupFilter } : undefined}>
+            {!turretBroken && (
+              <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
+            )}
+            {turretDisabled && !turretBroken && (
               <circle cx={turret.x} cy={turret.y} r="26" fill="none" stroke={`rgba(255,120,40,${disablePulse.toFixed(2)})`} strokeWidth="2.5" />
             )}
-            <circle cx={turret.x} cy={turret.y} r="22" fill="rgba(80,200,255,0.10)" />
-            <circle cx={turret.x} cy={turret.y} r="14" fill="rgba(40,120,200,0.55)" stroke="rgba(120,220,255,0.75)" strokeWidth="2" />
+            {damageFlash > 0 && (
+              <circle cx={turret.x} cy={turret.y} r="24" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
+            )}
+            <circle
+              cx={turret.x}
+              cy={turret.y}
+              r="22"
+              fill={turretBroken ? "rgba(90,40,40,0.28)" : "rgba(80,200,255,0.10)"}
+            />
+            <circle
+              cx={turret.x}
+              cy={turret.y}
+              r="14"
+              fill={turretBroken ? "rgba(60,40,50,0.72)" : "rgba(40,120,200,0.55)"}
+              stroke={turretBroken ? "rgba(220,90,90,0.7)" : "rgba(120,220,255,0.75)"}
+              strokeWidth="2"
+            />
             <line
               x1={turret.x}
               y1={turret.y}
               x2={turret.x + Math.cos(turret.angle) * 21}
               y2={turret.y + Math.sin(turret.angle) * 21}
-              stroke="rgba(160,235,255,0.95)"
+              stroke={turretBroken ? "rgba(180,80,80,0.6)" : "rgba(160,235,255,0.95)"}
               strokeWidth="3.5"
               strokeLinecap="round"
             />
+            {turretBroken && !lowFxMode && (
+              <>
+                <line
+                  x1={turret.x - 10}
+                  y1={turret.y - 8}
+                  x2={turret.x + 6}
+                  y2={turret.y + 4}
+                  stroke="rgba(255,160,160,0.75)"
+                  strokeWidth="1.3"
+                />
+                <line
+                  x1={turret.x - 3}
+                  y1={turret.y + 9}
+                  x2={turret.x + 11}
+                  y2={turret.y - 4}
+                  stroke="rgba(255,200,200,0.55)"
+                  strokeWidth="1.1"
+                />
+              </>
+            )}
+            {showHpBar && (
+              <>
+                <rect x={turret.x - 16} y={turret.y + 26} rx="2" ry="2" width="32" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={turret.x - 16}
+                  y={turret.y + 26}
+                  rx="2"
+                  ry="2"
+                  width={32 * hpPct}
+                  height="3"
+                  fill={hpPct < 0.3 ? "rgba(255,120,120,0.9)" : "rgba(160,235,255,0.85)"}
+                />
+              </>
+            )}
           </g>
         );
       })}
