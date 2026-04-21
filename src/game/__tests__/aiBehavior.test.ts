@@ -9,6 +9,8 @@ import {
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
+import { stepEnemies } from "@/game/subsystems/movement";
+import { computeAndApplyGroupDispersal } from "@/game/subsystems/workerAI";
 import { pickEnemyTarget } from "@/game/targeting";
 import { threatAlongPath } from "@/game/subsystems/threatField";
 import type { Enemy, GameState, ResourceNode } from "@/game/types";
@@ -190,5 +192,126 @@ describe("threat field", () => {
     enemies[0].x = 0;
     const enemyAtOrigin = threatAlongPath(0, 0, 100, 0, enemies);
     expect(enemyAtDest).toBeGreaterThan(enemyAtOrigin);
+  });
+});
+
+describe("sticky retarget", () => {
+  it("stays on current node when candidate is only marginally better", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    state.enemies = [];
+    miner.x = 200; miner.y = 250;
+    // nodeA (current) is ore at d=140; nodeB is ore at d=90 — better but not by 28%.
+    const nodeA: ResourceNode = {
+      id: 9001, kind: "ore", x: 340, y: 250, size: 22, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const nodeB: ResourceNode = { ...nodeA, id: 9002, x: 290, y: 250 };
+    state.nodes = [nodeA, nodeB];
+    miner.target = nodeA.id;
+    expect(chooseWorkerTarget(state, miner)).toBe(nodeA.id);
+  });
+
+  it("switches when candidate is materially better", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    state.enemies = [];
+    miner.x = 200; miner.y = 250;
+    // nodeA (current) is far ore; nodeC is nearby gold — materially better for a miner.
+    const nodeA: ResourceNode = {
+      id: 9001, kind: "ore", x: 400, y: 250, size: 22, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const nodeC: ResourceNode = { ...nodeA, id: 9003, kind: "gold", x: 250, y: 250 };
+    state.nodes = [nodeA, nodeC];
+    miner.target = nodeA.id;
+    expect(chooseWorkerTarget(state, miner)).toBe(nodeC.id);
+  });
+});
+
+describe("ambusher dash", () => {
+  it("does not trigger outside dash range", () => {
+    const state = baseState();
+    for (const a of state.agents) a.active = false;
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.x = 500; worker.y = 400;
+    worker.tx = 500; worker.ty = 400;
+    const sapper = addEnemy(state, { kind: "sapper", x: 200, y: 400, hp: 30, role: "combat" });
+    // distance = 300 > 90 (ENEMY_AI.ambusherDashTrigger) — dash should not fire.
+    stepEnemies(state);
+    expect(sapper.dashTicks ?? 0).toBe(0);
+  });
+
+  it("triggers and counts down when inside dash range", () => {
+    const state = baseState();
+    for (const a of state.agents) a.active = false;
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.x = 300; worker.y = 400;
+    worker.tx = 300; worker.ty = 400;
+    const sapper = addEnemy(state, { kind: "sapper", x: 270, y: 400, hp: 30, role: "combat" });
+    // distance = 30 < 90 (ENEMY_AI.ambusherDashTrigger) — should trigger.
+    stepEnemies(state);
+    expect(sapper.dashTicks).toBe(ENEMY_AI.ambusherDashDuration);
+    stepEnemies(state);
+    expect(sapper.dashTicks).toBe(ENEMY_AI.ambusherDashDuration - 1);
+  });
+});
+
+describe("ghost reposition", () => {
+  it("moves toward a point behind the worker during cloak window", () => {
+    const state = baseState();
+    for (const a of state.agents) a.active = false;
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.x = 500; worker.y = 300;
+    worker.tx = 700; worker.ty = 300; // heading right
+    // cloakPhase = 50/120 ≈ 0.417, inside [ghostRepositionPhaseStart, ghostRepositionPhaseEnd].
+    const phantom = addEnemy(state, { kind: "phantom", x: 600, y: 300, hp: 30, role: "combat", cloakTicks: 50 });
+    const xBefore = phantom.x;
+    stepEnemies(state);
+    // Ghost repositions behind the worker's travel direction — should move leftward (x decreases).
+    expect(phantom.x).toBeLessThan(xBefore);
+  });
+});
+
+describe("group dispersal", () => {
+  it("pushes same-kind workers apart when crowded", () => {
+    const state = baseState();
+    const miners = state.agents.filter((a) => a.kind === "miner");
+    miners.forEach((m, i) => {
+      m.active = true;
+      m.evadeTicks = 0;
+      m.x = 300 + i * 5; // slight offset so centroid repulsion is non-zero
+      m.y = 300;
+    });
+    const meanDist = (ms: typeof miners) =>
+      (Math.hypot(ms[0].x - ms[1].x, ms[0].y - ms[1].y) +
+       Math.hypot(ms[0].x - ms[2].x, ms[0].y - ms[2].y) +
+       Math.hypot(ms[1].x - ms[2].x, ms[1].y - ms[2].y)) / 3;
+    const before = meanDist(miners);
+    computeAndApplyGroupDispersal(state.agents);
+    expect(meanDist(miners)).toBeGreaterThan(before);
+  });
+
+  it("does not move workers that are already spread out", () => {
+    const state = baseState();
+    const miners = state.agents.filter((a) => a.kind === "miner");
+    miners[0].active = true; miners[0].x = 100; miners[0].y = 300; miners[0].evadeTicks = 0;
+    miners[1].active = true; miners[1].x = 400; miners[1].y = 300; miners[1].evadeTicks = 0;
+    miners[2].active = true; miners[2].x = 700; miners[2].y = 300; miners[2].evadeTicks = 0;
+    // All pairwise distances ≥ 300 >> groupRepelRadius (130) — no dispersal should fire.
+    const xBefore = miners.map((m) => m.x);
+    const yBefore = miners.map((m) => m.y);
+    computeAndApplyGroupDispersal(state.agents);
+    miners.forEach((m, i) => {
+      expect(m.x).toBe(xBefore[i]);
+      expect(m.y).toBe(yBefore[i]);
+    });
   });
 });
