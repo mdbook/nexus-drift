@@ -1,4 +1,5 @@
-import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKER_AI, WORKERS_AT_HOME } from "@/game/balance";
+import { threatAlongPath } from "@/game/subsystems/threatField";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -620,39 +621,85 @@ const WORKER_TIER2: Record<Agent["kind"], string[]> = {
   drone: [],
 };
 
+function scoreWorkerNode(
+  state: GameState,
+  agent: Agent,
+  node: import("@/game/types").ResourceNode,
+  enemies: import("@/game/types").Enemy[]
+): number {
+  const d = dist(agent.x, agent.y, node.x, node.y);
+  const hpFactor = node.hp / node.maxHp;
+
+  // Base: distance + hp urgency (nodes with less remaining hp score lower = better,
+  // but we still slightly prefer fresh nodes over mostly-depleted ones that will
+  // respawn on us mid-trip).
+  let score = d * 0.55 + hpFactor * 70;
+
+  // Type preference — aggressive tiers
+  if (WORKER_TIER1[agent.kind].includes(node.kind)) {
+    score *= 0.45;
+  } else if (WORKER_TIER2[agent.kind].includes(node.kind)) {
+    score *= 0.78;
+  } else {
+    score *= 1.6;
+  }
+
+  // Contested penalty + evading-worker penalty (a node attracting panic is bad).
+  let contested = 0;
+  let evadingContested = 0;
+  for (const other of state.agents) {
+    if (!other.active || other.id === agent.id || other.target !== node.id) continue;
+    contested += 1;
+    if (other.evadeTicks > 0) evadingContested += 1;
+  }
+  score += contested * 90 + evadingContested * WORKER_AI.evadingContestedPenalty;
+
+  // Corruption. Miners tolerate; others hard-avoid above threshold.
+  if (node.corruption > WORKER_AI.corruptionHardAvoidAbove && agent.kind !== "miner") {
+    score *= WORKER_AI.corruptionSoftMultiplier;
+  } else if (node.corruption > 12) {
+    score *= agent.kind === "miner" ? 1.05 : 0.88;
+  }
+
+  // Path safety — penalize routes that cross heavy threat.
+  if (enemies.length > 0) {
+    const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
+    score += pathThreat * WORKER_AI.pathSafetyPenalty;
+  }
+
+  // Progress bias: small bonus for nodes someone is already actively mining
+  // (finish-the-job) or freshly respawned full-hp nodes.
+  if (node.workTicks > WORKER_AI.progressActiveThreshold) {
+    score += WORKER_AI.progressActiveBonus;
+  }
+  if (hpFactor > 0.95) {
+    score += WORKER_AI.progressFreshBonus;
+  }
+
+  // Deterministic jitter to break ties.
+  score += ((agent.id * 41 + node.id * 17) % 20);
+  return score;
+}
+
 export function chooseWorkerTarget(state: GameState, agent: Agent) {
   if (!state.nodes.length) return null;
+  const enemies = state.enemies;
 
   const ranked = state.nodes
-    .map((node) => {
-      const d = dist(agent.x, agent.y, node.x, node.y);
-      const hpFactor = node.hp / node.maxHp; // 1.0 = full, 0.0 = depleted
-
-      // Distance + hp urgency: lower hp nodes score better (we want to harvest them before respawn)
-      let score = d * 0.55 + hpFactor * 70;
-
-      // Type preference — aggressive tiers
-      if (WORKER_TIER1[agent.kind].includes(node.kind)) {
-        score *= 0.45;
-      } else if (WORKER_TIER2[agent.kind].includes(node.kind)) {
-        score *= 0.78;
-      } else {
-        score *= 1.6; // strong penalty for off-type nodes
-      }
-
-      // Contested penalty: discourage piling on the same node as another worker
-      const contested = state.agents.filter((a) => a.active && a.id !== agent.id && a.target === node.id).length;
-      score += contested * 90;
-
-      // Corruption: non-miners avoid heavily corrupted nodes
-      if (node.corruption > 12) score *= agent.kind === "miner" ? 1.05 : 0.88;
-
-      // Small deterministic jitter so identical situations still spread workers
-      score += ((agent.id * 41 + node.id * 17) % 20);
-
-      return { id: node.id, score };
-    })
+    .map((node) => ({ id: node.id, score: scoreWorkerNode(state, agent, node, enemies) }))
     .sort((a, b) => a.score - b.score);
 
-  return ranked[0]?.id ?? state.nodes[0].id;
+  const best = ranked[0];
+  if (!best) return state.nodes[0].id;
+
+  // Sticky retargeting — stay on current node unless a candidate is materially better.
+  const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
+  if (current) {
+    const currentScore = scoreWorkerNode(state, agent, current, enemies);
+    if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
+      return current.id;
+    }
+  }
+
+  return best.id;
 }

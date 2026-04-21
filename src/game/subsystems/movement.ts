@@ -7,16 +7,99 @@ import {
   WORLD_H,
   WORLD_W,
 } from "@/game/constants";
-import { CORRUPTION, ENEMY_MOVEMENT, ENEMY_SEPARATION, ENEMY_SPECIAL, WORKER, ZAPPER } from "@/game/balance";
+import {
+  AI_THREAT,
+  CORRUPTION,
+  ENEMY_AI,
+  ENEMY_MOVEMENT,
+  ENEMY_SEPARATION,
+  ENEMY_SPECIAL,
+  WORKER,
+  WORKER_AI,
+  ZAPPER,
+} from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
-import { findClosestAgent } from "@/game/targeting";
-import type { GameState } from "@/game/types";
+import { pickEnemyTarget } from "@/game/targeting";
+import { threatAt } from "@/game/subsystems/threatField";
+import type { Agent, Enemy, GameState } from "@/game/types";
 import { clamp, dist, normalize, pushLog } from "@/game/utils";
+
+/**
+ * Squad bearing bucketing helpers — squadmates sharing a target spread
+ * across bearing slices so a group doesn't all approach from the same angle.
+ */
+function pickSquadBearingBucket(enemy: Enemy, state: GameState, target: Agent): number {
+  const buckets = ENEMY_AI.squadBearingBuckets;
+  const counts = new Array<number>(buckets).fill(0);
+  for (const other of state.enemies) {
+    if (other.id === enemy.id) continue;
+    if (other.hp <= 0) continue;
+    if (other.squadId !== enemy.squadId) continue;
+    if (other.targetId !== target.id) continue;
+    const bearing = Math.atan2(other.y - target.y, other.x - target.x);
+    const idx = Math.floor(((bearing + Math.PI) / (Math.PI * 2)) * buckets) % buckets;
+    counts[idx] += 1;
+  }
+  // Prefer bucket closest to own current bearing, weighted by scarcity.
+  const ownBearing = Math.atan2(enemy.y - target.y, enemy.x - target.x);
+  const ownBucket = Math.floor(((ownBearing + Math.PI) / (Math.PI * 2)) * buckets) % buckets;
+  let best = ownBucket;
+  let bestCost = counts[ownBucket];
+  for (let i = 0; i < buckets; i++) {
+    const angularDist = Math.min(Math.abs(i - ownBucket), buckets - Math.abs(i - ownBucket));
+    const cost = counts[i] * 2 + angularDist * 0.5;
+    if (cost < bestCost) { bestCost = cost; best = i; }
+  }
+  return best;
+}
+
+function pickSquadTangentSign(enemy: Enemy, squadmates: Enemy[], target: Agent): number {
+  // Prefer the side with fewer squadmates already there.
+  const ownBearing = Math.atan2(enemy.y - target.y, enemy.x - target.x);
+  let leftCount = 0, rightCount = 0;
+  for (const other of squadmates) {
+    const b = Math.atan2(other.y - target.y, other.x - target.x);
+    let delta = b - ownBearing;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    if (delta > 0) leftCount += 1; else rightCount += 1;
+  }
+  if (leftCount === rightCount) return enemy.id % 2 === 0 ? 1 : -1;
+  return leftCount > rightCount ? -1 : 1;
+}
+
+/** Penalty term for being out-of-bounds or near a wall. Used by anti-corner evasion. */
+function wallPenalty(x: number, y: number): number {
+  let penalty = 0;
+  if (x < AI_THREAT.cornerWallBuffer) penalty += (AI_THREAT.cornerWallBuffer - x) * 0.002;
+  if (x > WORLD_W - AI_THREAT.cornerWallBuffer) penalty += (x - (WORLD_W - AI_THREAT.cornerWallBuffer)) * 0.002;
+  if (y < 50 + AI_THREAT.cornerWallBuffer) penalty += (50 + AI_THREAT.cornerWallBuffer - y) * 0.002;
+  if (y > WORLD_H - AI_THREAT.cornerWallBuffer) penalty += (y - (WORLD_H - AI_THREAT.cornerWallBuffer)) * 0.002;
+  return penalty;
+}
 
 export function stepWorkers(state: GameState) {
   if (!state.nodes.length) return;
-  const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor");
+  const combatEnemies = state.enemies.filter((enemy) => enemy.role !== "corruptor" && enemy.hp > 0);
+
+  // Decay node workTicks each tick; subsystems/mining.ts will bump nodes currently being mined.
+  for (const node of state.nodes) {
+    if (node.workTicks > 0) node.workTicks = Math.max(0, node.workTicks - 1);
+  }
+
+  // Precompute centroid of non-evading active workers for regroup bias.
+  let regroupX = 0, regroupY = 0, regroupCount = 0;
+  for (const other of state.agents) {
+    if (!other.active || other.evadeTicks > 0 || other.disabledTicks > 0) continue;
+    regroupX += other.x;
+    regroupY += other.y;
+    regroupCount += 1;
+  }
+  if (regroupCount > 0) {
+    regroupX /= regroupCount;
+    regroupY /= regroupCount;
+  }
 
   state.agents.forEach((agent, index) => {
     if (!agent.active) return;
@@ -25,6 +108,12 @@ export function stepWorkers(state: GameState) {
       agent.task = "Disabled";
       return;
     }
+
+    // Threat memory — EMA of local threat. Drives regroup + panic scaling.
+    const localThreat = threatAt(agent.x, agent.y, combatEnemies);
+    agent.threatMemory =
+      agent.threatMemory * WORKER_AI.threatMemoryDecay +
+      localThreat * WORKER_AI.threatMemoryGain;
 
     const needsTarget =
       agent.target == null ||
@@ -45,7 +134,7 @@ export function stepWorkers(state: GameState) {
         const d = dist(enemy.x, enemy.y, agent.x, agent.y);
         return d < threatRadius ? { enemy, d } : null;
       })
-      .filter(Boolean) as Array<{ enemy: GameState["enemies"][number]; d: number }>;
+      .filter(Boolean) as Array<{ enemy: Enemy; d: number }>;
 
     if (evadeThreats.length > 0) {
       let vx = 0;
@@ -59,12 +148,51 @@ export function stepWorkers(state: GameState) {
         vy += dy * weight;
       });
 
-      const nextDirection = normalize(vx, vy, agent.evadeDx, agent.evadeDy);
+      // Regroup bias when the worker is genuinely panicked — pulls toward
+      // centroid of non-evading workers so fugitives reconverge on home.
+      if (regroupCount > 0 && agent.panic > WORKER_AI.regroupPanicThreshold) {
+        const rdx = regroupX - agent.x;
+        const rdy = regroupY - agent.y;
+        const rmag = Math.max(1, Math.hypot(rdx, rdy));
+        vx += (rdx / rmag) * WORKER_AI.regroupWeight;
+        vy += (rdy / rmag) * WORKER_AI.regroupWeight;
+      }
+
+      let direction = normalize(vx, vy, agent.evadeDx, agent.evadeDy);
+
+      // Anti-corner: if projecting forward puts us in a wall, try rotated
+      // escape headings and pick the lowest-threat one that stays in bounds.
+      const lookahead = AI_THREAT.cornerLookaheadTicks;
+      const projX = agent.x + direction.x * agent.speed * lookahead;
+      const projY = agent.y + direction.y * agent.speed * lookahead;
+      const nearWall =
+        projX < AI_THREAT.cornerWallBuffer ||
+        projX > WORLD_W - AI_THREAT.cornerWallBuffer ||
+        projY < 50 + AI_THREAT.cornerWallBuffer ||
+        projY > WORLD_H - AI_THREAT.cornerWallBuffer;
+
+      if (nearWall) {
+        const baseAngle = Math.atan2(direction.y, direction.x);
+        let bestAngle = baseAngle;
+        let bestCost = threatAt(projX, projY, combatEnemies) + wallPenalty(projX, projY);
+        for (const offset of WORKER_AI.cornerRotationCandidates) {
+          const a = baseAngle + offset;
+          const cx = agent.x + Math.cos(a) * agent.speed * lookahead;
+          const cy = agent.y + Math.sin(a) * agent.speed * lookahead;
+          const cost = threatAt(cx, cy, combatEnemies) + wallPenalty(cx, cy);
+          if (cost < bestCost) {
+            bestCost = cost;
+            bestAngle = a;
+          }
+        }
+        direction = { x: Math.cos(bestAngle), y: Math.sin(bestAngle) };
+      }
+
       const blendedDirection = normalize(
-        agent.evadeDx * 0.45 + nextDirection.x * 0.55,
-        agent.evadeDy * 0.45 + nextDirection.y * 0.55,
-        nextDirection.x,
-        nextDirection.y
+        agent.evadeDx * 0.45 + direction.x * 0.55,
+        agent.evadeDy * 0.45 + direction.y * 0.55,
+        direction.x,
+        direction.y
       );
 
       agent.evadeDx = blendedDirection.x;
@@ -289,41 +417,98 @@ export function stepEnemies(state: GameState) {
       return;
     }
 
-    const target = findClosestAgent(enemy, state.agents.filter((a) => a.active));
+    const target = pickEnemyTarget(enemy, state);
 
     if (!target) return;
 
     enemy.targetId = target.id;
-    const dx = target.x - enemy.x;
-    const dy = target.y - enemy.y;
+
+    // Squad bearing spread — squadmates pursuing the same worker pick the
+    // bearing bucket (of N) with fewest same-squad competitors. Produces
+    // emergent flanking without explicit coordinator state.
+    let desiredX = target.x;
+    let desiredY = target.y;
+    const archetype = enemy.archetype;
+
+    // Flanker lead: aim at predicted worker position assuming it continues
+    // heading toward its current tx/ty at its current speed.
+    if (archetype === "flanker") {
+      const wdx = target.tx - target.x;
+      const wdy = target.ty - target.y;
+      const wmag = Math.hypot(wdx, wdy);
+      if (wmag > 0.5) {
+        const lead = ENEMY_AI.flankerLeadTicks * target.speed;
+        desiredX = target.x + (wdx / wmag) * lead;
+        desiredY = target.y + (wdy / wmag) * lead;
+      }
+    } else if (archetype === "ghost") {
+      // Ghost: while cloaked, reposition behind worker's movement vector.
+      const cloakPhase = (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
+      if (cloakPhase > 0.3 && cloakPhase < 0.75) {
+        const wdx = target.tx - target.x;
+        const wdy = target.ty - target.y;
+        const wmag = Math.hypot(wdx, wdy);
+        if (wmag > 0.5) {
+          desiredX = target.x - (wdx / wmag) * ENEMY_AI.ghostRepositionOffset;
+          desiredY = target.y - (wdy / wmag) * ENEMY_AI.ghostRepositionOffset;
+        }
+      }
+    }
+
+    const dx = desiredX - enemy.x;
+    const dy = desiredY - enemy.y;
     const d = Math.max(1, Math.hypot(dx, dy));
 
     if (enemy.kind === "zapper") {
       // Zappers hold at firing range rather than closing to contact.
-      if (d > ZAPPER.holdDistance) {
-        enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
-        enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
-      } else if (d < ZAPPER.holdDistance * 0.75) {
-        // Back off if too close.
-        enemy.x -= (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
-        enemy.y -= (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      const dxRaw = target.x - enemy.x;
+      const dyRaw = target.y - enemy.y;
+      const dRaw = Math.max(1, Math.hypot(dxRaw, dyRaw));
+      if (dRaw > ZAPPER.holdDistance) {
+        enemy.x += (dxRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        enemy.y += (dyRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+      } else if (dRaw < ZAPPER.holdDistance * 0.75) {
+        enemy.x -= (dxRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+        enemy.y -= (dyRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
       }
-      // Gentle lateral drift so they don't pile up.
       const drift = Math.sin((state.timers.tick + enemy.id * 17) / 20) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
-      enemy.x += (-dy / d) * drift;
-      enemy.y += (dx / d) * drift;
+      enemy.x += (-dyRaw / dRaw) * drift;
+      enemy.y += (dxRaw / dRaw) * drift;
       return;
     }
 
-    const crowdCount = state.enemies.filter(
-      (other) =>
-        other.id !== enemy.id &&
-        other.hp > 0 &&
-        other.role === "combat" &&
-        other.kind !== "corruptor" &&
-        other.targetId === target.id &&
-        dist(other.x, other.y, target.x, target.y) < ENEMY_MOVEMENT.personalSpaceRadius
-    ).length;
+    // Ambusher: approach slowly until the dash trigger, then burst for a
+    // short dashTicks window. Uses raw distance to target, not leadpoint.
+    let speedMultiplier = ENEMY_MOVEMENT.combatSpeedScale;
+    if (archetype === "ambusher") {
+      const dxRaw = target.x - enemy.x;
+      const dyRaw = target.y - enemy.y;
+      const dRaw = Math.hypot(dxRaw, dyRaw);
+      if ((enemy.dashTicks ?? 0) > 0) {
+        speedMultiplier *= ENEMY_AI.ambusherDashSpeedScale;
+        enemy.dashTicks = (enemy.dashTicks ?? 0) - 1;
+      } else if (dRaw < ENEMY_AI.ambusherDashTrigger) {
+        enemy.dashTicks = ENEMY_AI.ambusherDashDuration;
+        speedMultiplier *= ENEMY_AI.ambusherDashSpeedScale;
+      } else {
+        speedMultiplier *= ENEMY_AI.ambusherApproachScale;
+      }
+    }
+
+    // Brutes anchor — they ignore crowding and march straight in. Everyone
+    // else uses the crowd check for orbit-style approach stacking.
+    const ignoresCrowd = enemy.kind === "brute";
+    const crowdCount = ignoresCrowd
+      ? 0
+      : state.enemies.filter(
+          (other) =>
+            other.id !== enemy.id &&
+            other.hp > 0 &&
+            other.role === "combat" &&
+            other.kind !== "corruptor" &&
+            other.targetId === target.id &&
+            dist(other.x, other.y, target.x, target.y) < ENEMY_MOVEMENT.personalSpaceRadius
+        ).length;
     const crowded = crowdCount >= ENEMY_MOVEMENT.crowdingThreshold;
     const effectiveApproachMin = ENEMY_MOVEMENT.approachMinDistance + (crowded ? 10 : 0);
 
@@ -334,9 +519,31 @@ export function stepEnemies(state: GameState) {
       }
       let moveX = dx / d;
       let moveY = dy / d;
-      if (crowded) {
-        // Blend pursuit with a tangential (orbit) component so enemies arrive at staggered angles.
-        const tangentSign = enemy.id % 2 === 0 ? 1 : -1;
+
+      // Flanker tangent blend: mix in a tangential component so the arc
+      // lands from the side, not head-on.
+      if (archetype === "flanker") {
+        const squadmates = state.enemies.filter(
+          (other) =>
+            other.id !== enemy.id &&
+            other.hp > 0 &&
+            other.squadId === enemy.squadId &&
+            other.targetId === target.id
+        );
+        const tangentSign = pickSquadTangentSign(enemy, squadmates, target);
+        const tx = (-dy / d) * tangentSign;
+        const ty = (dx / d) * tangentSign;
+        const blend = ENEMY_AI.flankerTangentBlend;
+        const mx = moveX * (1 - blend) + tx * blend;
+        const my = moveY * (1 - blend) + ty * blend;
+        const ml = Math.max(0.001, Math.hypot(mx, my));
+        moveX = mx / ml;
+        moveY = my / ml;
+      } else if (crowded) {
+        // Generic crowded blend — squadmates spread across bearing buckets
+        // so groups arrive at staggered angles rather than piling up.
+        const bucket = pickSquadBearingBucket(enemy, state, target);
+        const tangentSign = bucket % 2 === 0 ? 1 : -1;
         const tx = (-dy / d) * tangentSign;
         const ty = (dx / d) * tangentSign;
         const blend = ENEMY_MOVEMENT.orbitBlend;
@@ -346,8 +553,9 @@ export function stepEnemies(state: GameState) {
         moveX = mx / ml;
         moveY = my / ml;
       }
-      enemy.x += moveX * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
-      enemy.y += moveY * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
+
+      enemy.x += moveX * enemy.speed * speedMultiplier * speedScale;
+      enemy.y += moveY * enemy.speed * speedMultiplier * speedScale;
       const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
       enemy.x += (-dy / d) * strafe;
       enemy.y += (dx / d) * strafe;

@@ -26,6 +26,12 @@ export function stepMining(state: GameState) {
       return;
     }
 
+    // AI progress-bias signal: nodes currently being mined accumulate workTicks
+    // (capped). stepWorkers decays it each tick. Multiple mining ticks per
+    // contact are fine — the cap prevents a single persistent miner from
+    // overpowering the bonus.
+    node.workTicks = Math.min(120, node.workTicks + workers * MINING_TICK);
+
     const damage =
       workers *
       (MINING.damageBase + state.upgrades.miner * MINING.damagePerMiner + state.upgrades.drill * MINING.damagePerDrill) *
