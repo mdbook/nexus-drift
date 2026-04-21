@@ -17,7 +17,7 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -304,6 +304,7 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     maxHp: hp,
     speed,
     targetId: null,
+    targetKind: "agent",
     targetNodeId: null,
     flash: 0,
     corruptTicks: 0,
@@ -642,6 +643,8 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             dyingTicks: enemy.dyingTicks ?? 0,
             archetype: enemy.archetype ?? ENEMY_ARCHETYPE[kind],
             squadId: enemy.squadId ?? Math.floor((enemy.spawnTick ?? 0) / ENEMY_AI.squadBucketTicks),
+            // 3.0.0 Step 4 — pre-targetKind saves default to worker targeting.
+            targetKind: enemy.targetKind ?? "agent",
             ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.

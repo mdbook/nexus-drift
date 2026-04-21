@@ -1,7 +1,12 @@
-import { ENEMY_AI } from "@/game/balance";
+import { ENEMY_AI, ENEMY_TARGET_PRIORITY } from "@/game/balance";
 import { countThreats } from "@/game/subsystems/threatField";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
+
+// Home district centroid — matches combat.ts / economy.ts so "city target"
+// coordinates line up with the rendered home band.
+const CITY_TARGET_X = 500;
+const CITY_TARGET_Y = 540;
 
 export function findClosestAgent(
   from: { x: number; y: number },
@@ -96,6 +101,103 @@ export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
   }
 
   return best;
+}
+
+/**
+ * 3.0.0 Step 4 — multi-class target picker.
+ *
+ * Scores every eligible target (workers + turrets + scouts + sentinels +
+ * city) against the enemy's per-kind ENEMY_TARGET_PRIORITY weights, scaled
+ * by inverse distance. Highest weight/distance ratio wins. Non-combat roles
+ * (corruptor/blight/leech) still have zeroed priorities and fall through.
+ *
+ * Agent selection delegates to pickEnemyTarget so the existing archetype
+ * scoring (wounded/isolated/surrounded bias) is preserved for the worker
+ * slice; we then score that one "best worker" against non-worker targets.
+ * Non-agent target classes use plain center-to-center distance.
+ *
+ * Returns null when no class has a live, priority-weighted target available.
+ */
+export type EnemyTargetPick =
+  | { kind: "agent"; id: number; x: number; y: number }
+  | { kind: "turret"; id: number; x: number; y: number }
+  | { kind: "scout"; id: number; x: number; y: number }
+  | { kind: "sentinel"; id: number; x: number; y: number }
+  | { kind: "city"; id: null; x: number; y: number };
+
+export function pickEnemyTargetMulti(enemy: Enemy, state: GameState): EnemyTargetPick | null {
+  const priority = ENEMY_TARGET_PRIORITY[enemy.kind];
+  if (!priority) return null;
+
+  // Scoring function: weight / (distance + floor). Higher = more attractive.
+  // The floor prevents dividing by zero when the enemy is sitting on top of
+  // a target, and damps the preference for point-blank targets so a brute at
+  // zero range to a worker isn't always strictly better than a brute at
+  // zero range to a turret.
+  const FLOOR = 40;
+
+  let bestScore = 0;
+  let bestPick: EnemyTargetPick | null = null;
+
+  if (priority.worker > 0) {
+    const worker = pickEnemyTarget(enemy, state);
+    if (worker) {
+      const d = dist(enemy.x, enemy.y, worker.x, worker.y);
+      const score = priority.worker / (d + FLOOR);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPick = { kind: "agent", id: worker.id, x: worker.x, y: worker.y };
+      }
+    }
+  }
+
+  if (priority.turret > 0) {
+    for (const turret of state.turrets) {
+      // Broken turrets still read as target candidates — visually the hull is
+      // there, and it keeps enemies pushing the line instead of instantly
+      // retargeting workers the moment a turret cracks.
+      const d = dist(enemy.x, enemy.y, turret.x, turret.y);
+      const score = priority.turret / (d + FLOOR);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPick = { kind: "turret", id: turret.id, x: turret.x, y: turret.y };
+      }
+    }
+  }
+
+  if (priority.scout > 0) {
+    for (const scout of state.scouts) {
+      if (scout.rebootTicks > 0) continue; // downed scouts are off-field
+      const d = dist(enemy.x, enemy.y, scout.x, scout.y);
+      const score = priority.scout / (d + FLOOR);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPick = { kind: "scout", id: scout.id, x: scout.x, y: scout.y };
+      }
+    }
+  }
+
+  if (priority.sentinel > 0) {
+    for (const sentinel of state.sentinels) {
+      if (sentinel.rebootTicks > 0) continue;
+      const d = dist(enemy.x, enemy.y, sentinel.x, sentinel.y);
+      const score = priority.sentinel / (d + FLOOR);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPick = { kind: "sentinel", id: sentinel.id, x: sentinel.x, y: sentinel.y };
+      }
+    }
+  }
+
+  if (priority.city > 0) {
+    const d = dist(enemy.x, enemy.y, CITY_TARGET_X, CITY_TARGET_Y);
+    const score = priority.city / (d + FLOOR);
+    if (score > bestScore) {
+      bestPick = { kind: "city", id: null, x: CITY_TARGET_X, y: CITY_TARGET_Y };
+    }
+  }
+
+  return bestPick;
 }
 
 export function findClosestNode(

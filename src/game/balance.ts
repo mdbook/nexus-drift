@@ -144,6 +144,73 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
 };
 
 /**
+ * 3.0.0 — per-enemy-kind priority weights for each target class. Weights are
+ * combined with inverse distance in the target picker (pickEnemyTargetMulti):
+ * higher weight + closer distance wins. A class with priority 0 is ineligible.
+ *
+ * Most kinds keep workers (1.0) as the primary target with small secondary
+ * weights on defence infrastructure. Specialists pivot harder:
+ *  - brute: pushes for turrets (0.85) / city (0.4) on the charge
+ *  - sapper: wants to detonate on turrets (1.2 — higher than workers) so we
+ *    see it arc toward the line rather than always running past
+ *  - rusher: chases scouts (0.9) since they're the softest roamers
+ *  - raider / wisp: pick off scouts (0.7) and swing at the city (0.3)
+ *  - phantom: assassinates sentinels (0.6), the only mobile tank line
+ *  - zapper: bolts scouts (0.8) at range
+ *  - warden: balanced attach pressure — still mostly workers but willing to
+ *    pivot to sentinels when they're the only thing nearby
+ *
+ * Corruptor / blight / leech have zeroed priorities because they pilot the
+ * existing corruption / home-drain flows, not the generic targeting pipeline.
+ */
+export const ENEMY_TARGET_PRIORITY: Record<
+  EnemyKind,
+  { worker: number; turret: number; sentinel: number; scout: number; city: number }
+> = {
+  mite:      { worker: 1.0, turret: 0.15, sentinel: 0.10, scout: 0.20, city: 0.15 },
+  raider:    { worker: 1.0, turret: 0.25, sentinel: 0.10, scout: 0.70, city: 0.30 },
+  wisp:      { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.70, city: 0.30 },
+  corruptor: { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
+  rusher:    { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.90, city: 0.20 },
+  brute:     { worker: 1.0, turret: 0.85, sentinel: 0.30, scout: 0.15, city: 0.40 },
+  sapper:    { worker: 1.0, turret: 1.20, sentinel: 0.20, scout: 0.20, city: 0.30 },
+  blight:    { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
+  leech:     { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
+  phantom:   { worker: 1.0, turret: 0.20, sentinel: 0.60, scout: 0.30, city: 0.20 },
+  zapper:    { worker: 1.0, turret: 0.40, sentinel: 0.15, scout: 0.80, city: 0.15 },
+  warden:    { worker: 1.0, turret: 0.15, sentinel: 0.25, scout: 0.15, city: 0.15 },
+};
+
+/**
+ * 3.0.0 — target-class mitigation constants for enemy contact damage against
+ * non-worker targets. Raw ENEMY_CONTACT_DAMAGE is multiplied by the class
+ * armor when applied to a turret/scout/sentinel/city so we tune armor per
+ * class once rather than per (enemy × target) pair.
+ *
+ * Workers still use the shield/turret/reactor mitigation pipeline in
+ * stepCombat — they're not affected by these constants.
+ */
+export const TARGET_ARMOR = {
+  turretArmor: 0.55,
+  sentinelArmor: 0.25,
+  scoutArmor: 0.80,
+  cityArmor: 0.35,
+} as const;
+
+/**
+ * Contact radius (px) at which an enemy is considered "touching" a
+ * non-worker target class for contact-damage purposes. Values chosen to
+ * roughly match the rendered hull sizes; city is larger because the home
+ * district covers a wide band of the field.
+ */
+export const ENEMY_CONTACT_RADIUS = {
+  turret: 30,
+  scout: 22,
+  sentinel: 30,
+  city: 70,
+} as const;
+
+/**
  * Enemy shield system — leech, phantom, and zapper carry a shield layer that
  * absorbs damage before their HP pool. Shields don't regen while the enemy is
  * being shot; once REGEN_DELAY_TICKS have passed without incoming damage, the

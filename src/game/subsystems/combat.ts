@@ -1,5 +1,19 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { CITY_HP, COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, SENTINEL_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
+import {
+  CITY_HP,
+  COMBAT,
+  ENEMY_CONTACT_DAMAGE,
+  ENEMY_CONTACT_RADIUS,
+  ENEMY_SPECIAL,
+  FLUX,
+  REWARDS,
+  SCOUT_HP,
+  SENTINEL_HP,
+  TARGET_ARMOR,
+  TURRET_HP,
+  WORKER,
+  ZAPPER,
+} from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import type { GameState, Scout, Sentinel, Turret } from "@/game/types";
@@ -353,4 +367,39 @@ export function stepCombat(state: GameState) {
     agent.panic = clamp(agent.panic + WORKER.panicDelta.damagedBurst, 0, 100);
     agent.damageTicks = WORKER.combatDamageTicks;
   });
+
+  // 3.0.0 Step 4 — non-worker contact damage.
+  //
+  // Enemies whose targetKind points at a turret/scout/sentinel/city deal
+  // contact damage to that structure when they're inside ENEMY_CONTACT_RADIUS.
+  // Raw damage is scaled by the target-class armor constant so one set of
+  // armor dials ("this is a turret") covers every attacker. The damage
+  // itself routes through the existing damageTurret/Scout/Sentinel/City
+  // funnels so break / reboot / hostile-tick bookkeeping stays centralized.
+  for (const enemy of state.enemies) {
+    if (enemy.hp <= 0) continue;
+    if (enemy.role !== "combat") continue;
+    const contactDamage = ENEMY_CONTACT_DAMAGE[enemy.kind];
+    if (contactDamage <= 0) continue;
+
+    if (enemy.targetKind === "turret" && enemy.targetId != null) {
+      const turret = state.turrets.find((t) => t.id === enemy.targetId);
+      if (!turret) continue;
+      if (dist(enemy.x, enemy.y, turret.x, turret.y) > ENEMY_CONTACT_RADIUS.turret) continue;
+      damageTurret(state, turret, contactDamage * TARGET_ARMOR.turretArmor);
+    } else if (enemy.targetKind === "scout" && enemy.targetId != null) {
+      const scout = state.scouts.find((s) => s.id === enemy.targetId);
+      if (!scout) continue;
+      if (dist(enemy.x, enemy.y, scout.x, scout.y) > ENEMY_CONTACT_RADIUS.scout) continue;
+      damageScout(state, scout, contactDamage * TARGET_ARMOR.scoutArmor);
+    } else if (enemy.targetKind === "sentinel" && enemy.targetId != null) {
+      const sentinel = state.sentinels.find((s) => s.id === enemy.targetId);
+      if (!sentinel) continue;
+      if (dist(enemy.x, enemy.y, sentinel.x, sentinel.y) > ENEMY_CONTACT_RADIUS.sentinel) continue;
+      damageSentinel(state, sentinel, contactDamage * TARGET_ARMOR.sentinelArmor);
+    } else if (enemy.targetKind === "city") {
+      if (dist(enemy.x, enemy.y, HOME_X, HOME_Y) > ENEMY_CONTACT_RADIUS.city) continue;
+      damageCity(state, contactDamage * TARGET_ARMOR.cityArmor);
+    }
+  }
 }

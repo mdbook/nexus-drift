@@ -237,6 +237,13 @@ export type Enemy = {
   maxHp: number;
   speed: number;
   targetId: number | null;
+  /**
+   * 3.0.0 — which class of entity `targetId` refers to. Workers are still the
+   * default ("agent"), but enemies may pivot toward turrets, sentinels,
+   * scouts, or the home district based on ENEMY_TARGET_PRIORITY. The "city"
+   * kind uses targetId=null because the city is not an id'd entity.
+   */
+  targetKind: "agent" | "turret" | "sentinel" | "scout" | "city";
   targetNodeId: number | null;
   flash: number;
   corruptTicks: number;

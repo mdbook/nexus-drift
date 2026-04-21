@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
-import { CITY_HP, COMBAT, CORRUPTION, SCOUT_HP, SENTINEL_HP, TURRET, TURRET_HP } from "@/game/balance";
+import {
+  CITY_HP,
+  COMBAT,
+  CORRUPTION,
+  ENEMY_CONTACT_DAMAGE,
+  ENEMY_CONTACT_RADIUS,
+  ENEMY_TARGET_PRIORITY,
+  SCOUT_HP,
+  SENTINEL_HP,
+  TARGET_ARMOR,
+  TURRET,
+  TURRET_HP,
+} from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
@@ -17,6 +29,8 @@ import { stepSentinels } from "@/game/subsystems/sentinels";
 import { damageCity, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
+import { stepEnemies } from "@/game/subsystems/movement";
+import { pickEnemyTargetMulti } from "@/game/targeting";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -1311,5 +1325,177 @@ describe("city HP, energy modulation, and regen (3.0.0)", () => {
       stepCity(state);
     }
     expect(state.city.hp).toBeGreaterThan(hpBeforeSiege);
+  });
+});
+
+describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
+  it("defaults to worker targeting when priorities favor it", () => {
+    // Mites have a 1.0 worker priority vs 0.15 turret, so a mite between a
+    // worker and a turret at equal distance should pick the worker.
+    const state = createInitialGameState();
+    // Deactivate other workers so only agent 1 is in play to keep the pick
+    // deterministic.
+    state.agents.forEach((agent, idx) => {
+      agent.active = idx === 0;
+    });
+    const worker = state.agents[0];
+    worker.x = 400;
+    worker.y = 300;
+    const turret = state.turrets[0];
+    turret.x = 600;
+    turret.y = 300;
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = 500;
+    mite.y = 300;
+    state.enemies.push(mite);
+
+    const pick = pickEnemyTargetMulti(mite, state);
+    expect(pick?.kind).toBe("agent");
+    expect(pick?.id).toBe(worker.id);
+  });
+
+  it("brute pivots to a turret when the turret is closer than workers", () => {
+    // Brute worker priority (1.0) vs turret priority (0.85) — at equal distance
+    // the brute chases the worker. Move the turret much closer and the
+    // weighted distance score should flip to turret.
+    const state = createInitialGameState();
+    state.agents.forEach((agent, idx) => {
+      agent.active = idx === 0;
+    });
+    state.agents[0].x = 400;
+    state.agents[0].y = 200;
+    const turret = state.turrets[0];
+    turret.x = 500;
+    turret.y = 205;
+
+    const brute = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    brute.x = 500;
+    brute.y = 200;
+    state.enemies.push(brute);
+
+    const pick = pickEnemyTargetMulti(brute, state);
+    expect(pick?.kind).toBe("turret");
+    expect(pick?.id).toBe(turret.id);
+  });
+
+  it("falls back to the city when no higher-priority targets exist", () => {
+    // Clear workers + defences so only the city remains as a valid pick.
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.turrets = [];
+    state.scouts = [];
+    state.sentinels = [];
+
+    const raider = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    raider.x = 520;
+    raider.y = 540;
+    state.enemies.push(raider);
+
+    const pick = pickEnemyTargetMulti(raider, state);
+    expect(pick?.kind).toBe("city");
+    expect(pick?.id).toBeNull();
+  });
+
+  it("corruptor-role enemies have zero priority across the board", () => {
+    const state = createInitialGameState();
+    const corruptor = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    state.enemies.push(corruptor);
+    expect(pickEnemyTargetMulti(corruptor, state)).toBeNull();
+    expect(ENEMY_TARGET_PRIORITY.corruptor.worker).toBe(0);
+    expect(ENEMY_TARGET_PRIORITY.blight.worker).toBe(0);
+    expect(ENEMY_TARGET_PRIORITY.leech.worker).toBe(0);
+  });
+
+  it("contact damage to a turret applies the turretArmor mitigation", () => {
+    const state = createInitialGameState();
+    // Isolate the turret under test and remove workers so stepCombat's
+    // worker loop doesn't also fire.
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.turrets = [state.turrets[0]];
+    const turret = state.turrets[0];
+    const hpBefore = turret.hp;
+
+    // Put a brute in contact with the turret and set it up to target turret.
+    const brute = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    brute.x = turret.x + 5;
+    brute.y = turret.y;
+    brute.targetKind = "turret";
+    brute.targetId = turret.id;
+    state.enemies.push(brute);
+
+    // Force a combat tick by aligning timer with COMBAT_TICK.
+    state.timers.tick = 0;
+    stepCombat(state);
+
+    const expectedDamage = ENEMY_CONTACT_DAMAGE.brute * TARGET_ARMOR.turretArmor;
+    expect(turret.hp).toBeCloseTo(hpBefore - expectedDamage, 5);
+    expect(turret.damageTicks).toBeGreaterThan(0);
+  });
+
+  it("contact damage to the city applies the cityArmor mitigation", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    const hpBefore = state.city.hp;
+
+    // Raider inside the city contact radius, targeting the city.
+    const raider = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    raider.x = 500;
+    raider.y = 540;
+    raider.targetKind = "city";
+    raider.targetId = null;
+    state.enemies.push(raider);
+
+    state.timers.tick = 0;
+    stepCombat(state);
+
+    const expectedDamage = ENEMY_CONTACT_DAMAGE.raider * TARGET_ARMOR.cityArmor;
+    expect(state.city.hp).toBeCloseTo(hpBefore - expectedDamage, 5);
+    expect(state.city.damageTicks).toBeGreaterThan(0);
+  });
+
+  it("stepEnemies writes targetKind alongside targetId", () => {
+    // Only the city should be in reach, so the movement step must stamp
+    // targetKind="city" with targetId=null rather than leaving the enemy
+    // stuck on the legacy "agent" default.
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.turrets = [];
+    state.scouts = [];
+    state.sentinels = [];
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = 500;
+    mite.y = 540;
+    state.enemies.push(mite);
+
+    stepEnemies(state);
+    expect(mite.targetKind).toBe("city");
+    expect(mite.targetId).toBeNull();
+  });
+
+  it("non-worker contact damage only lands while inside the contact radius", () => {
+    // A brute just outside ENEMY_CONTACT_RADIUS.turret targeting the turret
+    // should deal 0 damage; nudge it inside and the damage funnel fires.
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.turrets = [state.turrets[0]];
+    const turret = state.turrets[0];
+    const hpStart = turret.hp;
+
+    const brute = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    brute.x = turret.x + ENEMY_CONTACT_RADIUS.turret + 5;
+    brute.y = turret.y;
+    brute.targetKind = "turret";
+    brute.targetId = turret.id;
+    state.enemies.push(brute);
+
+    state.timers.tick = 0;
+    stepCombat(state);
+    expect(turret.hp).toBe(hpStart);
+
+    brute.x = turret.x + ENEMY_CONTACT_RADIUS.turret - 2;
+    stepCombat(state);
+    expect(turret.hp).toBeLessThan(hpStart);
   });
 });
