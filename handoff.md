@@ -50,7 +50,7 @@ Current version: **2.4.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
 - `src/game/__tests__/aiBehavior.test.ts` — 16 tests: worker path safety, archetype targeting, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
-- `.gitlab-ci.yml` — verify and container-build pipeline. Automatic release image builds only run on `main` and `dev`: `main` publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus `:dev`.
+- `.gitlab-ci.yml` — verify and container-build pipeline. Automatic release image builds only run on `main` and `dev`; each publishes the commit SHA, `:latest`, and the exact `package.json` version tag, with `dev` also retaining the `:dev` channel tag. The build preflights the GitLab container registry and fails if that version tag already exists, preventing accidental duplicate-version pushes from moving an existing release tag.
 - `docker/nginx.conf` — SPA serving config with security headers
 - `Dockerfile` — multi-stage production image build
 
@@ -315,7 +315,7 @@ npm run format:check
 ## CI And Docker
 
 - `verify` stage: `npm ci`, `npm run typecheck`, `npm test`
-- `build` stage: Kaniko builds and publishes the production container image
+- `build` stage: Kaniko builds and publishes the production container image from `main` and `dev` only. Images get the commit SHA, `:latest`, and the exact `package.json` version tag; `dev` also keeps `:dev`. CI fails before building if that version tag already exists in the GitLab container registry.
 - Notification stages report success or failure
 
 Production model: Vite build → Nginx serves `dist/` → reverse proxy handles TLS.

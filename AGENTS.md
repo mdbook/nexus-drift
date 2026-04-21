@@ -73,11 +73,22 @@ If the user asks for a release or version bump, update these together:
 
 If the user does not ask for release work, keep the suggestion advisory only.
 
+## CI Release Image Tags
+
+Container release builds run only from `main` and `dev`. The build job derives
+the release image tag from `package.json` and publishes the commit SHA,
+`:latest`, and the exact version tag; `dev` also retains the `:dev` channel tag.
+Before Kaniko builds, CI queries the GitLab container registry and fails if the
+version tag already exists. Do not remove that preflight unless replacing it with
+an equivalent duplicate-version guard; otherwise a second push with the same
+version would silently move the release tag.
+
 ## Entity Spawn / Death Animation Fields
 
 `ResourceNode`, `Enemy`, and `Agent` each carry a `spawnTick: number` field (set to `timers.tick` at creation/respawn/reboot). `Enemy` also carries `dyingTicks: number` (counts down from `DEATH_FADE_TICKS` after hp hits 0). Both fields are used **only in the renderer** (`FieldSvg.tsx`).
 
 Rules for these fields:
+
 - Always pass `state.timers.tick` when calling `makeNode`, `respawnNode`, `makeWorker`, or `spawnEnemy` at runtime. The initial-state factory (`createInitialGameState`) passes `0`, which the renderer treats as "no fade".
 - Migration must add `?? 0` fallbacks for both `spawnTick` and `dyingTicks` on all three entity types so loaded saves do not flash-in.
 - Do not use `dyingTicks` for any sim logic. Movement, targeting, and combat all guard on `enemy.hp > 0`. Dying enemies linger in `state.enemies` for visual purposes only — they must not participate in gameplay.
@@ -85,7 +96,7 @@ Rules for these fields:
 
 ## Save State And Migration (Check On Every Feature)
 
-Any change that adds, removes, or renames a field on `GameState` (or any nested type) requires updates in three places. Before finishing a feature, explicitly ask: *does this change the shape of what gets saved to localStorage?* If yes:
+Any change that adds, removes, or renames a field on `GameState` (or any nested type) requires updates in three places. Before finishing a feature, explicitly ask: _does this change the shape of what gets saved to localStorage?_ If yes:
 
 1. **`src/game/types.ts`** — add the new field to `GameState` (or the relevant nested type).
 2. **`src/game/factories.ts`** — set a default value in `createInitialGameState()` so fresh runs always have the field. Then add a defensive fallback in `migrateGameState()` so existing saves without the field load cleanly (e.g. `raw.newField ?? defaultValue`). If the schema change is significant, bump `SCHEMA_VERSION`.
@@ -98,6 +109,7 @@ Do this even for fields that seem cosmetic or optional. A missing field on a loa
 `ACHIEVEMENT_DEFS` in `src/game/achievements.ts` is the single source of truth for all achievement metadata. The subsystem (`src/game/subsystems/achievements.ts`) only calls `unlockAchievement()` — it never pushes to the log directly.
 
 Rules for adding achievements:
+
 - Add the new `AchievementId` to the union type in `achievements.ts`.
 - Add a `AchievementDef` entry with `id`, `label`, `description`, `rarity`, `category`, and optionally `hidden: true`.
 - Add the condition check in `stepAchievements()` in `subsystems/achievements.ts`.
