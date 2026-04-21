@@ -16,10 +16,10 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.4.4",
+    version: "2.4.5",
     badge: "Surround Pressure",
     summary:
-      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, live enemy bodies act like real obstacles, and shielded enemies now read as a real two-layer threat instead of a single mixed health bar.",
+      "Worker survival and combat-readability release. Workers now take harder punishment when they get properly boxed in, live enemy bodies slow escape routes, and shielded enemies read as a real two-layer threat instead of a single mixed health bar.",
     sections: [
       {
         title: "Combat Pressure",

@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.4.4**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.4.5**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -280,7 +280,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 92 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
+- 97 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 
