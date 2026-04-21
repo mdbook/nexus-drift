@@ -85,15 +85,18 @@ describe("advanceGame simulation invariants", () => {
     const early = createInitialGameState();
     const late = createInitialGameState();
 
-    late.level = 18;
-    late.prestige = 1;
-    late.upgrades.miner = 4;
-    late.upgrades.drill = 4;
-    late.upgrades.reactor = 3;
-    late.upgrades.turret = 3;
-    late.upgrades.shield = 2;
-    late.upgrades.scout = 2;
-    late.upgrades.arsenal = 2;
+    // 3.0.0: the stretched score curve means tier climbs on colony weight
+    // over hours, not minutes. Bump the late setup past the new tier-2
+    // threshold so director escalation is observable in-test.
+    late.level = 80;
+    late.prestige = 5;
+    late.upgrades.miner = 10;
+    late.upgrades.drill = 10;
+    late.upgrades.reactor = 10;
+    late.upgrades.turret = 10;
+    late.upgrades.shield = 10;
+    late.upgrades.scout = 10;
+    late.upgrades.arsenal = 10;
 
     const earlyDerived = computeDerived(early);
     const lateDerived = computeDerived(late);
@@ -107,15 +110,18 @@ describe("advanceGame simulation invariants", () => {
   it("does not mark a dominant late-game colony as recovering at the cadence floor", () => {
     const dominant = createInitialGameState();
 
-    dominant.level = 18;
-    dominant.prestige = 1;
-    dominant.upgrades.miner = 4;
-    dominant.upgrades.drill = 4;
-    dominant.upgrades.reactor = 3;
-    dominant.upgrades.turret = 3;
-    dominant.upgrades.shield = 2;
-    dominant.upgrades.scout = 2;
-    dominant.upgrades.arsenal = 2;
+    // 3.0.0: under the stretched score curve a genuinely dominant late-game
+    // colony needs a meaningful sector level + upgrade stack before the
+    // cadence floor kicks in.
+    dominant.level = 80;
+    dominant.prestige = 5;
+    dominant.upgrades.miner = 10;
+    dominant.upgrades.drill = 10;
+    dominant.upgrades.reactor = 10;
+    dominant.upgrades.turret = 10;
+    dominant.upgrades.shield = 10;
+    dominant.upgrades.scout = 10;
+    dominant.upgrades.arsenal = 10;
 
     const derived = computeDerived(dominant);
 
@@ -127,13 +133,16 @@ describe("advanceGame simulation invariants", () => {
     const stable = createInitialGameState();
     const stressed = createInitialGameState();
 
-    stable.level = 8;
-    stable.upgrades.miner = 2;
-    stable.upgrades.drill = 2;
-    stable.upgrades.reactor = 1;
-    stable.upgrades.turret = 1;
-    stable.upgrades.shield = 1;
-    stable.upgrades.scout = 1;
+    // 3.0.0: baseline cadence clamps at intervalMax in early game, so bump
+    // stable to mid-colony weight. That leaves headroom below 260 for the
+    // stressed recovery penalty to push the cadence back up.
+    stable.level = 30;
+    stable.upgrades.miner = 3;
+    stable.upgrades.drill = 3;
+    stable.upgrades.reactor = 2;
+    stable.upgrades.turret = 2;
+    stable.upgrades.shield = 2;
+    stable.upgrades.scout = 2;
 
     stressed.level = stable.level;
     stressed.upgrades = { ...stable.upgrades };
@@ -183,13 +192,16 @@ describe("advanceGame simulation invariants", () => {
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(1);
     expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(1);
 
-    state.level = 12;
+    // 3.0.0: WORKER_SLOTS_BY_LEVEL now gates the second slot at L22 and the
+    // third at L42, aligning multi-worker deployment with the stretched XP
+    // curve.
+    state.level = 22;
     stepWorkerSlots(state);
     expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(2);
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(2);
     expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(2);
 
-    state.level = 24;
+    state.level = 42;
     stepWorkerSlots(state);
     expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(3);
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(3);
@@ -197,10 +209,13 @@ describe("advanceGame simulation invariants", () => {
   });
 
   it("charges flux and cores on the worker-slot unlock upgrade levels", () => {
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 12 });
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 14, flux: 4, cores: 1 });
-    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 235, flux: 12, cores: 3 });
-    expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 12, cores: 3 });
+    // 3.0.0: UPGRADES base costs and WORKER_SLOT_UNLOCK_RESOURCE_COSTS both
+    // scaled up so slot-unlock purchases feel like a deliberate flux+cores
+    // spend. See balance.ts.
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 35 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 43, flux: 18, cores: 4 });
+    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 727, flux: 55, cores: 14 });
+    expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 55, cores: 14 });
   });
 
   it("never produces NaN resources over a long run", () => {
@@ -488,17 +503,21 @@ describe("advanceGame simulation invariants", () => {
 
   it("can autobuy foundry using ore and flux costs", () => {
     const seeded = createInitialGameState();
-    seeded.level = 14;
+    // 3.0.0: foundry minTier=3 now requires score ≥ 225 under the stretched
+    // curve, so the test setup needs a meaningful late-game weight stack to
+    // reach tier 3.
+    seeded.level = 200;
+    seeded.prestige = 10;
     seeded.resources.gold = 0;
     seeded.resources.ore = 300;
     seeded.resources.flux = 10;
-    seeded.upgrades.miner = 4;
-    seeded.upgrades.drill = 4;
-    seeded.upgrades.reactor = 3;
-    seeded.upgrades.turret = 3;
-    seeded.upgrades.shield = 2;
-    seeded.upgrades.scout = 2;
-    seeded.upgrades.arsenal = 1;
+    seeded.upgrades.miner = 10;
+    seeded.upgrades.drill = 10;
+    seeded.upgrades.reactor = 10;
+    seeded.upgrades.turret = 10;
+    seeded.upgrades.shield = 10;
+    seeded.upgrades.scout = 10;
+    seeded.upgrades.arsenal = 10;
     seeded.timers.auto = AUTO_TICK;
 
     const after = advanceGame(seeded);

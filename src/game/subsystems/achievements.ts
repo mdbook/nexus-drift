@@ -16,6 +16,8 @@ export function stepAchievements(state: GameState) {
   if (state.level >= 10) unlockAchievement(state, "level_10");
   if (state.level >= 20) unlockAchievement(state, "level_20");
   if (state.level >= 30) unlockAchievement(state, "level_30");
+  if (state.level >= 50) unlockAchievement(state, "level_50");
+  if (state.level >= 75) unlockAchievement(state, "level_75");
 
   if (threatRank >= 5) unlockAchievement(state, "tier_5");
   if (threatRank >= 8) unlockAchievement(state, "tier_8");
@@ -86,6 +88,9 @@ export function stepAchievements(state: GameState) {
   if (state.stats.runtimeMs >= 30 * 60_000) unlockAchievement(state, "survived_30m");
   if (state.stats.runtimeMs >= 60 * 60_000) unlockAchievement(state, "long_watch");
   if (state.stats.runtimeMs >= 120 * 60_000) unlockAchievement(state, "long_watch_2h");
+  if (state.stats.runtimeMs >= 240 * 60_000) unlockAchievement(state, "survived_4h");
+  if (state.stats.runtimeMs >= 480 * 60_000) unlockAchievement(state, "survived_8h");
+  if (state.stats.runtimeMs >= 1440 * 60_000) unlockAchievement(state, "survived_24h");
 
   // Equilibrium: 95%+ colony health while under hostile pressure
   if (derived.hostilePressure && derived.colonyHealth >= 95) {

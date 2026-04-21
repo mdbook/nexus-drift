@@ -74,7 +74,7 @@ The UI uses Tailwind with a responsive flex layout:
 
 ### Workers
 
-Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). Slot 0 starts active. Extra slots are now intentionally late-game: the relevant upgrade track still has to reach its slot thresholds (level 3 for slot 1, level 6 for slot 2), but the colony must also hit **sector level 12** before the second unit deploys and **sector level 24** before the third unit deploys. Those two slot-unlock purchases now also add `flux` + `cores` costs on top of the normal gold price. The `active: boolean` field on `Agent` controls this — inactive agents are skipped by all sim logic and hidden in the renderer.
+Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). Slot 0 starts active. Extra slots are intentionally late-game: the relevant upgrade track still has to reach its slot thresholds (level 3 for slot 1, level 6 for slot 2), but 3.0.0 stretched the sector-level gates so the second unit now deploys at **sector level 22** and the third unit at **sector level 42** (up from 12 / 24). Those two slot-unlock purchases also add `flux` + `cores` costs on top of the normal gold price, and the surcharges were scaled up ~4× in 3.0.0 (`flux: 18 / cores: 4` at level 3; `flux: 55 / cores: 14` at level 6) so the unlock feels like a deliberate spend. The `active: boolean` field on `Agent` controls this — inactive agents are skipped by all sim logic and hidden in the renderer.
 
 `WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
@@ -115,6 +115,8 @@ Squadmates sharing a target spread across `ENEMY_AI.squadBearingBuckets` (6) bea
 ### Turrets
 
 Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers. Carry a `disabledTicks` counter; while > 0 the turret skips targeting and firing entirely.
+
+3.0.0 added a parallel sector-level gate: active turret count is now `max(1, min(turrets.length, 1 + min(upgrades.turret, TURRET_SLOTS_BY_LEVEL[level])))`, mirroring the worker-slot pattern. The first turret is always on, the 2nd unlocks at level 2, and the 3rd unlocks at level 8 even if the upgrade track is bought earlier. `derived.activeTurrets` folds both gates together; subsystems should read it from `computeDerived` rather than recomputing locally.
 
 ### Enemy Shield System
 
@@ -222,11 +224,11 @@ The app shell separately polls `/version` about every 5 minutes (and when the ta
 
 Categories and examples:
 
-- **Progression** — level milestones (10/20/30), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation
+- **Progression** — level milestones (10/20/30/50/75), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation
 - **Combat** — kill counts (10/100/500/1000), brutes (10/25), phantoms (5), leeches (3), sappers (10), first sentinel kill, turret level 8
 - **Mining** — first crit, 25/100 crits, mined 1k/10k resources, gold hoard (5k), gem collector (200)
 - **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types)
-- **Survival** — 15m/30m/1h/2h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
+- **Survival** — 15m/30m/1h/2h/4h/8h/24h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present
 - **Secret** — drift easter egg, click-spotted tourist drone, multi-pass tourist secrets, broken lost-drone recovery, synthwave Konami, all 12 events experienced, all 12 event cards inspected, anomaly witness, projectile/corpse clicks, changelog/modal opens, manual override
 
 New stats tracked on `GameState.stats`: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `sentinelKills`. `sentinelKills` is credited only when a sentinel lands the lethal hit; do not infer it later from target selection or corpse cleanup. Migration adds `?? 0` fallbacks for all four.
@@ -242,6 +244,8 @@ The ribbon renders newest unlocks first by reversing the unlocked id list at ren
 Each ribbon badge is now its own button: clicking one opens `AchievementsModal`, switches to the matching category, scrolls the corresponding row into view, focuses it, and plays a brief pulsing cyan highlight that fades back to transparent at the end so the player lands on the right achievement immediately without a lingering static halo. The pulse is implemented in `src/index.css` as presentation-only animation and is disabled under `prefers-reduced-motion`.
 
 Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cataclysm`). Any legacy “tier 8/9/10” style unlock or spawn gate must key off `derived.progression.score / PROGRESSION.tiersPerScore`, not the capped `derived.progression.tier`. `stepAchievements()` and the lost-drone event roll now follow that rule.
+
+3.0.0 added wallpaper-range runtime milestones on top of the existing set: `survived_4h`, `survived_8h`, `survived_24h` (uncommon → legendary). Long-session play now earns explicit recognition instead of topping out at the 2h mark. Sector-level milestones also extend past the original cap with `level_50` and `level_75` so the stretched XP curve has proportional achievement anchors.
 
 ### Easter Eggs
 

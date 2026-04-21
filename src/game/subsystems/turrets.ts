@@ -20,7 +20,9 @@ export function getTurretTargetScore(state: GameState, turret: GameState["turret
 export function stepTurrets(state: GameState) {
   const derived = computeDerived(state);
   state.turrets.forEach((turret, index) => {
-    const live = index < Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
+    // 3.0.0: activeTurrets already folds in the new TURRET_SLOTS_BY_LEVEL
+    // gate, so read it from derived rather than recomputing here.
+    const live = index < derived.activeTurrets;
     if (!live) {
       turret.cooldown = 0;
       turret.angle += (-1.57 - turret.angle) * 0.06;

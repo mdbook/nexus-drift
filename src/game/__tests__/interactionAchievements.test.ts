@@ -206,10 +206,13 @@ describe("event HUD linger and anomaly gating", () => {
 
   it("uses uncapped threat rank thresholds for late progression achievements", () => {
     const state = createInitialGameState();
-    state.level = 60;
-    state.prestige = 5;
+    // 3.0.0: tiersPerScore=75 means tier_10 requires score ≥ 750. Only an
+    // extreme multi-session setup clears that bar, which is the whole point
+    // of uncapped threat rank.
+    state.level = 500;
+    state.prestige = 20;
     for (const key of Object.keys(state.upgrades) as Array<keyof typeof state.upgrades>) {
-      state.upgrades[key] = 10;
+      state.upgrades[key] = 20;
     }
 
     stepAchievements(state);
@@ -223,10 +226,13 @@ describe("event HUD linger and anomaly gating", () => {
 describe("lost drone spawn and migration", () => {
   it("spawns a broken lost drone on the rare event roll and only recruits it after recovery", () => {
     const state = createInitialGameState();
-    state.level = 60;
-    state.prestige = 5;
+    // 3.0.0: LOST_DRONE_SCORE_THRESHOLD = 9 * tiersPerScore = 675 under the
+    // new curve, so the setup needs extreme late-game weight to unlock the
+    // spawn gate.
+    state.level = 500;
+    state.prestige = 20;
     for (const key of Object.keys(state.upgrades) as Array<keyof typeof state.upgrades>) {
-      state.upgrades[key] = 10;
+      state.upgrades[key] = 20;
     }
     state.timers.bigEvent = state.nextBigEventInterval;
     state.rng.chance = () => true;

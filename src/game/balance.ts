@@ -1,11 +1,14 @@
 import type { EnemyArchetype, EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
+// 3.0.0: base costs stretched so 3rd turret / multi-worker slots take 1+ hr
+// each, and full-doctrine runs land in the multi-session wallpaper range
+// (see plan file "let-s-get-ready-for-playful-snowflake.md" Section A).
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
-  miner: { baseCost: 10, growth: 1.20 },
-  drill: { baseCost: 80, growth: 1.24 },
-  reactor: { baseCost: 200, growth: 1.27 },
+  miner: { baseCost: 28, growth: 1.24 },
+  drill: { baseCost: 220, growth: 1.27 },
+  reactor: { baseCost: 520, growth: 1.30 },
   bot: { baseCost: 1100, growth: 1.32 },
-  turret: { baseCost: 180, growth: 1.25 },
+  turret: { baseCost: 520, growth: 1.30 },
   shield: { baseCost: 420, growth: 1.28 },
   scout: { baseCost: 280, growth: 1.26 },
   arsenal: { baseCost: 540, growth: 1.29 },
@@ -322,14 +325,19 @@ export const COMBAT = {
   },
 } as const;
 
+// 3.0.0: passive gold income and XP accumulation are dramatically slowed so
+// base progression keys off mining output rather than timer-style drip, and
+// sector level takes hours to climb. Mining yields themselves are also cut
+// (MINING.yield below) to anchor the overall gold curve against the new
+// upgrade costs.
 export const ECONOMY = {
   prestigeMultiplier: 0.12,
   threatPenaltyFloor: 0.6,
   threatPenaltyPerEnemy: 0.025,
   threatPenaltyPerShield: 0.015,
   rates: {
-    goldBase: 1,
-    goldPerMiner: 0.78,
+    goldBase: 0.18,
+    goldPerMiner: 0.16,
     goldPerDrill: 0.1,
     oreBase: 0.32,
     orePerMiner: 0.30,
@@ -342,12 +350,12 @@ export const ECONOMY = {
     energyPerShield: 0.04,
   },
   xpRate: {
-    base: 0.6,
+    base: 0.12,
     perReactor: 0.08,
     perPrestige: 0.05,
     perTurret: 0.015,
     perScout: 0.018,
-    scale: 9.5,
+    scale: 2.0,
   },
   levelComboBonus: 0.15,
   comboMax: 9.9,
@@ -374,29 +382,36 @@ export const MINING = {
   corruptedDamagePenalty: 0.78,
   critChanceBase: 0.18,
   critChancePerBot: 0.01,
-  yield: { gold: 14, ore: 10, gems: 3.4, energy: 5.4 } as Record<VisibleResourceKey, number>,
+  // 3.0.0: per-haul yields cut ~3× to keep the stretched upgrade curve honest.
+  yield: { gold: 4.5, ore: 3.4, gems: 1.2, energy: 1.8 } as Record<VisibleResourceKey, number>,
   contactRadiusMin: 24,
   contactRadiusRatio: 0.52,
 } as const;
 
+// 3.0.0: prestige gates raised ~6× so auto-prestige lands in the 6-10 hour
+// range instead of the ~45 min current target.
 export const PRESTIGE = {
-  goldGate: 9800,
-  gemsGate: 70,
+  goldGate: 60000,
+  gemsGate: 380,
   maxEnemies: 3,
   resetMultipliers: { gold: 0.18, ore: 0.15, gems: 0.2, energy: 0.2, cores: 0, flux: 0 },
   comboBonus: 0.6,
 } as const;
 
+// 3.0.0: director score and spawn tuning both decouple from level-driven
+// drift — tier now climbs via real colony weight (upgrades, prestige, income)
+// over a much longer curve, and wave cadence stays calmer so the early
+// colony can actually finish its first turrets before real pressure lands.
 export const PROGRESSION = {
   scoreCoeffs: {
-    level: 1.35,
+    level: 0.22,
     prestige: 8,
     totalUpgrades: 0.95,
     weightedUpgrade: 0.9,
     cityStage: 3.5,
     totalIncome: 0.035,
   },
-  tiersPerScore: 14,
+  tiersPerScore: 75,
   powerBalance: {
     threatWeight: 1.08,
     corruptionNodeWeight: 0.75,
@@ -404,7 +419,7 @@ export const PROGRESSION = {
   },
   spawn: {
     baselineInterval: 280,
-    intervalPerScore: 2.1,
+    intervalPerScore: 0.35,
     intervalPerTurret: 4,
     intervalPerScout: 3,
     intervalPerPrestige: 4,
@@ -422,8 +437,8 @@ export const PROGRESSION = {
   },
   wave: {
     budgetBase: 1.15,
-    budgetPerScore: 0.038,
-    budgetPerTier: 0.24,
+    budgetPerScore: 0.008,
+    budgetPerTier: 0.09,
     budgetPerDominance: 0.11,
     budgetPerPressure: -0.07,
     budgetPerExtraDefender: 0.08,
@@ -516,16 +531,35 @@ export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
   drone:  [1, 1, 1, 2, 2, 2, 3],
 };
 
+// 3.0.0: second worker slot now gates behind sector level 22 (was 12); third
+// slot gates behind level 42 (was 24). These align with the stretched XP
+// curve so multi-worker deployment lands on a multi-hour, multi-session
+// cadence instead of an hour-long run.
 export const WORKER_SLOTS_BY_LEVEL = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
   3,
 ] as const;
 
+// 3.0.0: slot-unlock surcharges climb ~4× so the level 3 / level 6 worker
+// purchases feel like a deliberate flux+cores spend, not a rounding error.
 export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<Record<number, Partial<Record<ResourceKey, number>>>> = {
-  3: { flux: 4, cores: 1 },
-  6: { flux: 12, cores: 3 },
+  3: { flux: 18, cores: 4 },
+  6: { flux: 55, cores: 14 },
 };
+
+/**
+ * 3.0.0: new turret slot gate.
+ *
+ * Turret slot count is now `min(upgrades.turret, TURRET_SLOTS_BY_LEVEL[level])`,
+ * mirroring the worker-slot pattern. Index = sector level (clamped to last
+ * entry). Values = number of additional turret slots on top of the always-on
+ * first turret. Early levels keep 1 turret even if the upgrade has been
+ * purchased; the 2nd turret unlocks at level 2, the 3rd at level 8.
+ */
+export const TURRET_SLOTS_BY_LEVEL = [
+  0, 0, 1, 1, 1, 1, 1, 1, 2,
+] as const;
 
 /**
  * AI — shared threat field. Per-kind weight is the pressure that kind exerts

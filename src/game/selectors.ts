@@ -1,4 +1,4 @@
-import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL } from "@/game/balance";
+import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL, TURRET_SLOTS_BY_LEVEL } from "@/game/balance";
 import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
@@ -81,7 +81,12 @@ export function computeDerived(state: GameState): DerivedState {
     ? state.agents.reduce((sum, agent) => sum + agent.hp, 0) / state.agents.length
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
-  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
+  // 3.0.0: turret slot count is gated by both upgrade level AND sector level
+  // (mirrors WORKER_SLOTS_BY_LEVEL). The always-on first turret keeps its
+  // floor; additional turrets need both upgrade + level to line up.
+  const turretLevelSlots = TURRET_SLOTS_BY_LEVEL[Math.min(state.level, TURRET_SLOTS_BY_LEVEL.length - 1)];
+  const additionalTurretSlots = Math.min(state.upgrades.turret, turretLevelSlots);
+  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + additionalTurretSlots));
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
   const activeSentinels = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
   const activeMissileSilos = state.missileSilos.filter((silo) => silo.active).length;

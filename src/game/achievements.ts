@@ -24,6 +24,8 @@ export type AchievementId =
   | "level_10"
   | "level_20"
   | "level_30"
+  | "level_50"
+  | "level_75"
   | "tier_5"
   | "tier_8"
   | "tier_10"
@@ -66,6 +68,9 @@ export type AchievementId =
   | "survived_30m"
   | "long_watch"
   | "long_watch_2h"
+  | "survived_4h"
+  | "survived_8h"
+  | "survived_24h"
   | "stable_colony"
   | "full_health"
   // Secret
@@ -146,6 +151,20 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     label: "Ancient Protocol",
     description: "Reach sector level 30.",
     rarity: "rare",
+    category: "progression",
+  },
+  {
+    id: "level_50",
+    label: "Sector Custodian",
+    description: "Reach sector level 50.",
+    rarity: "rare",
+    category: "progression",
+  },
+  {
+    id: "level_75",
+    label: "Grid Legend",
+    description: "Reach sector level 75.",
+    rarity: "legendary",
     category: "progression",
   },
   {
@@ -420,6 +439,27 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     label: "Vigil",
     description: "Keep the colony alive for 2 hours.",
     rarity: "rare",
+    category: "survival",
+  },
+  {
+    id: "survived_4h",
+    label: "Deep Watch",
+    description: "Keep the colony alive for 4 hours.",
+    rarity: "rare",
+    category: "survival",
+  },
+  {
+    id: "survived_8h",
+    label: "All-Night Drift",
+    description: "Keep the colony alive for 8 hours.",
+    rarity: "legendary",
+    category: "survival",
+  },
+  {
+    id: "survived_24h",
+    label: "Sector Eternal",
+    description: "Keep the colony alive for 24 hours.",
+    rarity: "legendary",
     category: "survival",
   },
   {

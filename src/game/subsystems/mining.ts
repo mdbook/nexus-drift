@@ -42,7 +42,9 @@ export function stepMining(state: GameState) {
     if (node.hp <= 0) {
       const crit = state.rng.chance(MINING.critChanceBase + state.upgrades.bot * MINING.critChancePerBot);
       const baseAmount = MINING.yield[node.kind];
-      const foundryBonus = 1 + state.upgrades.foundry * 0.12;
+      // 3.0.0: foundry per-level yield multiplier cut from +12% to +5% so
+      // late-game foundry stacking doesn't outrun the new slower curve.
+      const foundryBonus = 1 + state.upgrades.foundry * 0.05;
       const amount =
         baseAmount *
         foundryBonus *
