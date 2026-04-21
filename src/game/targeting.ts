@@ -44,6 +44,23 @@ export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
   if (!candidates.length) return null;
 
   const archetype = enemy.archetype;
+
+  // Precompute nearby-ally counts per worker so archetype branches don't
+  // each run an O(workers) filter inside the O(workers) candidate loop.
+  // Still O(workers²) total, but runs once per call rather than once per
+  // (enemy × worker) pair. Swap inner loop for spatial index when scaling.
+  const nearbyAllyCounts = new Map<number, number>();
+  if (archetype === "flanker" || archetype === "ambusher" || archetype === "ghost" || archetype === "skirmisher") {
+    for (const worker of candidates) {
+      let count = 0;
+      for (const other of candidates) {
+        if (other.id === worker.id) continue;
+        if (dist(worker.x, worker.y, other.x, other.y) < ENEMY_AI.isolatedRadius) count += 1;
+      }
+      nearbyAllyCounts.set(worker.id, count);
+    }
+  }
+
   let best: Agent | null = null;
   let bestScore = Infinity;
 
@@ -60,24 +77,14 @@ export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
       }
     } else if (archetype === "flanker" || archetype === "ambusher" || archetype === "ghost") {
       // Prefer isolated, unalert workers.
-      const nearbyAllies = state.agents.filter(
-        (other) =>
-          other.active &&
-          other.id !== worker.id &&
-          dist(worker.x, worker.y, other.x, other.y) < ENEMY_AI.isolatedRadius
-      ).length;
+      const nearbyAllies = nearbyAllyCounts.get(worker.id) ?? 0;
       score *= 1 + nearbyAllies * 0.18;
       if (worker.evadeTicks > 0) score *= 1.3; // already panicked = less surprise
     } else if (archetype === "skirmisher") {
       // Zappers prefer workers surrounded by fewest allies AND with fewest
       // hostile allies near them — an isolated worker isn't worth much if
       // another hostile is already attacking it.
-      const nearbyAllies = state.agents.filter(
-        (other) =>
-          other.active &&
-          other.id !== worker.id &&
-          dist(worker.x, worker.y, other.x, other.y) < ENEMY_AI.isolatedRadius
-      ).length;
+      const nearbyAllies = nearbyAllyCounts.get(worker.id) ?? 0;
       const nearbyHostiles = countThreats(worker.x, worker.y, ENEMY_AI.isolatedRadius, state.enemies);
       score *= 1 + nearbyAllies * 0.12 + Math.max(0, nearbyHostiles - 1) * 0.15;
     }
