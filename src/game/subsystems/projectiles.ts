@@ -3,7 +3,30 @@ import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 
 export function stepProjectiles(state: GameState) {
+  // Tick frozen missile; when it expires, spawn the gold explosion
+  if (state.frozenMissile !== null) {
+    state.frozenMissile.ticks -= 1;
+    if (state.frozenMissile.ticks <= 0) {
+      state.goldExplosion = { x: state.frozenMissile.x, y: state.frozenMissile.y, ticks: 24, maxTicks: 24 };
+      state.projectiles = state.projectiles.filter((p) => p.id !== state.frozenMissile!.id);
+      state.frozenMissile = null;
+    }
+  }
+
+  // Tick gold explosion
+  if (state.goldExplosion !== null) {
+    state.goldExplosion.ticks -= 1;
+    if (state.goldExplosion.ticks <= 0) state.goldExplosion = null;
+  }
+
+  // Tick missile click cooldown
+  if (state.missileClickCooldown > 0) state.missileClickCooldown -= 1;
+
+  const frozenId = state.frozenMissile?.id;
+
   for (const p of state.projectiles) {
+    if (p.id === frozenId) continue; // frozen — don't move or decrement
+
     p.life -= 1;
 
     if (p.tag === "turret-missile" && p.vx !== undefined && p.vy !== undefined) {

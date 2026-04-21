@@ -304,6 +304,9 @@ export type GameState = {
   nextNodeId: number;
   nextEnemyId: number;
   nextProjectileId: number;
+  frozenMissile: { id: number; x: number; y: number; ticks: number } | null;
+  goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
+  missileClickCooldown: number;
 };
 
 export type UpgradeDef = {

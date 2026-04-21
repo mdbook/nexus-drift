@@ -54,6 +54,14 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Missile Click Interaction",
+        items: [
+          "Clicking an in-flight missile to unlock `Warhead Whisperer` now freezes the missile gold in place for 1 second, then detonates it in a spreading gold starburst explosion that awards 50 gold.",
+          "After a successful click, all missiles become non-interactive for 30 seconds before the next shot is eligible.",
+          "The white border that briefly appeared around clicked missiles has been replaced by the full gold-freeze and explosion sequence.",
+        ],
+      },
+      {
         title: "Event Card Copy",
         items: [
           "Removed the extra `ONE SHOT SIGNAL` label from one-shot event cards.",

@@ -734,9 +734,13 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
 
       {game.projectiles.map((projectile) => {
         if (projectile.tag === "turret-missile") {
+          const isFrozen = game.frozenMissile?.id === projectile.id;
           const angle = Math.atan2(projectile.vy ?? -1, projectile.vx ?? 0) * (180 / Math.PI);
-          const opacity = Math.min(1, projectile.life / 12);
-          const missileInteractive = Boolean(interactions?.onProjectileClick);
+          const opacity = isFrozen ? 1 : Math.min(1, projectile.life / 12);
+          const missileInteractive =
+            Boolean(interactions?.onProjectileClick) && game.missileClickCooldown === 0 && !isFrozen;
+          const goldFill = "#ffd700";
+          const goldAccent = "#ffec6e";
           return (
             <g
               key={projectile.id}
@@ -750,15 +754,31 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
               style={missileInteractive ? { cursor: "pointer" } : undefined}
             >
               {missileInteractive && <rect x={-5.5} y={-5} width="11.5" height="10" fill="rgba(0,0,0,0.001)" />}
-              {/* nose cone — red tip */}
-              <polygon points="6,0 3,-2.5 3,2.5" fill="#e53e3e" />
-              {/* body — white/grey */}
-              <rect x={-2} y={-2.5} width={5} height={5} rx={1} fill="#d1d5db" />
-              {/* fins — red */}
-              <polygon points="-2,-2.5 -5,-5 -3,-2.5" fill="#e53e3e" />
-              <polygon points="-2,2.5 -5,5 -3,2.5" fill="#e53e3e" />
-              {/* engine fire — orange */}
-              <polygon points="-2,-1.5 -5.5,0 -2,1.5" fill="rgba(255,140,0,0.9)" />
+              {isFrozen ? (
+                <>
+                  {/* gold nose cone */}
+                  <polygon points="6,0 3,-2.5 3,2.5" fill={goldFill} />
+                  {/* gold body */}
+                  <rect x={-2} y={-2.5} width={5} height={5} rx={1} fill={goldFill} />
+                  {/* gold fins */}
+                  <polygon points="-2,-2.5 -5,-5 -3,-2.5" fill={goldAccent} />
+                  <polygon points="-2,2.5 -5,5 -3,2.5" fill={goldAccent} />
+                  {/* shimmer */}
+                  <polygon points="-2,-1.5 -5.5,0 -2,1.5" fill="rgba(255,230,80,0.85)" />
+                </>
+              ) : (
+                <>
+                  {/* nose cone — red tip */}
+                  <polygon points="6,0 3,-2.5 3,2.5" fill="#e53e3e" />
+                  {/* body — white/grey */}
+                  <rect x={-2} y={-2.5} width={5} height={5} rx={1} fill="#d1d5db" />
+                  {/* fins — red */}
+                  <polygon points="-2,-2.5 -5,-5 -3,-2.5" fill="#e53e3e" />
+                  <polygon points="-2,2.5 -5,5 -3,2.5" fill="#e53e3e" />
+                  {/* engine fire — orange */}
+                  <polygon points="-2,-1.5 -5.5,0 -2,1.5" fill="rgba(255,140,0,0.9)" />
+                </>
+              )}
             </g>
           );
         }
@@ -794,6 +814,37 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           </g>
         );
       })}
+
+      {game.goldExplosion && (() => {
+        const { x, y, ticks, maxTicks } = game.goldExplosion;
+        const progress = 1 - ticks / maxTicks;
+        const alpha = ticks / maxTicks;
+        const r1 = progress * 32;
+        const r2 = progress * 18;
+        const sparkLen = progress * 22;
+        return (
+          <g key="gold-explosion">
+            {Array.from({ length: 8 }, (_, i) => {
+              const a = (i / 8) * Math.PI * 2;
+              return (
+                <line
+                  key={i}
+                  x1={x}
+                  y1={y}
+                  x2={x + Math.cos(a) * sparkLen}
+                  y2={y + Math.sin(a) * sparkLen}
+                  stroke={`rgba(255,210,0,${alpha})`}
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+            <circle cx={x} cy={y} r={r1} fill="none" stroke={`rgba(255,200,0,${alpha * 0.8})`} strokeWidth={2.5} />
+            <circle cx={x} cy={y} r={r2} fill={`rgba(255,230,50,${alpha * 0.25})`} />
+            <circle cx={x} cy={y} r={6 * (1 - progress)} fill={`rgba(255,245,150,${alpha})`} />
+          </g>
+        );
+      })()}
 
       {anomalyInteractive && (
         <g

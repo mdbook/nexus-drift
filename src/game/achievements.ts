@@ -655,7 +655,12 @@ export function clickProjectile(state: GameState, projectileId: number) {
     return unlockAchievement(state, "signal_trace");
   }
   if (projectile.tag === "turret-missile") {
-    return unlockAchievement(state, "warhead_whisperer");
+    if (state.missileClickCooldown > 0) return false;
+    unlockAchievement(state, "warhead_whisperer");
+    state.resources.gold += 50;
+    state.frozenMissile = { id: projectile.id, x: projectile.x1, y: projectile.y1, ticks: 30 };
+    state.missileClickCooldown = 900;
+    return true;
   }
   return false;
 }

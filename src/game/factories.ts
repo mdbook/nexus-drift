@@ -368,6 +368,9 @@ export function createInitialGameState(seed?: number): GameState {
     nextNodeId: 14,
     nextEnemyId: 1,
     nextProjectileId: 1,
+    frozenMissile: null,
+    goldExplosion: null,
+    missileClickCooldown: 0,
   };
 }
 
@@ -385,6 +388,8 @@ export function cloneGameState(prev: GameState): GameState {
     timers: { ...prev.timers },
     touristWorker: prev.touristWorker ? { ...prev.touristWorker } : null,
     lostDrone: prev.lostDrone ? { ...prev.lostDrone } : null,
+    frozenMissile: prev.frozenMissile ? { ...prev.frozenMissile } : null,
+    goldExplosion: prev.goldExplosion ? { ...prev.goldExplosion } : null,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
     log: prev.log.map((entry) => ({ ...entry })),
@@ -465,6 +470,9 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         }
       : null,
     lostWorkerFound: raw.lostWorkerFound ?? false,
+    frozenMissile: null,
+    goldExplosion: null,
+    missileClickCooldown: (raw as { missileClickCooldown?: number }).missileClickCooldown ?? 0,
     activeEvents: Array.isArray(raw.activeEvents)
       ? raw.activeEvents.map((event) => ({
           ...event,
