@@ -1,4 +1,4 @@
-import { ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -15,7 +15,7 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -39,6 +39,7 @@ export function makeNode(rng: Rng, id: number, x: number, y: number, size: numbe
     corrupted: false,
     corruptedBy: null,
     spawnTick: currentTick,
+    workTicks: 0,
   };
 }
 
@@ -129,6 +130,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
     spawnTick: currentTick,
     disabledTicks: 0,
     active,
+    threatMemory: 0,
   };
 }
 
@@ -265,6 +267,8 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     trail: [],
     spawnTick: currentTick,
     dyingTicks: 0,
+    archetype: ENEMY_ARCHETYPE[kind],
+    squadId: Math.floor(currentTick / ENEMY_AI.squadBucketTicks),
   };
 
   if (kind === "phantom") {
@@ -273,6 +277,10 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
 
   if (kind === "zapper") {
     enemy.fireCooldown = 0;
+  }
+
+  if (kind === "sapper") {
+    enemy.dashTicks = 0;
   }
 
   const shieldMax = ENEMY_SHIELD.shieldMax[kind];
@@ -488,7 +496,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         )
       : base.log,
     nodes: Array.isArray(raw.nodes)
-      ? raw.nodes.map((node) => ({ ...node, spawnTick: node.spawnTick ?? 0 }))
+      ? raw.nodes.map((node) => ({
+          ...node,
+          spawnTick: node.spawnTick ?? 0,
+          workTicks: node.workTicks ?? 0,
+        }))
       : base.nodes,
     agents: Array.isArray(raw.agents)
       ? raw.agents.map((agent) => ({
@@ -499,6 +511,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           spawnTick: agent.spawnTick ?? 0,
           disabledTicks: agent.disabledTicks ?? 0,
           active: agent.active ?? true,
+          threatMemory: agent.threatMemory ?? 0,
         }))
       : base.agents,
     turrets: Array.isArray(raw.turrets)
@@ -513,11 +526,15 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     enemies: Array.isArray(raw.enemies)
       ? raw.enemies.map((enemy) => {
           const shieldMax = ENEMY_SHIELD.shieldMax[enemy.kind as import("@/game/types").EnemyKind];
+          const kind = enemy.kind as import("@/game/types").EnemyKind;
           return {
             ...enemy,
             trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
             spawnTick: enemy.spawnTick ?? 0,
             dyingTicks: enemy.dyingTicks ?? 0,
+            archetype: enemy.archetype ?? ENEMY_ARCHETYPE[kind],
+            squadId: enemy.squadId ?? Math.floor((enemy.spawnTick ?? 0) / ENEMY_AI.squadBucketTicks),
+            ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.
             ...(shieldMax !== undefined && {

@@ -55,6 +55,7 @@ function spawnTemporaryCacheNode(state: GameState) {
     temporary: true,
     despawnAt: state.timers.tick + 180 * TICKS_PER_SEC,
     spawnTick: state.timers.tick,
+    workTicks: 0,
   });
 }
 
