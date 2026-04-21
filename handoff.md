@@ -22,6 +22,7 @@ Current version: **2.3.3**. The in-game changelog is at `src/changelog.ts` and o
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history). Every non-trivial shipped change should be represented there, either as a new release entry or by expanding the current version's entry before release.
 - `index.html` — app metadata, multi-format favicon/manifest links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark via SVG + PNG + ICO fallbacks; embeds still use `public/og-image.png`.
 - `src/hooks/useLowFxMode.ts` — presentation-only media-query hook for coarse-pointer `lg` desktop layouts (notably iPadOS landscape Safari). Use it to keep the same visual direction while dropping the most expensive continuous FX; never branch gameplay or sim logic on it.
+- `src/hooks/useVersionCheck.ts` — app-shell polling hook for `/version`. Fetches roughly every 5 minutes plus on tab refocus/visibility return, extracts a flat semver from plain text or JSON-ish responses, and surfaces a session-scoped update banner when a newer release is live.
 - `src/components/Background.tsx` — animated starfield and atmosphere layers. On `useLowFxMode`, this swaps to a static cheaper variant with fewer stars and no drifting glow animation.
 - `src/components/EventBackdrop.tsx` — full-screen ambient effect overlay keyed off active event ids. Purely presentational, never touches sim state. Respects both `prefers-reduced-motion` and `useLowFxMode`; the coarse-pointer path keeps the event colour washes/glows but drops the heavier particle loops and long-lived blur motion. Effect per event id: `meteor_shower`, `solar_flare`, `cache_discovery`, `pirate_caravan`, `xeno_bloom`, `dust_storm`, `echo_signal`.
 - `src/components/EventChip.tsx` — active-event HUD chip. Tone-coded by `EventDef.tone`. Hover or focus reveals a tooltip with flavor text and a per-effect list (each item colour-coded by its own tone). Timed events keep visible countdowns; one-shot cards deliberately omit the timer, keep the same compact chip footprint, and fade by remaining HUD linger instead. Chips are `shrink-0` + `whitespace-nowrap` so crowded event lanes scroll horizontally instead of collapsing labels into multi-line pills. Inspected cards now keep things subtle by dimming the existing leading marker dot, and clicks produce a small local ripple at that dot rather than a louder full-card state change. Tooltip uses `position: fixed` with a ref-measured viewport anchor so it escapes the flex-wrap row's potential clipping ancestors.
@@ -33,6 +34,7 @@ Current version: **2.3.3**. The in-game changelog is at `src/changelog.ts` and o
 - `src/components/Sidebar.tsx` — economy, automation, and threat panels
 - `src/components/HudPrimitives.tsx` — shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)
 - `src/components/ui/` — local card and progress bar primitives
+- `src/lib/versionCheck.ts` — version parsing/comparison helper plus the `/version` fetch wrapper used by `useVersionCheck`
 - `src/hooks/useGameLoop.ts` — rAF-driven simulation loop, pause-on-hidden, autosave, direct state mutation hook for admin controls, and a throttled `uiGame` / `uiDerived` snapshot for scroll-heavy chrome surfaces
 - `src/game/advanceGame.ts` — thin orchestrator over subsystem steps; execution order documented inline
 - `src/game/achievements.ts` — achievement definitions, unlock helper, and the explicit `spotTourist()` secret trigger used by the UI click path
@@ -44,7 +46,9 @@ Current version: **2.3.3**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
 - `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
-- `src/game/__tests__/advanceGame.test.ts` — 46 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, and save/load round-trip
+- `src/game/__tests__/advanceGame.test.ts` — 48 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, worker-slot gating/costs, and save/load round-trip
+- `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
+- `src/lib/versionCheck.test.ts` — 6 tests: flat-version parsing, semver comparison, and `/version` fetch handling for plain text and JSON payloads
 - `.gitlab-ci.yml` — verify and container-build pipeline
 - `docker/nginx.conf` — SPA serving config with security headers
 - `Dockerfile` — multi-stage production image build
@@ -183,6 +187,8 @@ The home district skyline evolves with progression and upgrade investment. Matur
 
 Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 4`; `migrateGameState()` handles older saves by stamping current schema on load and backfilling the newer interaction fields: `stats.eventTagsInspected`, `stats.touristClicks`, `stats.touristPassesClicked`, `touristWorker.passId`, `touristWorker.lastClickedPassId`, `touristWorker.squishTicks`, `lostDrone`, and `activeEvents[].revertOnExpire`. Existing saves with 3 agents still get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
 
+The app shell separately polls `/version` about every 5 minutes (and when the tab regains focus), extracts a flat semver from the response body, and compares it to `CURRENT_VERSION`. When the live version is newer, `App.tsx` shows a banner with `Refresh`, `Close`, and session-only `Don't Show Again`. The ignore state is intentionally ephemeral and is not part of save data or localStorage migration.
+
 ### Achievements
 
 54 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` now carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
@@ -247,7 +253,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 58 tests across `src/game/__tests__/advanceGame.test.ts` and `src/game/__tests__/interactionAchievements.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, manual-override timing, and save/load round-trips.
+- 64 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, live-version polling helpers, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 

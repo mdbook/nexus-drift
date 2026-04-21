@@ -41,6 +41,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ### Controls & Persistence
 
 - Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
+- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
 - In-game release history: click the version badge next to `Autonomous Colony Sim`; the version badge itself now also participates in a hidden secret achievement
@@ -65,7 +66,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (58 tests across src/game/__tests__/)
+npm test            # unit tests (64 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -82,6 +83,7 @@ npm run format:check
 | `src/changelog.ts`                        | In-game release notes sourced from repo milestones                                                                                                                                                                                                   |
 | `index.html`                              | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags                                                                                                                                                     |
 | `src/hooks/useLowFxMode.ts`               | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic                                                                                                      |
+| `src/hooks/useVersionCheck.ts`            | Polls `/version`, compares the live semver against `CURRENT_VERSION`, and drives the update-available banner in the app shell                                                                                                                        |
 | `src/hooks/useGameLoop.ts`                | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot                                                                                                                                         |
 | `src/game/advanceGame.ts`                 | Thin orchestrator that runs the simulation step order                                                                                                                                                                                                |
 | `src/game/achievements.ts`                | Achievement definitions plus the UI/field interaction helpers for tourist, event cards, projectiles, corpses, modal opens, and lost-drone recovery                                                                                                   |
@@ -103,6 +105,7 @@ npm run format:check
 | `src/components/HudPrimitives.tsx`        | Shared HUD widgets (StatusBadge, ResourcePill, StatTile, UpgradeTile)                                                                                                                                                                                |
 | `src/components/Tooltip.tsx`              | Shared `TooltipPanel` primitive; `useTooltip` hook in `src/hooks/useTooltip.ts`                                                                                                                                                                      |
 | `src/lib/manualOverride.ts`               | Pure helper for the hidden `1x -> 4x -> 1x` speed-sequence achievement timing                                                                                                                                                                        |
+| `src/lib/versionCheck.ts`                 | Flat-version parsing, semver comparison, and `/version` fetch helper for the live-update banner                                                                                                                                                      |
 | `src/components/ui/`                      | Local card and progress bar primitives                                                                                                                                                                                                               |
 | `reference/`                              | Preserved single-file reference artifact                                                                                                                                                                                                             |
 

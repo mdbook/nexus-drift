@@ -19,6 +19,7 @@ import {
 import { Background } from "@/components/Background";
 import { useTooltip } from "@/hooks/useTooltip";
 import { TooltipPanel } from "@/components/Tooltip";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { EventBackdrop } from "@/components/EventBackdrop";
 import { EventChip } from "@/components/EventChip";
 import { FieldStatsStrip } from "@/components/FieldStatsStrip";
@@ -297,6 +298,7 @@ export default function App() {
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
+  const { liveVersion, updateAvailable, dismissForSession, ignoreVersion, refreshForUpdate } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
@@ -448,6 +450,42 @@ export default function App() {
             }}
           />
         </div>
+
+        {updateAvailable && liveVersion && (
+          <Card className="mb-3 border-emerald-300/20 bg-emerald-300/10 px-4 py-3 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-100/60">Live Update Available</div>
+                <div className="mt-1 text-sm text-emerald-50/95 md:text-base">
+                  Version {liveVersion} is live. You&apos;re currently on {CURRENT_VERSION}.
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={refreshForUpdate}
+                  className="rounded-xl border border-emerald-100/25 bg-emerald-100/15 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-emerald-50 transition hover:bg-emerald-100/20"
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissForSession}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-white/65 transition hover:bg-white/10 hover:text-white/85"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={ignoreVersion}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-white/65 transition hover:bg-white/10 hover:text-white/85"
+                >
+                  Don&apos;t Show Again
+                </button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />

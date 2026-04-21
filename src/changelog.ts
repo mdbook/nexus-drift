@@ -19,8 +19,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.3.3",
     badge: "Signal Trim",
     summary:
-      "Small HUD polish patch plus a worker-progression trim. One-shot event cards keep their distinct short-lived card treatment without the oversized explanatory label or visible countdown, and extra worker slots now wait for much later colony progression and premium resource unlocks before they deploy.",
+      "Small HUD polish patch plus a shell-and-balance trim. One-shot event cards keep their distinct short-lived card treatment without the oversized explanatory label or visible countdown, extra worker slots now wait for much later colony progression and premium resource unlocks, and the shell now checks `/version` for newer live builds so players can refresh into updates without guessing.",
     sections: [
+      {
+        title: "Live Update Banner",
+        items: [
+          "The app shell now polls `/version` roughly every 5 minutes and again when the tab regains focus, then extracts a flat `x.y.z` version string from the response body.",
+          "If that live version is newer than the currently running build, a banner appears with `Refresh`, `Close`, and `Don't Show Again` actions.",
+          "The `Don't Show Again` action is intentionally session-only; it hides the current live version until reload or a newer version appears, but does not touch save data or add another persisted user setting.",
+        ],
+      },
       {
         title: "Worker Progression",
         items: [
