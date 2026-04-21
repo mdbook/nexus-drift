@@ -159,9 +159,9 @@ describe("scout node priority", () => {
 describe("save migration", () => {
   it("fills new AI fields with defaults on old saves", () => {
     const fresh = createInitialGameState(7);
-    // Simulate an old save: strip the new fields and bump to prior schema version.
+    // Simulate an old save: strip the new fields and set a pre-v5 schema version.
     const serialized = JSON.parse(JSON.stringify(fresh));
-    serialized.version = SCHEMA_VERSION;
+    serialized.schemaVersion = SCHEMA_VERSION - 1;
     for (const node of serialized.nodes) delete node.workTicks;
     for (const agent of serialized.agents) delete agent.threatMemory;
     for (const enemy of serialized.enemies) {
