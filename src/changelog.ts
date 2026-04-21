@@ -16,6 +16,32 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    badge: "AI Polish",
+    summary:
+      "Correctness and feel pass on the 2.4.0 AI overhaul. Worker panic duration trimmed so drones return to nodes faster after clearing a threat, scouts stay away from field edges, and enemy squads now visibly spread to six distinct approach angles instead of collapsing to two. Group dispersal is also now ordering-consistent — same-kind workers push apart uniformly regardless of spawn order.",
+    sections: [
+      {
+        title: "Behavior Fixes",
+        items: [
+          "Worker panic duration reduced from 80 → 70 ticks. Regroup centroid bias partially offsets drift during prolonged evasion, but workers now return to nodes more reliably after mid-field skirmishes.",
+          "Scouts now apply soft edge-repulsion nudges in all three movement paths (sweep, standby, patrol), preventing them from drifting into screen corners and getting stuck.",
+          "Enemy squad bearing spread now uses real 60° world-space angles (6 distinct buckets) instead of collapsing to a ±1 parity toggle — squads visibly encircle their target rather than splitting into just two approach lanes.",
+          "Same-kind group dispersal is now compute-then-apply: all workers read the same post-movement snapshot before any repulsion is written, so early workers no longer push later workers' centroids during the same tick.",
+        ],
+      },
+      {
+        title: "Code Quality",
+        items: [
+          "Worker target scoring moved from factories.ts into src/game/ai/workerTargeting.ts, removing the inverted factories → subsystems import dependency.",
+          "Worker AI helpers (threat memory, anti-corner evasion, region pull, group dispersal) consolidated into src/game/subsystems/workerAI.ts.",
+          "Contested-node map and nearby-ally counts are now precomputed once per call rather than recomputed per candidate, reducing O(n²) work per enemy tick.",
+          "16 tests in aiBehavior.test.ts now cover worker path safety, archetype targeting, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget, ambusher dash, ghost reposition, group dispersal, save migration, and threat-field path weighting.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.0",
     badge: "AI Overhaul",
     summary:
