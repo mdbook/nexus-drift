@@ -1,4 +1,4 @@
-import type { EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type { EnemyArchetype, EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
   miner: { baseCost: 10, growth: 1.20 },
@@ -138,6 +138,9 @@ export const ENEMY_SPECIAL = {
     explosionRadius: 60,
     explosionDamage: 18,
     triggerRadius: 22,
+  },
+  corruptor: {
+    corruptionRatePerTick: 0.12,
   },
   blight: {
     corruptionRatePerTick: 0.95,
@@ -483,6 +486,151 @@ export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<Record<number, Partial<R
   3: { flux: 4, cores: 1 },
   6: { flux: 12, cores: 3 },
 };
+
+/**
+ * AI — shared threat field. Per-kind weight is the pressure that kind exerts
+ * on nearby space. Corruptors and blights deliberately carry zero weight
+ * because they don't attack workers. Falloff is inverse-quadratic with a
+ * distance floor so enemies close in don't produce infinities.
+ */
+export const AI_THREAT = {
+  weight: {
+    mite: 1,
+    raider: 2.2,
+    wisp: 1.2,
+    rusher: 2,
+    brute: 4,
+    sapper: 2.5,
+    leech: 0.4,
+    phantom: 2,
+    zapper: 3,
+    corruptor: 0,
+    blight: 0,
+  } as Record<EnemyKind, number>,
+  falloffFloor: 900, // px² — distance² is max()-clamped to this before division
+  highThreat: 0.045, // above this threat sample, a point is considered "dangerous"
+  cornerSampleDistance: 60, // px probed outward in each of 4 directions for the corner-check
+  cornerWallBuffer: 60, // px from a world edge considered "near a wall"
+  cornerLookaheadTicks: 14,
+} as const;
+
+/**
+ * AI — enemy archetype and per-archetype behavior params.
+ * tangentBlend: fraction of tangential component mixed into pursuit (flankers).
+ * leadTicks: how far ahead to aim when predicting worker position.
+ * squadBearingBuckets: how many bearing slices squadmates spread across.
+ */
+export const ENEMY_ARCHETYPE: Record<EnemyKind, EnemyArchetype> = {
+  mite: "direct",
+  rusher: "direct",
+  brute: "direct",
+  raider: "flanker",
+  wisp: "flanker",
+  sapper: "ambusher",
+  phantom: "ghost",
+  zapper: "skirmisher",
+  leech: "driver",
+  corruptor: "infester",
+  blight: "infester",
+};
+
+export const ENEMY_AI = {
+  flankerTangentBlend: 0.55,
+  flankerLeadTicks: 18,
+  ambusherApproachScale: 0.55,
+  ambusherDashTrigger: 90, // px — enter burst dash once inside this range
+  ambusherDashDuration: 18,
+  ambusherDashSpeedScale: 1.8,
+  ghostRepositionOffset: 120, // px behind worker's movement direction
+  ghostRepositionLead: 24,
+  ghostRepositionPhaseStart: 0.3, // cloakPhase fraction at which ghost begins repositioning
+  ghostRepositionPhaseEnd: 0.75, // cloakPhase fraction at which ghost stops repositioning
+  squadBearingBuckets: 6,
+  squadBucketTicks: 45, // spawn-tick / this = squadId bucket size
+  isolatedRadius: 120, // "alone" means no other active worker within this radius
+  woundedHpRatio: 0.6,
+} as const;
+
+/**
+ * Preferred field regions for each worker kind. Workers score nodes inside
+ * their region higher and drift back when hurt. These are soft attractors —
+ * workers still leave their zone for a clearly better node, they just need
+ * a good reason to do so.
+ *
+ * Field is 1000 × 620 (y starts at 50 below the header bar).
+ * Miner  — left sector, deep field gold deposits.
+ * Runner — mid-field corridor, traverses wide gaps.
+ * Drone  — right sector, energy-gem clusters.
+ */
+export const WORKER_REGIONS: Record<WorkerKind, { cx: number; cy: number; radius: number }> = {
+  miner:  { cx: 200, cy: 250, radius: 280 },
+  runner: { cx: 500, cy: 280, radius: 300 },
+  drone:  { cx: 780, cy: 240, radius: 260 },
+} as const;
+
+/**
+ * Per-kind personality tuning.
+ * pathFearScale   — multiplier on pathSafetyPenalty; <1 = braver, >1 = more cautious.
+ * regionBias      — weight of region-distance penalty added to node score.
+ * groupRepelRadius — sense same-kind peers within this distance.
+ * groupRepelMinCount — minimum nearby same-kind peers before dispersal kicks in.
+ * lowHpPull       — speed at which a hurt worker nudges toward their region center.
+ */
+export const WORKER_PERSONALITY: Record<WorkerKind, {
+  pathFearScale: number;
+  regionBias: number;
+  groupRepelRadius: number;
+  groupRepelMinCount: number;
+  lowHpPull: number;
+}> = {
+  miner:  { pathFearScale: 0.60, regionBias: 0.28, groupRepelRadius: 130, groupRepelMinCount: 2, lowHpPull: 0.55 },
+  runner: { pathFearScale: 0.90, regionBias: 0.16, groupRepelRadius: 110, groupRepelMinCount: 2, lowHpPull: 0.40 },
+  drone:  { pathFearScale: 1.30, regionBias: 0.32, groupRepelRadius: 150, groupRepelMinCount: 2, lowHpPull: 0.60 },
+} as const;
+
+/**
+ * AI — worker target scoring and evasion tuning.
+ */
+export const WORKER_AI = {
+  pathSafetyPenalty: 55, // score penalty per threat-sample unit along the path
+  harvestingEvasionRadius: 56, // while at the node, only bolt when an enemy closes within this distance
+  corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
+  corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
+  evadingContestedPenalty: 140, // extra score cost per evading worker currently targeting node
+  progressFreshBonus: -12, // score bonus for freshly respawned nodes (small)
+  progressActiveBonus: -20, // score bonus for nodes with recent worker contact (workTicks > threshold)
+  progressActiveThreshold: 30,
+  regroupPanicThreshold: 70,
+  regroupWeight: 0.05,
+  stickyThreshold: 0.72, // only switch target if candidate score is < this * current — lower = stickier
+  threatMemoryDecay: 0.92,
+  threatMemoryGain: 0.18,
+  cornerRotationCandidates: [Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, Math.PI * 0.75, -Math.PI * 0.75],
+} as const;
+
+/**
+ * AI — sentinel intercept bodyguard tuning.
+ */
+export const SENTINEL_AI = {
+  interceptLerp: 0.55, // 0 = move to enemy, 1 = move to defended worker; mid intercepts between them
+  interceptLeadTicks: 12, // predict worker forward by this many ticks when placing intercept point
+  threatWorkerRadiusBias: 280, // closer-to-worker bonus scale
+  workerCentroidPatrolWeight: 0.7, // blend between fixed patrolY and active-worker centroid Y
+} as const;
+
+/**
+ * AI — scout coordinated decorruption tuning.
+ */
+export const SCOUT_AI = {
+  rateScoreWeight: 260, // weight for corruption-dealing rate of a corruptor
+  distanceScoreWeight: 1, // distance cost
+  finishNodeBias: 18, // score bonus for nodes within X% of cleanse threshold
+  finishNodeThreshold: 18, // corruption% at which we call a node "near cleanse"
+  stopBleedBias: 14, // bonus for nodes actively being corrupted (corruptedBy != null)
+  pairUpScoutCount: 3, // minimum active scouts needed before pair-up activates
+  pairUpCorruptionThreshold: 70, // node corruption% required before a second scout stacks
+  cornerWallBuffer: 60,
+} as const;
 
 export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: string }> = {
   miner: { x: 160, y: 440, speed: 1.1, task: "Surveying" },

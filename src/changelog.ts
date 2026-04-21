@@ -16,6 +16,95 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    badge: "AI Polish",
+    summary:
+      "Correctness and feel pass on the 2.4.0 AI overhaul. Worker panic duration trimmed so drones return to nodes faster after clearing a threat, scouts stay away from field edges, and enemy squads now visibly spread to six distinct approach angles instead of collapsing to two. Group dispersal is also now ordering-consistent — same-kind workers push apart uniformly regardless of spawn order.",
+    sections: [
+      {
+        title: "Behavior Fixes",
+        items: [
+          "Worker panic duration reduced from 80 → 70 ticks. Regroup centroid bias partially offsets drift during prolonged evasion, but workers now return to nodes more reliably after mid-field skirmishes.",
+          "Scouts now apply soft edge-repulsion nudges in all three movement paths (sweep, standby, patrol), preventing them from drifting into screen corners and getting stuck.",
+          "Enemy squad bearing spread now uses real 60° world-space angles (6 distinct buckets) instead of collapsing to a ±1 parity toggle — squads visibly encircle their target rather than splitting into just two approach lanes.",
+          "Same-kind group dispersal is now compute-then-apply: all workers read the same post-movement snapshot before any repulsion is written, so early workers no longer push later workers' centroids during the same tick.",
+        ],
+      },
+      {
+        title: "Code Quality",
+        items: [
+          "Worker target scoring moved from factories.ts into src/game/ai/workerTargeting.ts, removing the inverted factories → subsystems import dependency.",
+          "Worker AI helpers (threat memory, anti-corner evasion, region pull, group dispersal) consolidated into src/game/subsystems/workerAI.ts.",
+          "Contested-node map and nearby-ally counts are now precomputed once per call rather than recomputed per candidate, reducing O(n²) work per enemy tick.",
+          "16 tests in aiBehavior.test.ts now cover worker path safety, archetype targeting, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget, ambusher dash, ghost reposition, group dispersal, save migration, and threat-field path weighting.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "2.4.0",
+    badge: "AI Overhaul",
+    summary:
+      "Workers, enemies, sentinels, and scouts all picked up proper judgement. Workers now have individual personalities and field territories — miners push left and brave threats, runners roam mid-field, drones work the right sector and play it safe. Same-kind group dispersal, low-hp regional homing, and smoother evasion curves round out the worker feel. Enemies split into archetypes — flankers arc in, ambushers stalk then dash, ghosts reposition behind workers during cloak, and same-squad attackers spread across bearing buckets for emergent flanking. Sentinels intercept between threats and their worker victims, and scouts weight corruptor kills by corruption rate while alternating between finish-the-node and stop-the-bleed cleanse priorities.",
+    sections: [
+      {
+        title: "Worker Personalities & Territories",
+        items: [
+          "Each worker kind has a preferred field region: miners claim the left sector, runners roam the mid-field corridor, drones occupy the right. Node scoring adds a region-distance penalty so workers stay in their zone unless a clearly better node pulls them out.",
+          "Per-kind courage: miners have a 0.6× path-fear scale (will cut through moderate threat), drones are 1.3× cautious and take safer routes, runners are in between.",
+          "Same-kind group dispersal: when 2+ peers of the same kind cluster within the worker's groupRepelRadius, a centroid-repulsion force scales with crowd size — so 4 miners bunched together are pushed apart harder than 2.",
+          "Low-hp regional homing: below 50% HP (hurt but not yet in full recovery), workers nudge toward their region center each tick — injured miners drift left, drones right — instead of all streaming to the same home pad.",
+          "Workers already at their node now hold their ground until an enemy closes within 56 px (down from 92), so they finish a harvest under pressure if they have a clear line out.",
+          "Evasion direction blend shifted to 70/30 old/new (was 45/55) and persist ticks extended to 80 (was 48), producing smooth flight curves instead of per-tick direction snapping.",
+          "Retarget interval extended and sticky threshold tightened — a candidate needs a 28% score advantage (was 15%) to override the current node assignment.",
+        ],
+      },
+      {
+        title: "Worker AI",
+        items: [
+          "Target selection scores nodes by path safety (sampled along start/midpoint/destination), progress bias (freshly respawned or already being mined), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), and contested-by-evading-workers penalty.",
+          "Contested penalty is now quadratic — a second worker on a node is tolerable, a third is a strong deterrent, so workers spread across nodes rather than piling on the best one.",
+          "Evasion adds anti-corner logic — when a projected flight path would hit a wall, the escape vector rotates to the lowest-threat candidate heading.",
+          "Per-worker threat memory (EMA of nearby enemy weight) drives the regroup trigger and scales panic with sustained exposure.",
+        ],
+      },
+      {
+        title: "Enemy Archetypes",
+        items: [
+          "Direct archetype (mite, rusher, brute) pursues straight; brutes now anchor and ignore crowding so they march through groups instead of orbiting.",
+          "Flankers (raider, wisp) aim at the worker's predicted future position, blending a tangential component so they arrive along an arc.",
+          "Ambushers (sapper) approach slowly until they close inside the dash trigger, then burst at ~1.8× speed for a short window.",
+          "Ghosts (phantom) reposition behind the worker's movement vector during the cloaked portion of the cycle.",
+          "Same-squad enemies (spawned within the same tick bucket) share a squad id and pick bearing buckets with the fewest competitors, producing emergent flanking.",
+          "Target selection is archetype-aware — direct archetypes prefer wounded or stationary workers; flankers and ambushers prefer isolated, unalert workers; zappers prefer targets with fewest nearby allies and fewest hostile competitors.",
+        ],
+      },
+      {
+        title: "Sentinels",
+        items: [
+          "Target priority weighs the threat's distance to the nearest worker, not just distance to the sentinel. A brute near a worker outranks a closer brute that's drifting alone.",
+          "Move to an intercept point between the threat and that threat's worker victim (predicting worker position forward by SENTINEL_AI.interceptLeadTicks) so sentinels feel like bodyguards instead of chasers.",
+          "Patrol position blends homeX with the active-worker centroid so late-game workers deployed off-center still receive cover.",
+        ],
+      },
+      {
+        title: "Scouts",
+        items: [
+          "Corruptor scoring now multiplies by the corruptor's per-tick rate (blights count extra) and the corruption level of the node they're attached to — a blight on a 95%-corrupt node is now a priority kill.",
+          "Node cleansing alternates between finish-job bias (nodes near the cleanse threshold) and stop-bleed bias (nodes actively being corrupted) based on which pile is larger.",
+          "Pair-up routes a second scout onto any node over the pair threshold once three or more scouts are live, so multi-scout synergy actually fires on the worst nodes.",
+        ],
+      },
+      {
+        title: "Balance & Save",
+        items: [
+          "New balance blocks: AI_THREAT, ENEMY_ARCHETYPE, ENEMY_AI, WORKER_AI, SENTINEL_AI, SCOUT_AI — all existing constants preserved.",
+          "Schema bumped to 5; old saves migrate in place with default values for the new entity fields (ResourceNode.workTicks, Agent.threatMemory, Enemy.archetype/squadId/dashTicks).",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.3.3",
     badge: "Signal Trim",
     summary:

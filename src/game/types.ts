@@ -17,6 +17,14 @@ export type EnemyKind =
   | "phantom"
   | "zapper";
 export type EnemyRole = "combat" | "corruptor";
+export type EnemyArchetype =
+  | "direct"
+  | "flanker"
+  | "ambusher"
+  | "ghost"
+  | "skirmisher"
+  | "driver"
+  | "infester";
 export type UpgradeKey =
   | "miner"
   | "drill"
@@ -67,6 +75,8 @@ export type ResourceNode = {
   despawnAt?: number;
   /** Sim tick when this node was placed or last respawned. Used by the renderer for fade-in. */
   spawnTick: number;
+  /** Decaying counter of how actively workers have been mining this node. Used by AI progress-bias. */
+  workTicks: number;
 };
 
 export type Agent = {
@@ -97,6 +107,8 @@ export type Agent = {
   disabledTicks: number;
   /** Whether this slot has been unlocked. Slot 0 starts active; slots 1 and 2 unlock via upgrades. */
   active: boolean;
+  /** EMA of recent threat-field samples at this worker's position. Feeds regroup and panic scaling. */
+  threatMemory: number;
 };
 
 export type Turret = {
@@ -182,6 +194,12 @@ export type Enemy = {
    * ENEMY_SHIELD.regenDelayticks the shield begins regenerating each tick.
    */
   shieldRegenCooldown?: number;
+  /** Behavioral archetype derived from kind at spawn. Drives pursuit style. */
+  archetype: EnemyArchetype;
+  /** Squad bucket derived from spawn tick. Squadmates spread approach bearings to the same target. */
+  squadId: number;
+  /** Ambusher burst dash counter (sapper). Counts down while in burst state. */
+  dashTicks?: number;
 };
 
 export type Projectile = {

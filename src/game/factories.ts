@@ -1,4 +1,4 @@
-import { ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -15,7 +15,7 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -39,6 +39,7 @@ export function makeNode(rng: Rng, id: number, x: number, y: number, size: numbe
     corrupted: false,
     corruptedBy: null,
     spawnTick: currentTick,
+    workTicks: 0,
   };
 }
 
@@ -129,6 +130,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
     spawnTick: currentTick,
     disabledTicks: 0,
     active,
+    threatMemory: 0,
   };
 }
 
@@ -265,6 +267,8 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     trail: [],
     spawnTick: currentTick,
     dyingTicks: 0,
+    archetype: ENEMY_ARCHETYPE[kind],
+    squadId: Math.floor(currentTick / ENEMY_AI.squadBucketTicks),
   };
 
   if (kind === "phantom") {
@@ -273,6 +277,10 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
 
   if (kind === "zapper") {
     enemy.fireCooldown = 0;
+  }
+
+  if (kind === "sapper") {
+    enemy.dashTicks = 0;
   }
 
   const shieldMax = ENEMY_SHIELD.shieldMax[kind];
@@ -488,7 +496,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         )
       : base.log,
     nodes: Array.isArray(raw.nodes)
-      ? raw.nodes.map((node) => ({ ...node, spawnTick: node.spawnTick ?? 0 }))
+      ? raw.nodes.map((node) => ({
+          ...node,
+          spawnTick: node.spawnTick ?? 0,
+          workTicks: node.workTicks ?? 0,
+        }))
       : base.nodes,
     agents: Array.isArray(raw.agents)
       ? raw.agents.map((agent) => ({
@@ -499,6 +511,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           spawnTick: agent.spawnTick ?? 0,
           disabledTicks: agent.disabledTicks ?? 0,
           active: agent.active ?? true,
+          threatMemory: agent.threatMemory ?? 0,
         }))
       : base.agents,
     turrets: Array.isArray(raw.turrets)
@@ -513,11 +526,15 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     enemies: Array.isArray(raw.enemies)
       ? raw.enemies.map((enemy) => {
           const shieldMax = ENEMY_SHIELD.shieldMax[enemy.kind as import("@/game/types").EnemyKind];
+          const kind = enemy.kind as import("@/game/types").EnemyKind;
           return {
             ...enemy,
             trail: Array.isArray(enemy.trail) ? enemy.trail.map(([x, y]) => [x, y] as [number, number]) : [],
             spawnTick: enemy.spawnTick ?? 0,
             dyingTicks: enemy.dyingTicks ?? 0,
+            archetype: enemy.archetype ?? ENEMY_ARCHETYPE[kind],
+            squadId: enemy.squadId ?? Math.floor((enemy.spawnTick ?? 0) / ENEMY_AI.squadBucketTicks),
+            ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.
             ...(shieldMax !== undefined && {
@@ -591,51 +608,3 @@ export function addProjectile(
     });
   }
 
-// Tier 1 = strongly preferred, Tier 2 = acceptable, anything else = avoided
-const WORKER_TIER1: Record<Agent["kind"], string[]> = {
-  miner: ["gold"],
-  runner: ["ore", "energy"],
-  drone: ["gems", "energy"],
-};
-const WORKER_TIER2: Record<Agent["kind"], string[]> = {
-  miner: ["ore"],
-  runner: ["gold"],
-  drone: [],
-};
-
-export function chooseWorkerTarget(state: GameState, agent: Agent) {
-  if (!state.nodes.length) return null;
-
-  const ranked = state.nodes
-    .map((node) => {
-      const d = dist(agent.x, agent.y, node.x, node.y);
-      const hpFactor = node.hp / node.maxHp; // 1.0 = full, 0.0 = depleted
-
-      // Distance + hp urgency: lower hp nodes score better (we want to harvest them before respawn)
-      let score = d * 0.55 + hpFactor * 70;
-
-      // Type preference — aggressive tiers
-      if (WORKER_TIER1[agent.kind].includes(node.kind)) {
-        score *= 0.45;
-      } else if (WORKER_TIER2[agent.kind].includes(node.kind)) {
-        score *= 0.78;
-      } else {
-        score *= 1.6; // strong penalty for off-type nodes
-      }
-
-      // Contested penalty: discourage piling on the same node as another worker
-      const contested = state.agents.filter((a) => a.active && a.id !== agent.id && a.target === node.id).length;
-      score += contested * 90;
-
-      // Corruption: non-miners avoid heavily corrupted nodes
-      if (node.corruption > 12) score *= agent.kind === "miner" ? 1.05 : 0.88;
-
-      // Small deterministic jitter so identical situations still spread workers
-      score += ((agent.id * 41 + node.id * 17) % 20);
-
-      return { id: node.id, score };
-    })
-    .sort((a, b) => a.score - b.score);
-
-  return ranked[0]?.id ?? state.nodes[0].id;
-}
