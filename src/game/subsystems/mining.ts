@@ -1,5 +1,5 @@
 import { MINING_TICK } from "@/game/constants";
-import { CORRUPTION, MINING } from "@/game/balance";
+import { CORRUPTION, MINING, WORKER_ABILITIES } from "@/game/balance";
 import { respawnNode } from "@/game/factories";
 import type { GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
@@ -12,14 +12,15 @@ export function stepMining(state: GameState) {
   state.nodes.forEach((node) => {
     if (exhaustedTemporaryNodes.has(node.id)) return;
 
-    const workers = state.agents.filter(
+    const workingAgents = state.agents.filter(
       (agent) =>
         agent.active &&
         agent.target === node.id &&
         dist(agent.x, agent.y, node.x, node.y) < Math.max(MINING.contactRadiusMin, node.size * MINING.contactRadiusRatio) &&
         agent.hp > MINING.workerActiveHpThreshold &&
         agent.evadeTicks <= 0
-    ).length;
+    );
+    const workers = workingAgents.length;
 
     if (!workers) {
       node.pulse = (node.pulse + 0.12) % (Math.PI * 2);
@@ -40,7 +41,15 @@ export function stepMining(state: GameState) {
     node.hp -= damage;
 
     if (node.hp <= 0) {
-      const crit = state.rng.chance(MINING.critChanceBase + state.upgrades.bot * MINING.critChancePerBot);
+      // Miner overclock: any miner that has been continuously at this node
+      // without damage for overclockThresholdTicks earns an extra crit chance.
+      const overclockActive = workingAgents.some(
+        (w) => w.kind === "miner" && w.overclockTicks >= WORKER_ABILITIES.overclockThresholdTicks
+      );
+      const crit = state.rng.chance(
+        MINING.critChanceBase + state.upgrades.bot * MINING.critChancePerBot +
+        (overclockActive ? WORKER_ABILITIES.overclockCritBonus : 0)
+      );
       const baseAmount = MINING.yield[node.kind];
       // 3.0.0: foundry per-level yield multiplier cut from +12% to +5% so
       // late-game foundry stacking doesn't outrun the new slower curve.

@@ -12,9 +12,11 @@ import {
   TARGET_ARMOR,
   TURRET_HP,
   WORKER,
+  WORKER_ABILITIES,
   ZAPPER,
 } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
+import { damageEnemy } from "@/game/enemyUtils";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import type { GameState, Scout, Sentinel, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
@@ -366,6 +368,20 @@ export function stepCombat(state: GameState) {
     agent.hp = nextHp;
     agent.panic = clamp(agent.panic + WORKER.panicDelta.damagedBurst, 0, 100);
     agent.damageTicks = WORKER.combatDamageTicks;
+
+    // 3.0.0 Step 6 — Worker self-defense retaliation.
+    //
+    // Workers that can still fight back deal a small counter-hit to each
+    // attacker in the contact cluster. Retaliation is suppressed when the
+    // worker is recovering (very low HP), disabled, or corrupted (Step 7 —
+    // corrupted workers cannot defend themselves against anything but sentinels).
+    const isRecovering = nextHp < agent.maxHp * WORKER.recoveryHpThreshold;
+    if (!isRecovering && agent.disabledTicks === 0 && !agent.corrupted) {
+      const retDamage = WORKER_ABILITIES.retaliateBase + state.upgrades.bot * WORKER_ABILITIES.retaliatePerBot;
+      for (const attacker of attackers) {
+        damageEnemy(attacker, retDamage);
+      }
+    }
   });
 
   // 3.0.0 Step 4 — non-worker contact damage.

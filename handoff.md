@@ -46,7 +46,7 @@ Current version: **2.4.5**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/targeting.ts` — shared targeting helpers
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
 - `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
-- `src/game/__tests__/advanceGame.test.ts` — 52 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, and save/load round-trip
+- `src/game/__tests__/advanceGame.test.ts` — 84 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, and worker class abilities (Step 6)
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
 - `src/game/__tests__/aiBehavior.test.ts` — 23 tests: worker path safety, commitment, flee-direction retargeting, and crowded-node avoidance, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
@@ -79,6 +79,20 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 `WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
 Workers pick targets autonomously via a scored target-selection function in `src/game/ai/workerTargeting.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), explicit close-enemy count around the node (`nodeThreatRadius` / `nodeThreatCrowdPenalty`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), a current-target finish bonus for partially mined nodes, a contested-by-evading-workers penalty (quadratic — third worker on a node is a strong deterrent), and a **region-distance penalty** that biases each kind toward its preferred field sector. Worker targeting filters to live enemies before scoring, so death-fade enemies stay visual-only and cannot affect path threat, node crowding, or flee-direction retargeting.
+
+**3.0.0 Step 6 — Per-individual variance, class abilities, and self-defense.** Each `Agent` now carries three per-agent float fields seeded at spawn by a deterministic hash of `agent.id`:
+
+- `speedMod` (±12% from 1.0) — multiplies traversal and evade speed alongside the existing veteran bonus.
+- `fearMod` (±20% from 1.0) — multiplies `pathFearScale * WORKER_AI.pathSafetyPenalty` in `scoreWorkerNode` so cautious individuals genuinely pick safer routes.
+- `harvestBias` (±0.15 additive) — nudges the tier-preference score multipliers: positive values tilt the agent toward its tier-1 nodes; negative values toward off-tier variety.
+
+Class-specific abilities (constants in `WORKER_ABILITIES`, `balance.ts`):
+
+- **Miner overclock** (`overclockTicks`): increments each tick the miner is at a node with `damageTicks === 0`; resets on leaving the node or taking a hit. Once `overclockTicks >= WORKER_ABILITIES.overclockThresholdTicks` (120), `stepMining` adds `overclockCritBonus` (0.10) to the mining crit-chance roll. The miner's bonus is active for each node exhaustion; the tick counter clears when the node is mined out and the miner re-approaches.
+- **Runner sprint** (`sprintTicks`, `sprintCooldown`): when a runner is evading with `panic > sprintPanicThreshold` (40) and `sprintCooldown === 0`, sprint fires: `sprintTicks = 90`, `sprintCooldown = 600`. While `sprintTicks > 0`, evade and traversal speed are multiplied by `sprintSpeedMult` (1.5). Both timers decrement each active tick.
+- **Drone scan** (passive): `chooseWorkerTarget` pre-computes which resource nodes have an active drone within `droneScanRadius` (100 px). For those nodes, the `corruptionSoftMultiplier` (1.9) is reduced by `droneScanCorruptionDiscount` (0.15), making corrupted-but-covered nodes slightly less aversive for non-miner workers.
+
+**Worker self-defense retaliation**: at the end of each `stepCombat` worker-damage loop, if the worker is not recovering (`hp >= maxHp * 0.6`), not disabled, and not corrupted, it deals `WORKER_ABILITIES.retaliateBase (0.35) + upgrades.bot * retaliatePerBot (0.05)` damage to each attacker via `damageEnemy`. This routed through the existing `damageEnemy` funnel so shield absorption applies. Retaliation is suppressed for corrupted workers (Step 7) since they cannot self-defend.
 
 **Worker personalities and territories** (`WORKER_PERSONALITY`, `WORKER_REGIONS` in `balance.ts`):
 

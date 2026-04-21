@@ -14,6 +14,7 @@ import {
   ENEMY_SEPARATION,
   ENEMY_SPECIAL,
   WORKER,
+  WORKER_ABILITIES,
   WORKER_BLOCKING,
   WORKER_AI,
   ZAPPER,
@@ -153,6 +154,10 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
+    // Decrement per-agent sprint timers every tick (runner ability).
+    if (agent.sprintCooldown > 0) agent.sprintCooldown -= 1;
+    if (agent.sprintTicks > 0) agent.sprintTicks -= 1;
+
     updateThreatMemory(agent, combatEnemies);
 
     const needsTarget =
@@ -234,6 +239,17 @@ export function stepWorkers(state: GameState) {
         agent.evadeTicks,
         EVADE_PERSIST_TICKS + Math.max(0, evadeThreats.length - 1) * EVADE_BONUS_PER_THREAT
       );
+
+      // Runner sprint: triggered when threatened with high enough panic and
+      // the cooldown has elapsed. Gives a short speed burst during evasion.
+      if (
+        agent.kind === "runner" &&
+        agent.sprintCooldown === 0 &&
+        agent.panic > WORKER_ABILITIES.sprintPanicThreshold
+      ) {
+        agent.sprintTicks = WORKER_ABILITIES.sprintDurationTicks;
+        agent.sprintCooldown = WORKER_ABILITIES.sprintCooldownTicks;
+      }
     } else if (agent.evadeTicks > 0) {
       agent.evadeTicks -= 1;
     }
@@ -249,8 +265,11 @@ export function stepWorkers(state: GameState) {
       }
 
       const veteranBonus = 1 + agent.veteranRank * 0.05;
+      const sprintMult = agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
       const evadeSpeed =
         agent.speed *
+        agent.speedMod *
+        sprintMult *
         veteranBonus *
         (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor)) *
         blocking.speedScale;
@@ -263,6 +282,8 @@ export function stepWorkers(state: GameState) {
       agent.panic = clamp(agent.panic + (evadeThreats.length > 0 ? WORKER.panicDelta.evadingWithThreat : WORKER.panicDelta.evadingPassive), 0, 100);
       agent.hp = clamp(agent.hp + WORKER.healRate.evading + state.upgrades.shield * WORKER.healRate.evadingShield, 0, agent.maxHp);
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+      // Miner overclock resets while evading (not at node).
+      if (agent.kind === "miner") agent.overclockTicks = 0;
       return;
     }
 
@@ -292,14 +313,25 @@ export function stepWorkers(state: GameState) {
         agent.maxHp
       );
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+      // Miner overclock: accumulate while undamaged at a node; reset on damage.
+      if (agent.kind === "miner") {
+        if (!recovering && agent.damageTicks === 0) {
+          agent.overclockTicks = Math.min(WORKER_ABILITIES.overclockThresholdTicks, agent.overclockTicks + 1);
+        } else {
+          agent.overclockTicks = 0;
+        }
+      }
       return;
     }
 
     const speedMultiplier = recovering ? WORKER.recoverySpeed : agent.damageTicks > 0 ? WORKER.damagedSpeed : WORKER.traversingSpeed;
     const veteranBonus = 1 + agent.veteranRank * 0.05;
     const blockingSpeed = blocking.speedScale;
-    agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
-    agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus * blockingSpeed;
+    const traversalSprintMult = agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
+    agent.x += (dx / d) * agent.speed * agent.speedMod * traversalSprintMult * speedMultiplier * veteranBonus * blockingSpeed;
+    agent.y += (dy / d) * agent.speed * agent.speedMod * traversalSprintMult * speedMultiplier * veteranBonus * blockingSpeed;
+    // Miner overclock resets while traversing (not at node).
+    if (agent.kind === "miner") agent.overclockTicks = 0;
 
     // Low-hp region pull: hurt but not yet in recovery mode → nudge toward
     // the worker's home territory so they drift to a safer part of the field.

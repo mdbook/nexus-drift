@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
-import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
+import { AUTO_TICK, COMBAT_TICK, EVADE_ENTER_RADIUS, MINING_TICK } from "@/game/constants";
 import {
   CITY_HP,
   COMBAT,
@@ -13,6 +13,8 @@ import {
   SENTINEL_HP,
   TARGET_ARMOR,
   TURRET_HP,
+  WORKER,
+  WORKER_ABILITIES,
 } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
@@ -23,6 +25,7 @@ import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
 import { damageEnemy } from "@/game/enemyUtils";
 import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
+import { stepMining } from "@/game/subsystems/mining";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -1496,5 +1499,204 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     brute.x = turret.x + ENEMY_CONTACT_RADIUS.turret - 2;
     stepCombat(state);
     expect(turret.hp).toBeLessThan(hpStart);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step 6 — Worker class abilities, individual variance, self-defense
+// ---------------------------------------------------------------------------
+describe("worker class abilities (3.0.0 Step 6)", () => {
+  /**
+   * Helper: get the first active agent of a given kind.
+   */
+  function getAgent(state: ReturnType<typeof createInitialGameState>, kind: "miner" | "runner" | "drone") {
+    return state.agents.find((a) => a.active && a.kind === kind)!;
+  }
+
+  it("speedMod scales traversal distance per tick", () => {
+    // Helper: place a miner 200px left of its only node and measure horizontal
+    // movement after one stepWorkers tick. Single node + cleared enemies ensures
+    // the miner never re-targets to a different node mid-test.
+    const runTest = (speedMod: number) => {
+      const state = createInitialGameState();
+      state.nodes = [state.nodes[0]]; // single node → no re-targeting surprise
+      state.enemies = [];
+      const miner = getAgent(state, "miner");
+      const node = state.nodes[0];
+      miner.x = node.x - 200;
+      miner.y = node.y;
+      miner.target = node.id;
+      miner.speedMod = speedMod;
+      miner.damageTicks = 0;
+      miner.hp = miner.maxHp;
+      miner.evadeTicks = 0;
+      const xBefore = miner.x;
+      stepWorkers(state);
+      return miner.x - xBefore; // positive = moved toward node
+    };
+
+    const dx1 = runTest(1.0);
+    const dx2 = runTest(1.5);
+
+    // Both should be positive (moving toward the node).
+    expect(dx1).toBeGreaterThan(0);
+    // 1.5× speedMod should produce 1.5× movement (within floating-point tolerance).
+    expect(dx2).toBeCloseTo(dx1 * 1.5, 3);
+  });
+
+  it("miner overclockTicks accumulates while undamaged at a node", () => {
+    const state = createInitialGameState();
+    const miner = getAgent(state, "miner");
+    const node = state.nodes[0];
+
+    // Place miner exactly at the node so it enters the at-node branch each tick.
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.target = node.id;
+    miner.damageTicks = 0;
+    miner.evadeTicks = 0;
+    miner.overclockTicks = 0;
+    // No enemies so no evasion is triggered.
+    state.enemies = [];
+
+    for (let i = 0; i < 10; i++) {
+      stepWorkers(state);
+      state.timers.tick += 1;
+    }
+
+    expect(miner.overclockTicks).toBeGreaterThan(0);
+    expect(miner.overclockTicks).toBeLessThanOrEqual(WORKER_ABILITIES.overclockThresholdTicks);
+  });
+
+  it("miner overclockTicks resets when the miner is damaged at the node", () => {
+    const state = createInitialGameState();
+    const miner = getAgent(state, "miner");
+    const node = state.nodes[0];
+
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.target = node.id;
+    miner.overclockTicks = 80; // Partially built up
+    miner.damageTicks = 5;    // Just took a hit → recovering mode suppresses overclock
+    state.enemies = [];
+
+    stepWorkers(state);
+
+    // A fresh damage hit should clear the overclock accumulation.
+    expect(miner.overclockTicks).toBe(0);
+  });
+
+  it("overclocked miner runs stepMining without error at the threshold", () => {
+    const state = createInitialGameState();
+    const miner = getAgent(state, "miner");
+    const node = state.nodes[0];
+
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.target = node.id;
+    miner.overclockTicks = WORKER_ABILITIES.overclockThresholdTicks;
+    miner.evadeTicks = 0;
+    miner.hp = miner.maxHp;
+
+    // Should not throw; overclock crit bonus is added to the rng.chance call.
+    state.timers.tick = 0;
+    expect(() => {
+      for (let i = 0; i < MINING_TICK; i++) {
+        state.timers.tick = i;
+        stepMining(state);
+      }
+    }).not.toThrow();
+  });
+
+  it("runner sprint triggers when evading with high panic and no cooldown", () => {
+    const state = createInitialGameState();
+    const runner = getAgent(state, "runner");
+
+    // Place a mite within evasion trigger radius.
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = runner.x + EVADE_ENTER_RADIUS - 5;
+    mite.y = runner.y;
+    state.enemies.push(mite);
+
+    runner.panic = WORKER_ABILITIES.sprintPanicThreshold + 10;
+    runner.sprintCooldown = 0;
+    runner.sprintTicks = 0;
+
+    stepWorkers(state);
+
+    // Sprint should have fired because the runner is threatened with high panic.
+    expect(runner.sprintTicks).toBeGreaterThan(0);
+  });
+
+  it("runner sprint sets cooldown preventing immediate re-trigger", () => {
+    const state = createInitialGameState();
+    const runner = getAgent(state, "runner");
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = runner.x + EVADE_ENTER_RADIUS - 5;
+    mite.y = runner.y;
+    state.enemies.push(mite);
+
+    runner.panic = WORKER_ABILITIES.sprintPanicThreshold + 10;
+    runner.sprintCooldown = 0;
+
+    stepWorkers(state); // triggers sprint
+    expect(runner.sprintCooldown).toBeGreaterThan(0);
+
+    const cooldownAfterFirst = runner.sprintCooldown;
+    stepWorkers(state); // sprint would re-trigger if cooldown weren't set
+    // Cooldown should be ticking DOWN, not reset to full again.
+    expect(runner.sprintCooldown).toBeLessThan(cooldownAfterFirst);
+  });
+
+  it("worker retaliation deals contact damage to attacker", () => {
+    const state = createInitialGameState();
+    // Disable all agents except the first miner to keep the test isolated.
+    state.agents.forEach((a) => { a.active = false; });
+    const miner = state.agents[0];
+    miner.active = true;
+    miner.hp = miner.maxHp; // healthy — retaliation allowed
+    miner.damageTicks = 0;
+    miner.disabledTicks = 0;
+    miner.corrupted = false;
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = miner.x + COMBAT.detectionRadius - 2;
+    mite.y = miner.y;
+    mite.role = "combat";
+    const hpBefore = mite.hp;
+    state.enemies.push(mite);
+
+    state.timers.tick = 0; // ensure combat tick fires
+    stepCombat(state);
+
+    expect(mite.hp).toBeLessThan(hpBefore);
+  });
+
+  it("retaliation is suppressed when worker is in recovery (low HP)", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((a) => { a.active = false; });
+    const miner = state.agents[0];
+    miner.active = true;
+
+    // Put the miner in recovery mode: damageTicks > 0 and hp below threshold.
+    miner.hp = miner.maxHp * (WORKER.recoveryHpThreshold - 0.05);
+    miner.damageTicks = 5;
+    miner.disabledTicks = 0;
+    miner.corrupted = false;
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = miner.x + COMBAT.detectionRadius - 2;
+    mite.y = miner.y;
+    mite.role = "combat";
+    const hpBefore = mite.hp;
+    state.enemies.push(mite);
+
+    // nextHp after damage will still be below the recovery threshold.
+    state.timers.tick = 0;
+    stepCombat(state);
+
+    // Enemy should NOT have taken retaliation damage.
+    expect(mite.hp).toBe(hpBefore);
   });
 });

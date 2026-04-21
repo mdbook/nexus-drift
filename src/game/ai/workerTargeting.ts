@@ -1,4 +1,4 @@
-import { WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
+import { WORKER_ABILITIES, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
 import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
@@ -29,12 +29,26 @@ function buildContestedMap(state: GameState, agent: Agent): Map<number, ContestE
   return contestedMap;
 }
 
+function buildDroneCoveredNodes(agents: Agent[], nodes: ResourceNode[]): Set<number> {
+  const covered = new Set<number>();
+  for (const agent of agents) {
+    if (!agent.active || agent.kind !== "drone") continue;
+    for (const node of nodes) {
+      if (dist(agent.x, agent.y, node.x, node.y) <= WORKER_ABILITIES.droneScanRadius) {
+        covered.add(node.id);
+      }
+    }
+  }
+  return covered;
+}
+
 function scoreWorkerNode(
   agent: Agent,
   node: ResourceNode,
   enemies: Enemy[],
   contestedMap: Map<number, ContestEntry>,
-  isCurrentTarget = false
+  isCurrentTarget = false,
+  droneCoveredNodes: Set<number> = new Set()
 ): number {
   const d = dist(agent.x, agent.y, node.x, node.y);
   const hpFactor = node.hp / node.maxHp;
@@ -44,13 +58,18 @@ function scoreWorkerNode(
   // respawn on us mid-trip).
   let score = d * 0.55 + hpFactor * 70;
 
-  // Type preference — aggressive tiers
+  // Type preference — aggressive tiers with per-agent harvestBias nudge.
+  // harvestBias ∈ [-0.15, 0.15]: positive values make tier-1 nodes more
+  // attractive (lower score) and off-tier nodes less (higher score).
   if (WORKER_TIER1[agent.kind].includes(node.kind)) {
     score *= 0.45;
+    score -= 20 * agent.harvestBias;
   } else if (WORKER_TIER2[agent.kind].includes(node.kind)) {
     score *= 0.78;
+    score -= 8 * agent.harvestBias;
   } else {
     score *= 1.6;
+    score += 15 * agent.harvestBias;
   }
 
   // Contested penalty + evading-worker penalty (a node attracting panic is bad).
@@ -60,17 +79,20 @@ function scoreWorkerNode(
   score += contested * 90 + contested * contested * 55 + evadingContested * WORKER_AI.evadingContestedPenalty;
 
   // Corruption. Miners tolerate; others hard-avoid above threshold.
+  // Drone scan reduces the hard-avoid multiplier when a drone covers this node.
   if (node.corruption > WORKER_AI.corruptionHardAvoidAbove && agent.kind !== "miner") {
-    score *= WORKER_AI.corruptionSoftMultiplier;
+    const scanDiscount = droneCoveredNodes.has(node.id) ? WORKER_ABILITIES.droneScanCorruptionDiscount : 0;
+    score *= Math.max(1, WORKER_AI.corruptionSoftMultiplier - scanDiscount);
   } else if (node.corruption > 12) {
     score *= agent.kind === "miner" ? 1.05 : 0.88;
   }
 
   // Path safety — penalize routes that cross heavy threat. Miners are braver,
   // drones are more cautious, per WORKER_PERSONALITY.pathFearScale.
+  // Per-agent fearMod further multiplies the penalty: >1 = more cautious, <1 = braver.
   if (enemies.length > 0) {
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
-    score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale;
+    score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale * agent.fearMod;
 
     const nodeThreats = countThreats(node.x, node.y, WORKER_AI.nodeThreatRadius, enemies);
     score +=
@@ -108,10 +130,13 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   // iterate all agents for every node × every caller.
   const contestedMap = buildContestedMap(state, agent);
 
+  // Precompute which nodes are within drone scan radius for the scan ability.
+  const droneCoveredNodes = buildDroneCoveredNodes(state.agents, state.nodes);
+
   const ranked = state.nodes
     .map((node) => ({
       id: node.id,
-      score: scoreWorkerNode(agent, node, liveEnemies, contestedMap, node.id === agent.target),
+      score: scoreWorkerNode(agent, node, liveEnemies, contestedMap, node.id === agent.target, droneCoveredNodes),
     }))
     .sort((a, b) => a.score - b.score);
 
@@ -121,7 +146,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   // Sticky retargeting — stay on current node unless a candidate is materially better.
   const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
   if (current) {
-    const currentScore = scoreWorkerNode(agent, current, liveEnemies, contestedMap, true);
+    const currentScore = scoreWorkerNode(agent, current, liveEnemies, contestedMap, true, droneCoveredNodes);
     if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
       return current.id;
     }
@@ -139,6 +164,7 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
   const dirY = agent.evadeDy / mag;
   const contestedMap = buildContestedMap(state, agent);
   const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
+  const droneCoveredNodes = buildDroneCoveredNodes(state.agents, state.nodes);
 
   let bestId: number | null = null;
   let bestScore = Infinity;
@@ -158,7 +184,7 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
     if (pathThreat > WORKER_AI.fleeTargetMaxPathThreat) continue;
 
     const current = node.id === agent.target;
-    const baseScore = scoreWorkerNode(agent, node, liveEnemies, contestedMap, current);
+    const baseScore = scoreWorkerNode(agent, node, liveEnemies, contestedMap, current, droneCoveredNodes);
     const alignmentScore = forward * 0.2 + lateral * 1.15 + pathThreat * WORKER_AI.pathSafetyPenalty * 3;
     const score = baseScore + alignmentScore;
     if (score < bestScore) {

@@ -60,6 +60,38 @@ export const WORKER = {
 } as const;
 
 /**
+ * Per-class worker ability tuning and worker self-defense.
+ *
+ * 3.0.0 Step 6 — individual variance + abilities + retaliation.
+ */
+export const WORKER_ABILITIES = {
+  // Miner overclock — sustained-harvest crit bonus.
+  // A miner that stays at a node for overclockThresholdTicks without taking
+  // damage earns overclockCritBonus added to the mining crit-chance roll.
+  overclockThresholdTicks: 120,
+  overclockCritBonus: 0.10,
+
+  // Runner sprint — panic-triggered speed burst.
+  // Fires once per sprintCooldownTicks when panic exceeds the threshold.
+  sprintPanicThreshold: 40,
+  sprintDurationTicks: 90,
+  sprintCooldownTicks: 600,
+  sprintSpeedMult: 1.5,
+
+  // Drone scan — per-node corruption-avoidance discount.
+  // Any resource node within droneScanRadius of an active drone has its
+  // corruptionSoftMultiplier reduced by droneScanCorruptionDiscount, making
+  // the node look slightly less scary to non-miner workers.
+  droneScanRadius: 100,
+  droneScanCorruptionDiscount: 0.15,
+
+  // Worker self-defense — small retaliation hit on each attacker when the
+  // worker is not recovering, disabled, or corrupted.
+  retaliateBase: 0.35,
+  retaliatePerBot: 0.05,
+} as const;
+
+/**
  * Worker-vs-enemy collision tuning used by movement.ts.
  * Radii intentionally track the rendered bodies rather than the larger panic
  * / threat radii so blocking feels physical without inflating fear range.
