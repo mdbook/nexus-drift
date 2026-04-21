@@ -29,25 +29,22 @@ build:
     - export IMAGE_DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:latest --destination $CI_REGISTRY_IMAGE:$IMAGE_VERSION_TAG"
     - if [ "$CI_COMMIT_BRANCH" = "dev" ]; then export IMAGE_DESTINATIONS="$IMAGE_DESTINATIONS --destination $CI_REGISTRY_IMAGE:dev"; fi
     - |
-      repos_response="$(
-        wget -S -q -O /tmp/registry-repositories.json \
-          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories" 2>&1 || true
-      )"
-      repos_status="$(printf '%s\n' "$repos_response" | sed -n 's/.*HTTP\/[0-9.]* \([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)"
+      wget -S -q -O /tmp/registry-repositories.json \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories" 2>/tmp/repos-headers.txt || true
+      repos_status="$(sed -n 's/.*HTTP\/[0-9.]* \([0-9][0-9][0-9]\).*/\1/p' /tmp/repos-headers.txt | tail -n 1)"
       if [ "$repos_status" != "200" ]; then
         echo "Could not verify existing container tags through GitLab API (HTTP ${repos_status:-unknown})."
+        cat /tmp/repos-headers.txt || true
         exit 1
       fi
 
       registry_repository_id="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' /tmp/registry-repositories.json | head -n 1)"
       if [ -n "$registry_repository_id" ]; then
-        tag_response="$(
-          wget -S -q -O /tmp/registry-version-tag.json \
-            --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-            "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/$registry_repository_id/tags/$IMAGE_VERSION_TAG" 2>&1 || true
-        )"
-        tag_status="$(printf '%s\n' "$tag_response" | sed -n 's/.*HTTP\/[0-9.]* \([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)"
+        wget -S -q -O /tmp/registry-version-tag.json \
+          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/$registry_repository_id/tags/$IMAGE_VERSION_TAG" 2>/tmp/tag-headers.txt || true
+        tag_status="$(sed -n 's/.*HTTP\/[0-9.]* \([0-9][0-9][0-9]\).*/\1/p' /tmp/tag-headers.txt | tail -n 1)"
         case "$tag_status" in
           200)
             echo "Container release tag '$IMAGE_VERSION_TAG' already exists. Bump package.json before publishing another release image."
