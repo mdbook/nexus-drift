@@ -8,10 +8,10 @@ import {
   ENEMY_CONTACT_DAMAGE,
   ENEMY_CONTACT_RADIUS,
   ENEMY_TARGET_PRIORITY,
+  MISSILE_SILO,
   SCOUT_HP,
   SENTINEL_HP,
   TARGET_ARMOR,
-  TURRET,
   TURRET_HP,
 } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
@@ -30,6 +30,7 @@ import { damageCity, damageScout, damageSentinel, damageTurret } from "@/game/su
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepEnemies } from "@/game/subsystems/movement";
+import { stepMissileSilos } from "@/game/subsystems/missileSilos";
 import { pickEnemyTargetMulti } from "@/game/targeting";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
@@ -871,13 +872,15 @@ describe("zapper enemy", () => {
   });
 });
 
-describe("turret missiles and focused beam (2.2.6)", () => {
-  function makeStateWithEnemyInRange() {
+// 3.0.0 Step 5: Turrets always fire instant-hit beams; missiles are silo-only.
+// The old "turret-fires-missile" tests are replaced with turret-always-beam
+// coverage plus a new missile silo describe block below.
+describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
+  function makeStateWithEnemyInRange(focusedBeam = 0) {
     const state = createInitialGameState();
-    // Unlock turret so first turret is live
     state.upgrades.turret = 1;
+    state.upgrades.focusedBeam = focusedBeam;
     const turret = state.turrets[0];
-    turret.range = 250;
     turret.cooldown = 0;
     const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     enemy.x = turret.x;
@@ -887,154 +890,35 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     return { state, turret, enemy };
   }
 
-  it("turret fires a missile when focusedBeam is 0", () => {
-    const { state } = makeStateWithEnemyInRange();
+  it("turret always fires instant beam (even without focusedBeam upgrade)", () => {
+    const { state, enemy } = makeStateWithEnemyInRange(0);
     stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
-    expect(missile).toBeDefined();
-    expect(missile?.targetId).toBe(state.enemies[state.enemies.length - 1].id);
-  });
-
-  it("missile moves toward its target each tick", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    const startDist = Math.hypot(enemy.x - missile.x1, enemy.y - missile.y1);
-    stepProjectiles(state);
-    const updated = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    const endDist = Math.hypot(enemy.x - updated.x1, enemy.y - updated.y1);
-    expect(endDist).toBeLessThan(startDist);
-    // No damage yet (missile still in flight)
-    expect(enemy.hp).toBe(100);
-  });
-
-  it("missile applies damage on impact and is removed", () => {
-    const { state, turret, enemy } = makeStateWithEnemyInRange();
-    // Place enemy right at turret position so missile spawns nearly touching
-    enemy.x = turret.x + 10;
-    enemy.y = turret.y;
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(missile).toBeDefined();
-    // Force missile onto the enemy
-    missile.x1 = enemy.x;
-    missile.y1 = enemy.y;
-    stepProjectiles(state);
-    expect(enemy.hp).toBeLessThan(100);
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-  });
-
-  it("missile gets terminal leeway beyond the direct hit radius after launch", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    missile.x1 = enemy.x - (TURRET.missileHitRadius + 6);
-    missile.y1 = enemy.y;
-    missile.vx = 1;
-    missile.vy = 0;
-
-    stepProjectiles(state);
-
-    expect(enemy.hp).toBeLessThan(100);
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-  });
-
-  it("missile fizzles out when target dies and no other enemies exist", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    stepTurrets(state);
-    enemy.hp = 0;
-    enemy.dyingTicks = 1;
-    for (let i = 0; i < 5; i++) stepProjectiles(state);
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-  });
-
-  it("missile does not retarget to a new enemy when original target dies", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    const turret = state.turrets[0];
-    // stepTurrets recomputes range to 140px (rangeBase 125 + turret*15); enemy is at 120px, enemy2 at 130px (both in range)
-    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
-    enemy2.x = turret.x;
-    enemy2.y = turret.y - 130;
-    enemy2.hp = 100;
-    state.enemies.push(enemy2);
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(missile.targetId).toBe(enemy.id);
-    // Kill original target
-    enemy.hp = 0;
-    stepProjectiles(state);
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-  });
-
-  it("missile can finish near a death-fading original target without retargeting", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    const turret = state.turrets[0];
-    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
-    enemy2.x = enemy.x + 8;
-    enemy2.y = enemy.y;
-    enemy2.hp = 100;
-    state.enemies.push(enemy2);
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(missile.targetId).toBe(enemy.id);
-
-    enemy.hp = 0;
-    enemy.dyingTicks = 12;
-    missile.x1 = enemy.x - 8;
-    missile.y1 = enemy.y;
-    missile.vx = 1;
-    missile.vy = 0;
-
-    stepProjectiles(state);
-
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-    expect(enemy2.hp).toBe(100);
-    expect(turret.cooldown).toBeGreaterThan(0);
-  });
-
-  it("missile also fizzles instead of retargeting when another enemy is out of range", () => {
-    const { state, enemy } = makeStateWithEnemyInRange();
-    const turret = state.turrets[0];
-    // stepTurrets recomputes range to 140px; place enemy2 at 200px (out of range)
-    const enemy2 = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
-    enemy2.x = turret.x;
-    enemy2.y = turret.y - 200;
-    enemy2.hp = 100;
-    state.enemies.push(enemy2);
-    stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
-    expect(missile.targetId).toBe(enemy.id);
-    enemy.hp = 0;
-    stepProjectiles(state);
-    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
-  });
-
-  it("turret uses instant beam when focusedBeam > 0 and target is within beam range", () => {
-    const { state, turret, enemy } = makeStateWithEnemyInRange();
-    state.upgrades.focusedBeam = 5;
-    // Place enemy within focusedBeam range: 90 + 5*8 = 130px
-    enemy.x = turret.x;
-    enemy.y = turret.y - 100;
-    const hpBefore = enemy.hp;
-    stepTurrets(state);
-    expect(enemy.hp).toBeLessThan(hpBefore);
     const beam = state.projectiles.find((p) => p.tag === "instant-beam");
     expect(beam).toBeDefined();
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
-    expect(missile).toBeUndefined();
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+    expect(enemy.hp).toBeLessThan(100);
   });
 
-  it("turret fires missile when focusedBeam > 0 but target is beyond beam range", () => {
-    const { state, turret, enemy } = makeStateWithEnemyInRange();
-    state.upgrades.focusedBeam = 1;
-    // focusedBeam range = 90 + 1*8 = 98px; turret range after upgrade = 140px; place enemy at 120px
+  it("focusedBeam upgrade extends turret acquisition range", () => {
+    const { state: base } = makeStateWithEnemyInRange(0);
+    const { state: upgraded } = makeStateWithEnemyInRange(4);
+    // Run a step to let range be recomputed from upgrades.
+    stepTurrets(base);
+    stepTurrets(upgraded);
+    const rangeBase = base.turrets[0].range;
+    const rangeUpgraded = upgraded.turrets[0].range;
+    expect(rangeUpgraded).toBeGreaterThan(rangeBase);
+  });
+
+  it("turret fires beam at all in-range enemies regardless of focusedBeam level", () => {
+    const { state, turret, enemy } = makeStateWithEnemyInRange(3);
+    // Enemy at 200px — beyond old beam range (90+24=114) but within turret range
+    // (125 + 15 + 3*16 = 188px). Should still beam, not miss.
     enemy.x = turret.x;
-    enemy.y = turret.y - 120;
+    enemy.y = turret.y - 180;
     stepTurrets(state);
-    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
-    expect(missile).toBeDefined();
-    // No immediate damage
-    expect(enemy.hp).toBe(100);
+    expect(state.projectiles.find((p) => p.tag === "instant-beam")).toBeDefined();
+    expect(enemy.hp).toBeLessThan(100);
   });
 
   it("focusedBeam upgrade defaults to 0 in new game and migration", () => {
@@ -1042,6 +926,121 @@ describe("turret missiles and focused beam (2.2.6)", () => {
     expect(state.upgrades.focusedBeam).toBe(0);
     const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
     expect(restored.upgrades.focusedBeam).toBe(0);
+  });
+});
+
+describe("missile silo subsystem (3.0.0 Step 5)", () => {
+  function makeStateWithSiloAndEnemy() {
+    const state = createInitialGameState();
+    state.upgrades.missileLauncher = 1; // activates silo slot 0
+    const silo = state.missileSilos[0];
+    silo.cooldown = 0;
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    enemy.x = silo.x;
+    enemy.y = silo.y - 200; // well within 400px range
+    enemy.hp = 200;
+    state.enemies.push(enemy);
+    return { state, silo, enemy };
+  }
+
+  it("fires a missile at a target within range, sets cooldown", () => {
+    const { state, silo, enemy } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    expect(missile).toBeDefined();
+    expect(missile?.targetId).toBe(enemy.id);
+    expect(silo.cooldown).toBe(MISSILE_SILO.fireIntervalTicks);
+  });
+
+  it("does not fire while on cooldown", () => {
+    const { state } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state); // fires, starts cooldown
+    const projectileCount = state.projectiles.length;
+    stepMissileSilos(state); // cooldown > 0, should not fire
+    expect(state.projectiles.length).toBe(projectileCount);
+  });
+
+  it("does not fire at a target beyond range", () => {
+    const { state, silo, enemy } = makeStateWithSiloAndEnemy();
+    enemy.y = silo.y - (MISSILE_SILO.rangeBase + 50); // out of range
+    stepMissileSilos(state);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+    expect(silo.cooldown).toBe(0); // no shot = no cooldown
+  });
+
+  it("prefers brutes over mites at equal distance", () => {
+    const { state, silo } = makeStateWithSiloAndEnemy();
+    // Add a mite at same y as the brute.
+    const brute = state.enemies[0];
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = silo.x;
+    mite.y = brute.y + 5;
+    mite.hp = 40;
+    state.enemies.push(mite);
+    stepMissileSilos(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile");
+    expect(missile?.targetId).toBe(brute.id);
+  });
+
+  it("silo missile uses MISSILE_SILO speed and steering", () => {
+    const { state } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    expect(missile.speed).toBe(MISSILE_SILO.missileSpeed);
+    expect(missile.steering).toBe(MISSILE_SILO.missileSteering);
+    expect(missile.maxLife).toBe(MISSILE_SILO.missileMaxLife);
+  });
+
+  it("silo missile moves toward its target each tick (projectiles step)", () => {
+    const { state, enemy } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    const startDist = Math.hypot(enemy.x - missile.x1, enemy.y - missile.y1);
+    stepProjectiles(state);
+    const updated = state.projectiles.find((p) => p.tag === "turret-missile");
+    if (updated) {
+      const endDist = Math.hypot(enemy.x - updated.x1, enemy.y - updated.y1);
+      expect(endDist).toBeLessThan(startDist);
+    }
+    // Enemy has not been damaged yet (still in flight after one tick).
+    expect(enemy.hp).toBe(200);
+  });
+
+  it("silo missile applies damage on impact", () => {
+    const { state, enemy } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state);
+    const missile = state.projectiles.find((p) => p.tag === "turret-missile")!;
+    // Teleport missile onto the enemy.
+    missile.x1 = enemy.x;
+    missile.y1 = enemy.y;
+    stepProjectiles(state);
+    const expectedDamage = MISSILE_SILO.damageBase + 1 * MISSILE_SILO.damagePerLevel;
+    expect(enemy.hp).toBeCloseTo(200 - expectedDamage, 5);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
+  it("silo missile fizzles when target dies mid-flight", () => {
+    const { state, enemy } = makeStateWithSiloAndEnemy();
+    stepMissileSilos(state);
+    enemy.hp = 0;
+    enemy.dyingTicks = 1;
+    stepProjectiles(state);
+    expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
+  });
+
+  it("missileLauncher=0 deactivates all silos", () => {
+    const state = createInitialGameState();
+    state.upgrades.missileLauncher = 0;
+    stepMissileSilos(state);
+    expect(state.missileSilos.every((s) => !s.active)).toBe(true);
+    expect(state.projectiles.length).toBe(0);
+  });
+
+  it("missileLauncher upgrade defaults to 0 in new game and migration", () => {
+    const state = createInitialGameState();
+    expect(state.upgrades.missileLauncher).toBe(0);
+    const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
+    expect(restored.upgrades.missileLauncher).toBe(0);
   });
 });
 

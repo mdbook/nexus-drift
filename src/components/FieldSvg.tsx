@@ -1,6 +1,6 @@
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
-import { SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
+import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -773,6 +773,88 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
                   width={32 * hpPct}
                   height="3"
                   fill={hpPct < 0.3 ? "rgba(255,120,120,0.9)" : "rgba(160,235,255,0.85)"}
+                />
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* 3.0.0 Step 5 — missile silo pylons */}
+      {game.missileSilos.map((silo) => {
+        const siloAlpha = silo.active ? 1 : 0.22;
+        const cooldownRatio = silo.active ? Math.max(0, 1 - silo.cooldown / MISSILE_SILO.fireIntervalTicks) : 0;
+        // Charge-up pulse: ring brightens as the shot approaches ready.
+        const chargePulse = silo.active && silo.cooldown <= 60
+          ? 0.35 + (1 - silo.cooldown / 60) * 0.55
+          : 0;
+        // Brief flash after launch: cooldown resets to fireIntervalTicks,
+        // so a very high cooldown means a shot just left.
+        const launchFlash = silo.active && silo.cooldown > MISSILE_SILO.fireIntervalTicks - 8
+          ? (MISSILE_SILO.fireIntervalTicks - (MISSILE_SILO.fireIntervalTicks - silo.cooldown)) / 8
+          : 0;
+        return (
+          <g key={silo.id} opacity={siloAlpha}>
+            {/* Range ring — only when active */}
+            {silo.active && (
+              <circle
+                cx={silo.x}
+                cy={silo.y}
+                r={MISSILE_SILO.rangeBase}
+                fill="none"
+                stroke="rgba(255,100,0,0.04)"
+                strokeDasharray="12 16"
+              />
+            )}
+            {/* Launch flash overlay */}
+            {launchFlash > 0 && (
+              <circle cx={silo.x} cy={silo.y} r="20" fill={`rgba(255,140,30,${launchFlash.toFixed(2)})`} />
+            )}
+            {/* Charge ring */}
+            {chargePulse > 0 && !lowFxMode && (
+              <circle
+                cx={silo.x}
+                cy={silo.y}
+                r="18"
+                fill="none"
+                stroke={`rgba(255,120,20,${chargePulse.toFixed(2)})`}
+                strokeWidth="2"
+              />
+            )}
+            {/* Pylon body */}
+            <rect
+              x={silo.x - 6}
+              y={silo.y - 20}
+              width="12"
+              height="22"
+              rx="2"
+              ry="2"
+              fill={silo.active ? "rgba(200,80,20,0.75)" : "rgba(100,60,40,0.40)"}
+              stroke={silo.active ? "rgba(255,160,60,0.80)" : "rgba(160,100,60,0.40)"}
+              strokeWidth="1.5"
+            />
+            {/* Barrel pointing at angle */}
+            <line
+              x1={silo.x}
+              y1={silo.y - 12}
+              x2={silo.x + Math.cos(silo.angle) * 18}
+              y2={silo.y - 12 + Math.sin(silo.angle) * 18}
+              stroke={silo.active ? "rgba(255,180,80,0.95)" : "rgba(160,100,60,0.40)"}
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            {/* Cooldown / charge bar below */}
+            {silo.active && (
+              <>
+                <rect x={silo.x - 8} y={silo.y + 4} rx="1" ry="1" width="16" height="2" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={silo.x - 8}
+                  y={silo.y + 4}
+                  rx="1"
+                  ry="1"
+                  width={16 * cooldownRatio}
+                  height="2"
+                  fill={cooldownRatio > 0.9 ? "rgba(255,200,60,0.95)" : "rgba(255,110,20,0.80)"}
                 />
               </>
             )}

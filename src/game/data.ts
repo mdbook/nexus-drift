@@ -84,8 +84,16 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Focused Beam",
     baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.focusedBeam.growth,
-    effectText: "Turrets use instant-hit beam for close targets; missiles handle longer range",
+    effectText: "Extends turret beam range (+16px/level). All turret shots are now instant-hit.",
     minTier: 4,
+  },
+  {
+    key: "missileLauncher",
+    label: "Missile Launcher",
+    baseCost: { gold: 2200, cores: 6, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.missileLauncher.growth,
+    effectText: "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level.",
+    minTier: 2,
   },
 ];
 

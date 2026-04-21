@@ -46,6 +46,17 @@ export function getAutobuyWeight(state: GameState, derived: DerivedState, key: U
   if (key === "bot" && state.upgrades.bot > Math.max(2, state.prestige + 1)) weight *= 1.25;
   if (key === "arsenal" && state.upgrades.scout === 0) weight *= 1.25;
 
+  // 3.0.0 Step 5: prioritize missile launcher once turrets are developed and
+  // the enemy roster includes heavy hitters (brutes/leeches). Pull weight down
+  // until preconditions are met so autobuy doesn't blow cores/flux early.
+  if (key === "missileLauncher") {
+    if (state.upgrades.turret < 2) weight *= 1.55; // still building turret line
+    if (derived.enemyCounts.brute === 0 && derived.enemyCounts.leech === 0) weight *= 1.28; // no big targets yet
+    if (state.upgrades.turret >= 2 && (derived.enemyCounts.brute > 0 || derived.enemyCounts.leech > 0)) {
+      weight *= 0.62; // ready and high-value — strongly favour
+    }
+  }
+
   return weight;
 }
 
@@ -108,6 +119,18 @@ export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedStat
     return { key: "sentinel", reason: "heavy-contact pressure" };
   }
 
+  // 3.0.0 Step 5: push missileLauncher L1 when brutes/leeches are an active
+  // problem and the turret line is solid enough to afford it.
+  if (
+    derived.progression.tier >= 3 &&
+    state.upgrades.turret >= 2 &&
+    state.upgrades.missileLauncher < 1 &&
+    (derived.enemyCounts.brute >= 1 || derived.enemyCounts.leech >= 2) &&
+    canAfford("missileLauncher")
+  ) {
+    return { key: "missileLauncher", reason: "heavy-target suppression" };
+  }
+
   return null;
 }
 
@@ -147,7 +170,8 @@ export function stepAutobuy(state: GameState) {
         (def.key !== "scout" || state.upgrades.reactor >= 1 || state.level >= 4 || derived.progression.tier >= 3) &&
         (def.key !== "arsenal" || state.upgrades.scout >= 1) &&
         (def.key !== "sentinel" || state.stats.brutesKilled > 0) &&
-        (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length);
+        (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length) &&
+        (def.key !== "missileLauncher" || state.upgrades.turret >= 2);
 
       return smartGate && canAffordUpgrade(state.resources, cost);
     })

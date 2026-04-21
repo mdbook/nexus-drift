@@ -130,6 +130,16 @@ Static base defense. Target combat enemies only (never corruptors, never cloaked
 
 3.0.0 also gave turrets a structural HP pool so enemies can actually attrit them. `Turret.hp`/`maxHp` scale from `TURRET_HP` in `balance.ts` (`hpBase 120 + 20·turret + 10·shield`), and `stepTurrets` recomputes `maxHp` every tick and scales the current `hp` proportionally so mid-combat upgrades do not reset damage progress. Any code that deals damage to a turret must go through `damageTurret(state, turret, amount)` in `combat.ts` — mirroring the `damageEnemy` single-funnel pattern — which sets `damageTicks` for the hit flash and, on hp reaching 0, kicks `brokenTicks` to `TURRET_HP.brokenDurationTicks` (2400 ticks ≈ 80s) and bumps `state.stats.turretsBroken`. Broken turrets take no further damage, skip all targeting and firing, and restore to `maxHp * brokenRecoverRatio` (0.5) when the break timer expires. The renderer shows a cracked-chassis variant + HP bar when hp is below maxHp (and the bar is hidden while broken because the state is already communicated by the darker sprite).
 
+**3.0.0 Step 5 — turrets always beam; missiles are silo-only.** Turrets no longer have a missile fallback. Every shot is an instant-hit beam within the turret's acquisition range. The `focusedBeam` upgrade now extends that range by `FOCUSED_BEAM.rangePerLevel` (16 px/level) instead of switching fire modes. The old `FOCUSED_BEAM.baseRange` constant has been removed.
+
+### Missile Silos
+
+`MissileSilo` entities (deployed via the `missileLauncher` upgrade track) are separate from turrets. Silo count scales with upgrade level via `MISSILE_SILO.silosByLevel` (1 at L1, 2 at L3, 3 at L5, 4 at L10). Each active silo fires once per `fireIntervalTicks` (480 ≈ 16s) at the highest-priority combat enemy within `rangeBase` (400 px) — brutes first, then leeches, then everything else, wounded within tier. Damage is `damageBase (48) + damagePerLevel (12) * level`.
+
+Silo missiles differ from the old turret missiles: they use `MISSILE_SILO.missileSpeed` (4.0 vs 3.5), `missileSteering` (0.12 vs 0.18), and `missileMaxLife` (180 vs 90). These are stored on the `Projectile` as `speed` (already existed) and `steering` (new field added in Step 5); `stepProjectiles` reads `p.steering ?? TURRET.missileSteering` so turret beams (no steering field) are unaffected.
+
+`stepMissileSilos` runs in `advanceGame` after `stepSentinels` and before `stepZapperFire`. Autobuy adds `missileLauncher` to the candidate pool after `turret >= 2`, with an emergency gate that fast-tracks L1 when brutes or leeches are active. Renderer: chunky orange pylons in `FieldSvg.tsx` with a cooldown charge bar; the range ring is shown at low opacity when the silo is active; a brief launch flash fires when a shot exits.
+
 ### Enemy Shield System
 
 Three enemy kinds carry a regenerating shield layer that sits on top of their normal HP pool: `leech` (50 HP shield), `phantom` (10 HP shield), `zapper` (20 HP shield). Shield amounts are declared once in `ENEMY_SHIELD.shieldMax` in `balance.ts`.

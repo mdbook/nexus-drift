@@ -691,31 +691,34 @@ export function addProjectile(
   });
 }
 
-  export function addMissile(
-    state: GameState,
-    fromX: number,
-    fromY: number,
-    vx: number,
-    vy: number,
-    targetId: number,
-    damage: number
-  ) {
-    state.projectiles.push({
+export function addMissile(
+  state: GameState,
+  fromX: number,
+  fromY: number,
+  vx: number,
+  vy: number,
+  targetId: number,
+  damage: number,
+  opts?: { speed?: number; maxLife?: number; steering?: number; color?: string }
+) {
+  const maxLife = opts?.maxLife ?? TURRET.missileMaxLife;
+  state.projectiles.push({
     id: state.nextProjectileId++,
     x1: fromX,
     y1: fromY,
     x2: fromX,
     y2: fromY,
-    life: TURRET.missileMaxLife,
-    maxLife: TURRET.missileMaxLife,
-    color: "rgba(255, 140, 0, 0.95)",
+    life: maxLife,
+    maxLife,
+    color: opts?.color ?? "rgba(255, 140, 0, 0.95)",
     width: 3,
     tag: "turret-missile",
     targetId,
-      vx,
-      vy,
-      speed: TURRET.missileSpeed,
-      damage,
-    });
-  }
+    vx,
+    vy,
+    speed: opts?.speed ?? TURRET.missileSpeed,
+    ...(opts?.steering !== undefined && { steering: opts.steering }),
+    damage,
+  });
+}
 

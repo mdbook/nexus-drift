@@ -7,6 +7,7 @@ import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepCity, stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
 import { stepMining } from "@/game/subsystems/mining";
+import { stepMissileSilos } from "@/game/subsystems/missileSilos";
 import { stepEnemies, stepLostDrone, stepTourist, stepWorkers } from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
@@ -36,7 +37,9 @@ export function advanceGame(prev: GameState): GameState {
   // 5. Turrets / Scouts / Sentinels — defence reads post-movement positions and queues
   //    damage via hp reduction + flash markers. Damage flows through damageEnemy()
   //    which drains the shield layer first and only hits HP once the shield is gone.
-  // 5b. ZapperFire — after movement so zappers aim at current positions; before
+  // 5b. MissileSilos — after sentinels so all defence fires in the same window;
+  //     before ZapperFire so silo shot + zapper bolt land on the same frame.
+  // 5c. ZapperFire — after movement so zappers aim at current positions; before
   //     resolveEnemyDeaths so freshly killed zappers don't fire.
   // 5c. EnemyShields — regen step runs after all damage for this tick has been applied
   //     so a shield that reaches 0 this tick cannot also regen this tick.
@@ -65,6 +68,7 @@ export function advanceGame(prev: GameState): GameState {
   stepTurrets(state);
   stepScouts(state);
   stepSentinels(state);
+  stepMissileSilos(state);
   stepZapperFire(state);
   stepEnemyShields(state);
   resolveEnemyDeaths(state);

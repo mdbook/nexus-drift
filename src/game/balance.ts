@@ -330,8 +330,35 @@ export const TURRET = {
 } as const;
 
 export const FOCUSED_BEAM = {
-  baseRange: 90,
-  rangePerLevel: 8,
+  rangePerLevel: 16,
+} as const;
+
+/**
+ * 3.0.0 Step 5 — missile silo system.
+ *
+ * Missiles move entirely out of the turret loop. Silos are separate entities
+ * deployed per `missileLauncher` upgrade level (see `silosByLevel`). They fire
+ * at much longer range and with much higher single-shot damage on a slow
+ * cadence (~16s); `missileSpeed` and `missileSteering` differ from turret
+ * constants so silo shots curve in more slowly but are harder to dodge.
+ *
+ * Base turrets lose the missile fallback and always fire instant-hit beams
+ * within their (shorter) acquisition range. The `focusedBeam` upgrade now
+ * extends that range instead of switching fire modes.
+ */
+export const MISSILE_SILO = {
+  rangeBase: 400,
+  fireIntervalTicks: 480,   // ~16s at 30 ticks/s — big cooldown, big hit
+  damageBase: 48,
+  damagePerLevel: 12,
+  missileSpeed: 4.0,
+  missileSteering: 0.12,    // committed arc — slower to correct than turret (0.18)
+  missileMaxLife: 180,
+  missileHitRadius: 18,
+  missileGraceRadius: 30,
+  missileCorpseGraceRadius: 26,
+  /** Active silo count indexed by missileLauncher upgrade level. */
+  silosByLevel: [0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4] as const,
 } as const;
 
 /**

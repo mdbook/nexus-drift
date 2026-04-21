@@ -303,6 +303,8 @@ export type Projectile = {
   vy?: number;
   /** Movement speed in px/tick for turret-missile. */
   speed?: number;
+  /** Homing correction fraction per tick. Defaults to TURRET.missileSteering when absent. */
+  steering?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
   };

@@ -1,6 +1,6 @@
 import { FOCUSED_BEAM, TURRET, TURRET_HP } from "@/game/balance";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
-import { addMissile, addProjectile } from "@/game/factories";
+import { addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { dist } from "@/game/utils";
@@ -64,8 +64,13 @@ export function stepTurrets(state: GameState) {
       return;
     }
 
+    // 3.0.0 Step 5: focusedBeam now extends acquisition range directly.
+    // Turrets always fire instant-hit beams; missiles are silo-only.
     turret.range =
-      (TURRET.rangeBase + state.upgrades.turret * TURRET.rangePerUpgrade + state.upgrades.reactor * TURRET.rangePerReactor) *
+      (TURRET.rangeBase +
+        state.upgrades.turret * TURRET.rangePerUpgrade +
+        state.upgrades.reactor * TURRET.rangePerReactor +
+        state.upgrades.focusedBeam * FOCUSED_BEAM.rangePerLevel) *
       state.eventModifiers.turretRangeScale;
     turret.cooldown = Math.max(0, turret.cooldown - 1);
     const target = [...state.enemies]
@@ -101,29 +106,21 @@ export function stepTurrets(state: GameState) {
         )
       );
 
-      const d = dist(turret.x, turret.y, target.x, target.y);
-      const instantRange = FOCUSED_BEAM.baseRange + state.upgrades.focusedBeam * FOCUSED_BEAM.rangePerLevel;
-      const useBeam = state.upgrades.focusedBeam > 0 && d <= instantRange;
-
-      if (useBeam) {
-        addProjectile(
-          state,
-          turret.x,
-          turret.y,
-          target.x,
-          target.y,
-          "rgba(255, 255, 255, 0.95)",
-          target.kind === "raider" ? 2.8 : 2.2,
-          TURRET.projectileLife,
-          "instant-beam"
-        );
-        damageEnemy(target, baseDamage);
-        target.flash = 6;
-      } else {
-        const vx = (target.x - turret.x) / Math.max(1, d);
-        const vy = (target.y - turret.y) / Math.max(1, d);
-          addMissile(state, turret.x, turret.y, vx, vy, target.id, Math.round(baseDamage * TURRET.missileDamageBonus));
-        }
-      }
-    });
+      // 3.0.0 Step 5: turrets always fire instant-hit beams. Missile
+      // capability is now exclusively in the missile silo subsystem.
+      addProjectile(
+        state,
+        turret.x,
+        turret.y,
+        target.x,
+        target.y,
+        "rgba(255, 255, 255, 0.95)",
+        target.kind === "raider" ? 2.8 : 2.2,
+        TURRET.projectileLife,
+        "instant-beam"
+      );
+      damageEnemy(target, baseDamage);
+      target.flash = 6;
+    }
+  });
 }
