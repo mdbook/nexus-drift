@@ -118,7 +118,7 @@ export function stepWorkers(state: GameState) {
     const needsTarget =
       agent.target == null ||
       !state.nodes.some((node) => node.id === agent.target) ||
-      state.timers.tick % (210 + index * 30) === 0;
+      state.timers.tick % (330 + index * 45) === 0;
 
     if (needsTarget) {
       agent.target = chooseWorkerTarget(state, agent);
@@ -197,8 +197,8 @@ export function stepWorkers(state: GameState) {
       }
 
       const blendedDirection = normalize(
-        agent.evadeDx * 0.45 + direction.x * 0.55,
-        agent.evadeDy * 0.45 + direction.y * 0.55,
+        agent.evadeDx * 0.70 + direction.x * 0.30,
+        agent.evadeDy * 0.70 + direction.y * 0.30,
         direction.x,
         direction.y
       );

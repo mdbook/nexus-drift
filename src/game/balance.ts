@@ -561,7 +561,7 @@ export const WORKER_AI = {
   progressActiveThreshold: 30,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,
-  stickyThreshold: 0.85, // only switch target if candidate score is < this * current
+  stickyThreshold: 0.72, // only switch target if candidate score is < this * current — lower = stickier
   threatMemoryDecay: 0.92,
   threatMemoryGain: 0.18,
   cornerRotationCandidates: [Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, Math.PI * 0.75, -Math.PI * 0.75],
