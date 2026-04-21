@@ -41,6 +41,22 @@ const EFFECT_TEXT_TONE: Record<EventEffectTone, string> = {
   neutral: "text-white/60",
 };
 
+type EventRarity = "common" | "uncommon" | "rare" | "legendary";
+
+function eventRarity(weight: number): EventRarity {
+  if (weight >= 0.7) return "common";
+  if (weight >= 0.4) return "uncommon";
+  if (weight >= 0.15) return "rare";
+  return "legendary";
+}
+
+const RARITY_STYLE: Record<EventRarity, string> = {
+  common: "text-white/45",
+  uncommon: "text-emerald-300/80",
+  rare: "text-cyan-300/80",
+  legendary: "text-amber-300/90",
+};
+
 export const EventChip = memo(function EventChip({ event, def, inspected = false, onInspect }: Props) {
   const tone = def?.tone ?? "neutral";
   const style = TONE_STYLE[tone];
@@ -105,7 +121,14 @@ export const EventChip = memo(function EventChip({ event, def, inspected = false
 
       <TooltipPanel id={describedById} open={open} anchor={anchor} width={256} borderClass={style.tooltipAccent} arrowAlign="left">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-sm font-semibold text-white">{def?.label ?? event.label}</div>
+          <div>
+            <div className="text-sm font-semibold text-white">{def?.label ?? event.label}</div>
+            {def && (
+              <div className={`text-[10px] uppercase tracking-[0.15em] ${RARITY_STYLE[eventRarity(def.weight)]}`}>
+                {eventRarity(def.weight)}
+              </div>
+            )}
+          </div>
           {!isOneShotCard && (
             <div className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-white/60">
               {secondsRemaining}s

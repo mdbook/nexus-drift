@@ -76,6 +76,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Clicking an achievement badge in that ribbon now opens the archive already filtered to the right category, scrolls the matching row into view, focuses it, and flashes it for quick orientation.",
           "That target-row glow now pulses twice instead of holding as a static cyan halo, making the landing point easier to catch at a glance.",
           "The cyan target glow now also fades all the way back out at the end of that pulse cycle instead of snapping off abruptly.",
+          "Event chip tooltips now show a rarity label (Common / Uncommon / Rare / Legendary) below the event name, derived from each event's spawn weight.",
         ],
       },
     ],
