@@ -120,8 +120,17 @@ export function measureWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): Work
   return computeWorkerEnemyBlocking(agent, enemies);
 }
 
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
 function shouldScanFleeTarget(tick: number, agentId: number): boolean {
-  return (tick + (agentId - 1) * 7) % WORKER_AI.fleeTargetScanTicks === 0;
+  const interval = WORKER_AI.fleeTargetScanTicks;
+  // Fresh worker IDs start at 1, so id 1 keeps the original tick-0 scan.
+  // Normalize the phase so legacy/manual id 0 workers never rely on JS's
+  // negative remainder behavior.
+  const phase = positiveModulo(-(agentId - 1) * 7, interval);
+  return positiveModulo(tick, interval) === phase;
 }
 
 export function stepWorkers(state: GameState) {
