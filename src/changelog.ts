@@ -35,6 +35,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Live enemy hitboxes now slow workers down before contact, so crowded lanes trim forward progress instead of letting crews slide through bodies at full speed.",
           "Enemy bodies only slow movement and prevent easy lane slipping; they no longer apply a hidden knockback force that shoves workers away from the threat.",
           "Only live enemies block movement; dying enemies still fade out visually without continuing to affect the sim.",
+          "Worker target scoring and flee-direction retargeting now explicitly ignore death-fade enemies so visual corpses cannot scare workers off useful nodes.",
         ],
       },
       {
@@ -48,7 +49,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Tests",
         items: [
-          "Added coverage for heavier multi-attacker worker damage, worker-vs-enemy blocking, and shield-first damage routing without HP spillover.",
+          "Added coverage for heavier multi-attacker worker damage, worker-vs-enemy blocking, shield-first damage routing without HP spillover, and worker targeting around death-fade enemies.",
         ],
       },
     ],

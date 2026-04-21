@@ -6,7 +6,7 @@ import {
   SCHEMA_VERSION,
   spawnEnemy,
 } from "@/game/factories";
-import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
+import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepEnemies, stepWorkers } from "@/game/subsystems/movement";
@@ -369,6 +369,38 @@ describe("worker evasion commitment", () => {
     expect(chooseWorkerTarget(state, miner)).toBe(openNode.id);
   });
 
+  it("ignores dying enemies when scoring worker targets", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    miner.x = 500;
+    miner.y = 260;
+    miner.target = null;
+    const visuallyCrowdedNode: ResourceNode = {
+      id: 9191, kind: "gold", x: 360, y: 260, size: 24, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const fartherOpenNode: ResourceNode = {
+      ...visuallyCrowdedNode,
+      id: 9192,
+      x: 675,
+    };
+    state.nodes = [visuallyCrowdedNode, fartherOpenNode];
+    for (let i = 0; i < 4; i += 1) {
+      addEnemy(state, {
+        kind: "mite",
+        x: visuallyCrowdedNode.x + i * 4,
+        y: visuallyCrowdedNode.y + 8,
+        hp: 0,
+        dyingTicks: 8,
+        role: "combat",
+      });
+    }
+
+    expect(chooseWorkerTarget(state, miner)).toBe(visuallyCrowdedNode.id);
+  });
+
   it("retargets toward a safe node ahead while coasting out of evasion", () => {
     const state = baseState();
     const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
@@ -432,6 +464,39 @@ describe("worker evasion commitment", () => {
     stepWorkers(state);
 
     expect(miner.target).toBe(oldNode.id);
+  });
+
+  it("ignores dying enemies when choosing a flee-direction target", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    const oldNode: ResourceNode = {
+      id: 9401, kind: "gold", x: 180, y: 260, size: 24, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const aheadNode: ResourceNode = {
+      ...oldNode,
+      id: 9402,
+      x: 390,
+      y: 260,
+    };
+    state.nodes = [oldNode, aheadNode];
+    miner.x = 260;
+    miner.y = 260;
+    miner.target = oldNode.id;
+    miner.evadeDx = 1;
+    miner.evadeDy = 0;
+    addEnemy(state, {
+      kind: "brute",
+      x: 360,
+      y: 260,
+      hp: 0,
+      dyingTicks: 8,
+      role: "combat",
+    });
+
+    expect(chooseFleeDirectionTarget(state, miner)).toBe(aheadNode.id);
   });
 });
 

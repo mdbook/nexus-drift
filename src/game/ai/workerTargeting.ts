@@ -102,7 +102,7 @@ function scoreWorkerNode(
 
 export function chooseWorkerTarget(state: GameState, agent: Agent): number | null {
   if (!state.nodes.length) return null;
-  const enemies = state.enemies;
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
 
   // Precompute per-node contest counts once so scoreWorkerNode doesn't
   // iterate all agents for every node × every caller.
@@ -111,7 +111,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   const ranked = state.nodes
     .map((node) => ({
       id: node.id,
-      score: scoreWorkerNode(agent, node, enemies, contestedMap, node.id === agent.target),
+      score: scoreWorkerNode(agent, node, liveEnemies, contestedMap, node.id === agent.target),
     }))
     .sort((a, b) => a.score - b.score);
 
@@ -121,7 +121,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   // Sticky retargeting — stay on current node unless a candidate is materially better.
   const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
   if (current) {
-    const currentScore = scoreWorkerNode(agent, current, enemies, contestedMap, true);
+    const currentScore = scoreWorkerNode(agent, current, liveEnemies, contestedMap, true);
     if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
       return current.id;
     }
@@ -138,7 +138,7 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
   const dirX = agent.evadeDx / mag;
   const dirY = agent.evadeDy / mag;
   const contestedMap = buildContestedMap(state, agent);
-  const enemies = state.enemies;
+  const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
 
   let bestId: number | null = null;
   let bestScore = Infinity;
@@ -152,13 +152,13 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
     const lateral = Math.abs(dx * dirY - dy * dirX);
     if (lateral > WORKER_AI.fleeTargetLateralLimit) continue;
 
-    const pathThreat = enemies.length > 0
-      ? threatAlongPath(agent.x, agent.y, node.x, node.y, enemies)
+    const pathThreat = liveEnemies.length > 0
+      ? threatAlongPath(agent.x, agent.y, node.x, node.y, liveEnemies)
       : 0;
     if (pathThreat > WORKER_AI.fleeTargetMaxPathThreat) continue;
 
     const current = node.id === agent.target;
-    const baseScore = scoreWorkerNode(agent, node, enemies, contestedMap, current);
+    const baseScore = scoreWorkerNode(agent, node, liveEnemies, contestedMap, current);
     const alignmentScore = forward * 0.2 + lateral * 1.15 + pathThreat * WORKER_AI.pathSafetyPenalty * 3;
     const score = baseScore + alignmentScore;
     if (score < bestScore) {

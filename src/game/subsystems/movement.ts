@@ -110,7 +110,7 @@ function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemy
       0.16,
       1 -
         Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap) -
-        Math.min(touching * 0.18, 0.42)
+        Math.min(touching * WORKER_BLOCKING.touchingPenaltyPerEnemy, WORKER_BLOCKING.touchingPenaltyCap)
     );
 
   return { speedScale, blockers, touching };
@@ -118,6 +118,10 @@ function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemy
 
 export function measureWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemyBlockingSample {
   return computeWorkerEnemyBlocking(agent, enemies);
+}
+
+function shouldScanFleeTarget(tick: number, agentId: number): boolean {
+  return (tick + (agentId - 1) * 7) % WORKER_AI.fleeTargetScanTicks === 0;
 }
 
 export function stepWorkers(state: GameState) {
@@ -154,6 +158,9 @@ export function stepWorkers(state: GameState) {
     const node =
       state.nodes.find((candidate) => candidate.id === agent.target) ??
       state.nodes[index % state.nodes.length];
+    // Sample blocking before movement for the current tick. If future nodes can
+    // move, update node positions first and keep deriving worker velocity from
+    // previous/current x/y; tx/ty below are only destination anchors.
     const blocking = measureWorkerEnemyBlocking(agent, liveEnemies);
 
     // Workers already at the node get a tighter evasion trigger so they can
@@ -226,7 +233,7 @@ export function stepWorkers(state: GameState) {
       if (
         !recovering &&
         evadeThreats.length === 0 &&
-        state.timers.tick % WORKER_AI.fleeTargetScanTicks === index % WORKER_AI.fleeTargetScanTicks
+        shouldScanFleeTarget(state.timers.tick, agent.id)
       ) {
         const fleeTarget = chooseFleeDirectionTarget(state, agent);
         if (fleeTarget !== null) agent.target = fleeTarget;
@@ -258,6 +265,9 @@ export function stepWorkers(state: GameState) {
     const workRadius = recovering ? 22 : clamp(destination.size * 0.45, 16, 24);
 
     if (d <= workRadius) {
+      // tx/ty are render/intention anchors, not a movement delta source. If
+      // nodes become mobile, recompute destination after node motion and use
+      // actual x/y deltas for velocity-sensitive logic.
       agent.tx = destination.x;
       agent.ty = destination.y;
       agent.swing = recovering ? 0 : (agent.swing + 1) % 24;
@@ -287,6 +297,8 @@ export function stepWorkers(state: GameState) {
     if (!recovering && agent.hp < agent.maxHp * 0.5) {
       applyLowHpRegionPull(agent);
     }
+    // Keep tx/ty pinned to the intended destination for rendering. Do not use
+    // these fields as proof of worker velocity if a future node type moves.
     agent.tx = destination.x;
     agent.ty = destination.y;
     agent.swing = 0;

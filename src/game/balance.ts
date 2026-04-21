@@ -82,6 +82,8 @@ export const WORKER_BLOCKING = {
   softBuffer: 10,
   speedPenaltyPerEnemy: 0.13,
   speedPenaltyCap: 0.55,
+  touchingPenaltyPerEnemy: 0.18,
+  touchingPenaltyCap: 0.42,
 } as const;
 
 export const ENEMY_STATS: Record<

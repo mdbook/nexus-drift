@@ -43,9 +43,8 @@ export function stepProjectiles(state: GameState) {
     if (p.tag === "turret-missile" && p.vx !== undefined && p.vy !== undefined) {
       const originalTarget = state.enemies.find((e) => e.id === p.targetId);
       if (originalTarget && originalTarget.hp > 0 && !isCloaked(originalTarget)) {
-        const target = originalTarget;
-        const dx = target.x - p.x1;
-        const dy = target.y - p.y1;
+        const dx = originalTarget.x - p.x1;
+        const dy = originalTarget.y - p.y1;
         const d = Math.max(1, Math.hypot(dx, dy));
         const steer = TURRET.missileSteering;
         let vx = p.vx * (1 - steer) + (dx / d) * steer;
@@ -58,10 +57,10 @@ export function stepProjectiles(state: GameState) {
         const speed = p.speed ?? TURRET.missileSpeed;
         const nextX = p.x1 + p.vx * speed;
         const nextY = p.y1 + p.vy * speed;
-        const stepDistance = distanceToSegment(target.x, target.y, p.x1, p.y1, nextX, nextY);
+        const stepDistance = distanceToSegment(originalTarget.x, originalTarget.y, p.x1, p.y1, nextX, nextY);
         if (d <= TURRET.missileHitRadius || stepDistance <= TURRET.missileGraceRadius) {
-          damageEnemy(target, p.damage ?? 0);
-          target.flash = 6;
+          damageEnemy(originalTarget, p.damage ?? 0);
+          originalTarget.flash = 6;
           p.life = 0;
         }
       } else if (
