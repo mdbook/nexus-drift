@@ -17,7 +17,7 @@ import {
   WORKER_AI,
   ZAPPER,
 } from "@/game/balance";
-import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
+import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import { pickEnemyTarget } from "@/game/targeting";
 import {
@@ -170,6 +170,15 @@ export function stepWorkers(state: GameState) {
     }
 
     if (agent.evadeTicks > 0) {
+      if (
+        !recovering &&
+        evadeThreats.length === 0 &&
+        state.timers.tick % WORKER_AI.fleeTargetScanTicks === index % WORKER_AI.fleeTargetScanTicks
+      ) {
+        const fleeTarget = chooseFleeDirectionTarget(state, agent);
+        if (fleeTarget !== null) agent.target = fleeTarget;
+      }
+
       const veteranBonus = 1 + agent.veteranRank * 0.05;
       const evadeSpeed =
         agent.speed *

@@ -604,6 +604,11 @@ export const WORKER_AI = {
   progressActiveBonus: -34, // score bonus for nodes with recent worker contact (workTicks > threshold)
   currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
+  fleeTargetLookahead: 290, // max forward distance considered while persistent evasion is coasting
+  fleeTargetMinForward: 48,
+  fleeTargetLateralLimit: 125,
+  fleeTargetMaxPathThreat: 0.038,
+  fleeTargetScanTicks: 12,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,
   stickyThreshold: 0.64, // only switch target if candidate score is < this * current — lower = stickier

@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.4.2**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.4.3**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -48,7 +48,7 @@ Current version: **2.4.2**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/subsystems/` — economy, spawns, movement, workers (slot activation), corruption, turrets, scouts, sentinels, combat, mining, autobuy, projectiles, events, achievements
 - `src/game/__tests__/advanceGame.test.ts` — 51 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, and save/load round-trip
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
-- `src/game/__tests__/aiBehavior.test.ts` — 19 tests: worker path safety and commitment, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
+- `src/game/__tests__/aiBehavior.test.ts` — 21 tests: worker path safety, commitment, and flee-direction retargeting, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
 - `.gitlab-ci.yml` — verify and container-build pipeline. Automatic release image builds only run on `main` and `dev`: `main` publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus `:dev`.
 - `docker/nginx.conf` — SPA serving config with security headers
@@ -90,7 +90,7 @@ Each kind has a `groupRepelRadius` and `groupRepelMinCount`; when that many same
 
 When `hp < maxHp * 0.5` (hurt but not yet in full recovery), workers nudge toward their region center each tick (`lowHpPull`) instead of all converging on the home pad.
 
-Evasion direction blends 70% old heading / 30% new signal (smooth curves). As of 2.4.2, workers are intentionally less proactive about distant threats: enter radius is 62 px, exit radius is 104 px, evasion persistence is 52 ticks, and `WORKER_AI.pathSafetyPenalty` is 34. Workers at their node use a tighter `harvestingEvasionRadius` (42 px) so they finish a harvest under mild pressure. Sticky retarget threshold is 0.64, meaning a candidate must be much better before it unseats the current assignment; partially mined current nodes also get `currentTargetProgressBonus`. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
+Evasion direction blends 70% old heading / 30% new signal (smooth curves). As of 2.4.2, workers are intentionally less proactive about distant threats: enter radius is 62 px, exit radius is 104 px, evasion persistence is 52 ticks, and `WORKER_AI.pathSafetyPenalty` is 34. Workers at their node use a tighter `harvestingEvasionRadius` (42 px) so they finish a harvest under mild pressure. Sticky retarget threshold is 0.64, meaning a candidate must be much better before it unseats the current assignment; partially mined current nodes also get `currentTargetProgressBonus`. As of 2.4.3, workers in persistent evasion with no immediate threat periodically call `chooseFleeDirectionTarget()` to look for a safe node ahead along `evadeDx/evadeDy`; candidates behind the worker, outside the flee lane, too far ahead, or behind a high-threat path are rejected. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 ### Enemies
 
@@ -278,7 +278,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 87 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, missile grace behavior, corruption linger, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
+- 89 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, missile grace behavior, corruption linger, live-version polling helpers, admin preview-version generation, manual-override timing, and save/load round-trips.
 
 ## Remaining Work
 

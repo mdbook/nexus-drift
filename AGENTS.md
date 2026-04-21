@@ -147,6 +147,10 @@ Rules for adding achievements:
 - Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.
 - Do not try to fold the recovered lost drone back into `WORKER_SLOTS_BY_UPGRADE`; it is intentionally outside the normal 9-slot invariant.
 
+## Worker Flee-Retarget Invariant
+
+Workers in persistent evasion may retarget to nodes ahead of their flee direction via `chooseFleeDirectionTarget()`, but only when no immediate `evadeThreats` are present. Keep this opportunistic: reject nodes behind the worker, outside the flee lane, too far ahead, or behind a high-threat path. Do not let flee retargeting override active panic survival or recovery behavior.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
@@ -158,7 +162,7 @@ Rules for adding achievements:
 
 ## Test Coverage
 
-87 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, corruption linger, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+89 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, corruption linger, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

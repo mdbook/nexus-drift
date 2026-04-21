@@ -296,6 +296,71 @@ describe("worker evasion commitment", () => {
     expect(miner.evadeTicks).toBeGreaterThan(0);
     expect(miner.task).toBe("Evading");
   });
+
+  it("retargets toward a safe node ahead while coasting out of evasion", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    const oldNode: ResourceNode = {
+      id: 9201, kind: "gold", x: 180, y: 260, size: 24, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const aheadNode: ResourceNode = {
+      ...oldNode,
+      id: 9202,
+      x: 390,
+      y: 260,
+    };
+    state.nodes = [oldNode, aheadNode];
+    miner.x = 260;
+    miner.y = 260;
+    miner.target = oldNode.id;
+    miner.evadeTicks = 12;
+    miner.evadeDx = 1;
+    miner.evadeDy = 0;
+    state.timers.tick = 0;
+
+    stepWorkers(state);
+
+    expect(miner.target).toBe(aheadNode.id);
+  });
+
+  it("does not retarget toward a node when the flee path ahead is threatened", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    const oldNode: ResourceNode = {
+      id: 9301, kind: "gold", x: 180, y: 260, size: 24, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const aheadNode: ResourceNode = {
+      ...oldNode,
+      id: 9302,
+      x: 390,
+      y: 260,
+    };
+    state.nodes = [oldNode, aheadNode];
+    miner.x = 260;
+    miner.y = 260;
+    miner.target = oldNode.id;
+    miner.evadeTicks = 12;
+    miner.evadeDx = 1;
+    miner.evadeDy = 0;
+    state.timers.tick = 0;
+    addEnemy(state, {
+      kind: "brute",
+      x: 360,
+      y: 260,
+      hp: 80,
+      role: "combat",
+    });
+
+    stepWorkers(state);
+
+    expect(miner.target).toBe(oldNode.id);
+  });
 });
 
 describe("ambusher dash", () => {
