@@ -652,7 +652,9 @@ function scoreWorkerNode(
     contested += 1;
     if (other.evadeTicks > 0) evadingContested += 1;
   }
-  score += contested * 90 + evadingContested * WORKER_AI.evadingContestedPenalty;
+  // Quadratic contested penalty — a second worker on the same node is fine,
+  // but a third is a strong deterrent so workers spread across nodes.
+  score += contested * 90 + contested * contested * 55 + evadingContested * WORKER_AI.evadingContestedPenalty;
 
   // Corruption. Miners tolerate; others hard-avoid above threshold.
   if (node.corruption > WORKER_AI.corruptionHardAvoidAbove && agent.kind !== "miner") {
@@ -667,9 +669,9 @@ function scoreWorkerNode(
     score += pathThreat * WORKER_AI.pathSafetyPenalty;
   }
 
-  // Progress bias: small bonus for nodes someone is already actively mining
-  // (finish-the-job) or freshly respawned full-hp nodes.
-  if (node.workTicks > WORKER_AI.progressActiveThreshold) {
+  // Progress bias: only a tiny nudge for partially-mined nodes when they are
+  // also uncontested — avoid encouraging pile-on.
+  if (node.workTicks > WORKER_AI.progressActiveThreshold && contested === 0) {
     score += WORKER_AI.progressActiveBonus;
   }
   if (hpFactor > 0.95) {

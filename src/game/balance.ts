@@ -558,8 +558,8 @@ export const WORKER_AI = {
   progressFreshBonus: -12, // score bonus for freshly respawned nodes (small)
   progressActiveBonus: -20, // score bonus for nodes with recent worker contact (workTicks > threshold)
   progressActiveThreshold: 30,
-  regroupPanicThreshold: 40,
-  regroupWeight: 0.15,
+  regroupPanicThreshold: 70,
+  regroupWeight: 0.05,
   stickyThreshold: 0.85, // only switch target if candidate score is < this * current
   threatMemoryDecay: 0.92,
   threatMemoryGain: 0.18,
