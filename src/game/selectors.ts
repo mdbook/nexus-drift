@@ -1,4 +1,4 @@
-import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL, TURRET_SLOTS_BY_LEVEL } from "@/game/balance";
+import { CITY, CITY_HP, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL, TURRET_SLOTS_BY_LEVEL } from "@/game/balance";
 import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
@@ -42,6 +42,14 @@ export function computeDerived(state: GameState): DerivedState {
     energy: Math.max(0.2, 1 - corruptedByType.energy * CORRUPTION.corruptibleKindsBiasWeight.energy),
   };
 
+  // 3.0.0: city HP modulates energy production. At full HP the energy rate
+  // runs at 100%; at 0 HP it floors at CITY_HP.energyMinRatio. Linear
+  // interpolation between the two keeps the feedback visible without
+  // creating a discontinuous cliff.
+  const cityIntegrityValue = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
+  const energyCityScale =
+    CITY_HP.energyMinRatio + (1 - CITY_HP.energyMinRatio) * cityIntegrityValue;
+
   const rates = {
     gold: (ECONOMY.rates.goldBase + state.upgrades.miner * ECONOMY.rates.goldPerMiner + state.upgrades.drill * ECONOMY.rates.goldPerDrill) * p * threatPenalty,
     ore:
@@ -57,7 +65,8 @@ export function computeDerived(state: GameState): DerivedState {
       (ECONOMY.rates.energyBase + state.upgrades.reactor * ECONOMY.rates.energyPerReactor + state.upgrades.shield * ECONOMY.rates.energyPerShield) *
       p *
       corruptionPenalty.energy *
-      state.eventModifiers.energyRate,
+      state.eventModifiers.energyRate *
+      energyCityScale,
     cores: 0,
     flux: 0,
   };

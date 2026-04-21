@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
-import { COMBAT, CORRUPTION, SCOUT_HP, SENTINEL_HP, TURRET, TURRET_HP } from "@/game/balance";
+import { CITY_HP, COMBAT, CORRUPTION, SCOUT_HP, SENTINEL_HP, TURRET, TURRET_HP } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
@@ -14,7 +14,8 @@ import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movem
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
-import { damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
+import { damageCity, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
+import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
@@ -1243,5 +1244,72 @@ describe("sentinel HP, retreat, and reboot (3.0.0)", () => {
     }
     expect(sentinel.rebootTicks).toBe(0);
     expect(sentinel.hp).toBe(sentinel.maxHp);
+  });
+});
+
+describe("city HP, energy modulation, and regen (3.0.0)", () => {
+  it("damages via funnel, sets flash + lastHostileTick, and clamps at 0", () => {
+    const state = createInitialGameState();
+    state.timers.tick = 500;
+    const maxHp = state.city.maxHp;
+
+    damageCity(state, 200);
+    expect(state.city.hp).toBe(maxHp - 200);
+    expect(state.city.damageTicks).toBe(CITY_HP.damageFlashTicks);
+    expect(state.city.lastHostileTick).toBe(500);
+
+    // Overflow damage clamps to 0, stays at 0 without going negative.
+    damageCity(state, maxHp);
+    expect(state.city.hp).toBe(0);
+
+    damageCity(state, 500);
+    expect(state.city.hp).toBe(0);
+  });
+
+  it("throttles energy rate at low city HP via cityIntegrity lerp", () => {
+    const state = createInitialGameState();
+    state.upgrades.reactor = 3;
+    state.upgrades.shield = 2;
+
+    const fullDerived = computeDerived(state);
+    const fullEnergyRate = fullDerived.rates.energy;
+    expect(fullEnergyRate).toBeGreaterThan(0);
+
+    state.city.hp = 0;
+    const brokenDerived = computeDerived(state);
+    const brokenEnergyRate = brokenDerived.rates.energy;
+
+    // At 0 city HP energy throttles to the floor — CITY_HP.energyMinRatio of
+    // the full rate, give or take floating point.
+    expect(brokenEnergyRate / fullEnergyRate).toBeCloseTo(CITY_HP.energyMinRatio, 5);
+  });
+
+  it("regenerates after an idle quiet period and stays pinned while hostiles are nearby", () => {
+    const state = createInitialGameState();
+    state.timers.tick = 10_000;
+    state.city.hp = state.city.maxHp * 0.5;
+
+    // Drop a combat enemy on top of the city center; stepCity should refresh
+    // lastHostileTick every tick and skip regen.
+    const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    enemy.x = 500;
+    enemy.y = 540;
+    state.enemies.push(enemy);
+
+    const hpBeforeSiege = state.city.hp;
+    for (let i = 0; i < 500; i += 1) {
+      state.timers.tick += 1;
+      stepCity(state);
+    }
+    expect(state.city.hp).toBe(hpBeforeSiege);
+
+    // Pull the enemy out of range — after regenIdleTicks, regen resumes.
+    enemy.x = -5000;
+    enemy.y = -5000;
+    for (let i = 0; i < CITY_HP.regenIdleTicks + 10; i += 1) {
+      state.timers.tick += 1;
+      stepCity(state);
+    }
+    expect(state.city.hp).toBeGreaterThan(hpBeforeSiege);
   });
 });

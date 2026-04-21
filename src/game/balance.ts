@@ -345,6 +345,24 @@ export const SENTINEL_HP = {
   retreatSpeedScale: 1.2,
 } as const;
 
+/**
+ * 3.0.0 — city structural HP, regen, and energy modulation.
+ *
+ * The home district now takes damage when hostile units reach the central
+ * blocks (wiring is Step 4). Reaching very low HP throttles energy output
+ * down to `energyMinRatio` of normal; at full HP energy runs at 100%. Regen
+ * gates on `regenIdleTicks` of no damage so ongoing sieges don't just
+ * heal through themselves. The damage flash + bar overlay is cosmetic.
+ */
+export const CITY_HP = {
+  hpBase: 1000,
+  regenPerTick: 0.35,
+  regenIdleTicks: 180,
+  hostileRadius: 180,
+  energyMinRatio: 0.25,
+  damageFlashTicks: 30,
+} as const;
+
 export const SENTINEL = {
   damageBase: 22,
   damagePerSentinel: 5,

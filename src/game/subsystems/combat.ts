@@ -1,5 +1,5 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, SENTINEL_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
+import { CITY_HP, COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, SENTINEL_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import type { GameState, Scout, Sentinel, Turret } from "@/game/types";
@@ -81,6 +81,23 @@ export function damageSentinel(state: GameState, sentinel: Sentinel, amount: num
     sentinel.targetId = null;
     state.log = pushLog(state.log, "Sentinel downed. Rebuilding chassis.", "combat", state.timers.tick);
   }
+}
+
+/**
+ * 3.0.0 — damage funnel for the home district.
+ *
+ * Mirrors the entity damage helpers but operates on `state.city` rather than
+ * a list entry. Sets `damageTicks` for the visual flash, updates
+ * `lastHostileTick` to gate regen (stepCity checks `tick - lastHostileTick`
+ * against CITY_HP.regenIdleTicks), and clamps hp at 0. The city never
+ * "reboots" — its HP stays at 0 until regen gradually lifts it back.
+ */
+export function damageCity(state: GameState, amount: number) {
+  if (amount <= 0) return;
+
+  state.city.hp = Math.max(0, state.city.hp - amount);
+  state.city.damageTicks = CITY_HP.damageFlashTicks;
+  state.city.lastHostileTick = state.timers.tick;
 }
 
 export function resolveEnemyDeaths(state: GameState) {

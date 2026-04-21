@@ -4,7 +4,7 @@ import { stepAutobuy } from "@/game/subsystems/autobuy";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat, stepZapperFire, resolveEnemyDeaths } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
-import { stepEconomy } from "@/game/subsystems/economy";
+import { stepCity, stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
 import { stepMining } from "@/game/subsystems/mining";
 import { stepEnemies, stepLostDrone, stepTourist, stepWorkers } from "@/game/subsystems/movement";
@@ -51,6 +51,10 @@ export function advanceGame(prev: GameState): GameState {
   // 11. Events / Achievements — read final state so unlock conditions are accurate.
 
   stepEconomy(state);
+  // 3.0.0: stepCity runs right after economy so the damage flash ticks down
+  // and idle regen flows in. damageCity writes set lastHostileTick, so the
+  // regen gate is computed against the tick advanced at the top of this fn.
+  stepCity(state);
   stepWorkerSlots(state);
   stepSpawns(state);
   stepWorkers(state);

@@ -625,6 +625,48 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
 
       {renderHomeDistrict(game, district, dayFactor)}
 
+      {(() => {
+        // 3.0.0: city damage overlay + HP bar. A soft red wash layers over the
+        // home district while damageTicks is ticking down; a slim HP bar along
+        // the top of the home band appears whenever HP is below max.
+        const cityIntegrity = game.city.maxHp > 0 ? clamp(game.city.hp / game.city.maxHp, 0, 1) : 1;
+        const showCityBar = cityIntegrity < 1 - 1e-3;
+        const cityFlash = game.city.damageTicks > 0
+          ? Math.min(0.45, game.city.damageTicks / 30 * 0.45)
+          : 0;
+        const barWidth = 140;
+        const barX = WORLD_W / 2 - barWidth / 2;
+        const barY = 512;
+        return (
+          <g>
+            {cityFlash > 0 && (
+              <rect
+                x={0}
+                y={500}
+                width={WORLD_W}
+                height={WORLD_H - 500}
+                fill={`rgba(255,80,80,${cityFlash.toFixed(2)})`}
+                style={{ pointerEvents: "none" }}
+              />
+            )}
+            {showCityBar && (
+              <>
+                <rect x={barX} y={barY} rx="3" ry="3" width={barWidth} height="4" fill="rgba(0,0,0,0.5)" />
+                <rect
+                  x={barX}
+                  y={barY}
+                  rx="3"
+                  ry="3"
+                  width={barWidth * cityIntegrity}
+                  height="4"
+                  fill={cityIntegrity < 0.35 ? "rgba(255,120,100,0.92)" : "rgba(160,220,255,0.82)"}
+                />
+              </>
+            )}
+          </g>
+        );
+      })()}
+
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;
         return (
