@@ -271,8 +271,9 @@ export const CORRUPTION = {
 } as const;
 
 export const COMBAT = {
-  detectionRadius: 26,
+  detectionRadius: 32,
   minPerAttackerDamage: 0.6,
+  surroundBonusPerAttacker: 0.32,
   mitigation: {
     baselineShield: 0.95,
     baselineTurret: 0.12,

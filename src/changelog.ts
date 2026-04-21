@@ -16,6 +16,28 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.4",
+    badge: "Surround Pressure",
+    summary:
+      "Combat follow-up for the worker commitment pass. Workers now take harder punishment when they get properly boxed in, so overlapping enemies are less likely to let them slip free of a surround without taking serious damage.",
+    sections: [
+      {
+        title: "Combat Pressure",
+        items: [
+          "Worker combat detection widened slightly so close-range contact starts registering sooner.",
+          "Incoming worker damage now scales up when multiple attackers are already in contact, making true surround situations much harder to escape cleanly.",
+          "The multi-enemy pressure change stays scoped to close combat; it does not alter worker flee logic or node selection rules.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added coverage for heavier multi-attacker worker damage.",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.3",
     badge: "Flee Routing",
     summary:

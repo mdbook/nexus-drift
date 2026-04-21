@@ -155,6 +155,10 @@ Workers in persistent evasion may retarget to nodes ahead of their flee directio
 
 Harvesting workers are intentionally stubborn under light pressure. While at a node, one or two nearby enemies should not trigger evasion unless the worker has actually taken damage (`damageTicks > 0`). Three or more nearby enemies still force early evasion. Keep this rule scoped to active node work; workers that are already recovering, disabled, or away from a node should use the normal evasion logic.
 
+## Surround Combat Pressure
+
+Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
@@ -166,7 +170,7 @@ Harvesting workers are intentionally stubborn under light pressure. While at a n
 
 ## Test Coverage
 
-91 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+92 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

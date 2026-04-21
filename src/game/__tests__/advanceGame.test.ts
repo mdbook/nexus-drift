@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
-import { AUTO_TICK } from "@/game/constants";
-import { CORRUPTION, TURRET } from "@/game/balance";
+import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
+import { COMBAT, CORRUPTION, TURRET } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
+import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
@@ -698,6 +699,38 @@ describe("zapper enemy", () => {
     // Run until combat fires (every COMBAT_TICK=12 ticks) and kills the worker
     const after = runTicks(state, 13);
     expect(after.agents[0].disabledTicks).toBe(0);
+  });
+
+  it("surrounded workers take materially more damage from multiple nearby attackers", () => {
+    const soloState = createInitialGameState();
+    const swarmState = createInitialGameState();
+    soloState.timers.tick = COMBAT_TICK;
+    swarmState.timers.tick = COMBAT_TICK;
+
+    const soloWorker = soloState.agents[0];
+    const swarmWorker = swarmState.agents[0];
+    soloWorker.hp = 100;
+    swarmWorker.hp = 100;
+
+    const soloRaider = spawnEnemy(soloState.rng, soloState.nextEnemyId++, 0, "raider");
+    soloRaider.x = soloWorker.x;
+    soloRaider.y = soloWorker.y;
+    soloState.enemies.push(soloRaider);
+
+    const attackerKinds = ["raider", "mite", "wisp"] as const;
+    attackerKinds.forEach((kind, index) => {
+      const enemy = spawnEnemy(swarmState.rng, swarmState.nextEnemyId++, 0, kind);
+      enemy.x = swarmWorker.x + index * 3;
+      enemy.y = swarmWorker.y + index * 2;
+      swarmState.enemies.push(enemy);
+    });
+
+    stepCombat(soloState);
+    stepCombat(swarmState);
+
+    expect(soloWorker.hp).toBeLessThan(100);
+    expect(swarmWorker.hp).toBeLessThan(soloWorker.hp);
+    expect(100 - swarmWorker.hp).toBeGreaterThan((100 - soloWorker.hp) * (1 + COMBAT.surroundBonusPerAttacker));
   });
 
   it("migration adds disabledTicks fallback to existing saves", () => {
