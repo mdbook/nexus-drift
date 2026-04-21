@@ -16,6 +16,58 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    badge: "AI Overhaul",
+    summary:
+      "Workers, enemies, sentinels, and scouts all picked up proper judgement. Workers factor path threat, corruption tolerance, and node progress into target selection and rotate escape vectors away from walls when cornered. Enemies split into archetypes — flankers arc in, ambushers stalk then dash, ghosts reposition behind workers during cloak, and same-squad attackers spread across bearing buckets for emergent flanking. Sentinels now intercept between threats and their worker victims, and scouts weight corruptor kills by corruption rate while alternating between finish-the-node and stop-the-bleed cleanse priorities.",
+    sections: [
+      {
+        title: "Worker AI",
+        items: [
+          "Target selection now scores nodes by path safety (sampled along start/midpoint/destination), progress bias (freshly respawned or already being mined), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), and contested-by-evading-workers penalty.",
+          "Sticky retargeting keeps workers on their current node unless a candidate scores materially better, eliminating oscillation between two near-equal options.",
+          "Evasion adds anti-corner logic — when a projected flight path would hit a wall, the escape vector rotates to the lowest-threat candidate heading.",
+          "Panicked workers drift toward the centroid of non-evading teammates so fugitives reconverge on home rather than scattering into ambushes.",
+          "Per-worker threat memory (EMA of nearby enemy weight) drives the regroup trigger and scales panic with sustained exposure.",
+        ],
+      },
+      {
+        title: "Enemy Archetypes",
+        items: [
+          "Direct archetype (mite, rusher, brute) pursues straight; brutes now anchor and ignore crowding so they march through groups instead of orbiting.",
+          "Flankers (raider, wisp) aim at the worker's predicted future position, blending a tangential component so they arrive along an arc.",
+          "Ambushers (sapper) approach slowly until they close inside the dash trigger, then burst at ~1.8× speed for a short window.",
+          "Ghosts (phantom) reposition behind the worker's movement vector during the cloaked portion of the cycle.",
+          "Same-squad enemies (spawned within the same tick bucket) share a squad id and pick bearing buckets with the fewest competitors, producing emergent flanking.",
+          "Target selection is archetype-aware — direct archetypes prefer wounded or stationary workers; flankers and ambushers prefer isolated, unalert workers; zappers prefer targets with fewest nearby allies and fewest hostile competitors.",
+        ],
+      },
+      {
+        title: "Sentinels",
+        items: [
+          "Target priority weighs the threat's distance to the nearest worker, not just distance to the sentinel. A brute near a worker outranks a closer brute that's drifting alone.",
+          "Move to an intercept point between the threat and that threat's worker victim (predicting worker position forward by SENTINEL_AI.interceptLeadTicks) so sentinels feel like bodyguards instead of chasers.",
+          "Patrol position blends homeX with the active-worker centroid so late-game workers deployed off-center still receive cover.",
+        ],
+      },
+      {
+        title: "Scouts",
+        items: [
+          "Corruptor scoring now multiplies by the corruptor's per-tick rate (blights count extra) and the corruption level of the node they're attached to — a blight on a 95%-corrupt node is now a priority kill.",
+          "Node cleansing alternates between finish-job bias (nodes near the cleanse threshold) and stop-bleed bias (nodes actively being corrupted) based on which pile is larger.",
+          "Pair-up routes a second scout onto any node over the pair threshold once three or more scouts are live, so multi-scout synergy actually fires on the worst nodes.",
+        ],
+      },
+      {
+        title: "Balance & Save",
+        items: [
+          "New balance blocks: AI_THREAT, ENEMY_ARCHETYPE, ENEMY_AI, WORKER_AI, SENTINEL_AI, SCOUT_AI — all existing constants preserved.",
+          "Schema bumped to 5; old saves migrate in place with default values for the new entity fields (ResourceNode.workTicks, Agent.threatMemory, Enemy.archetype/squadId/dashTicks).",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.3.3",
     badge: "Signal Trim",
     summary:

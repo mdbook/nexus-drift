@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **2.3.3**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **2.4.0**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -12,7 +12,7 @@ Current version: **2.3.3**. The in-game changelog is at `src/changelog.ts` and o
 - The subsystem execution order inside `advanceGame.ts` is load-bearing and is fully documented with per-step rationale in that file. Do not reshuffle without reading those comments.
 - Simulation logic is split across focused modules in `src/game/subsystems/`.
 - `GameState` carries a seeded `Rng` instance and `citySeed`, so simulation randomness is deterministic once a run starts. All gameplay randomness must flow through the seeded `Rng`, never `Math.random()`.
-- Save files carry a `schemaVersion` field (currently `3`). `migrateGameState()` always stamps the current version on load and handles v1/v2 saves gracefully. The `SCHEMA_VERSION` constant lives in `factories.ts`.
+- Save files carry a `schemaVersion` field (currently `5`). `migrateGameState()` always stamps the current version on load and handles older saves gracefully. The `SCHEMA_VERSION` constant lives in `factories.ts`. v5 added AI fields: `ResourceNode.workTicks`, `Agent.threatMemory`, `Enemy.archetype`, `Enemy.squadId`, optional `Enemy.dashTicks` — all populated with `?? default` fallbacks during migration.
 - Presentation-only calculations live in `selectors.ts` and are exposed to React as derived state. Do not put derived calculations inside subsystems.
 - React rendering sits on top of the sim via `useGameLoop()`: `requestAnimationFrame` + fixed-tick accumulator, pauses on hidden tabs, autosaves every 30 seconds, and publishes a live field snapshot plus a short-throttled UI snapshot (`125ms`) so sidebar/chrome rendering is not locked to the full sim cadence.
 
@@ -77,11 +77,23 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 
 `WORKER_SLOTS_BY_UPGRADE` in `balance.ts` maps upgrade level → slot eligibility, `WORKER_SLOTS_BY_LEVEL` maps sector level → late-game slot eligibility, and `WORKER_SLOT_UNLOCK_RESOURCE_COSTS` adds the flux/core surcharge for the level-3 and level-6 worker-track purchases. `stepWorkerSlots()` in `subsystems/workers.ts` reconciles active flags against the minimum of the upgrade gate and the level gate each tick (called after `stepEconomy`, before `stepSpawns`).
 
-Workers pick targets autonomously via a scored target-selection function in `factories.ts`. They evade threats with sticky enter/exit hysteresis, recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
+Workers pick targets autonomously via a scored target-selection function in `factories.ts` (`chooseWorkerTarget` / `scoreWorkerNode`). Scoring factors in distance, kind preference, path threat (sampled at start/midpoint/destination via `threatAlongPath`), corruption tolerance (non-miners hard-avoid heavily corrupted nodes), node progress (`workTicks` bonus for nodes actively being mined), and a contested-by-evading-workers penalty. Sticky retargeting keeps workers on their current node unless a candidate scores materially better (see `WORKER_AI.stickyThreshold`). Evasion uses sticky enter/exit hysteresis, adds an anti-corner rotation when the projected flight path would hit a wall, and blends in a regroup vector toward the non-evading worker centroid when panic is high. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 ### Enemies
 
-**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`, `zapper`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death. Zappers (tier 7+) hold at firing range and fire energy bolts (`tag: "zapper-bolt"`) that disable the struck target for 210 ticks (~7s); disabled workers freeze with task `"Disabled"` and disabled turrets skip firing. **Leeches (tier 6+) bypass worker targeting entirely and drive directly for the home district** to activate their gold/energy drain; they no longer pursue the nearest worker — their movement goal is a hardcoded home anchor (`HOME_DISTRICT_X = 500`, `HOME_DISTRICT_Y = 490`) in `movement.ts`.
+**Combat** (`mite`, `raider`, `wisp`, `rusher`, `brute`, `sapper`, `leech`, `phantom`, `zapper`): pursue workers, apply pressure, targeted by turrets. Phantoms cycle cloak and disappear from turret targeting while hidden. Sappers detonate near workers. Brutes and phantoms yield Core fragments on death. Zappers (tier 7+) hold at firing range and fire energy bolts (`tag: "zapper-bolt"`) that disable the struck target for 210 ticks (~7s); disabled workers freeze with task `"Disabled"` and disabled turrets skip firing. **Leeches (tier 6+) bypass worker targeting entirely and drive directly for the home district** to activate their gold/energy drain — their movement goal is a hardcoded home anchor (`HOME_DISTRICT_X = 500`, `HOME_DISTRICT_Y = 490`) in `movement.ts`.
+
+**Archetypes** (2.4.0+). Every enemy carries an `archetype` field derived from `ENEMY_ARCHETYPE` in `balance.ts`, plus a `squadId` bucketed by `spawnTick / ENEMY_AI.squadBucketTicks` used for emergent group flanking. Target selection in `targeting.ts` (`pickEnemyTarget`) is archetype-aware:
+
+- **direct** (mite, rusher, brute) — straight-line pursuit; prefer wounded or stationary workers; brute ignores crowding so it anchors through groups.
+- **flanker** (raider, wisp) — aim at the worker's predicted position (`target + workerVelocity * ENEMY_AI.flankerLeadTicks`) with a tangent blend so the arrival arcs in; prefer isolated, unalert workers.
+- **ambusher** (sapper) — approach at `ambusherApproachScale`; once inside `ambusherDashTrigger`, flip on `dashTicks` for a `ambusherDashDuration`-tick burst at `ambusherDashSpeedScale` (1.8×).
+- **ghost** (phantom) — while cloaked, reposition behind the worker's movement vector by `ghostRepositionOffset` px so it uncloaks behind the victim.
+- **skirmisher** (zapper) — keeps the existing hold-distance logic; picks targets with fewest nearby allies AND fewest nearby hostiles (avoid dogpiling).
+- **driver** (leech) — existing home-district rush, unchanged.
+- **infester** (corruptor, blight) — existing node-attach behaviour, unchanged.
+
+Squadmates sharing a target spread across `ENEMY_AI.squadBearingBuckets` (6) bearing slices; each enemy prefers the bucket with fewest same-squad competitors, producing emergent flanking without an explicit coordinator.
 
 **Corruptors** (`corruptor`, `blight`): never attack workers. Never target gold nodes. Prefer ore/gems/energy. Attach while corrupting and reduce economic output. Blight is the heavier variant with early scout resistance.
 
@@ -111,11 +123,11 @@ Workers and turrets carry `disabledTicks: number`. While > 0, the entity is iner
 
 ### Scouts
 
-Dedicated anti-corruption units. Priority: live corruptors → corrupted nodes (all the way down to the cleanse threshold) → patrol home. Not mobile turrets. Multi-scout synergy: a second scout on the same node purges faster than the sum of two solo rates. Four physical scout slots in state; activation gated by upgrade level.
+Dedicated anti-corruption units. Priority: live corruptors → corrupted nodes → patrol home. Not mobile turrets. Corruptor targeting (2.4.0+) is rate-weighted — a corruptor's per-tick corruption rate (blights score higher than regular corruptors) is multiplied by the attached node's current corruption level, so a blight on a 95%-corrupt node outranks a fresh corruptor. Node cleansing alternates between a **finish-job bias** (nodes within `SCOUT_AI.finishNodeThreshold` of cleanse) and a **stop-bleed bias** (nodes with `corruptedBy != null`) based on which pile is larger. **Pair-up** routes the second live scout onto any node over `SCOUT_AI.pairUpCorruptionThreshold` once at least `SCOUT_AI.pairUpScoutCount` scouts are live, so multi-scout synergy fires on the worst nodes automatically. Four physical scout slots in state; activation gated by upgrade level.
 
 ### Sentinels
 
-Heavy late-game ground mechs. Patrol midfield when idle. Priority: leech > brute > sapper > general combat. Two physical sentinel slots; activation gated by upgrade level.
+Heavy late-game ground mechs. Target priority weights the threat's distance to its nearest worker (not just distance to the sentinel) plus a priority bonus for `leech > brute > sapper > general combat`. A brute near a worker outranks a closer brute drifting alone. Active sentinels move to an **intercept point** between the threat and the worker the threat is targeting (lerp factor `SENTINEL_AI.interceptLerp`, predicting worker position forward by `interceptLeadTicks`) so they feel like bodyguards rather than chasers. Patrol position blends `homeX` with the active-worker centroid so off-center late-game deployments still get cover. Two physical sentinel slots; activation gated by upgrade level.
 
 ### Mining
 
@@ -185,7 +197,7 @@ The home district skyline evolves with progression and upgrade investment. Matur
 
 ### Persistence And Idle UX
 
-Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 4`; `migrateGameState()` handles older saves by stamping current schema on load and backfilling the newer interaction fields: `stats.eventTagsInspected`, `stats.touristClicks`, `stats.touristPassesClicked`, `touristWorker.passId`, `touristWorker.lastClickedPassId`, `touristWorker.squishTicks`, `lostDrone`, and `activeEvents[].revertOnExpire`. Existing saves with 3 agents still get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
+Autosaves to localStorage every 30 seconds. Saves carry `schemaVersion: 5`; `migrateGameState()` handles older saves by stamping current schema on load and backfilling the newer interaction fields: `stats.eventTagsInspected`, `stats.touristClicks`, `stats.touristPassesClicked`, `touristWorker.passId`, `touristWorker.lastClickedPassId`, `touristWorker.squishTicks`, `lostDrone`, and `activeEvents[].revertOnExpire`. Existing saves with 3 agents still get `active: true` defaulted on migration. Hidden tabs pause the accumulator — no catch-up burst on refocus. `localStorage["nexusDriftSave"]` is the active save slot.
 
 The app shell separately polls `/version` about every 5 minutes (and when the tab regains focus), extracts a flat semver from the response body, and compares it to `CURRENT_VERSION`. When the live version is newer, `App.tsx` shows a banner with `Refresh`, `Close`, and session-only `Don't Show Again`. The ignore state is intentionally ephemeral and is not part of save data or localStorage migration. The hidden admin panel also has a `Show Update Banner` action that forces the same banner path open using a preview patch version, so QA can exercise the refresh/dismiss controls without waiting for a deploy.
 

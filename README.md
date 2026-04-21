@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.3.3` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `2.4.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -20,7 +20,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### Combat & Enemies
 
-- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers
+- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers — each kind now maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking when multiple hostiles share a target
 - Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
 - Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
 - Turrets fire homing missiles that travel visibly and steer toward their target; if that target dies first, the missile now fizzles instead of rehoming onto a different enemy. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
