@@ -1,4 +1,4 @@
-import { ENEMY_SPECIAL, FLUX, SCOUT } from "@/game/balance";
+import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
@@ -23,23 +23,49 @@ function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number;
 export function stepScouts(state: GameState) {
   const corruptors = state.enemies.filter((enemy) => enemy.role === "corruptor");
   const corruptedNodes = [...state.nodes]
-    .filter((node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3))
-    .sort((a, b) => b.corruption - a.corruption || a.id - b.id);
+    .filter((node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3));
   const liveScouts = Math.min(
     state.scouts.length,
     state.upgrades.scout,
     SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0)
   );
 
+  // Node scoring combines finish-job bias (close to cleanse threshold) with
+  // stop-bleed bias (actively being corrupted). We alternate emphasis based
+  // on which pile is larger so both priorities get airtime.
+  const activelyCorrupting = corruptedNodes.filter(
+    (node) => node.corruptedBy != null && node.corruption < 100
+  ).length;
+  const finishable = corruptedNodes.filter(
+    (node) => node.corruption <= SCOUT_AI.finishNodeThreshold
+  ).length;
+  const preferFinish = finishable >= activelyCorrupting;
+  const rankedNodes = [...corruptedNodes].sort((a, b) => {
+    const aFinish = a.corruption <= SCOUT_AI.finishNodeThreshold ? SCOUT_AI.finishNodeBias : 0;
+    const bFinish = b.corruption <= SCOUT_AI.finishNodeThreshold ? SCOUT_AI.finishNodeBias : 0;
+    const aBleed = a.corruptedBy != null && a.corruption < 100 ? SCOUT_AI.stopBleedBias : 0;
+    const bBleed = b.corruptedBy != null && b.corruption < 100 ? SCOUT_AI.stopBleedBias : 0;
+    const aScore = a.corruption - (preferFinish ? aFinish * 2 : aFinish) - (preferFinish ? aBleed : aBleed * 2);
+    const bScore = b.corruption - (preferFinish ? bFinish * 2 : bFinish) - (preferFinish ? bBleed : bBleed * 2);
+    return bScore - aScore || a.id - b.id;
+  });
+
+  // Pair-up: if we have enough scouts and a node is over the pair threshold,
+  // let the second scout stack there instead of moving on.
+  const pairUpEnabled = liveScouts >= SCOUT_AI.pairUpScoutCount;
+  const pairUpNodeId = pairUpEnabled
+    ? rankedNodes.find((node) => node.corruption >= SCOUT_AI.pairUpCorruptionThreshold)?.id ?? null
+    : null;
+
   // Pre-pass: determine which corrupted node each active scout without a corruptor target would sweep.
-  // This lets us compute synergy multipliers before the main loop applies cleanse.
   const nodeAssignCounts = new Map<number, number>(); // nodeId → number of scouts assigned
-  if (corruptors.length === 0 && corruptedNodes.length > 0) {
+  if (corruptors.length === 0 && rankedNodes.length > 0) {
     for (let i = 0; i < liveScouts; i++) {
-      // Mirror the assignment logic below: scouts without a prior corruptor target get a node.
-      // If there are fewer corrupted nodes than live scouts, extra scouts pile onto the last node.
-      const nodeIndex = Math.min(i, corruptedNodes.length - 1);
-      const nodeId = corruptedNodes[nodeIndex].id;
+      let nodeIndex = Math.min(i, rankedNodes.length - 1);
+      if (i === 1 && pairUpNodeId !== null) {
+        nodeIndex = rankedNodes.findIndex((node) => node.id === pairUpNodeId);
+      }
+      const nodeId = rankedNodes[nodeIndex].id;
       nodeAssignCounts.set(nodeId, (nodeAssignCounts.get(nodeId) ?? 0) + 1);
     }
   }
@@ -71,13 +97,27 @@ export function stepScouts(state: GameState) {
     }
 
     const currentTarget = corruptors.find((enemy) => enemy.id === scout.targetId);
+    // Rate-weighted corruptor scoring: blights deal more corruption per tick
+    // than regular corruptors, and corruptors near nodes that are close to
+    // overflow are higher-leverage to kill. Distance still matters.
+    const scoredCorruptors = corruptors
+      .map((enemy) => {
+        const rate =
+          enemy.kind === "blight"
+            ? ENEMY_SPECIAL.blight.corruptionRatePerTick
+            : 0.12;
+        const attachedNode = enemy.targetNodeId != null
+          ? state.nodes.find((node) => node.id === enemy.targetNodeId)
+          : undefined;
+        const urgency = attachedNode ? 1 + attachedNode.corruption / 100 : 1;
+        const d = dist(scout.x, scout.y, enemy.x, enemy.y);
+        const score = d * SCOUT_AI.distanceScoreWeight - rate * urgency * SCOUT_AI.rateScoreWeight;
+        return { enemy, score };
+      })
+      .sort((a, b) => a.score - b.score);
     const interceptTarget =
       currentTarget ??
-      [...corruptors].sort((a, b) => {
-        const aDistance = dist(a.x, a.y, scout.x, scout.y);
-        const bDistance = dist(b.x, b.y, scout.x, scout.y);
-        return aDistance - bDistance;
-      })[Math.min(index, Math.max(0, corruptors.length - 1))];
+      scoredCorruptors[Math.min(index, Math.max(0, scoredCorruptors.length - 1))]?.enemy;
 
     if (interceptTarget) {
       scout.targetId = interceptTarget.id;
@@ -133,11 +173,17 @@ export function stepScouts(state: GameState) {
       return;
     }
 
-    // Route to corrupted node. If no uncontested node exists, double-up on the most-corrupted one
-    // rather than patrolling — cooperative cleanse is intentional.
-    const sweepNode = corruptedNodes.length > 0
-      ? corruptedNodes[Math.min(index, corruptedNodes.length - 1)]
-      : null;
+    // Route to corrupted node. Pair-up logic routes the second live scout to
+    // an over-threshold node; beyond that we spread across rankedNodes.
+    let sweepNode = null;
+    if (rankedNodes.length > 0) {
+      if (index === 1 && pairUpNodeId !== null) {
+        sweepNode = rankedNodes.find((node) => node.id === pairUpNodeId) ?? null;
+      }
+      if (!sweepNode) {
+        sweepNode = rankedNodes[Math.min(index, rankedNodes.length - 1)];
+      }
+    }
 
     if (sweepNode) {
       scout.targetId = null;
