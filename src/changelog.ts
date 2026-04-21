@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "2.4.3",
     badge: "Flee Routing",
     summary:
-      "Worker routing follow-up for the commitment pass. When a worker has been pushed off a node and is coasting through the last safe part of an evasion path, it now looks for a useful resource node ahead instead of blindly returning to the abandoned assignment.",
+      "Worker routing follow-up for the commitment pass. When a worker has been pushed off a node and is coasting through the last safe part of an evasion path, it now looks for a useful resource node ahead instead of blindly returning to the abandoned assignment. Workers are also a little more stubborn at active nodes: light enemy pressure no longer forces a retreat until damage actually lands, while target selection now penalizes nodes with clustered hostiles nearby.",
     sections: [
       {
         title: "Worker Routing",
@@ -27,12 +27,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Workers in persistent evasion now scan along their flee direction once immediate threats clear.",
           "If a safe node is ahead within the flee lane, the worker can retarget to it while still moving away, reducing wasted travel after being forced off a resource.",
           "The scan rejects nodes behind the worker, far off the flee lane, too far ahead, or behind a threatened path, so panic movement still prioritizes survival.",
+          "Harvesting workers now hold position under one or two nearby enemies until they actually take damage; three or more nearby enemies still force an early retreat.",
+          "Worker target scoring now adds an explicit close-enemy count around each node, so a crowded resource becomes less attractive even before the path threat score dominates.",
         ],
       },
       {
         title: "Tests",
         items: [
-          "Added worker-AI coverage for safe flee-direction retargeting and blocked-path refusal.",
+          "Added worker-AI coverage for safe flee-direction retargeting, blocked-path refusal, stubborn harvesting under light pressure, swarm-triggered retreat, and crowded-node avoidance.",
         ],
       },
     ],

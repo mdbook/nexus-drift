@@ -604,6 +604,9 @@ export const WORKER_AI = {
   progressActiveBonus: -34, // score bonus for nodes with recent worker contact (workTicks > threshold)
   currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
+  nodeThreatRadius: 82,
+  nodeThreatCrowdPenalty: 44,
+  harvestingStubbornEnemyLimit: 2,
   fleeTargetLookahead: 290, // max forward distance considered while persistent evasion is coasting
   fleeTargetMinForward: 48,
   fleeTargetLateralLimit: 125,

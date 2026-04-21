@@ -258,7 +258,7 @@ describe("sticky retarget", () => {
 });
 
 describe("worker evasion commitment", () => {
-  it("holds a harvesting worker until hostiles enter the trimmed harvesting radius", () => {
+  it("holds a harvesting worker under one nearby enemy until actual damage lands", () => {
     const state = baseState();
     const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
     expect(miner).toBeTruthy();
@@ -293,8 +293,80 @@ describe("worker evasion commitment", () => {
     rusher.y = node.y;
 
     stepWorkers(state);
+    expect(miner.evadeTicks).toBe(0);
+    expect(miner.task).not.toBe("Evading");
+
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.evadeTicks = 0;
+    miner.evadeDx = 0;
+    miner.evadeDy = -1;
+    miner.damageTicks = 1;
+
+    stepWorkers(state);
     expect(miner.evadeTicks).toBeGreaterThan(0);
     expect(miner.task).toBe("Evading");
+  });
+
+  it("flees a harvesting node before damage when three enemies crowd it", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    const node: ResourceNode = {
+      id: 9151, kind: "gold", x: 260, y: 260, size: 30, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    state.nodes = [node];
+    miner.x = node.x;
+    miner.y = node.y;
+    miner.target = node.id;
+    state.timers.tick = 1;
+    for (let i = 0; i < 3; i += 1) {
+      addEnemy(state, {
+        kind: "rusher",
+        x: node.x + WORKER_AI.harvestingEvasionRadius - 4,
+        y: node.y + i * 4,
+        hp: 30,
+        role: "combat",
+      });
+    }
+
+    stepWorkers(state);
+
+    expect(miner.evadeTicks).toBeGreaterThan(0);
+    expect(miner.task).toBe("Evading");
+  });
+
+  it("avoids choosing a node crowded by nearby enemies", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active)!;
+    expect(miner).toBeTruthy();
+    for (const a of state.agents) if (a.id !== miner.id) a.active = false;
+    miner.x = 500;
+    miner.y = 260;
+    miner.target = null;
+    const crowdedNode: ResourceNode = {
+      id: 9181, kind: "gold", x: 360, y: 260, size: 24, hp: 40, maxHp: 40,
+      pulse: 0, corruption: 0, corrupted: false, corruptedBy: null, spawnTick: 0, workTicks: 0,
+    };
+    const openNode: ResourceNode = {
+      ...crowdedNode,
+      id: 9182,
+      x: 640,
+    };
+    state.nodes = [crowdedNode, openNode];
+    for (let i = 0; i < 3; i += 1) {
+      addEnemy(state, {
+        kind: "mite",
+        x: crowdedNode.x + i * 6,
+        y: crowdedNode.y + 8,
+        hp: 30,
+        role: "combat",
+      });
+    }
+
+    expect(chooseWorkerTarget(state, miner)).toBe(openNode.id);
   });
 
   it("retargets toward a safe node ahead while coasting out of evasion", () => {

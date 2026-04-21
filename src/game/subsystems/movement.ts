@@ -123,8 +123,13 @@ export function stepWorkers(state: GameState) {
         return d < threatRadius ? { enemy, d } : null;
       })
       .filter(Boolean) as Array<{ enemy: Enemy; d: number }>;
+    const shouldHoldNodeUnderLightPressure =
+      atNode &&
+      agent.damageTicks <= 0 &&
+      evadeThreats.length > 0 &&
+      evadeThreats.length <= WORKER_AI.harvestingStubbornEnemyLimit;
 
-    if (evadeThreats.length > 0) {
+    if (evadeThreats.length > 0 && !shouldHoldNodeUnderLightPressure) {
       let vx = 0;
       let vy = 0;
 

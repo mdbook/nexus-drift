@@ -1,5 +1,5 @@
 import { WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
-import { threatAlongPath } from "@/game/subsystems/threatField";
+import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
 
@@ -71,6 +71,11 @@ function scoreWorkerNode(
   if (enemies.length > 0) {
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
     score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale;
+
+    const nodeThreats = countThreats(node.x, node.y, WORKER_AI.nodeThreatRadius, enemies);
+    score +=
+      nodeThreats * WORKER_AI.nodeThreatCrowdPenalty +
+      nodeThreats * nodeThreats * WORKER_AI.nodeThreatCrowdPenalty * 0.25;
   }
 
   // Region bias — prefer nodes inside this worker kind's home territory.
