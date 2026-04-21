@@ -18,6 +18,7 @@ export function computeDerived(state: GameState): DerivedState {
     leech: 0,
     phantom: 0,
     zapper: 0,
+    warden: 0,
   };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 
@@ -83,6 +84,10 @@ export function computeDerived(state: GameState): DerivedState {
   const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
   const activeSentinels = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
+  const activeMissileSilos = state.missileSilos.filter((silo) => silo.active).length;
+  const brokenTurrets = state.turrets.filter((turret) => turret.brokenTicks > 0).length;
+  const corruptedWorkers = state.agents.filter((agent) => agent.corrupted).length;
+  const cityIntegrity = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
   const hostilePressure = combatThreats >= DEFENSE.hostilePressureEnemyThreshold || colonyHealth < DEFENSE.hostilePressureColonyHealth;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
@@ -169,5 +174,9 @@ export function computeDerived(state: GameState): DerivedState {
     cityBuildProgress,
     prestigeComboBonus,
     progression,
+    activeMissileSilos,
+    brokenTurrets,
+    corruptedWorkers,
+    cityIntegrity,
   };
 }

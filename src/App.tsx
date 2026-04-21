@@ -12,6 +12,7 @@ import {
   Hexagon,
   Pickaxe,
   Radar,
+  Rocket,
   Shield,
   Swords,
   Zap,
@@ -100,6 +101,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   sentinel: Crosshair,
   archive: Bot,
   focusedBeam: Zap,
+  missileLauncher: Rocket,
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4];

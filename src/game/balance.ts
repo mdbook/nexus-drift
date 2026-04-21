@@ -13,6 +13,7 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
   sentinel: { baseCost: 800, growth: 1.35 },
   archive: { baseCost: 0, growth: 1.30 },
   focusedBeam: { baseCost: 600, growth: 1.35 },
+  missileLauncher: { baseCost: 2200, growth: 1.32 },
 };
 
 export const WORKER = {
@@ -78,6 +79,7 @@ export const WORKER_BLOCKING = {
     leech: 16,
     phantom: 17,
     zapper: 14,
+    warden: 18,
   } satisfies Record<EnemyKind, number>,
   softBuffer: 10,
   speedPenaltyPerEnemy: 0.13,
@@ -104,6 +106,8 @@ export const ENEMY_STATS: Record<
   phantom: { hpBase: 55, hpWave: 5, speedBase: 1.3, speedWave: 0.018 },
   // Zapper: 10 HP replaced by 20-HP shield; remaining 35 base HP.
   zapper: { hpBase: 35, hpWave: 4, speedBase: 0.75, speedWave: 0.01 },
+  // Warden: late-game void infester. Tanky so it survives to attach, but slow.
+  warden: { hpBase: 140, hpWave: 6, speedBase: 0.82, speedWave: 0.012 },
 };
 
 export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
@@ -118,6 +122,7 @@ export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {
   leech: 2.8,
   phantom: 2.6,
   zapper: 2.4,
+  warden: 4.5,
 };
 
 export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
@@ -132,6 +137,7 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
   leech: 2,
   phantom: 5,
   zapper: 0,
+  warden: 0,
 };
 
 /**
@@ -540,6 +546,7 @@ export const AI_THREAT = {
     zapper: 3,
     corruptor: 0,
     blight: 0,
+    warden: 3.5,
   } as Record<EnemyKind, number>,
   falloffFloor: 900, // px² — distance² is max()-clamped to this before division
   highThreat: 0.045, // above this threat sample, a point is considered "dangerous"
@@ -566,6 +573,7 @@ export const ENEMY_ARCHETYPE: Record<EnemyKind, EnemyArchetype> = {
   leech: "driver",
   corruptor: "infester",
   blight: "infester",
+  warden: "ghost",
 };
 
 export const ENEMY_AI = {

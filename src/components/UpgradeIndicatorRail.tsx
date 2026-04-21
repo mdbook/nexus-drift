@@ -30,6 +30,7 @@ const UPGRADE_CATEGORY: Record<UpgradeKey, UpgradeCategory> = {
   bot: "support",
   archive: "elite",
   focusedBeam: "defense",
+  missileLauncher: "defense",
 };
 
 const CATEGORY_STYLE: Record<
