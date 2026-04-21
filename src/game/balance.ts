@@ -323,6 +323,28 @@ export const FLUX = {
   prestigeResetMultiplier: 0.25,
 } as const;
 
+/**
+ * 3.0.0 — sentinel HP, retreat, and heal tuning.
+ *
+ * Sentinels are the heaviest mobile unit, so they tank longer than scouts
+ * before retreating (threshold 35% instead of 50%), heal faster at home
+ * (0.6/tick vs 0.25), and take a proportionally longer reboot. Mitigation
+ * against generic contact damage is heavy — Step 4's target-class armor
+ * constants apply the `sentinelArmor` multiplier on the stepCombat side.
+ */
+export const SENTINEL_HP = {
+  hpBase: 220,
+  hpPerSentinelUpgrade: 40,
+  hpPerShieldUpgrade: 10,
+  retreatHpRatio: 0.35,
+  exitRetreatHpRatio: 0.9,
+  homeHealRadius: 40,
+  healRatePerTick: 0.6,
+  rebootDurationTicks: 1200,
+  damageFlashTicks: 12,
+  retreatSpeedScale: 1.2,
+} as const;
+
 export const SENTINEL = {
   damageBase: 22,
   damagePerSentinel: 5,

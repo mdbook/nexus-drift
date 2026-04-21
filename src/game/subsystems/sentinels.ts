@@ -1,8 +1,8 @@
-import { SENTINEL, SENTINEL_AI } from "@/game/balance";
+import { SENTINEL, SENTINEL_AI, SENTINEL_HP } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
 import type { Enemy, EnemyKind, GameState } from "@/game/types";
-import { dist } from "@/game/utils";
+import { dist, pushLog } from "@/game/utils";
 
 const PRIORITY_BONUS: Partial<Record<EnemyKind, number>> = {
   leech: 240,
@@ -57,9 +57,78 @@ export function stepSentinels(state: GameState) {
   }
 
   state.sentinels.forEach((sentinel, index) => {
+    // 3.0.0: recompute maxHp every tick so sentinel/shield upgrades buff HP
+    // live; scale current HP proportionally to avoid mid-fight resets.
+    const nextMaxHp =
+      SENTINEL_HP.hpBase +
+      state.upgrades.sentinel * SENTINEL_HP.hpPerSentinelUpgrade +
+      state.upgrades.shield * SENTINEL_HP.hpPerShieldUpgrade;
+    if (sentinel.maxHp !== nextMaxHp && sentinel.maxHp > 0) {
+      const ratio = sentinel.hp / sentinel.maxHp;
+      sentinel.hp = nextMaxHp * ratio;
+    }
+    sentinel.maxHp = nextMaxHp;
+    sentinel.hp = Math.min(sentinel.hp, sentinel.maxHp);
+
+    if (sentinel.damageTicks > 0) sentinel.damageTicks -= 1;
+
     const live = index < liveCount;
     sentinel.pulse = (sentinel.pulse + 0.05) % (Math.PI * 2);
     sentinel.cooldown = Math.max(0, sentinel.cooldown - 1);
+
+    // 3.0.0: reboot lifecycle — parked at home, fully offline, full-HP
+    // respawn on the tick the counter reaches 0.
+    if (sentinel.rebootTicks > 0) {
+      sentinel.rebootTicks -= 1;
+      sentinel.x = sentinel.homeX;
+      sentinel.y = sentinel.homeY;
+      sentinel.tx = sentinel.homeX;
+      sentinel.ty = sentinel.homeY;
+      sentinel.targetId = null;
+      sentinel.task = "Rebooting";
+      if (sentinel.rebootTicks === 0) {
+        sentinel.hp = sentinel.maxHp;
+        sentinel.retreating = false;
+        state.log = pushLog(state.log, "Sentinel redeployed from home pad.", "combat", state.timers.tick);
+      }
+      return;
+    }
+
+    // 3.0.0: retreat state machine — enter at 35% HP, exit at 90%.
+    if (!sentinel.retreating && sentinel.hp < sentinel.maxHp * SENTINEL_HP.retreatHpRatio) {
+      sentinel.retreating = true;
+      sentinel.targetId = null;
+    } else if (sentinel.retreating && sentinel.hp >= sentinel.maxHp * SENTINEL_HP.exitRetreatHpRatio) {
+      sentinel.retreating = false;
+    }
+
+    if (sentinel.retreating) {
+      const dxHome = sentinel.homeX - sentinel.x;
+      const dyHome = sentinel.homeY - sentinel.y;
+      const dHome = Math.hypot(dxHome, dyHome);
+      if (dHome > 1) {
+        const spd = Math.min(dHome, sentinel.speed * SENTINEL_HP.retreatSpeedScale);
+        sentinel.x += (dxHome / dHome) * spd;
+        sentinel.y += (dyHome / dHome) * spd;
+        sentinel.angle = Math.atan2(dyHome, dxHome);
+      }
+      if (dist(sentinel.x, sentinel.y, sentinel.homeX, sentinel.homeY) <= SENTINEL_HP.homeHealRadius) {
+        sentinel.hp = Math.min(sentinel.maxHp, sentinel.hp + SENTINEL_HP.healRatePerTick);
+      }
+      sentinel.task = "Retreating";
+      sentinel.tx = sentinel.homeX;
+      sentinel.ty = sentinel.homeY;
+      return;
+    }
+
+    // Passive home-pad top-off for lightly damaged sentinels that are not
+    // below the retreat threshold. Half rate so it's not a free heal.
+    if (
+      sentinel.hp < sentinel.maxHp &&
+      dist(sentinel.x, sentinel.y, sentinel.homeX, sentinel.homeY) <= SENTINEL_HP.homeHealRadius
+    ) {
+      sentinel.hp = Math.min(sentinel.maxHp, sentinel.hp + SENTINEL_HP.healRatePerTick * 0.5);
+    }
 
     if (!live) {
       sentinel.targetId = null;

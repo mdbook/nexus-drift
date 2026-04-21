@@ -1,8 +1,8 @@
 import { COMBAT_TICK } from "@/game/constants";
-import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
+import { COMBAT, ENEMY_CONTACT_DAMAGE, ENEMY_SPECIAL, FLUX, REWARDS, SCOUT_HP, SENTINEL_HP, TURRET_HP, WORKER, ZAPPER } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
-import type { GameState, Scout, Turret } from "@/game/types";
+import type { GameState, Scout, Sentinel, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 const HOME_X = 500;
@@ -57,6 +57,29 @@ export function damageScout(state: GameState, scout: Scout, amount: number) {
     scout.retreating = false;
     scout.targetId = null;
     state.log = pushLog(state.log, "Scout destroyed. Rebuilding at home pad.", "combat", state.timers.tick);
+  }
+}
+
+/**
+ * 3.0.0 — damage funnel for sentinels.
+ *
+ * Same shape as damageTurret / damageScout. Sentinels are heavily armored,
+ * but the armor multiplier is applied on the stepCombat call side (Step 4)
+ * rather than here so the funnel stays a single source of truth. Damage
+ * while rebooting is a no-op.
+ */
+export function damageSentinel(state: GameState, sentinel: Sentinel, amount: number) {
+  if (amount <= 0) return;
+  if (sentinel.rebootTicks > 0) return;
+
+  sentinel.hp = Math.max(0, sentinel.hp - amount);
+  sentinel.damageTicks = SENTINEL_HP.damageFlashTicks;
+
+  if (sentinel.hp <= 0) {
+    sentinel.rebootTicks = SENTINEL_HP.rebootDurationTicks;
+    sentinel.retreating = false;
+    sentinel.targetId = null;
+    state.log = pushLog(state.log, "Sentinel downed. Rebuilding chassis.", "combat", state.timers.tick);
   }
 }
 

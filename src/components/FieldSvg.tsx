@@ -1,6 +1,6 @@
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
-import { SCOUT_HP, SENTINEL } from "@/game/balance";
+import { SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -1301,6 +1301,13 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         const live = index < derived.activeSentinels;
         if (!live) return null;
 
+        // 3.0.0: hide the sentinel body while rebooting at home; retreating
+        // dims chassis + triangle fill toward a warmer tint; HP bar appears
+        // any time HP is below max.
+        const rebooting = sentinel.rebootTicks > 0;
+        if (rebooting) return null;
+
+        const retreating = sentinel.retreating;
         const pulse = Math.sin(sentinel.pulse) * 0.15 + 0.85;
         const size = 9;
         const points = [
@@ -1309,30 +1316,53 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           `${sentinel.x},${sentinel.y + size}`,
           `${sentinel.x - size * 0.7},${sentinel.y}`,
         ].join(" ");
+        const hpPct = sentinel.maxHp > 0 ? clamp(sentinel.hp / sentinel.maxHp, 0, 1) : 1;
+        const showHpBar = hpPct < 1 - 1e-3;
+        const damageFlash = sentinel.damageTicks > 0 ? Math.min(0.85, sentinel.damageTicks / 12) : 0;
+        const bodyFill = retreating ? "#c2410c" : "#fbbf24";
+        const bodyStroke = retreating ? "#7c2d12" : "#f59e0b";
 
         return (
-          <g
-            key={sentinel.id}
-            transform={`rotate(${(sentinel.angle * 180) / Math.PI + 90}, ${sentinel.x}, ${sentinel.y})`}
-          >
-            {sentinel.task === "Engaging" && (
-              <circle
-                cx={sentinel.x}
-                cy={sentinel.y}
-                r={SENTINEL.rangeBase}
-                fill="none"
-                stroke="#fbbf24"
-                strokeWidth="0.4"
-                opacity="0.15"
-              />
+          <g key={sentinel.id}>
+            {damageFlash > 0 && (
+              <circle cx={sentinel.x} cy={sentinel.y} r="14" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
             )}
-            <polygon
-              points={points}
-              fill="#fbbf24"
-              opacity={pulse}
-              stroke="#f59e0b"
-              strokeWidth="1.5"
-            />
+            <g
+              transform={`rotate(${(sentinel.angle * 180) / Math.PI + 90}, ${sentinel.x}, ${sentinel.y})`}
+            >
+              {sentinel.task === "Engaging" && (
+                <circle
+                  cx={sentinel.x}
+                  cy={sentinel.y}
+                  r={SENTINEL.rangeBase}
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="0.4"
+                  opacity="0.15"
+                />
+              )}
+              <polygon
+                points={points}
+                fill={bodyFill}
+                opacity={pulse}
+                stroke={bodyStroke}
+                strokeWidth="1.5"
+              />
+            </g>
+            {showHpBar && (
+              <>
+                <rect x={sentinel.x - 14} y={sentinel.y + 12} rx="2" ry="2" width="28" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={sentinel.x - 14}
+                  y={sentinel.y + 12}
+                  rx="2"
+                  ry="2"
+                  width={28 * hpPct}
+                  height="3"
+                  fill={hpPct < SENTINEL_HP.retreatHpRatio ? "rgba(255,120,80,0.92)" : "rgba(251,191,36,0.88)"}
+                />
+              </>
+            )}
           </g>
         );
       })}

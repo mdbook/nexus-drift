@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK } from "@/game/constants";
-import { COMBAT, CORRUPTION, SCOUT_HP, TURRET, TURRET_HP } from "@/game/balance";
+import { COMBAT, CORRUPTION, SCOUT_HP, SENTINEL_HP, TURRET, TURRET_HP } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
@@ -14,7 +14,7 @@ import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movem
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
-import { damageScout, damageTurret } from "@/game/subsystems/combat";
+import { damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
@@ -1182,5 +1182,66 @@ describe("scout HP, retreat, and reboot (3.0.0)", () => {
     }
     expect(scout.rebootTicks).toBe(0);
     expect(scout.hp).toBe(scout.maxHp);
+  });
+});
+
+describe("sentinel HP, retreat, and reboot (3.0.0)", () => {
+  it("scales maxHp off sentinel + shield upgrades", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 2;
+    state.upgrades.shield = 3;
+
+    stepSentinels(state);
+
+    const expected =
+      SENTINEL_HP.hpBase +
+      2 * SENTINEL_HP.hpPerSentinelUpgrade +
+      3 * SENTINEL_HP.hpPerShieldUpgrade;
+    expect(state.sentinels[0].maxHp).toBe(expected);
+    expect(state.sentinels[0].hp).toBeCloseTo(expected, 5);
+  });
+
+  it("enters retreat below 35% hp, parks at home while rebooting, respawns full", () => {
+    const state = createInitialGameState();
+    const sentinel = state.sentinels[0];
+    stepSentinels(state);
+    const maxHp = sentinel.maxHp;
+
+    // Above threshold — still engaged.
+    damageSentinel(state, sentinel, maxHp * 0.5);
+    stepSentinels(state);
+    expect(sentinel.retreating).toBe(false);
+
+    // Past the 35% bar — enters retreat, drops target.
+    damageSentinel(state, sentinel, maxHp * 0.2);
+    stepSentinels(state);
+    expect(sentinel.retreating).toBe(true);
+    expect(sentinel.targetId).toBeNull();
+
+    // Heal timer at home. Park on the pad and let it top off back to exit
+    // threshold.
+    sentinel.x = sentinel.homeX;
+    sentinel.y = sentinel.homeY;
+    let guard = 0;
+    while (sentinel.retreating && guard < 50_000) {
+      stepSentinels(state);
+      guard += 1;
+    }
+    expect(sentinel.retreating).toBe(false);
+    expect(sentinel.hp).toBeGreaterThanOrEqual(maxHp * SENTINEL_HP.exitRetreatHpRatio);
+
+    // Kill it — reboot kicks in for the full duration, then respawns full.
+    damageSentinel(state, sentinel, maxHp * 5);
+    expect(sentinel.rebootTicks).toBe(SENTINEL_HP.rebootDurationTicks);
+    damageSentinel(state, sentinel, 99); // no-op while rebooting
+    expect(sentinel.rebootTicks).toBe(SENTINEL_HP.rebootDurationTicks);
+
+    for (let i = 0; i < SENTINEL_HP.rebootDurationTicks; i += 1) {
+      stepSentinels(state);
+      expect(sentinel.x).toBe(sentinel.homeX);
+      expect(sentinel.y).toBe(sentinel.homeY);
+    }
+    expect(sentinel.rebootTicks).toBe(0);
+    expect(sentinel.hp).toBe(sentinel.maxHp);
   });
 });
