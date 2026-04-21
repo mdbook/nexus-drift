@@ -1,4 +1,4 @@
-import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKER_AI, WORKERS_AT_HOME } from "@/game/balance";
+import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS, WORKERS_AT_HOME } from "@/game/balance";
 import { threatAlongPath } from "@/game/subsystems/threatField";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
@@ -663,11 +663,17 @@ function scoreWorkerNode(
     score *= agent.kind === "miner" ? 1.05 : 0.88;
   }
 
-  // Path safety — penalize routes that cross heavy threat.
+  // Path safety — penalize routes that cross heavy threat. Miners are braver,
+  // drones are more cautious, per WORKER_PERSONALITY.pathFearScale.
   if (enemies.length > 0) {
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
-    score += pathThreat * WORKER_AI.pathSafetyPenalty;
+    score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale;
   }
+
+  // Region bias — prefer nodes inside this worker kind's home territory.
+  const region = WORKER_REGIONS[agent.kind];
+  const regionDist = dist(node.x, node.y, region.cx, region.cy);
+  score += regionDist * WORKER_PERSONALITY[agent.kind].regionBias;
 
   // Progress bias: only a tiny nudge for partially-mined nodes when they are
   // also uncontested — avoid encouraging pile-on.

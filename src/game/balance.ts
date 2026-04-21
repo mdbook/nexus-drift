@@ -547,6 +547,43 @@ export const ENEMY_AI = {
 } as const;
 
 /**
+ * Preferred field regions for each worker kind. Workers score nodes inside
+ * their region higher and drift back when hurt. These are soft attractors —
+ * workers still leave their zone for a clearly better node, they just need
+ * a good reason to do so.
+ *
+ * Field is 1000 × 620 (y starts at 50 below the header bar).
+ * Miner  — left sector, deep field gold deposits.
+ * Runner — mid-field corridor, traverses wide gaps.
+ * Drone  — right sector, energy-gem clusters.
+ */
+export const WORKER_REGIONS: Record<WorkerKind, { cx: number; cy: number; radius: number }> = {
+  miner:  { cx: 200, cy: 250, radius: 280 },
+  runner: { cx: 500, cy: 280, radius: 300 },
+  drone:  { cx: 780, cy: 240, radius: 260 },
+} as const;
+
+/**
+ * Per-kind personality tuning.
+ * pathFearScale   — multiplier on pathSafetyPenalty; <1 = braver, >1 = more cautious.
+ * regionBias      — weight of region-distance penalty added to node score.
+ * groupRepelRadius — sense same-kind peers within this distance.
+ * groupRepelMinCount — minimum nearby same-kind peers before dispersal kicks in.
+ * lowHpPull       — speed at which a hurt worker nudges toward their region center.
+ */
+export const WORKER_PERSONALITY: Record<WorkerKind, {
+  pathFearScale: number;
+  regionBias: number;
+  groupRepelRadius: number;
+  groupRepelMinCount: number;
+  lowHpPull: number;
+}> = {
+  miner:  { pathFearScale: 0.60, regionBias: 0.28, groupRepelRadius: 130, groupRepelMinCount: 2, lowHpPull: 0.55 },
+  runner: { pathFearScale: 0.90, regionBias: 0.16, groupRepelRadius: 110, groupRepelMinCount: 2, lowHpPull: 0.40 },
+  drone:  { pathFearScale: 1.30, regionBias: 0.32, groupRepelRadius: 150, groupRepelMinCount: 2, lowHpPull: 0.60 },
+} as const;
+
+/**
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {

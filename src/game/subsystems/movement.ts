@@ -16,6 +16,8 @@ import {
   ENEMY_SPECIAL,
   WORKER,
   WORKER_AI,
+  WORKER_PERSONALITY,
+  WORKER_REGIONS,
   ZAPPER,
 } from "@/game/balance";
 import { chooseWorkerTarget } from "@/game/factories";
@@ -261,6 +263,18 @@ export function stepWorkers(state: GameState) {
     const veteranBonus = 1 + agent.veteranRank * 0.05;
     agent.x += (dx / d) * agent.speed * speedMultiplier * veteranBonus;
     agent.y += (dy / d) * agent.speed * speedMultiplier * veteranBonus;
+
+    // Low-hp region pull: hurt but not yet in recovery mode → nudge toward
+    // the worker's home territory so they drift to a safer part of the field.
+    if (!recovering && agent.hp < agent.maxHp * 0.5) {
+      const region = WORKER_REGIONS[agent.kind];
+      const personality = WORKER_PERSONALITY[agent.kind];
+      const rdx = region.cx - agent.x;
+      const rdy = region.cy - agent.y;
+      const rmag = Math.max(1, Math.hypot(rdx, rdy));
+      agent.x += (rdx / rmag) * personality.lowHpPull;
+      agent.y += (rdy / rmag) * personality.lowHpPull;
+    }
     agent.tx = destination.x;
     agent.ty = destination.y;
     agent.swing = 0;
@@ -289,6 +303,35 @@ export function stepWorkers(state: GameState) {
         b.x += nx;
         b.y += ny;
       }
+    }
+  }
+
+  // Same-kind dispersal: when a worker has too many peers of the same kind
+  // nearby, apply a soft repulsion away from the group centroid so miners
+  // stay in the left sector, runners mid-field, and drones on the right.
+  for (const agent of state.agents) {
+    if (!agent.active || agent.evadeTicks > 0) continue;
+    const personality = WORKER_PERSONALITY[agent.kind];
+    let pcx = 0, pcy = 0, count = 0;
+    for (const other of state.agents) {
+      if (!other.active || other.id === agent.id || other.kind !== agent.kind) continue;
+      const d = dist(agent.x, agent.y, other.x, other.y);
+      if (d < personality.groupRepelRadius) {
+        pcx += other.x;
+        pcy += other.y;
+        count += 1;
+      }
+    }
+    if (count >= personality.groupRepelMinCount) {
+      pcx /= count;
+      pcy /= count;
+      const rdx = agent.x - pcx;
+      const rdy = agent.y - pcy;
+      const rmag = Math.max(1, Math.hypot(rdx, rdy));
+      // Repulsion strength scales with how crowded the group is.
+      const strength = 0.5 + (count - personality.groupRepelMinCount) * 0.25;
+      agent.x = clamp(agent.x + (rdx / rmag) * strength, 20, WORLD_W - 20);
+      agent.y = clamp(agent.y + (rdy / rmag) * strength, 50, WORLD_H - 32);
     }
   }
 }
