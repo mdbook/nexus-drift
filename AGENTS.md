@@ -183,6 +183,8 @@ Enemy target selection must only consider deployed/live targets. `pickEnemyTarge
 
 Workers are valid enemy targets only when `active`, `hp > 0`, not `corrupted`, and `rebootTicks <= 0`. Keep cached target reuse and contact-damage paths aligned with those same rules so enemies do not chase or damage immune/off-field workers.
 
+**3.1.2 early-game city targeting**: mite, wisp, and raider have `city: 0` in `ENEMY_TARGET_PRIORITY`. Do not raise this back above 0 without intentional design — city: 0 is the correct default for enemies that appear before the player has defenses up, to prevent early-game city camping when no workers are nearby.
+
 ## Enemy Shield Layer
 
 Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
@@ -193,6 +195,12 @@ Shielded enemies still have normal HP underneath their shield. `damageEnemy()` i
 ## Surround Combat Pressure
 
 Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.
+
+## Worker Death And Reboot (3.1.2)
+
+When a worker's HP reaches 0 in `stepCombat`, the combat-death path sets `rebootTicks = WORKER.respawn.rebootDuration` (180 ticks), emits `state.workerDeathFlash`, and returns without teleporting. Movement.ts parks the worker at home, regen HP linearly, and on expiry sets `spawnTick` and logs "worker redeployed". **Do not write the old instant-teleport-and-55%-HP path back.**
+
+`workerDeathFlash` is a transient `GameState` field (`{ x, y, ticks, maxTicks } | null`). It is always `null` in `createInitialGameState` and `migrateGameState`. Its tick-down lives inside `stepCombat` before the cadence guard so it runs every frame, not just on combat ticks.
 
 ## Key Invariants (Do Not Break)
 
@@ -209,7 +217,7 @@ Close-combat damage scales up when multiple attackers are already in contact wit
 
 ## Test Coverage
 
-170 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
+170 tests (3.1.2: two city-targeting tests updated to reflect mite/wisp/raider city:0 change) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

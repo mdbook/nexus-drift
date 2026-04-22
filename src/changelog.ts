@@ -16,6 +16,36 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.2",
+    badge: "Worker Death & Early Pacing",
+    summary:
+      "Addresses early-game pacing and visual clarity. Early enemies (mite/wisp/raider) no longer camp the city; worker deaths now show a distinct flash and a slow regen reboot instead of instant respawn; scouts and corruption unlock at tier 1. Fixes iPad admin panel safe-area overflow.",
+    sections: [
+      {
+        title: "Early-Game Pacing",
+        items: [
+          "Mite, wisp, and raider `city` targeting priority set to 0 — early enemies now idle when no workers or defences are nearby instead of camping the home district.",
+          "Assault Scout upgrade and corruptor spawning now unlock at tier 1 instead of tier 2, giving players an intercept tool before the corruption wave hits.",
+        ],
+      },
+      {
+        title: "Worker Death & Regen",
+        items: [
+          "Worker deaths now trigger a 6-second regen reboot (`rebootDuration: 180` ticks) using the existing `rebootTicks` infrastructure. HP regenerates linearly from 0 to max over the reboot window; a charging ring in FieldSvg shows progress.",
+          "A blue expanding ring (`workerDeathFlash`) is emitted at the death position so it is visually clear when a drone is lost.",
+          "Workers no longer teleport home with 55% HP on death — they park at home pad and animate back online.",
+        ],
+      },
+      {
+        title: "iPad Admin Panel",
+        items: [
+          "Admin panel bottom padding now accounts for iOS safe-area-inset-bottom so the panel no longer extends past the screen edge on iPad.",
+          "Expanded body max-height reduced from 82dvh to 76dvh for extra clearance when Safari toolbar is visible.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.1",
     badge: "Warden Polish & Zapper Reach",
     summary:
