@@ -2049,6 +2049,33 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(corrupted.spottedTicks).toBe(0);
   });
 
+  it("already-spotted corrupted worker stays pinned at workerReportDuration while reporter remains in range (3.1.0)", () => {
+    const state = createInitialGameState();
+    const corrupted = state.agents[0];
+    corrupted.active = true;
+    corrupted.corrupted = true;
+    corrupted.spottedTicks = WARDEN.workerReportDuration; // already spotted
+    corrupted.x = 300;
+    corrupted.y = 300;
+
+    const reporter = state.agents[1];
+    reporter.active = true;
+    reporter.corrupted = false;
+    reporter.kind = "miner";
+    reporter.x = corrupted.x + WARDEN.workerReportRadius - 5;
+    reporter.y = corrupted.y;
+
+    // Before 3.1.0 the reporting scan short-circuited on spottedTicks > 0,
+    // so the timer would monotonically drain (1/tick in stepCorruptedWorkers)
+    // even with a reporter standing right next to the corrupted worker. After
+    // the fix the scan runs every tick and pins the timer at max.
+    for (let i = 0; i < 20; i++) {
+      stepWorkerCorruption(state);
+    }
+
+    expect(corrupted.spottedTicks).toBe(WARDEN.workerReportDuration);
+  });
+
   // ── Sentinel cleanse ────────────────────────────────────────────────────────
 
   it("sentinel fires cleanse beam at visible corrupted worker and earns rewards on kill", () => {
