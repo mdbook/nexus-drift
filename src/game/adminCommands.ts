@@ -147,7 +147,10 @@ function clearCorruption(state: GameState) {
     agent.corruptionTicks = 0;
     agent.corruptingTicks = 0;
     agent.spottedTicks = 0;
-    agent.maxHp = WARDEN.workerBaseHp; // restore toughness boost if corruption was active
+    // Restore maxHp to the baseline (undo the corruption toughness boost) and
+    // clamp hp so we never leave a worker with hp > maxHp after the reset.
+    agent.maxHp = WARDEN.workerBaseHp;
+    agent.hp = Math.min(agent.hp, agent.maxHp);
     if (agent.rebootTicks > 0) {
       agent.rebootTicks = 0;
       agent.hp = agent.maxHp;
