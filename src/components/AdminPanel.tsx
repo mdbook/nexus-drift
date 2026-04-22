@@ -234,14 +234,27 @@ export function AdminPanel({
             <Wrench className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Admin Console</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-white/45 transition hover:bg-white/10 hover:text-white"
-            aria-label="Close admin console"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-white/35">
+              T{derived.progression.tier} · {derived.progression.score.toFixed(1)}
+            </span>
+            <button
+              type="button"
+              onClick={() => runCommand("heal all")}
+              className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-emerald-100/80 transition hover:bg-emerald-300/15 hover:text-emerald-50"
+              aria-label="Heal all"
+            >
+              Heal
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/5 p-2 text-white/45 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close admin console"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Collapsed quick form — grows when collapsed */}
