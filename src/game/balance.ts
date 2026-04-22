@@ -20,9 +20,13 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
 };
 
 export const WORKER = {
-  evadeSpeedBase: 1.1,
-  evadeSpeedPanicCap: 0.18,
-  evadePanicDivisor: 180,
+  // 3.1.3: tighter spread between work / evade / damaged / traversing so
+  // baseline state changes don't feel like gear shifts. Sprint cooldown
+  // (WORKER_ABILITIES.sprintSpeedMult) intentionally untouched — it stacks on
+  // top of these multipliers as a deliberate burst.
+  evadeSpeedBase: 1.0,
+  evadeSpeedPanicCap: 0.06,
+  evadePanicDivisor: 400,
   panicDelta: {
     evadingWithThreat: 1.8,
     evadingPassive: 0.75,
@@ -43,9 +47,9 @@ export const WORKER = {
     traversingShield: 0.006,
   },
   recoveryHpThreshold: 0.6,
-  recoverySpeed: 0.66,
-  damagedSpeed: 0.66,
-  traversingSpeed: 0.74,
+  recoverySpeed: 0.78,
+  damagedSpeed: 0.82,
+  traversingSpeed: 0.88,
   separationMinDist: 28,
   respawn: {
     hpMin: 25,

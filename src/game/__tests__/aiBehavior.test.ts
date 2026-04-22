@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENEMY_AI, WORKER_AI } from "@/game/balance";
+import { ENEMY_AI, WORKER, WORKER_AI } from "@/game/balance";
 import {
   createInitialGameState,
   migrateGameState,
@@ -306,6 +306,17 @@ describe("worker evasion commitment", () => {
     stepWorkers(state);
     expect(miner.evadeTicks).toBeGreaterThan(0);
     expect(miner.task).toBe("Evading");
+  });
+
+  it("3.1.3: maxed-panic flee speed sits within 12% of base work speed", () => {
+    // The evade multiplier applied per tick is
+    //   evadeSpeedBase + min(evadeSpeedPanicCap, panic / evadePanicDivisor)
+    // Sprint cooldown is intentionally outside this clamp.
+    const maxedPanicMult =
+      WORKER.evadeSpeedBase +
+      Math.min(WORKER.evadeSpeedPanicCap, 100 / WORKER.evadePanicDivisor);
+    expect(maxedPanicMult).toBeLessThanOrEqual(1.12);
+    expect(maxedPanicMult).toBeGreaterThanOrEqual(0.95);
   });
 
   it("flees a harvesting node before damage when three enemies crowd it", () => {

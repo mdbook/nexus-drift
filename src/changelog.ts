@@ -31,6 +31,14 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Worker Speed Smoothing",
+        items: [
+          "Tightened the spread between baseline worker movement states so transitions don't feel like gear shifts. Maxed-panic flee multiplier now caps at 1.06× the base (was 1.28×) — flee speed lives within ~12% of work speed (`evadeSpeedBase` 1.1 → 1.0, `evadeSpeedPanicCap` 0.18 → 0.06, `evadePanicDivisor` 180 → 400).",
+          "`recoverySpeed` 0.66 → 0.78, `damagedSpeed` 0.66 → 0.82, `traversingSpeed` 0.74 → 0.88 — all three multipliers cluster closer to 1.0.",
+          "Sprint cooldown ability and per-worker `speedMod` variance left untouched — those are intentional bursts / spawn-time flavour and remain.",
+        ],
+      },
+      {
         title: "Spawn Director Pacing",
         items: [
           "Defensive interval drag eased so a healthy turret line no longer starves the field (`intervalPerTurret` 4 → 1.5, `intervalPerScout` 3 → 1.0). Pressure now lifts as defences come online instead of cratering.",
