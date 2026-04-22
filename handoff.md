@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **3.1.2**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **3.1.3**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -169,17 +169,19 @@ Contact damage against non-worker targets runs at the end of `stepCombat`: enemi
 
 ### Turrets
 
-Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers. Carry a `disabledTicks` counter; while > 0 the turret skips targeting and firing entirely.
+Static base defense. Target combat enemies only (never corruptors, never cloaked phantoms). Range and cooldown respond to event modifiers, but range is hard-clamped to `TURRET.rangeMax` (3.1.3) so event boosts cannot push turrets past missile silos. Carry a `disabledTicks` counter; while > 0 the turret skips targeting and firing entirely.
 
 3.0.0 added a parallel sector-level gate: active turret count is now `max(1, min(turrets.length, 1 + min(upgrades.turret, TURRET_SLOTS_BY_LEVEL[level])))`, mirroring the worker-slot pattern. The first turret is always on, the 2nd unlocks at level 2, and the 3rd unlocks at level 8 even if the upgrade track is bought earlier. `derived.activeTurrets` folds both gates together; subsystems should read it from `computeDerived` rather than recomputing locally.
 
 3.0.0 also gave turrets a structural HP pool so enemies can actually attrit them. `Turret.hp`/`maxHp` scale from `TURRET_HP` in `balance.ts` (`hpBase 120 + 20·turret + 10·shield`), and `stepTurrets` recomputes `maxHp` every tick and scales the current `hp` proportionally so mid-combat upgrades do not reset damage progress. Any code that deals damage to a turret must go through `damageTurret(state, turret, amount)` in `combat.ts` — mirroring the `damageEnemy` single-funnel pattern — which sets `damageTicks` for the hit flash and, on hp reaching 0, kicks `brokenTicks` to `TURRET_HP.brokenDurationTicks` (2400 ticks ≈ 80s) and bumps `state.stats.turretsBroken`. Broken turrets take no further damage, skip all targeting and firing, and restore to `maxHp * brokenRecoverRatio` (0.5) when the break timer expires. The renderer shows a cracked-chassis variant + HP bar when hp is below maxHp (and the bar is hidden while broken because the state is already communicated by the darker sprite).
 
-**3.0.0 Step 5 — turrets always beam; missiles are silo-only.** Turrets no longer have a missile fallback. Every shot is an instant-hit beam within the turret's acquisition range. The `focusedBeam` upgrade now extends that range by `FOCUSED_BEAM.rangePerLevel` (16 px/level) instead of switching fire modes. The old `FOCUSED_BEAM.baseRange` constant has been removed.
+**3.0.0 Step 5 — turrets always beam; missiles are silo-only.** Turrets no longer have a missile fallback. Every shot is an instant-hit beam within the turret's acquisition range. The `focusedBeam` upgrade extends that range by `FOCUSED_BEAM.rangePerLevel` (3.1.3 — 6 px/level, was 16) instead of switching fire modes. The old `FOCUSED_BEAM.baseRange` constant has been removed.
+
+**3.1.3 — turret range invariant.** Turret range is hard-clamped to `TURRET.rangeMax` (270 px on a 1000 px field) regardless of upgrade stacking or `eventModifiers.turretRangeScale`. Combined with the new `MISSILE_SILO.rangePerLevel` scaling (silo range = 400 + 6 × `missileLauncher`), turrets are guaranteed to always sit well below missile silos in reach. Damage and cooldown were nudged up (`damagePerTurret` 4 → 5, `cooldownPerTurret` 1.4 → 1.7) to compensate for the smaller footprint. Turrets are a tight perimeter weapon; silos are the long-range answer.
 
 ### Missile Silos
 
-`MissileSilo` entities (deployed via the `missileLauncher` upgrade track) are separate from turrets. Silo count scales with upgrade level via `MISSILE_SILO.silosByLevel` (1 at L1, 2 at L3, 3 at L5, 4 at L10). Each active silo fires once per `fireIntervalTicks` (480 ≈ 16s) at the highest-priority combat enemy within `rangeBase` (400 px) — brutes first, then leeches, then everything else, wounded within tier. Target selection is a single-pass best scan, not a sort. Damage is `damageBase (48) + damagePerLevel (12) * level`.
+`MissileSilo` entities (deployed via the `missileLauncher` upgrade track) are separate from turrets. Silo count scales with upgrade level via `MISSILE_SILO.silosByLevel` (1 at L1, 2 at L3, 3 at L5, 4 at L10). Each active silo fires once per `fireIntervalTicks` (480 ≈ 16s) at the highest-priority combat enemy within `rangeBase + level * rangePerLevel` (3.1.3 — 400 + 6 × level, scaling so silos pull further ahead of the clamped turret range as the player invests) — brutes first, then leeches, then everything else, wounded within tier. Target selection is a single-pass best scan, not a sort. Damage is `damageBase (48) + damagePerLevel (12) * level`.
 
 Silo missiles differ from the old turret missiles: they use `MISSILE_SILO.missileSpeed` (4.0 vs 3.5), `missileSteering` (0.12 vs 0.18), and `missileMaxLife` (180 vs 90). These are stored on the `Projectile` as `speed` (already existed) and `steering` (new field added in Step 5); `stepProjectiles` reads `p.steering ?? TURRET.missileSteering` so turret beams (no steering field) are unaffected.
 

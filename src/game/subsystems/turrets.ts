@@ -88,12 +88,17 @@ export function stepTurrets(state: GameState) {
 
     // 3.0.0 Step 5: focusedBeam now extends acquisition range directly.
     // Turrets always fire instant-hit beams; missiles are silo-only.
-    turret.range =
+    // 3.1.3: hard ceiling at TURRET.rangeMax so turrets never out-range
+    // missile silos no matter how much the upgrade tracks or event modifiers
+    // stack.
+    turret.range = Math.min(
+      TURRET.rangeMax,
       (TURRET.rangeBase +
         state.upgrades.turret * TURRET.rangePerUpgrade +
         state.upgrades.reactor * TURRET.rangePerReactor +
         state.upgrades.focusedBeam * FOCUSED_BEAM.rangePerLevel) *
-      state.eventModifiers.turretRangeScale;
+        state.eventModifiers.turretRangeScale,
+    );
     turret.cooldown = Math.max(0, turret.cooldown - 1);
     const target = [...state.enemies]
       .filter(

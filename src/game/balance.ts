@@ -336,19 +336,25 @@ export const TURRET_HP = {
   damageFlashTicks: 12,
 } as const;
 
+// 3.1.3: turret range cut hard so turrets become a tight perimeter weapon
+// rather than reaching halfway across the map at high upgrade levels. The
+// `rangeMax` ceiling (270 px on a 1000 px field) guarantees turrets can NEVER
+// out-range missile silos, regardless of event modifiers or upgrade stacking.
+// Damage and cooldown are nudged up to compensate for the smaller footprint.
 export const TURRET = {
-  rangeBase: 125,
-  rangePerUpgrade: 15,
-  rangePerReactor: 6,
+  rangeBase: 110,
+  rangePerUpgrade: 5,
+  rangePerReactor: 2,
+  rangeMax: 270,
   damageBase: 13,
-  damagePerTurret: 4,
+  damagePerTurret: 5,
   damagePerReactor: 3,
   damageWispBonusBase: 4,
   damageWispBonusPerTurret: 2,
   damageRaiderBonusBase: 5,
   damageRaiderBonusPerReactor: 4,
   cooldownBase: 21,
-  cooldownPerTurret: 1.4,
+  cooldownPerTurret: 1.7,
   cooldownPerReactor: 0.45,
   cooldownPerTierPair: 0.3,
   cooldownFloor: 7,
@@ -362,8 +368,10 @@ export const TURRET = {
   missileDamageBonus: 1.15,
 } as const;
 
+// 3.1.3: focused-beam range bonus reduced in line with the new turret range
+// budget. Even fully invested it cannot push a turret past `TURRET.rangeMax`.
 export const FOCUSED_BEAM = {
-  rangePerLevel: 16,
+  rangePerLevel: 6,
 } as const;
 
 /**
@@ -381,6 +389,9 @@ export const FOCUSED_BEAM = {
  */
 export const MISSILE_SILO = {
   rangeBase: 400,
+  // 3.1.3: silos gain a small per-level range bump so the gap above turrets
+  // (capped at TURRET.rangeMax = 270) widens as the player invests further.
+  rangePerLevel: 6,
   fireIntervalTicks: 480,   // ~16s at 30 ticks/s — big cooldown, big hit
   damageBase: 48,
   damagePerLevel: 12,

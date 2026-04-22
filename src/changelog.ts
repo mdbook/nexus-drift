@@ -16,6 +16,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.3",
+    badge: "Balance Pass — Range, Pressure, Pacing",
+    summary:
+      "Mid-game rebalance: turret range hard-clamped well below missile silos so silos own long range while turrets defend a tight perimeter; spawn director softened around defensive investment and field-fill; worker speed transitions tightened so flee speed sits within ~10% of work speed (sprint ability untouched); dev builds now show a BETA pill next to the version and a tinted favicon variant.",
+    sections: [
+      {
+        title: "Turret Range Clamp & Silo Gap",
+        items: [
+          "TURRET range constants slashed and a hard `TURRET.rangeMax` ceiling added (rangeBase 125 → 110, rangePerUpgrade 15 → 5, rangePerReactor 6 → 2, FOCUSED_BEAM.rangePerLevel 16 → 6, new rangeMax 270). At late game a fully-invested turret tops out at 270 px on a 1000 px field instead of the previous ~460 px.",
+          "Damage and cooldown nudged up to compensate for the smaller footprint (`damagePerTurret` 4 → 5, `cooldownPerTurret` 1.4 → 1.7).",
+          "Missile silos now scale with `missileLauncher` upgrade level via the new `MISSILE_SILO.rangePerLevel = 6`. Even at L1 the silo (406 px) out-ranges any turret; investment widens the gap further.",
+          "FieldSvg silo range ring now reflects the dynamic per-upgrade silo range instead of the static base.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.2",
     badge: "Worker Death & Early Pacing",
     summary:

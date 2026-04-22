@@ -815,12 +815,14 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           : 0;
         return (
           <g key={silo.id} opacity={siloAlpha}>
-            {/* Range ring — only when active */}
+            {/* Range ring — only when active. 3.1.3: silo range now scales
+                with missileLauncher upgrade level, so compute it inline rather
+                than rendering the static base. */}
             {silo.active && (
               <circle
                 cx={silo.x}
                 cy={silo.y}
-                r={MISSILE_SILO.rangeBase}
+                r={MISSILE_SILO.rangeBase + game.upgrades.missileLauncher * MISSILE_SILO.rangePerLevel}
                 fill="none"
                 stroke="rgba(255,100,0,0.04)"
                 strokeDasharray="12 16"

@@ -13,6 +13,7 @@ import {
   SENTINEL,
   SENTINEL_HP,
   TARGET_ARMOR,
+  TURRET,
   TURRET_HP,
   WARDEN,
   WORKER,
@@ -1052,7 +1053,9 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
     turret.cooldown = 0;
     const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     enemy.x = turret.x;
-    enemy.y = turret.y - 120;
+    // 3.1.3 — turret range with turret L1 + focusedBeam L0 = 115. Keep the
+    // enemy comfortably inside so the no-upgrade case still acquires.
+    enemy.y = turret.y - 90;
     enemy.hp = 100;
     state.enemies.push(enemy);
     return { state, turret, enemy };
@@ -1080,10 +1083,10 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
 
   it("turret fires beam at all in-range enemies regardless of focusedBeam level", () => {
     const { state, turret, enemy } = makeStateWithEnemyInRange(3);
-    // Enemy at 200px — beyond old beam range (90+24=114) but within turret range
-    // (125 + 15 + 3*16 = 188px). Should still beam, not miss.
+    // 3.1.3 — turret range with turret L1 + focusedBeam L3 = 110 + 5 + 18 = 133.
+    // Place enemy comfortably inside that to confirm the beam still fires.
     enemy.x = turret.x;
-    enemy.y = turret.y - 180;
+    enemy.y = turret.y - 120;
     stepTurrets(state);
     expect(state.projectiles.find((p) => p.tag === "instant-beam")).toBeDefined();
     expect(enemy.hp).toBeLessThan(100);
@@ -1094,6 +1097,26 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
     expect(state.upgrades.focusedBeam).toBe(0);
     const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
     expect(restored.upgrades.focusedBeam).toBe(0);
+  });
+
+  // 3.1.3 — turret range is hard-clamped to TURRET.rangeMax and must always
+  // stay below the missile silo range. We sweep maxed upgrade combinations
+  // plus an event modifier and confirm both invariants.
+  it("turret range stays under TURRET.rangeMax and below silo range at every level", () => {
+    const state = createInitialGameState();
+    state.upgrades.turret = 99;
+    state.upgrades.reactor = 99;
+    state.upgrades.focusedBeam = 99;
+    state.eventModifiers.turretRangeScale = 1.5; // worst-case event boost
+    stepTurrets(state);
+    const turretRange = state.turrets[0].range;
+    expect(turretRange).toBeLessThanOrEqual(TURRET.rangeMax);
+    expect(turretRange).toBeLessThan(300);
+
+    for (let level = 0; level <= 10; level++) {
+      const siloRange = MISSILE_SILO.rangeBase + level * MISSILE_SILO.rangePerLevel;
+      expect(siloRange).toBeGreaterThan(turretRange);
+    }
   });
 });
 
