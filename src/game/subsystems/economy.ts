@@ -1,4 +1,4 @@
-import { TICK_MS } from "@/game/constants";
+import { TICK_MS, TICK_WRAP } from "@/game/constants";
 import { CITY_HP, ECONOMY, FLUX } from "@/game/balance";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -61,7 +61,12 @@ export function stepCity(state: GameState) {
     }
   }
 
-  const ticksSinceHostile = state.timers.tick - state.city.lastHostileTick;
+  // 3.1.0 — modulo-safe elapsed-tick delta. state.timers.tick wraps at
+  // TICK_WRAP, so a naive subtract can go massively negative once the
+  // counter rolls over, leaving the regen gate closed forever. We fold
+  // back into [0, TICK_WRAP) before comparing to regenIdleTicks.
+  const ticksSinceHostile =
+    (state.timers.tick - state.city.lastHostileTick + TICK_WRAP) % TICK_WRAP;
   if (
     state.city.hp < state.city.maxHp &&
     ticksSinceHostile >= CITY_HP.regenIdleTicks

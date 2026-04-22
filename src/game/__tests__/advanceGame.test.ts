@@ -1391,6 +1391,24 @@ describe("city HP, energy modulation, and regen (3.0.0)", () => {
     }
     expect(state.city.hp).toBeGreaterThan(hpBeforeSiege);
   });
+
+  it("regen stays enabled after the tick counter wraps (3.1.0)", () => {
+    const state = createInitialGameState();
+    // Simulate a wrap: lastHostileTick was recorded just before the counter
+    // rolled over at TICK_WRAP (10_000_000), and the current tick is now a
+    // few thousand past the wrap boundary. Pre-3.1.0, the raw subtract went
+    // deeply negative and regen could never clear the idle gate.
+    state.timers.tick = 3_000;
+    state.city.lastHostileTick = 9_999_500; // just before wrap
+    state.city.hp = state.city.maxHp * 0.8;
+    state.enemies = [];
+
+    const hpBefore = state.city.hp;
+    // The elapsed delta across the wrap is 3_500 ticks, which is >
+    // regenIdleTicks, so regen should resume this tick.
+    stepCity(state);
+    expect(state.city.hp).toBeGreaterThan(hpBefore);
+  });
 });
 
 describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
