@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   Bot,
   Bug,
@@ -54,6 +54,7 @@ type WikiEntry = {
   tagline: string;
   lore: string;
   notes?: string[];
+  preview?: ReactNode;
 };
 
 type WikiCategory = {
@@ -93,6 +94,491 @@ const ACCENT_GLOW: Record<Accent, string> = {
   fuchsia: "shadow-[0_0_32px_-8px_rgba(232,121,249,0.55)]",
 };
 
+// ─── Preview SVGs ─────────────────────────────────────────────────────────────
+
+const PREVIEW_SIZE = 72;
+
+function PreviewSvg({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      width={PREVIEW_SIZE}
+      height={PREVIEW_SIZE}
+      viewBox="0 0 80 80"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function WorkerAura() {
+  return (
+    <circle
+      cx={40}
+      cy={40}
+      r={22}
+      fill="rgba(80,200,255,0.08)"
+      stroke="rgba(80,200,255,0.18)"
+      strokeWidth={1}
+    />
+  );
+}
+
+// Hex polygon points centered at (40, 40) with radius 13
+const HEX_R = 13;
+const HEX_POINTS = [0, 60, 120, 180, 240, 300]
+  .map((deg) => {
+    const rad = (deg * Math.PI) / 180;
+    const x = 40 + HEX_R * Math.cos(rad);
+    const y = 40 + HEX_R * Math.sin(rad);
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  })
+  .join(" ");
+
+const MINER_PREVIEW = (
+  <PreviewSvg>
+    <WorkerAura />
+    <polygon
+      points={HEX_POINTS}
+      fill="rgba(40,110,180,0.50)"
+      stroke="rgba(120,220,255,0.80)"
+      strokeWidth={2}
+    />
+    {/* pickaxe arm hint at -30deg */}
+    <line
+      x1={40 + Math.cos((-30 * Math.PI) / 180) * 9}
+      y1={40 + Math.sin((-30 * Math.PI) / 180) * 9}
+      x2={40 + Math.cos((-30 * Math.PI) / 180) * 17}
+      y2={40 + Math.sin((-30 * Math.PI) / 180) * 17}
+      stroke="rgba(255,210,80,1.0)"
+      strokeWidth={2}
+      opacity={0.8}
+    />
+    <circle cx={40} cy={40} r={5} fill="rgba(255,210,80,1.0)" />
+  </PreviewSvg>
+);
+
+const RUNNER_PREVIEW = (
+  <PreviewSvg>
+    <WorkerAura />
+    <path
+      d="M 40 29 L 55 40 L 40 51 L 25 40 Z"
+      fill="rgba(40,110,180,0.50)"
+      stroke="rgba(120,220,255,0.80)"
+      strokeWidth={2}
+    />
+    {/* speed streaks trailing behind */}
+    <line x1={25} y1={38} x2={16} y2={36} stroke="rgba(100,200,255,1.0)" strokeWidth={1.5} opacity={0.4} />
+    <line x1={25} y1={42} x2={18} y2={44} stroke="rgba(100,200,255,1.0)" strokeWidth={1.5} opacity={0.2} />
+    <circle cx={40} cy={40} r={5} fill="rgba(100,200,255,1.0)" />
+  </PreviewSvg>
+);
+
+const DRONE_PREVIEW = (
+  <PreviewSvg>
+    <WorkerAura />
+    <circle
+      cx={40}
+      cy={40}
+      r={13}
+      fill="rgba(40,110,180,0.50)"
+      stroke="rgba(120,220,255,0.80)"
+      strokeWidth={2}
+    />
+    <ellipse
+      cx={40}
+      cy={40}
+      rx={20}
+      ry={5}
+      fill="none"
+      stroke="rgba(120,255,190,1.0)"
+      strokeWidth={1}
+      opacity={0.55}
+      transform="rotate(-25, 40, 40)"
+    />
+    <circle cx={40} cy={40} r={5} fill="rgba(120,255,190,1.0)" />
+  </PreviewSvg>
+);
+
+function ResourceNode({
+  fill,
+  stroke,
+  highlight,
+  label,
+  labelFill,
+}: {
+  fill: string;
+  stroke: string;
+  highlight: string;
+  label: string;
+  labelFill: string;
+}) {
+  return (
+    <PreviewSvg>
+      <circle cx={40} cy={40} r={18} fill={fill} stroke={stroke} strokeWidth={1.5} />
+      <circle cx={36} cy={36} r={5.5} fill={highlight} />
+      <text
+        x={40}
+        y={62}
+        textAnchor="middle"
+        fontSize={8}
+        fontWeight="bold"
+        letterSpacing={1.5}
+        fill={labelFill}
+        fontFamily="monospace"
+      >
+        {label}
+      </text>
+    </PreviewSvg>
+  );
+}
+
+const GOLD_PREVIEW = (
+  <ResourceNode
+    fill="rgba(255,200,50,0.28)"
+    stroke="rgba(255,215,80,0.80)"
+    highlight="rgba(255,230,140,0.95)"
+    label="GOLD"
+    labelFill="rgba(255,240,180,0.98)"
+  />
+);
+
+const ORE_PREVIEW = (
+  <ResourceNode
+    fill="rgba(118,128,140,0.38)"
+    stroke="rgba(145,155,168,0.85)"
+    highlight="rgba(175,184,194,0.95)"
+    label="ORE"
+    labelFill="rgba(200,208,220,0.98)"
+  />
+);
+
+const GEMS_PREVIEW = (
+  <ResourceNode
+    fill="rgba(80,255,210,0.24)"
+    stroke="rgba(100,255,220,0.72)"
+    highlight="rgba(180,255,238,0.95)"
+    label="GEMS"
+    labelFill="rgba(180,255,238,0.98)"
+  />
+);
+
+const ENERGY_PREVIEW = (
+  <ResourceNode
+    fill="rgba(100,255,130,0.24)"
+    stroke="rgba(120,255,150,0.72)"
+    highlight="rgba(190,255,205,0.92)"
+    label="ENRGY"
+    labelFill="rgba(190,255,205,0.98)"
+  />
+);
+
+function EnemyAntennae() {
+  return (
+    <>
+      <line x1={35} y1={33} x2={30} y2={24} stroke="rgba(255,200,100,0.75)" strokeWidth={1.5} />
+      <line x1={45} y1={33} x2={50} y2={24} stroke="rgba(255,200,100,0.75)" strokeWidth={1.5} />
+      <circle cx={30} cy={24} r={1.5} fill="rgba(255,200,100,0.75)" />
+      <circle cx={50} cy={24} r={1.5} fill="rgba(255,200,100,0.75)" />
+    </>
+  );
+}
+
+function GenericEnemy({
+  r,
+  fill,
+  stroke,
+  glow,
+}: {
+  r: number;
+  fill: string;
+  stroke: string;
+  glow: string;
+}) {
+  return (
+    <PreviewSvg>
+      <circle cx={40} cy={40} r={r + 11} fill={glow} />
+      <circle cx={40} cy={40} r={r} fill={fill} stroke={stroke} strokeWidth={1.5} />
+      <EnemyAntennae />
+    </PreviewSvg>
+  );
+}
+
+const MITE_PREVIEW = (
+  <GenericEnemy
+    r={11}
+    fill="rgba(255,145,55,0.88)"
+    stroke="rgba(255,230,180,0.7)"
+    glow="rgba(255,120,30,0.22)"
+  />
+);
+
+const RAIDER_PREVIEW = (
+  <PreviewSvg>
+    <rect
+      x={20}
+      y={20}
+      width={40}
+      height={40}
+      rx={5}
+      fill="rgba(100,10,25,0.55)"
+      stroke="rgba(255,160,170,0.75)"
+      strokeWidth={2.5}
+    />
+    <rect x={26} y={26} width={28} height={28} rx={3} fill="rgba(160,20,50,0.92)" />
+    <line x1={30} y1={40} x2={50} y2={40} stroke="rgba(255,180,190,0.7)" strokeWidth={2} />
+    <line x1={40} y1={30} x2={40} y2={50} stroke="rgba(255,180,190,0.7)" strokeWidth={2} />
+  </PreviewSvg>
+);
+
+const WISP_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={22} fill="rgba(160,200,255,0.12)" />
+    <path
+      d="M 40 22 L 47 40 L 40 55 L 33 40 Z"
+      fill="rgba(160,200,255,0.92)"
+      stroke="rgba(210,230,255,0.80)"
+      strokeWidth={1.5}
+    />
+    <circle cx={40} cy={40} r={3} fill="rgba(200,245,230,0.9)" />
+  </PreviewSvg>
+);
+
+const RUSHER_PREVIEW = (
+  <GenericEnemy
+    r={8}
+    fill="rgba(255,214,64,0.92)"
+    stroke="rgba(255,246,190,0.8)"
+    glow="rgba(255,214,64,0.24)"
+  />
+);
+
+const BRUTE_PREVIEW = (
+  <GenericEnemy
+    r={22}
+    fill="rgba(110,122,145,0.92)"
+    stroke="rgba(224,232,246,0.75)"
+    glow="rgba(140,156,182,0.24)"
+  />
+);
+
+const SAPPER_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={26} fill="none" stroke="#f43f5e" strokeWidth={1} opacity={0.3} />
+    <circle cx={40} cy={40} r={17} fill="rgba(255,82,119,0.24)" />
+    <circle
+      cx={40}
+      cy={40}
+      r={6}
+      fill="rgba(255,82,119,0.92)"
+      stroke="rgba(255,212,224,0.8)"
+      strokeWidth={1.5}
+    />
+    <line x1={32} y1={40} x2={48} y2={40} stroke="rgba(255,230,230,0.8)" strokeWidth={1.5} />
+    <line x1={40} y1={32} x2={40} y2={48} stroke="rgba(255,230,230,0.8)" strokeWidth={1.5} />
+  </PreviewSvg>
+);
+
+const BLIGHT_PREVIEW = (
+  <GenericEnemy
+    r={14}
+    fill="rgba(155,240,185,0.88)"
+    stroke="rgba(228,255,236,0.8)"
+    glow="rgba(114,230,145,0.24)"
+  />
+);
+
+const LEECH_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={23} fill="rgba(129,140,248,0.24)" />
+    <circle
+      cx={40}
+      cy={40}
+      r={19}
+      fill="none"
+      stroke="rgba(140,220,255,0.55)"
+      strokeDasharray="3 2.5"
+      strokeWidth={1.8}
+    />
+    <circle
+      cx={40}
+      cy={40}
+      r={12}
+      fill="rgba(129,140,248,0.92)"
+      stroke="rgba(224,228,255,0.8)"
+      strokeWidth={1.5}
+    />
+    <EnemyAntennae />
+  </PreviewSvg>
+);
+
+const PHANTOM_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={24} fill="rgba(226,232,240,0.18)" />
+    <circle
+      cx={40}
+      cy={40}
+      r={20}
+      fill="none"
+      stroke="rgba(140,220,255,0.55)"
+      strokeDasharray="3 2.5"
+      strokeWidth={1.8}
+    />
+    <circle
+      cx={40}
+      cy={40}
+      r={13}
+      fill="rgba(226,232,240,0.9)"
+      stroke="rgba(255,255,255,0.8)"
+      strokeWidth={1.5}
+    />
+    <EnemyAntennae />
+  </PreviewSvg>
+);
+
+const ZAPPER_PREVIEW = (
+  <PreviewSvg>
+    <circle
+      cx={40}
+      cy={40}
+      r={22}
+      fill="none"
+      stroke="rgba(140,220,255,0.55)"
+      strokeDasharray="3 2.5"
+      strokeWidth={1.8}
+    />
+    <line x1={29} y1={49} x2={22} y2={20} stroke="rgba(230,200,255,0.60)" strokeWidth={1} />
+    <line x1={51} y1={49} x2={58} y2={20} stroke="rgba(230,200,255,0.60)" strokeWidth={1} />
+    <path
+      d="M 40 27 L 51 49 L 29 49 Z"
+      fill="rgba(180,80,255,0.88)"
+      stroke="rgba(230,200,255,0.80)"
+      strokeWidth={1.5}
+    />
+    <circle cx={22} cy={20} r={2.5} fill="rgba(230,160,255,0.9)" />
+    <circle cx={58} cy={20} r={2.5} fill="rgba(230,160,255,0.9)" />
+  </PreviewSvg>
+);
+
+const WARDEN_PREVIEW = (
+  <GenericEnemy
+    r={16}
+    fill="rgba(96,40,150,0.78)"
+    stroke="rgba(210,170,255,0.82)"
+    glow="rgba(150,70,220,0.34)"
+  />
+);
+
+const CORRUPTOR_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={22} fill="rgba(160,70,255,0.08)" />
+    <circle
+      cx={40}
+      cy={40}
+      r={12}
+      fill="rgba(172,92,255,0.82)"
+      stroke="rgba(240,190,255,0.55)"
+      strokeWidth={1.4}
+    />
+    <circle cx={35} cy={35} r={4} fill="rgba(245,210,255,0.75)" />
+    <path
+      d="M 31 49 q 7 10 18 4"
+      stroke="rgba(235,180,255,0.7)"
+      strokeWidth={2}
+      fill="none"
+    />
+  </PreviewSvg>
+);
+
+const TURRET_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={22} fill="rgba(80,200,255,0.10)" />
+    <circle
+      cx={40}
+      cy={40}
+      r={14}
+      fill="rgba(40,120,200,0.55)"
+      stroke="rgba(120,220,255,0.75)"
+      strokeWidth={2}
+    />
+    <line
+      x1={40}
+      y1={40}
+      x2={40}
+      y2={19}
+      stroke="rgba(160,235,255,0.95)"
+      strokeWidth={3.5}
+      strokeLinecap="round"
+    />
+  </PreviewSvg>
+);
+
+const SILO_PREVIEW = (
+  <PreviewSvg>
+    <rect
+      x={34}
+      y={20}
+      width={12}
+      height={22}
+      rx={2}
+      fill="rgba(200,80,20,0.75)"
+      stroke="rgba(255,160,60,0.80)"
+      strokeWidth={1.5}
+    />
+    <line
+      x1={40}
+      y1={20}
+      x2={40}
+      y2={8}
+      stroke="rgba(255,180,80,0.95)"
+      strokeWidth={3}
+      strokeLinecap="round"
+    />
+    <rect x={35} y={42} width={10} height={2} fill="rgba(255,200,60,0.80)" />
+  </PreviewSvg>
+);
+
+const SCOUT_PREVIEW = (
+  <PreviewSvg>
+    <circle
+      cx={40}
+      cy={40}
+      r={16}
+      fill="rgba(80,200,255,0.10)"
+      stroke="rgba(120,220,255,0.42)"
+      strokeWidth={1.1}
+    />
+    <line
+      x1={40}
+      y1={32}
+      x2={40}
+      y2={18}
+      stroke="rgba(120,220,255,0.90)"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+    />
+    <path
+      d="M 40 32 L 45.5 41.5 L 40 48 L 34.5 41.5 Z"
+      fill="rgba(160,235,255,0.86)"
+      stroke="rgba(210,248,255,0.82)"
+      strokeWidth={1.2}
+    />
+    <circle cx={40} cy={40} r={3} fill="rgba(120,255,210,0.6)" />
+  </PreviewSvg>
+);
+
+const SENTINEL_PREVIEW = (
+  <PreviewSvg>
+    <circle cx={40} cy={40} r={22} fill="none" stroke="#fbbf24" strokeWidth={0.5} opacity={0.2} />
+    <polygon
+      points="40,31 46.3,40 40,49 33.7,40"
+      fill="#fbbf24"
+      stroke="#f59e0b"
+      strokeWidth={1.5}
+    />
+  </PreviewSvg>
+);
+
 // ─── Content ──────────────────────────────────────────────────────────────────
 
 const CATEGORIES: WikiCategory[] = [
@@ -109,6 +595,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Pickaxe,
         accent: "amber",
         tagline: "Left-sector specialist. Pushes deep. Rarely complains.",
+        preview: MINER_PREVIEW,
         lore:
           "Ore-line units built for the long haul. They drift out to the far rim of the left sector and grind on seams long after colony advisories ping yellow. Telemetry from recovered chassis shows an unusual rise in extraction rate during calm hours — like they enjoy the quiet.",
         notes: [
@@ -124,6 +611,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Bot,
         accent: "cyan",
         tagline: "Mid-field logistics runner. Flinches. Survives.",
+        preview: RUNNER_PREVIEW,
         lore:
           "The sector's middle belt belongs to Ops. They balance ore and flux hauls through the most trafficked corridors, which means they also catch most of the crossfire. Courage is moderate; panic-sprint protocols were added after the third lane-collapse incident.",
         notes: [
@@ -139,6 +627,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Radar,
         accent: "cyan",
         tagline: "Right-sector harvester. Careful. Always listening.",
+        preview: DRONE_PREVIEW,
         lore:
           "Energy and gem seams live on the right rim, and Scout Drones inherited the beat. Their chassis hums with a passive corruption scanner — older pilots swear the drones pull back seconds before a void reading actually trips. Cautious to a fault, and the colony is better for it.",
         notes: [
@@ -154,6 +643,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Bug,
         accent: "rose",
         tagline: "Swarm unit. Smallest teeth. Lots of them.",
+        preview: MITE_PREVIEW,
         lore:
           "The first thing a new colony sees. Mites are crude void-spawn, barely shaped, barely intelligent — they pick a target and go. Alone, a non-event. In a column, they chew through unattended miners before anyone notices the lane.",
         notes: [
@@ -169,6 +659,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Swords,
         accent: "rose",
         tagline: "Flanking predator. Leads the shot.",
+        preview: RAIDER_PREVIEW,
         lore:
           "Raiders don't charge — they arc. They read worker movement vectors and come in from the side, preferring miners who have wandered too far from a turret shadow. If a single drone goes dark on the rim, odds are a raider saw it go.",
         notes: [
@@ -184,6 +675,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Ghost,
         accent: "violet",
         tagline: "Ghost-class flanker. Barely there.",
+        preview: WISP_PREVIEW,
         lore:
           "A smear of light on the grid, gone before the eye finishes parsing it. Wisps slip between turret cones at speeds the hardware struggles to resolve. The standard doctrine is don't track them — track where they haven't been yet, and wait.",
         notes: [
@@ -199,6 +691,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Rocket,
         accent: "rose",
         tagline: "Glass cannon. Drone-hunter. Blinks in, gone.",
+        preview: RUSHER_PREVIEW,
         lore:
           "Everything a rusher has goes into one straight line. It will ignore your turrets, your sentinels, your front line — and put a scout drone on the floor before anyone locks on. Once its sprint is spent, it folds like paper.",
         notes: [
@@ -214,6 +707,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Shield,
         accent: "amber",
         tagline: "Slow. Enormous. Takes the turrets with it.",
+        preview: BRUTE_PREVIEW,
         lore:
           "A mountain of plating around a void-slab heart. Brutes move at a crawl and do not care — they eat turret fire like weather and put themselves face-first into the perimeter. When one finally comes apart, the Core fragment it leaves behind is worth the damage.",
         notes: [
@@ -229,6 +723,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Flame,
         accent: "amber",
         tagline: "Suicide ambusher. Dashes. Ends loudly.",
+        preview: SAPPER_PREVIEW,
         lore:
           "Sappers aren't enemies so much as payloads with legs. They close range in a single committed dash and detonate against whatever structure they reach. If a perimeter turret disappears between frames, a sapper was there between frames.",
         notes: [
@@ -244,6 +739,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Droplet,
         accent: "fuchsia",
         tagline: "Skips the fight. Goes for the vault.",
+        preview: LEECH_PREVIEW,
         lore:
           "Leeches ignore workers, turrets, sentinels — everything. They track straight for the home district and start draining gold and energy the moment they touch it. By the time a leech is on the wall, the sector economy is already bleeding.",
         notes: [
@@ -259,6 +755,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Eye,
         accent: "violet",
         tagline: "Sentinel-assassin. Cloaks. Reappears behind you.",
+        preview: PHANTOM_PREVIEW,
         lore:
           "Phantoms do not brawl. They drop cloak, reposition behind the line, and select a high-value target — usually a sentinel mid-cleanse. A shield layer buys them the seconds they need to recloak before return fire arrives.",
         notes: [
@@ -274,6 +771,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Zap,
         accent: "violet",
         tagline: "Range holder. Freezes the line.",
+        preview: ZAPPER_PREVIEW,
         lore:
           "Zappers hang back at the edge of engagement range and throw disable bolts into whichever asset looks most useful. A frozen turret is a silent turret; a frozen worker is a worker waiting to die. The disable is not long — it is only long enough.",
         notes: [
@@ -289,6 +787,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Biohazard,
         accent: "fuchsia",
         tagline: "Attaches to nodes. Rots them slowly. Never fights.",
+        preview: CORRUPTOR_PREVIEW,
         lore:
           "Corruptors do not attack. They crawl onto a resource node, anchor, and begin the rot. Yields drop, then invert. Left alone, a single corruptor will hollow a gem seam before the next pay cycle. They are not dangerous — they are patient.",
         notes: [
@@ -304,6 +803,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Radiation,
         accent: "fuchsia",
         tagline: "Heavy corruptor. Faster rot. Harder to burn off.",
+        preview: BLIGHT_PREVIEW,
         lore:
           "A corruptor that grew up. Blights carry more mass and more resistance — scout fire that would sear a standard corruptor only irritates a blight. Rot accelerates when they settle, and two blights on one seam can finish it before a purge team even arrives.",
         notes: [
@@ -319,6 +819,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Ghost,
         accent: "fuchsia",
         tagline: "Does not fight. Infects. Vanishes.",
+        preview: WARDEN_PREVIEW,
         lore:
           "The thing you see in the corner of the scope and then can't find again. Wardens stalk individual workers for long minutes, never attacking, never drawing fire — and then the worker's telemetry goes wrong, and the warden is already somewhere else. Sentinels exist in large part because of them.",
         notes: [
@@ -342,6 +843,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Coins,
         accent: "amber",
         tagline: "Colony currency. Anchors the early economy.",
+        preview: GOLD_PREVIEW,
         lore:
           "The ledger still runs on gold — a convention older than any of the gear pulling it out of the ground. Every upgrade, every perimeter, every new turret begins as a gold line in the logbook. When the vault runs dry, the colony runs quiet.",
       },
@@ -352,6 +854,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Pickaxe,
         accent: "amber",
         tagline: "Raw extraction material. The baseline pull.",
+        preview: ORE_PREVIEW,
         lore:
           "Dense, grey, abundant, and almost never interesting on its own — ore is the filler that makes everything else possible. The left sector is nearly all ore seams, which is why the Auto Miners never stop walking.",
       },
@@ -362,6 +865,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Gem,
         accent: "cyan",
         tagline: "Crystalline rarity. Required to step up.",
+        preview: GEMS_PREVIEW,
         lore:
           "Crystalline formations that shouldn't, by any local geology, exist. Gems are the currency of prestige — of leaving this sector behind and stepping into the next. Colonies without gems stay colonies. Colonies with gems become something else.",
       },
@@ -372,6 +876,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Zap,
         accent: "cyan",
         tagline: "Power infrastructure. Falls with the city.",
+        preview: ENERGY_PREVIEW,
         lore:
           "The colony's heartbeat. Energy output is modulated by the city's health — take a hit on the home district and the grid dims in real time. Everything with a sensor, a turret, or a beam is watching the energy line.",
       },
@@ -410,6 +915,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Crosshair,
         accent: "cyan",
         tagline: "Static perimeter gun. Reboots on hard hits.",
+        preview: TURRET_PREVIEW,
         lore:
           "Plain, proven, and endlessly repairable. Turrets do the unglamorous work of painting fire on anything that crosses the line. Sustained assault will break them, and the hull will reboot at half health — scarred, ready, already reacquiring.",
         notes: [
@@ -425,6 +931,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Radar,
         accent: "cyan",
         tagline: "Mobile anti-corruption unit. Paired cleanses.",
+        preview: SCOUT_PREVIEW,
         lore:
           "Scouts roam. They do not hold lanes — they hunt rot. When a node is heavily corrupted they pair up automatically, because one scout against a dug-in blight is a long, bad fight. Take damage and the scout breaks contact; we build replacements, not martyrs.",
         notes: [
@@ -440,6 +947,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: ShieldAlert,
         accent: "violet",
         tagline: "Late-game guardian. Purple beam. Purifies on contact.",
+        preview: SENTINEL_PREVIEW,
         lore:
           "The sentinel is what you field when the sector has stopped being polite. It intercepts threats close to workers and carries a cleanse beam that does not kill so much as remove — infected workers walk away human, and the thing that was inside them does not walk away at all.",
         notes: [
@@ -455,6 +963,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Target,
         accent: "amber",
         tagline: "Long-range strike. Slow. Heavy. Surgical.",
+        preview: SILO_PREVIEW,
         lore:
           "The silo is patient. It watches the field, waits for the targets worth spending a warhead on, and then spends one. Brutes and leeches sit permanently at the top of its priority list — the silo exists to remove the threats nothing else can remove in time.",
         notes: [
@@ -931,6 +1440,22 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
                         {selected.tagline}
                       </p>
                     </div>
+                    {selected.preview && (
+                      <div
+                        className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10"
+                        style={{ background: "linear-gradient(135deg, #0a0e1a 0%, #0d1220 100%)" }}
+                      >
+                        <div
+                          className="pointer-events-none absolute inset-0"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
+                            backgroundSize: "8px 8px",
+                          }}
+                        />
+                        {selected.preview}
+                      </div>
+                    )}
                   </div>
                 </div>
 
