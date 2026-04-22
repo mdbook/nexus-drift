@@ -25,7 +25,7 @@ import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
-import { damageEnemy } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
 import { stepMining } from "@/game/subsystems/mining";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
@@ -1980,6 +1980,59 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
 
     expect(state.stats.wardensKilled).toBe(1);
     expect(state.achievements.warden_killed).toBe(true);
+  });
+
+  // ── Warden permanent cloak (3.1.0) ──────────────────────────────────────────
+
+  it("wardens spawn with permanentCloak and are isCloaked", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    expect(warden.permanentCloak).toBe(true);
+    expect(isCloaked(warden)).toBe(true);
+  });
+
+  it("sentinel does not target a cloaked warden even when in range", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+
+    const sentinel = state.sentinels[0];
+    sentinel.rebootTicks = 0;
+    sentinel.retreating = false;
+    sentinel.cooldown = 0;
+    sentinel.hp = sentinel.maxHp;
+    sentinel.x = 400;
+    sentinel.y = 300;
+
+    // Drop workers off-field so they don't compete as nearer threats.
+    state.agents.forEach((a) => { a.active = false; });
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = sentinel.x + SENTINEL.rangeBase - 10; // well within range
+    warden.y = sentinel.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    const hpBefore = warden.hp;
+    stepSentinels(state);
+
+    // Sentinel must not have shot the warden — it's cloaked.
+    expect(warden.hp).toBe(hpBefore);
+    expect(sentinel.targetId).not.toBe(warden.id);
+  });
+
+  it("migration defaults permanentCloak to true for pre-3.1.0 warden saves", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    state.enemies.push(warden);
+
+    const serialized = JSON.parse(JSON.stringify(state));
+    // Simulate a pre-3.1.0 save by dropping the field.
+    for (const e of serialized.enemies) delete e.permanentCloak;
+    serialized.schemaVersion = SCHEMA_VERSION - 1;
+
+    const restored = migrateGameState(serialized);
+    const restoredWarden = restored.enemies.find((e) => e.kind === "warden");
+    expect(restoredWarden?.permanentCloak).toBe(true);
   });
 
   // ── Corrupted worker node drain ─────────────────────────────────────────────

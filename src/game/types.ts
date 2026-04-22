@@ -248,6 +248,14 @@ export type Enemy = {
   flash: number;
   corruptTicks: number;
   cloakTicks?: number;
+  /**
+   * 3.1.0 — when true, this enemy is cloaked every tick regardless of
+   * cloakTicks/cycle. Set at spawn for wardens (ghosts that infiltrate
+   * workers) so turrets, sentinels, scouts, and missile silos can't see
+   * them. Workers can still damage wardens through melee retaliation
+   * during attach, which is the intended counter-play.
+   */
+  permanentCloak?: boolean;
   goldRewardBonus?: number;
   coreDropOverride?: number;
   /** Fire cooldown for zapper enemies. 0 = ready to fire. */

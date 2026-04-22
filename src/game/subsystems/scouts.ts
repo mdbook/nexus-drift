@@ -1,7 +1,7 @@
 import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI, SCOUT_HP } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { addProjectile } from "@/game/factories";
-import { damageEnemy } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
@@ -9,6 +9,9 @@ function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number;
   let ax = 0, ay = 0;
   for (const enemy of state.enemies) {
     if (enemy.role === "corruptor") continue;
+    // 3.1.0 — scouts don't get psychic avoidance of cloaked threats
+    // (phantoms mid-cycle, wardens always). Keeps the stealth theme honest.
+    if (isCloaked(enemy)) continue;
     const dx = sx - enemy.x;
     const dy = sy - enemy.y;
     const d = Math.hypot(dx, dy);

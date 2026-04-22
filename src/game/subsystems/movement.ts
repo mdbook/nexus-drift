@@ -620,8 +620,17 @@ export function stepEnemies(state: GameState) {
           desiredY = agentTarget.y + (wdy / wmag) * lead;
         }
       } else if (archetype === "ghost") {
-        const cloakPhase = (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
-        if (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart && cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd) {
+        // 3.1.0 — permanentCloak enemies (wardens) have no cycle to gate on,
+        // so they're always in the reposition phase.
+        const alwaysReposition = enemy.permanentCloak === true;
+        const cloakPhase = alwaysReposition
+          ? (ENEMY_AI.ghostRepositionPhaseStart + ENEMY_AI.ghostRepositionPhaseEnd) / 2
+          : (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
+        if (
+          alwaysReposition ||
+          (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart &&
+            cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd)
+        ) {
           const wdx = agentTarget.tx - agentTarget.x;
           const wdy = agentTarget.ty - agentTarget.y;
           const wmag = Math.hypot(wdx, wdy);
