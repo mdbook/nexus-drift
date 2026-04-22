@@ -16,6 +16,44 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.1",
+    badge: "Warden Polish & Zapper Reach",
+    summary:
+      "Follow-up patch addressing a post-3.1.0 audit. Relaxes the warden spawn gate so the void_outbreak path stays reachable while still preserving at least one healthy worker, lands the long-documented corrupted-worker toughness buff, fixes healthy-reporter bookkeeping, and extends zapper disruptor bolts to disable scouts and sentinels. Stamps save schema v9 with additive fallbacks.",
+    sections: [
+      {
+        title: "Warden System",
+        items: [
+          "Warden spawn gate now blocks only when the fleet has ≤ 1 healthy worker remaining (active, not corrupted, not rebooting) instead of the old any-corrupted short-circuit. A 3-worker fleet allows 2 simultaneous corruptions; a 9-worker fleet allows up to 8. Makes void_outbreak (3+ simultaneously corrupted) reachable in practice.",
+          "Corrupted workers now take the documented toughness buff on attach: `maxHp = round(workerBaseHp * corruptToughnessMult)` = 150. Baseline is restored on sentinel cleanse and on admin `clearCorruption`.",
+          "`clearCorruption` admin path now clamps hp after restoring maxHp so a previously-buffed worker cannot be left with hp > maxHp.",
+          "Healthy-reporter exclusion for worker corruption visibility now also excludes rebooting workers (`rebootTicks > 0`), matching the original design note.",
+        ],
+      },
+      {
+        title: "Zapper Disruptor Reach",
+        items: [
+          "Zapper ranged bolts now consider scouts and sentinels as eligible targets via the existing nearest-in-range pick, matching `ENEMY_TARGET_PRIORITY.scout = 0.80` and `sentinel = 0.15`. Bolts apply `disabledTicks` instead of damage — scouts and sentinels idle under the `Disabled` task state until the timer expires, mirroring the worker/turret behavior already in place.",
+          "Scouts and sentinels gain a `disabledTicks` field; their per-tick update short-circuits while the timer is positive.",
+        ],
+      },
+      {
+        title: "Text & Doc Drift",
+        items: [
+          "Miner, drill, and bot upgrade effectText entries updated from `sector 12 / 24` to `sector 22 / 42` to match the actual sector gates.",
+          "Foundry upgrade effectText updated from `+12% node yield` to `+5% node yield` to match `stepMining`.",
+          "handoff.md schemaVersion reference on the example state block updated from 7 → 9, and the warden paragraph now describes the healthy-worker spawn gate.",
+        ],
+      },
+      {
+        title: "Save Schema",
+        items: [
+          "`SCHEMA_VERSION` bumped to 9. `makeScout` and `makeSentinel` stamp `disabledTicks: 0`; `migrateGameState` backfills the field with `?? 0` so older saves load cleanly.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.0",
     badge: "Field Archive & Correctness",
     summary:
