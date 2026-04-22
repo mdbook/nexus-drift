@@ -19,7 +19,7 @@ Current version: **3.0.2**. The in-game changelog is at `src/changelog.ts` and o
 ## Project Structure
 
 - `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin console mount, and release-history modal
-- `src/components/AdminPanel.tsx` — hidden admin console opened with Space × 5. Provides live diagnostics, quick scenario/setup actions, shell toggles, a dedicated event-trigger section under Shell Settings, a command terminal, and a collapsed quick-send command panel. The console is app-shell/UI state only; command history and collapsed state are not persisted.
+- `src/components/AdminPanel.tsx` — hidden admin console opened with Space × 5 (keyboard) or by tapping the version badge 5 times within 2 s (mobile). Single Card that animates height via CSS `grid-template-rows` when collapsing/expanding; chevron rotates 180°. Provides live diagnostics, quick scenario/setup actions, shell toggles, a vertically-wrapping event-trigger section, and a command terminal. The console is app-shell/UI state only; command history and collapsed state are not persisted.
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history). Every non-trivial shipped change should be represented there, either as a new release entry or by expanding the current version's entry before release.
 - `index.html` — app metadata, multi-format favicon/manifest links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark via SVG + PNG + ICO fallbacks; embeds still use `public/og-image.png`.
 - `src/hooks/useLowFxMode.ts` — presentation-only media-query hook for coarse-pointer `lg` desktop layouts (notably iPadOS landscape Safari). Use it to keep the same visual direction while dropping the most expensive continuous FX; never branch gameplay or sim logic on it.
@@ -327,7 +327,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - While 3 event cards overlap, a dedicated anomaly artifact appears in the field. Clicking it is now the only way to unlock the repurposed `event_streak` secret (`Anomaly Witness`).
 - A damaged lost drone can drift through the outer zone on late-game big-event rolls (score threshold equivalent to old tier 9+). Click it to recover the unit and permanently add an extra drone beyond the normal 9-slot roster.
 - Zapper bolts, in-flight turret missiles, and death-fading corpses are all valid click targets for hidden secrets.
-- Admin console: press `Space` five times with page focus. Admin mode extends the existing header speed selector with 10×, 20×, and 100× options, and opens a console with diagnostics, quick setup actions, shell toggles, a dedicated event-trigger section, and a command terminal. Use the top-center down arrow to collapse it to the quick-send panel; use the up arrow to restore the full console.
+- Admin console: press `Space` five times with page focus, **or** tap the version badge (e.g. `v3.0.2`) five times within 2 s on mobile. Admin mode extends the existing header speed selector with 10×, 20×, and 100× options, and opens a console with diagnostics, quick setup actions, shell toggles, a vertically-wrapping event-trigger section, and a command terminal. The top-center chevron collapses/expands the panel with an animated grow/shrink; the close (×) button dismisses it entirely.
 
 ## Invariants
 
