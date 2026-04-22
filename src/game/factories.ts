@@ -1,4 +1,16 @@
-import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import {
+  CITY_HP,
+  ENEMY_AI,
+  ENEMY_ARCHETYPE,
+  ENEMY_SHIELD,
+  ENEMY_STATS,
+  SCOUT_HP,
+  SENTINEL,
+  SENTINEL_HP,
+  TURRET,
+  TURRET_HP,
+  WORKERS_AT_HOME,
+} from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -173,8 +185,8 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
   };
 }
 
-/** Initial turret HP — final tuning comes with the break-state step. */
-const TURRET_HP_DEFAULT = 120;
+/** Initial turret HP — baseline from balance.TURRET_HP.hpBase. */
+const TURRET_HP_DEFAULT = TURRET_HP.hpBase;
 
 export function makeTurrets(): Turret[] {
   const hp = TURRET_HP_DEFAULT;
@@ -185,8 +197,8 @@ export function makeTurrets(): Turret[] {
   ];
 }
 
-/** Initial scout HP — final tuning comes with the retreat/heal step. */
-const SCOUT_HP_DEFAULT = 45;
+/** Initial scout HP — baseline from balance.SCOUT_HP.hpBase. */
+const SCOUT_HP_DEFAULT = SCOUT_HP.hpBase;
 
 function makeScout(
   id: number,
@@ -227,8 +239,8 @@ export function makeScouts(): Scout[] {
   ];
 }
 
-/** Initial sentinel HP — final tuning comes with the retreat/heal step. */
-const SENTINEL_HP_DEFAULT = 220;
+/** Initial sentinel HP — baseline from balance.SENTINEL_HP.hpBase. */
+const SENTINEL_HP_DEFAULT = SENTINEL_HP.hpBase;
 
 function makeSentinel(id: number, x: number, y: number, speed: number): Sentinel {
   return {
@@ -280,8 +292,8 @@ export function makeMissileSilos(): MissileSilo[] {
   }));
 }
 
-/** Initial city HP — energy modulation math uses this via derived state. */
-const CITY_HP_DEFAULT = 1000;
+/** Initial city HP — baseline from balance.CITY_HP.hpBase. */
+const CITY_HP_DEFAULT = CITY_HP.hpBase;
 
 export function makeCityState(): CityState {
   return {
