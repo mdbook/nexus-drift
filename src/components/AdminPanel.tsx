@@ -47,6 +47,8 @@ const TONE_CLASS: Record<(typeof QUICK_ACTIONS)[number]["tone"], string> = {
   rose: "border-rose-300/20 bg-rose-300/10 text-rose-100 hover:bg-rose-300/15",
   violet: "border-violet-300/20 bg-violet-300/10 text-violet-100 hover:bg-violet-300/15",
 };
+const COLLAPSE_TOGGLE_CLASS =
+  "absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-100/30 bg-cyan-300/15 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.2),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl transition hover:border-cyan-100/45 hover:bg-cyan-200/20 hover:text-white";
 
 function resultTone(result: AdminCommandResult): TerminalEntry["tone"] {
   return result.ok ? "success" : "error";
@@ -208,7 +210,7 @@ export function AdminPanel({
           <button
             type="button"
             onClick={() => setCollapsed(false)}
-            className="absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-200/25 bg-slate-950 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)] transition hover:bg-cyan-300/10"
+            className={COLLAPSE_TOGGLE_CLASS}
             aria-label="Expand admin console"
           >
             <ChevronUp className="h-4 w-4" />
@@ -251,7 +253,7 @@ export function AdminPanel({
         <button
           type="button"
           onClick={() => setCollapsed(true)}
-          className="absolute left-1/2 top-0 z-10 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-200/25 bg-slate-950 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)] transition hover:bg-cyan-300/10"
+          className={`${COLLAPSE_TOGGLE_CLASS} z-10`}
           aria-label="Collapse admin console"
         >
           <ChevronDown className="h-4 w-4" />
