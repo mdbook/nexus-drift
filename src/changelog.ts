@@ -65,6 +65,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Raiders start appearing at tier 1 instead of tier 2, adding a third enemy variant well before corruptors arrive.",
           "Scout upgrade is now hidden until tier 2 (the same point corruptors first spawn), so it only shows up when it is actually needed.",
           "Autobuy's emergency scout trigger now aligns with tier 2 to match the new visibility gate.",
+          "The third scout slot now requires upgrade level 10 instead of 8, adding a longer ramp between the second and third active scouts.",
         ],
       },
     ],

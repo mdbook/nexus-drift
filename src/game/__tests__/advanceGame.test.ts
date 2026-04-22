@@ -190,9 +190,9 @@ describe("advanceGame simulation invariants", () => {
     expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
   });
 
-  it("caps active corruption-killer drones at two by default and three when upgrade is 8+", () => {
+  it("caps active corruption-killer drones at two by default and three when upgrade is 10+", () => {
     const seeded = createInitialGameState();
-    seeded.upgrades.scout = 9;
+    seeded.upgrades.scout = 10;
 
     const derived = computeDerived(seeded);
 

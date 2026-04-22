@@ -433,7 +433,7 @@ export const SCOUT = {
   cleanseRatePerArsenal: 0.08,
   avoidRadius: 90,
   capBase: 2,
-  capBoostThreshold: 8,
+  capBoostThreshold: 10,
   capBoostAmount: 1,
   cleanseSynergyPerExtra: 0.6,
 } as const;
