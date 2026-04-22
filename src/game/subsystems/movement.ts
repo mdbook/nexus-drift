@@ -146,7 +146,7 @@ export function stepWorkers(state: GameState) {
 
   const regroup = computeRegroupCentroid(state.agents);
 
-  state.agents.forEach((agent, index) => {
+  state.agents.forEach((agent) => {
     if (!agent.active) return;
     if (agent.disabledTicks > 0) {
       agent.disabledTicks -= 1;
@@ -193,10 +193,15 @@ export function stepWorkers(state: GameState) {
 
     updateThreatMemory(agent, combatEnemies);
 
+    // 3.1.0: cadence offset is hashed from the stable `agent.id` instead of
+    // the array index. When workers die, reboot, or are reordered the array
+    // index shifts for survivors, which used to silently change their
+    // retarget cadence mid-life. Using `agent.id` keeps each worker's
+    // retarget window fixed for its lifetime.
     const needsTarget =
       agent.target == null ||
       !state.nodes.some((node) => node.id === agent.target) ||
-      state.timers.tick % (330 + index * 45) === 0;
+      state.timers.tick % (330 + agent.id * 45) === 0;
 
     if (needsTarget) {
       agent.target = chooseWorkerTarget(state, agent);
@@ -204,7 +209,7 @@ export function stepWorkers(state: GameState) {
 
     const node =
       state.nodes.find((candidate) => candidate.id === agent.target) ??
-      state.nodes[index % state.nodes.length];
+      state.nodes[agent.id % state.nodes.length];
     // Sample blocking before movement for the current tick. If future nodes can
     // move, update node positions first and keep deriving worker velocity from
     // previous/current x/y; tx/ty below are only destination anchors.

@@ -1,4 +1,4 @@
-import type { EnemyArchetype, EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type { EnemyArchetype, EnemyKind, ResourceKey, TaskState, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 // 3.0.0: base costs stretched so 3rd turret / multi-worker slots take 1+ hr
 // each, and full-doctrine runs land in the multi-session wallpaper range
@@ -968,7 +968,7 @@ export const SCOUT_AI = {
   cornerWallBuffer: 60,
 } as const;
 
-export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: string }> = {
+export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: TaskState }> = {
   miner: { x: 160, y: 440, speed: 1.1, task: "Surveying" },
   runner: { x: 320, y: 440, speed: 1.28, task: "Hauling" },
   drone: { x: 700, y: 440, speed: 1.02, task: "Optimizing" },

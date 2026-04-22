@@ -4,6 +4,38 @@ import type { Rng } from "@/game/rng";
 export type ResourceKey = "gold" | "ore" | "gems" | "energy" | "cores" | "flux";
 export type VisibleResourceKey = "gold" | "ore" | "gems" | "energy";
 export type WorkerKind = "miner" | "runner" | "drone";
+/**
+ * Display-only status label for Agent/Scout/Sentinel HUD strings. These are
+ * rendered verbatim in the field tooltips and sector card; they are not used
+ * as logic discriminators anywhere in the sim path. Keep in sync with every
+ * assignment site in `src/game/subsystems/*` and `src/game/factories.ts`.
+ */
+export type TaskState =
+  // Workers
+  | "Standby"
+  | "Deploying"
+  | "Disabled"
+  | "Corrupted"
+  | "Rebooting"
+  | "Evading"
+  | "Recovering"
+  | "Traversing"
+  | "Working"
+  | "Mining"
+  | "Collecting"
+  | "Syncing"
+  | "Surveying"
+  | "Hauling"
+  | "Optimizing"
+  | "Purging residue"
+  // Scouts + Sentinels
+  | "Retreating"
+  | "Intercepting"
+  | "Engaging"
+  | "Purging"
+  | "Sweeping"
+  | "Cleansing"
+  | "Patrolling";
 export type EnemyKind =
   | "mite"
   | "raider"
@@ -93,7 +125,7 @@ export type Agent = {
   kind: WorkerKind;
   target: number | null;
   swing: number;
-  task: string;
+  task: TaskState;
   hp: number;
   maxHp: number;
   panic: number;
@@ -163,7 +195,7 @@ export type Scout = {
   speed: number;
   cooldown: number;
   angle: number;
-  task: string;
+  task: TaskState;
   pulse: number;
   homeX: number;
   homeY: number;
@@ -189,7 +221,7 @@ export type Sentinel = {
   speed: number;
   cooldown: number;
   angle: number;
-  task: string;
+  task: TaskState;
   pulse: number;
   homeX: number;
   homeY: number;

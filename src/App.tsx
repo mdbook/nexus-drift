@@ -132,6 +132,8 @@ function SpeedButton({ value, active, onClick }: { value: number; active: boolea
         ref={triggerRef}
         type="button"
         onClick={onClick}
+        aria-pressed={active}
+        aria-label={`${value}× game speed`}
         className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
           active
             ? "border-cyan-200/30 bg-white/12 text-white"

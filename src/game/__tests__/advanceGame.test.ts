@@ -458,6 +458,40 @@ describe("advanceGame simulation invariants", () => {
     expect(enemy.hp).toBe(27);
   });
 
+  it("damageEnemy arms shield regen cooldown on both shield and HP hits", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 12;
+    enemy.shieldMax = 12;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 35;
+
+    // Partial shield hit: cooldown arms so regen does not tick on this frame.
+    damageEnemy(enemy, 5);
+    expect(enemy.shield).toBe(7);
+    expect(enemy.shieldRegenCooldown).toBeGreaterThan(0);
+
+    // Drop shield to 0, then hit HP on a later "frame" with cooldown drained.
+    damageEnemy(enemy, 7);
+    enemy.shieldRegenCooldown = 0;
+    damageEnemy(enemy, 5);
+    // HP-only hit must still arm cooldown so regen waits.
+    expect(enemy.hp).toBe(30);
+    expect(enemy.shieldRegenCooldown).toBeGreaterThan(0);
+  });
+
+  it("damageEnemy is a no-op for non-positive amounts", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 8;
+    enemy.shieldMax = 8;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 20;
+    damageEnemy(enemy, 0);
+    damageEnemy(enemy, -5);
+    expect(enemy.shield).toBe(8);
+    expect(enemy.hp).toBe(20);
+    expect(enemy.shieldRegenCooldown).toBe(0);
+  });
+
   it("derived state stays consistent with simulation", () => {
     const final = runTicks(createInitialGameState(), 500);
     const derived = computeDerived(final);
