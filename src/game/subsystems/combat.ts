@@ -185,7 +185,10 @@ export function resolveEnemyDeaths(state: GameState) {
   let goldReward = 0;
   let energyReward = 0;
 
-  state.stats.hostileKills += killed.length;
+  // 3.1.0 — hostileKills tracks combat-role clears only, so scout corruptor
+  // purges don't inflate the "Hostiles Cleared" stat. totalEnemiesKilled
+  // stays inclusive (it's the all-kinds achievement counter).
+  state.stats.hostileKills += regular;
   state.stats.totalEnemiesKilled += killed.length;
 
   killed.forEach((enemy) => {

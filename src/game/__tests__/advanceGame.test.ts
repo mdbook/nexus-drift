@@ -597,6 +597,25 @@ describe("advanceGame simulation invariants", () => {
     expect(state.stats.purges).toBe(1);
   });
 
+  it("hostileKills counts combat kills only, not corruptor purges (3.1.0)", () => {
+    const state = createInitialGameState();
+    state.stats.hostileKills = 0;
+    state.stats.totalEnemiesKilled = 0;
+
+    // Mix a combat kill and a corruptor purge in the same frame.
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.hp = 0;
+    const corruptor = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    corruptor.hp = 0;
+    state.enemies.push(mite, corruptor);
+
+    resolveEnemyDeaths(state);
+
+    // hostileKills = 1 (mite only); totalEnemiesKilled = 2 (inclusive).
+    expect(state.stats.hostileKills).toBe(1);
+    expect(state.stats.totalEnemiesKilled).toBe(2);
+  });
+
   it("credits sentinel kills only when a sentinel lands the lethal hit", () => {
     const state = createInitialGameState();
     state.upgrades.sentinel = 1;
