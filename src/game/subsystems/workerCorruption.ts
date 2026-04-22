@@ -124,8 +124,13 @@ function stepCorruptedWorkers(state: GameState) {
 function stepWorkerReporting(state: GameState) {
   for (const corrupted of state.agents) {
     if (!corrupted.active || !corrupted.corrupted) continue;
-    if (corrupted.spottedTicks > 0) continue; // already spotted, no need to re-scan
 
+    // 3.1.0 bug fix: previously this loop short-circuited on spottedTicks > 0,
+    // which meant a corrupted worker that was *already* spotted never had its
+    // timer refreshed — once the tick counter ran down (decayed by 1/tick in
+    // stepCorruptedWorkers) it could lose visibility even with reporters still
+    // standing right next to it. The scan now runs unconditionally so any
+    // reporter in range keeps the timer pinned at max.
     for (const reporter of state.agents) {
       if (!reporter.active || reporter.corrupted || reporter.id === corrupted.id) continue;
       const reportRadius =

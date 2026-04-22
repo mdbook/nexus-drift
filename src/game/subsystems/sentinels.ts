@@ -1,6 +1,6 @@
 import { FLUX, SENTINEL, SENTINEL_AI, SENTINEL_HP, WARDEN } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
-import { damageEnemy } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { damageCorruptedWorker } from "@/game/subsystems/combat";
 import type { Agent, Enemy, EnemyKind, GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
@@ -44,6 +44,9 @@ function pickSentinelTarget(sentinel: { x: number; y: number }, state: GameState
   for (const enemy of state.enemies) {
     if (enemy.hp <= 0) continue;
     if (enemy.role !== "combat") continue;
+    // 3.1.0 — sentinels can't acquire cloaked threats (phantoms mid-cycle,
+    // wardens always). Phantoms become targetable when their cycle resurfaces.
+    if (isCloaked(enemy)) continue;
     let nearestWorkerDist = Infinity;
     for (const worker of state.agents) {
       if (!worker.active) continue;

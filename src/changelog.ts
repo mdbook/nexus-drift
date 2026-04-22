@@ -16,6 +16,65 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.0",
+    badge: "Field Archive & Correctness",
+    summary:
+      "Correctness-and-polish release. Adds the in-game Field Archive overlay, closes a batch of sim invariants (sapper damage funnel, worker reporting, TICK_WRAP city regen, kill-stat double-count), and reworks void wardens into permanently cloaked ghosts. Ships accessibility, render-perf, and CI hardening alongside a documented deferred-work list.",
+    sections: [
+      {
+        title: "Field Archive Overlay",
+        items: [
+          "New lore-first archive overlay covering 42 entries across Field Entities, Resources, Defenses, Sector Operations, and Field Events. Opens from the header ARCHIVE button; purely presentational and never touches sim state.",
+          "Left sidebar index + right content pane on desktop; mobile collapses to an index-first view with entry navigation.",
+          "Written as atmospheric field dossiers with Field Notes bullets for key behaviors — no stat tables so player discovery through play is preserved.",
+        ],
+      },
+      {
+        title: "Simulation Correctness",
+        items: [
+          "Sapper detonations now route contact damage through the `damageWorker` funnel and skip corrupted or rebooting targets, matching every other worker-damage path.",
+          "Worker reporting no longer early-exits after the first tick — reporters now pin `spottedTicks` at max for any corrupted worker they can see every tick, so sentinels keep uninterrupted vision through long cleanse approaches.",
+          "City regen gate now uses a modulo-safe `(tick - lastHostileTick + TICK_WRAP) % TICK_WRAP` delta, so the home district does not incorrectly unlock regen after the 10M-tick counter wraps.",
+          "Enemy kill statistics now separate `hostileKills` (combat enemies only) from `totalEnemiesKilled`, so corruptor purges and cleanse removals stop inflating the Hostiles Cleared counter.",
+          "Turret, scout, sentinel, and city HP defaults are now sourced from `balance.ts` instead of duplicated literals in `factories.ts`, preventing balance drift between initial-state and migration paths.",
+          "Save schema stamps `schemaVersion: 8` with a `?? default` migration fallback for every new field.",
+        ],
+      },
+      {
+        title: "Void Warden Rework",
+        items: [
+          "Wardens are now permanently cloaked ghosts. They add a `permanentCloak` flag, reposition continuously like the ghost archetype, and stay invisible to sentinel and scout targeting at all times.",
+          "Worker retaliation still reaches wardens during attach attempts, so `warden_killed` remains achievable without exposing wardens to normal combat targeting.",
+          "Migration backfills `permanentCloak = true` for wardens in older saves so mid-run saves carry over without regression.",
+        ],
+      },
+      {
+        title: "Accessibility & Render Perf",
+        items: [
+          "Achievements modal gained a proper focus trap, Escape-to-close, `role=\"dialog\"` + `aria-modal`, `aria-labelledby`, and explicit `aria-label`s on its category and close buttons.",
+          "Speed buttons now expose `aria-pressed` + `aria-label` so the active speed is announced correctly by assistive tech.",
+          "`FieldSvg` is wrapped in `React.memo`, district render data no longer bakes in `game.timers.tick`, and the hexagon geometry helper was hoisted to module scope. Field interaction handlers in `App.tsx` are memoized so identity-stable props reach the memoized field.",
+          "`EventChip` collapsed an old duplicated one-shot / timed branch where both arms emitted identical classes.",
+        ],
+      },
+      {
+        title: "Stability & Types",
+        items: [
+          "Agent / Scout / Sentinel `task` fields tighten from `string` to a new `TaskState` union covering every in-sim assignment site. Balance's `WORKERS_AT_HOME` uses the same type.",
+          "Worker retarget cadence in `stepWorkers` hashes off `agent.id` instead of the array index, so a worker's retarget window does not silently shift when peers die or reboot.",
+          "Added `damageEnemy` tests for shield regen cooldown arming and zero-amount no-ops.",
+        ],
+      },
+      {
+        title: "CI & Docs",
+        items: [
+          "GitLab CI `verify` stage now runs `npm run lint` alongside `typecheck` and `test`, so lint regressions can no longer sneak through on green pipelines.",
+          "README gains a Known Deferred Work section anchoring each deliberately-deferred follow-up (computeDerived lift, spatial index, movement split, unseeded Math.random helpers, React 19 upgrade) with matching in-source TODO comments.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.0.2",
     badge: "Admin Console",
     summary:
@@ -28,7 +87,10 @@ export const CHANGELOG: ChangelogEntry[] = [
           "The console shows live diagnostics for speed, director tier/score, enemy counts, active events, and city integrity.",
           "Quick actions now cover midgame and late-game presets, siege drills, bankroll grants, healing, corruption cleanup, threat clearing, and update-banner preview.",
           "The console can collapse into a tiny quick-send panel with only the admin title, close button, command input, and a top-center expand arrow.",
-          "The collapse/expand arrow now uses the same translucent cyan glass treatment as the rest of the HUD instead of a black tab.",
+          "Collapsing and expanding the panel now animates — the card grows up and shrinks down smoothly, and the chevron rotates 180° on toggle.",
+          "The collapse/expand chevron now uses the same neutral glass treatment as the close button instead of a contrasting cyan glow.",
+          "Event triggers now wrap into multiple rows instead of scrolling horizontally, so all events are visible at once.",
+          "On mobile, tapping the version badge five times within two seconds opens the admin console without needing a keyboard.",
           "Event trigger buttons now live in their own left-column section under Shell Settings instead of being attached to the command terminal.",
           "The synthwave visual mode can now be toggled from the console without needing the Konami-code path.",
         ],
@@ -53,6 +115,16 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Tests",
         items: [
           "Added admin command coverage for resource grants, upgrades, timed-event trigger/revert, seeded enemy spawning, corruption cleanup, speed requests, and banner requests.",
+        ],
+      },
+      {
+        title: "Balance",
+        items: [
+          "Wisps now appear from the very start of a run (tier 0) instead of being gated to tier 1, so early waves include more than just mites.",
+          "Raiders start appearing at tier 1 instead of tier 2, adding a third enemy variant well before corruptors arrive.",
+          "Scout upgrade is now hidden until tier 2 (the same point corruptors first spawn), so it only shows up when it is actually needed.",
+          "Autobuy's emergency scout trigger now aligns with tier 2 to match the new visibility gate.",
+          "The third scout slot now requires upgrade level 10 instead of 8, adding a longer ramp between the second and third active scouts.",
         ],
       },
     ],

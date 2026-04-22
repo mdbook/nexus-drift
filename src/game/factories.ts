@@ -1,4 +1,16 @@
-import { ENEMY_AI, ENEMY_ARCHETYPE, ENEMY_SHIELD, ENEMY_STATS, SENTINEL, TURRET, WORKERS_AT_HOME } from "@/game/balance";
+import {
+  CITY_HP,
+  ENEMY_AI,
+  ENEMY_ARCHETYPE,
+  ENEMY_SHIELD,
+  ENEMY_STATS,
+  SCOUT_HP,
+  SENTINEL,
+  SENTINEL_HP,
+  TURRET,
+  TURRET_HP,
+  WORKERS_AT_HOME,
+} from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
@@ -20,7 +32,7 @@ import { dist } from "@/game/utils";
 // Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
 // defensively by field presence, so v5 and branch-local v6 saves both load
 // through the same fallback paths below.
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -173,8 +185,8 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
   };
 }
 
-/** Initial turret HP — final tuning comes with the break-state step. */
-const TURRET_HP_DEFAULT = 120;
+/** Initial turret HP — baseline from balance.TURRET_HP.hpBase. */
+const TURRET_HP_DEFAULT = TURRET_HP.hpBase;
 
 export function makeTurrets(): Turret[] {
   const hp = TURRET_HP_DEFAULT;
@@ -185,8 +197,8 @@ export function makeTurrets(): Turret[] {
   ];
 }
 
-/** Initial scout HP — final tuning comes with the retreat/heal step. */
-const SCOUT_HP_DEFAULT = 45;
+/** Initial scout HP — baseline from balance.SCOUT_HP.hpBase. */
+const SCOUT_HP_DEFAULT = SCOUT_HP.hpBase;
 
 function makeScout(
   id: number,
@@ -227,8 +239,8 @@ export function makeScouts(): Scout[] {
   ];
 }
 
-/** Initial sentinel HP — final tuning comes with the retreat/heal step. */
-const SENTINEL_HP_DEFAULT = 220;
+/** Initial sentinel HP — baseline from balance.SENTINEL_HP.hpBase. */
+const SENTINEL_HP_DEFAULT = SENTINEL_HP.hpBase;
 
 function makeSentinel(id: number, x: number, y: number, speed: number): Sentinel {
   return {
@@ -280,8 +292,8 @@ export function makeMissileSilos(): MissileSilo[] {
   }));
 }
 
-/** Initial city HP — energy modulation math uses this via derived state. */
-const CITY_HP_DEFAULT = 1000;
+/** Initial city HP — baseline from balance.CITY_HP.hpBase. */
+const CITY_HP_DEFAULT = CITY_HP.hpBase;
 
 export function makeCityState(): CityState {
   return {
@@ -324,6 +336,12 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
 
   if (kind === "phantom") {
     enemy.cloakTicks = 0;
+  }
+
+  if (kind === "warden") {
+    // 3.1.0 — wardens are permanently cloaked infiltrators; only worker
+    // retaliation during attach can damage them.
+    enemy.permanentCloak = true;
   }
 
   if (kind === "zapper") {
@@ -656,6 +674,9 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             // 3.0.0 Step 4 — pre-targetKind saves default to worker targeting.
             targetKind: enemy.targetKind ?? "agent",
             ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
+            // 3.1.0 — wardens carry permanentCloak; pre-3.1.0 saves default
+            // the field to true so old-save wardens gain the cloak.
+            ...(kind === "warden" && { permanentCloak: enemy.permanentCloak ?? true }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.
             ...(shieldMax !== undefined && {

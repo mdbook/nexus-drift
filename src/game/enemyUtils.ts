@@ -2,6 +2,10 @@ import { ENEMY_SHIELD, ENEMY_SPECIAL } from "@/game/balance";
 import type { Enemy } from "@/game/types";
 
 export function isCloaked(enemy: Enemy) {
+  // 3.1.0 — wardens carry permanentCloak and are always invisible to
+  // turret/sentinel/missile/scout targeting. Workers retaliating during
+  // attach damage the warden directly and bypass this check.
+  if (enemy.permanentCloak) return true;
   return (
     enemy.kind === "phantom" &&
     enemy.cloakTicks !== undefined &&

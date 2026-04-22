@@ -1,6 +1,7 @@
 import { memo, type ComponentType, type CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BookOpen,
   Bot,
   Coins,
   Cpu,
@@ -30,6 +31,7 @@ import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
+import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
@@ -130,6 +132,8 @@ function SpeedButton({ value, active, onClick }: { value: number; active: boolea
         ref={triggerRef}
         type="button"
         onClick={onClick}
+        aria-pressed={active}
+        aria-label={`${value}× game speed`}
         className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
           active
             ? "border-cyan-200/30 bg-white/12 text-white"
@@ -306,6 +310,7 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
@@ -321,6 +326,7 @@ export default function App() {
   } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
+  const versionTapTimestamps = useRef<number[]>([]);
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
   const synthwaveRef = useRef(synthwave);
   useEffect(() => {
@@ -416,6 +422,40 @@ export default function App() {
     setAchievementsOpen(true);
   };
 
+  // 3.1.0 — stable FieldSvg interactions prop so the memoized FieldSvg doesn't
+  // re-render on unrelated App-level state changes. mutateGame identity is
+  // stable from useGameLoop, so the only real dep here is mutateGame itself.
+  const fieldInteractions = useMemo(
+    () => ({
+      onTouristClick: () => {
+        mutateGame((next) => {
+          spotTourist(next);
+        });
+      },
+      onLostDroneClick: () => {
+        mutateGame((next) => {
+          recoverLostDrone(next);
+        });
+      },
+      onAnomalyClick: () => {
+        mutateGame((next) => {
+          witnessAnomaly(next);
+        });
+      },
+      onProjectileClick: (projectileId: number) => {
+        mutateGame((next) => {
+          clickProjectile(next, projectileId);
+        });
+      },
+      onEnemyClick: (enemyId: number) => {
+        mutateGame((next) => {
+          clickDyingEnemy(next, enemyId);
+        });
+      },
+    }),
+    [mutateGame]
+  );
+
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
     mutateGame((next) => {
@@ -444,7 +484,19 @@ export default function App() {
             <span>Autonomous Colony Sim</span>
             <button
               type="button"
-              onClick={openChangelog}
+              onClick={() => {
+                const now = Date.now();
+                versionTapTimestamps.current = [
+                  ...versionTapTimestamps.current.filter((ts) => now - ts < 2000),
+                  now,
+                ];
+                if (versionTapTimestamps.current.length >= 5) {
+                  versionTapTimestamps.current = [];
+                  setAdminOpen((v) => !v);
+                  return;
+                }
+                openChangelog();
+              }}
               className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
               aria-expanded={changelogOpen}
               aria-haspopup="dialog"
@@ -463,11 +515,24 @@ export default function App() {
               <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
-            NEXUS DRIFT
-            <span className="mx-2 font-thin text-white/40"> //</span>
-            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
-              purge wing online
+          <h1 className="flex flex-wrap items-end gap-x-2 text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
+            <span>NEXUS DRIFT</span>
+            <span className="font-thin text-white/40"> //</span>
+            <span className="ml-1 inline-flex flex-col items-start leading-none">
+              <button
+                type="button"
+                onClick={() => setWikiOpen(true)}
+                className="mb-1 inline-flex items-center gap-1 rounded-md border border-cyan-300/25 bg-cyan-300/5 px-1.5 py-0.5 text-[9px] font-medium tracking-[0.28em] text-cyan-200/75 uppercase transition hover:border-cyan-200/50 hover:bg-cyan-300/10 hover:text-cyan-100"
+                aria-label="Open field archive"
+                aria-haspopup="dialog"
+                aria-expanded={wikiOpen}
+              >
+                <BookOpen className="h-3 w-3" />
+                <span>archive</span>
+              </button>
+              <span className="text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
+                purge wing online
+              </span>
             </span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
@@ -613,33 +678,7 @@ export default function App() {
               <FieldSvg
                 game={game}
                 derived={derived}
-                interactions={{
-                  onTouristClick: () => {
-                    mutateGame((next) => {
-                      spotTourist(next);
-                    });
-                  },
-                  onLostDroneClick: () => {
-                    mutateGame((next) => {
-                      recoverLostDrone(next);
-                    });
-                  },
-                  onAnomalyClick: () => {
-                    mutateGame((next) => {
-                      witnessAnomaly(next);
-                    });
-                  },
-                  onProjectileClick: (projectileId) => {
-                    mutateGame((next) => {
-                      clickProjectile(next, projectileId);
-                    });
-                  },
-                  onEnemyClick: (enemyId) => {
-                    mutateGame((next) => {
-                      clickDyingEnemy(next, enemyId);
-                    });
-                  },
-                }}
+                interactions={fieldInteractions}
               />
             </div>
 
@@ -777,6 +816,8 @@ export default function App() {
           }}
         />
       )}
+
+      <WikiOverlay open={wikiOpen} onClose={() => setWikiOpen(false)} />
     </div>
   );
 }

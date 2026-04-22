@@ -1,4 +1,4 @@
-import type { EnemyArchetype, EnemyKind, ResourceKey, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type { EnemyArchetype, EnemyKind, ResourceKey, TaskState, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
 
 // 3.0.0: base costs stretched so 3rd turret / multi-worker slots take 1+ hr
 // each, and full-doctrine runs land in the multi-session wallpaper range
@@ -433,7 +433,7 @@ export const SCOUT = {
   cleanseRatePerArsenal: 0.08,
   avoidRadius: 90,
   capBase: 2,
-  capBoostThreshold: 8,
+  capBoostThreshold: 10,
   capBoostAmount: 1,
   cleanseSynergyPerExtra: 0.6,
 } as const;
@@ -721,8 +721,8 @@ export const PROGRESSION = {
   },
   combatWeights: {
     mite: { base: 2.2, tier: -0.26, pressure: 0.08, min: 0.45, max: 2.4 },
-    wisp: { base: 0.6, tier: 0.32, dominance: 0.08, pressure: -0.02, min: 0.35, max: 3.2, minTier: 1 },
-    raider: { base: 0.28, tier: 0.36, dominance: 0.12, pressure: -0.1, min: 0.15, max: 2.8, minTier: 2 },
+    wisp: { base: 0.6, tier: 0.32, dominance: 0.08, pressure: -0.02, min: 0.35, max: 3.2 },
+    raider: { base: 0.28, tier: 0.36, dominance: 0.12, pressure: -0.1, min: 0.15, max: 2.8, minTier: 1 },
     rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 3 },
     brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 4 },
     sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 5 },
@@ -968,7 +968,7 @@ export const SCOUT_AI = {
   cornerWallBuffer: 60,
 } as const;
 
-export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: string }> = {
+export const WORKERS_AT_HOME: Record<WorkerKind, { x: number; y: number; speed: number; task: TaskState }> = {
   miner: { x: 160, y: 440, speed: 1.1, task: "Surveying" },
   runner: { x: 320, y: 440, speed: 1.28, task: "Hauling" },
   drone: { x: 700, y: 440, speed: 1.02, task: "Optimizing" },

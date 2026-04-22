@@ -32,6 +32,24 @@ import {
 import type { Agent, Enemy, GameState } from "@/game/types";
 import { clamp, dist, normalize, pushLog } from "@/game/utils";
 
+// TODO(3.2.0): `movement.ts` is ~800 lines and houses three distinct concerns:
+//   - worker movement + evasion (`stepWorkers`)
+//   - enemy movement + squad bucketing (`stepEnemies`)
+//   - ghost / phantom reposition helpers
+// Split into `subsystems/workerMovement.ts`, `subsystems/enemyMovement.ts`,
+// and a `ghostReposition.ts` helper so each file fits under the ~300 LOC
+// project guideline. Deferred from 3.1.0 because the split needs careful
+// attention to the shared liveEnemies/combatEnemies slicing and regroup
+// centroid wiring — not worth mid-release destabilization.
+//
+// TODO(3.2.0): enemy and worker targeting do O(N·M) scans of the live-enemy
+// list every tick (pickEnemyTargetMulti, measureWorkerEnemyBlocking, squad
+// bucketing, separation, ghost reposition). At high admin speeds with 100+
+// enemies this is measurable. Add a coarse grid spatial index (bucket size
+// ~64 px) built once per tick at the top of advanceGame and reuse it across
+// movement + combat + targeting. Do not try to hand-roll this in 3.1.0 — the
+// index needs to track enemy HP changes mid-tick and invalidate cleanly.
+
 /**
  * Squad bearing bucketing helpers — squadmates sharing a target spread
  * across bearing slices so a group doesn't all approach from the same angle.
@@ -146,7 +164,7 @@ export function stepWorkers(state: GameState) {
 
   const regroup = computeRegroupCentroid(state.agents);
 
-  state.agents.forEach((agent, index) => {
+  state.agents.forEach((agent) => {
     if (!agent.active) return;
     if (agent.disabledTicks > 0) {
       agent.disabledTicks -= 1;
@@ -193,10 +211,15 @@ export function stepWorkers(state: GameState) {
 
     updateThreatMemory(agent, combatEnemies);
 
+    // 3.1.0: cadence offset is hashed from the stable `agent.id` instead of
+    // the array index. When workers die, reboot, or are reordered the array
+    // index shifts for survivors, which used to silently change their
+    // retarget cadence mid-life. Using `agent.id` keeps each worker's
+    // retarget window fixed for its lifetime.
     const needsTarget =
       agent.target == null ||
       !state.nodes.some((node) => node.id === agent.target) ||
-      state.timers.tick % (330 + index * 45) === 0;
+      state.timers.tick % (330 + agent.id * 45) === 0;
 
     if (needsTarget) {
       agent.target = chooseWorkerTarget(state, agent);
@@ -204,7 +227,7 @@ export function stepWorkers(state: GameState) {
 
     const node =
       state.nodes.find((candidate) => candidate.id === agent.target) ??
-      state.nodes[index % state.nodes.length];
+      state.nodes[agent.id % state.nodes.length];
     // Sample blocking before movement for the current tick. If future nodes can
     // move, update node positions first and keep deriving worker velocity from
     // previous/current x/y; tx/ty below are only destination anchors.
@@ -620,8 +643,17 @@ export function stepEnemies(state: GameState) {
           desiredY = agentTarget.y + (wdy / wmag) * lead;
         }
       } else if (archetype === "ghost") {
-        const cloakPhase = (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
-        if (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart && cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd) {
+        // 3.1.0 — permanentCloak enemies (wardens) have no cycle to gate on,
+        // so they're always in the reposition phase.
+        const alwaysReposition = enemy.permanentCloak === true;
+        const cloakPhase = alwaysReposition
+          ? (ENEMY_AI.ghostRepositionPhaseStart + ENEMY_AI.ghostRepositionPhaseEnd) / 2
+          : (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
+        if (
+          alwaysReposition ||
+          (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart &&
+            cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd)
+        ) {
           const wdx = agentTarget.tx - agentTarget.x;
           const wdy = agentTarget.ty - agentTarget.y;
           const wmag = Math.hypot(wdx, wdy);

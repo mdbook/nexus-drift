@@ -25,7 +25,7 @@ import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
-import { damageEnemy } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { measureWorkerEnemyBlocking, stepWorkers } from "@/game/subsystems/movement";
 import { stepMining } from "@/game/subsystems/mining";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
@@ -33,7 +33,7 @@ import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepWardenSpawn } from "@/game/subsystems/spawns";
 import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
-import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
+import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret, damageWorker } from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepEnemies } from "@/game/subsystems/movement";
@@ -190,9 +190,9 @@ describe("advanceGame simulation invariants", () => {
     expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
   });
 
-  it("caps active corruption-killer drones at two by default and three when upgrade is 8+", () => {
+  it("caps active corruption-killer drones at two by default and three when upgrade is 10+", () => {
     const seeded = createInitialGameState();
-    seeded.upgrades.scout = 9;
+    seeded.upgrades.scout = 10;
 
     const derived = computeDerived(seeded);
 
@@ -458,6 +458,40 @@ describe("advanceGame simulation invariants", () => {
     expect(enemy.hp).toBe(27);
   });
 
+  it("damageEnemy arms shield regen cooldown on both shield and HP hits", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 12;
+    enemy.shieldMax = 12;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 35;
+
+    // Partial shield hit: cooldown arms so regen does not tick on this frame.
+    damageEnemy(enemy, 5);
+    expect(enemy.shield).toBe(7);
+    expect(enemy.shieldRegenCooldown).toBeGreaterThan(0);
+
+    // Drop shield to 0, then hit HP on a later "frame" with cooldown drained.
+    damageEnemy(enemy, 7);
+    enemy.shieldRegenCooldown = 0;
+    damageEnemy(enemy, 5);
+    // HP-only hit must still arm cooldown so regen waits.
+    expect(enemy.hp).toBe(30);
+    expect(enemy.shieldRegenCooldown).toBeGreaterThan(0);
+  });
+
+  it("damageEnemy is a no-op for non-positive amounts", () => {
+    const enemy = spawnEnemy(createInitialGameState().rng, 1, 0, "zapper");
+    enemy.shield = 8;
+    enemy.shieldMax = 8;
+    enemy.shieldRegenCooldown = 0;
+    enemy.hp = 20;
+    damageEnemy(enemy, 0);
+    damageEnemy(enemy, -5);
+    expect(enemy.shield).toBe(8);
+    expect(enemy.hp).toBe(20);
+    expect(enemy.shieldRegenCooldown).toBe(0);
+  });
+
   it("derived state stays consistent with simulation", () => {
     const final = runTicks(createInitialGameState(), 500);
     const derived = computeDerived(final);
@@ -595,6 +629,25 @@ describe("advanceGame simulation invariants", () => {
     resolveEnemyDeaths(state);
 
     expect(state.stats.purges).toBe(1);
+  });
+
+  it("hostileKills counts combat kills only, not corruptor purges (3.1.0)", () => {
+    const state = createInitialGameState();
+    state.stats.hostileKills = 0;
+    state.stats.totalEnemiesKilled = 0;
+
+    // Mix a combat kill and a corruptor purge in the same frame.
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.hp = 0;
+    const corruptor = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    corruptor.hp = 0;
+    state.enemies.push(mite, corruptor);
+
+    resolveEnemyDeaths(state);
+
+    // hostileKills = 1 (mite only); totalEnemiesKilled = 2 (inclusive).
+    expect(state.stats.hostileKills).toBe(1);
+    expect(state.stats.totalEnemiesKilled).toBe(2);
   });
 
   it("credits sentinel kills only when a sentinel lands the lethal hit", () => {
@@ -876,6 +929,65 @@ describe("zapper enemy", () => {
 
     expect(state.achievements.synthwave).toBe(true);
     expect(state.achievements.drift_heard).toBeUndefined();
+  });
+});
+
+describe("worker damage funnel (3.1.0)", () => {
+  it("damageWorker clamps hp at 0 and flags damage + panic", () => {
+    const state = createInitialGameState();
+    const agent = state.agents.find((a) => a.active)!;
+    agent.hp = 20;
+    agent.panic = 0;
+    agent.damageTicks = 0;
+
+    damageWorker(agent, 50);
+
+    expect(agent.hp).toBe(0);
+    expect(agent.damageTicks).toBe(WORKER.combatDamageTicks);
+    expect(agent.panic).toBeCloseTo(WORKER.panicDelta.damagedBurst, 5);
+  });
+
+  it("damageWorker is a no-op for corrupted / rebooting / inactive workers", () => {
+    const state = createInitialGameState();
+    const [a, b, c] = state.agents.filter((agent) => agent.active);
+    a.hp = 50; a.corrupted = true;
+    b.hp = 50; b.rebootTicks = 120;
+    c.hp = 50; c.active = false;
+
+    damageWorker(a, 20);
+    damageWorker(b, 20);
+    damageWorker(c, 20);
+
+    expect(a.hp).toBe(50);
+    expect(b.hp).toBe(50);
+    expect(c.hp).toBe(50);
+  });
+
+  it("sapper detonation routes through damageWorker (honors corrupted + reboot guards)", () => {
+    const state = createInitialGameState();
+    state.timers.tick = COMBAT_TICK; // step boundary
+
+    const active = state.agents.filter((a) => a.active);
+    const healthy = active[0];
+    const corrupted = active[1];
+    const rebooting = active[2];
+
+    healthy.hp = 80; healthy.x = 500; healthy.y = 300;
+    corrupted.hp = 80; corrupted.x = 510; corrupted.y = 300; corrupted.corrupted = true;
+    rebooting.hp = 80; rebooting.x = 520; rebooting.y = 300; rebooting.rebootTicks = 60;
+
+    const sapper = spawnEnemy(state.rng, 9001, 0, "sapper", state.timers.tick);
+    sapper.x = 505; sapper.y = 300; sapper.hp = 30;
+    state.enemies.push(sapper);
+
+    stepCombat(state);
+
+    // Healthy worker took the hit; corrupted + rebooting are untouched.
+    expect(healthy.hp).toBeLessThan(80);
+    expect(corrupted.hp).toBe(80);
+    expect(rebooting.hp).toBe(80);
+    // Sapper self-destructed regardless.
+    expect(sapper.hp).toBe(0);
   });
 });
 
@@ -1331,6 +1443,24 @@ describe("city HP, energy modulation, and regen (3.0.0)", () => {
       stepCity(state);
     }
     expect(state.city.hp).toBeGreaterThan(hpBeforeSiege);
+  });
+
+  it("regen stays enabled after the tick counter wraps (3.1.0)", () => {
+    const state = createInitialGameState();
+    // Simulate a wrap: lastHostileTick was recorded just before the counter
+    // rolled over at TICK_WRAP (10_000_000), and the current tick is now a
+    // few thousand past the wrap boundary. Pre-3.1.0, the raw subtract went
+    // deeply negative and regen could never clear the idle gate.
+    state.timers.tick = 3_000;
+    state.city.lastHostileTick = 9_999_500; // just before wrap
+    state.city.hp = state.city.maxHp * 0.8;
+    state.enemies = [];
+
+    const hpBefore = state.city.hp;
+    // The elapsed delta across the wrap is 3_500 ticks, which is >
+    // regenIdleTicks, so regen should resume this tick.
+    stepCity(state);
+    expect(state.city.hp).toBeGreaterThan(hpBefore);
   });
 });
 
@@ -1923,6 +2053,59 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.achievements.warden_killed).toBe(true);
   });
 
+  // ── Warden permanent cloak (3.1.0) ──────────────────────────────────────────
+
+  it("wardens spawn with permanentCloak and are isCloaked", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    expect(warden.permanentCloak).toBe(true);
+    expect(isCloaked(warden)).toBe(true);
+  });
+
+  it("sentinel does not target a cloaked warden even when in range", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+
+    const sentinel = state.sentinels[0];
+    sentinel.rebootTicks = 0;
+    sentinel.retreating = false;
+    sentinel.cooldown = 0;
+    sentinel.hp = sentinel.maxHp;
+    sentinel.x = 400;
+    sentinel.y = 300;
+
+    // Drop workers off-field so they don't compete as nearer threats.
+    state.agents.forEach((a) => { a.active = false; });
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = sentinel.x + SENTINEL.rangeBase - 10; // well within range
+    warden.y = sentinel.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    const hpBefore = warden.hp;
+    stepSentinels(state);
+
+    // Sentinel must not have shot the warden — it's cloaked.
+    expect(warden.hp).toBe(hpBefore);
+    expect(sentinel.targetId).not.toBe(warden.id);
+  });
+
+  it("migration defaults permanentCloak to true for pre-3.1.0 warden saves", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    state.enemies.push(warden);
+
+    const serialized = JSON.parse(JSON.stringify(state));
+    // Simulate a pre-3.1.0 save by dropping the field.
+    for (const e of serialized.enemies) delete e.permanentCloak;
+    serialized.schemaVersion = SCHEMA_VERSION - 1;
+
+    const restored = migrateGameState(serialized);
+    const restoredWarden = restored.enemies.find((e) => e.kind === "warden");
+    expect(restoredWarden?.permanentCloak).toBe(true);
+  });
+
   // ── Corrupted worker node drain ─────────────────────────────────────────────
 
   it("corrupted worker drains nearby resource nodes over time", () => {
@@ -1988,6 +2171,33 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     stepWorkerCorruption(state);
 
     expect(corrupted.spottedTicks).toBe(0);
+  });
+
+  it("already-spotted corrupted worker stays pinned at workerReportDuration while reporter remains in range (3.1.0)", () => {
+    const state = createInitialGameState();
+    const corrupted = state.agents[0];
+    corrupted.active = true;
+    corrupted.corrupted = true;
+    corrupted.spottedTicks = WARDEN.workerReportDuration; // already spotted
+    corrupted.x = 300;
+    corrupted.y = 300;
+
+    const reporter = state.agents[1];
+    reporter.active = true;
+    reporter.corrupted = false;
+    reporter.kind = "miner";
+    reporter.x = corrupted.x + WARDEN.workerReportRadius - 5;
+    reporter.y = corrupted.y;
+
+    // Before 3.1.0 the reporting scan short-circuited on spottedTicks > 0,
+    // so the timer would monotonically drain (1/tick in stepCorruptedWorkers)
+    // even with a reporter standing right next to the corrupted worker. After
+    // the fix the scan runs every tick and pins the timer at max.
+    for (let i = 0; i < 20; i++) {
+      stepWorkerCorruption(state);
+    }
+
+    expect(corrupted.spottedTicks).toBe(WARDEN.workerReportDuration);
   });
 
   // ── Sentinel cleanse ────────────────────────────────────────────────────────

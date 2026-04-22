@@ -115,6 +115,58 @@ export function AchievementsModal({
   const [showHidden, setShowHidden] = useState(false);
   const [flashAchievementId, setFlashAchievementId] = useState<AchievementId | null>(null);
   const achievementRefs = useRef<Partial<Record<AchievementId, HTMLDivElement | null>>>({});
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // 3.1.0 — modal a11y: Escape-to-close, focus return, and a minimal focus
+  // trap so Tab/Shift+Tab cycle within the dialog instead of leaking to the
+  // sim beneath it.
+  useEffect(() => {
+    previouslyFocusedRef.current =
+      typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+    // Focus the dialog root so screen readers announce the labelled dialog.
+    dialogRef.current?.focus();
+
+    const getFocusable = (): HTMLElement[] => {
+      const root = dialogRef.current;
+      if (!root) return [];
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute("disabled"));
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === first || !dialogRef.current?.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Return focus to the element that was focused before the modal opened.
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [onClose]);
 
   const unlockedCount = Object.keys(achievements).length;
   const totalCount = ACHIEVEMENT_DEFS.length;
@@ -175,14 +227,21 @@ export function AchievementsModal({
       onClick={onClose}
     >
       <Card
-        className={`${PANEL_CLASS} flex w-full max-w-lg flex-col border-indigo-400/20 bg-slate-950/97 p-0 shadow-2xl`}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="achievements-modal-title"
+        tabIndex={-1}
+        className={`${PANEL_CLASS} flex w-full max-w-lg flex-col border-indigo-400/20 bg-slate-950/97 p-0 shadow-2xl focus:outline-none`}
         style={{ maxHeight: "min(680px, 90vh)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/8 px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight text-white">Achievements</h2>
+            <h2 id="achievements-modal-title" className="text-lg font-semibold tracking-tight text-white">
+              Achievements
+            </h2>
             <div className="mt-1 flex items-center gap-2 text-xs text-white/40">
               <span>
                 {unlockedCount} / {totalCount} unlocked
@@ -203,6 +262,8 @@ export function AchievementsModal({
               type="button"
               onClick={() => setShowHidden((v) => !v)}
               title={showHidden ? "Hide secret achievements" : "Reveal secret achievements"}
+              aria-label={showHidden ? "Hide secret achievements" : "Reveal secret achievements"}
+              aria-pressed={showHidden}
               className="rounded-full border border-white/10 bg-white/5 p-2 text-white/40 transition hover:bg-white/10 hover:text-white/70"
             >
               {showHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -210,6 +271,7 @@ export function AchievementsModal({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close achievements modal"
               className="rounded-full border border-white/10 bg-white/5 p-2 text-white/40 transition hover:bg-white/10 hover:text-white/70"
             >
               <X className="h-3.5 w-3.5" />

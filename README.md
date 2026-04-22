@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `3.0.2` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.1.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -73,7 +73,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (152 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (163 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -149,6 +149,40 @@ GitLab CI runs:
 Container release images are built automatically only for `main` and `dev`: `main`
 publishes the commit SHA plus `:latest`, while `dev` publishes the commit SHA plus
 `:dev`.
+
+---
+
+## Known Deferred Work
+
+Follow-up work for `3.2.0+` that was deliberately scoped out of `3.1.0`
+because the touch surface was too large for a release polish pass. Each
+item has an in-source `TODO(3.2.0)` comment anchoring it.
+
+- **`computeDerived` lift** — `computeDerived` runs ~15× per tick because
+  every subsystem recomputes it independently. Naïve WeakMap memoization is
+  unsafe (state identity is stable but contents mutate mid-tick). The
+  correct fix threads `derived` through subsystem signatures and patches
+  specific fields after mutating phases. See
+  `src/game/selectors.ts:computeDerived`.
+- **Spatial index for enemy / worker scans** — movement, targeting, and
+  combat all walk the full live-enemy list every tick. At admin speeds
+  (`20×`, `100×`) with 100+ enemies this is measurable. Add a coarse grid
+  (~64 px buckets) built once per tick at the top of `advanceGame` and
+  reuse it across all nearest-neighbor scans. See top of
+  `src/game/subsystems/movement.ts`.
+- **Split `movement.ts`** — ~800 LOC housing three concerns (worker
+  movement, enemy movement, ghost reposition). Break into
+  `workerMovement.ts`, `enemyMovement.ts`, and a `ghostReposition.ts`
+  helper. See top of `src/game/subsystems/movement.ts`.
+- **Retire unseeded `Math.random` helpers in `src/game/utils.ts`** — the
+  sim is deterministic and seeded via `src/game/rng.ts`; `rand`, `pick`,
+  `chance`, and `pickWeighted` all fall back to `Math.random` and are only
+  safe for cosmetic paths (starfield). Split them into a clearly-labeled
+  cosmetic module or lean on the seeded `Rng` everywhere.
+- **React `18 → 19` upgrade** — the app pins to React `18.3.1` plus
+  matching type packages. Upgrading unlocks the newer `useOptimistic` /
+  `useFormStatus` ergonomics and the compiler, but `framer-motion` and
+  `lucide-react` peer ranges need revalidation first.
 
 ---
 
