@@ -5,12 +5,12 @@ import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { dist } from "@/game/utils";
 
-// 3.0.0 Step 8: turret coordination — worker-pad anchor and bonus radius.
-// This intentionally uses y=490 rather than the city damage centroid y=540:
-// the bonus is about workers being chased near the home pad, not enemies
-// touching the lower home-district damage band.
+// 3.0.0 Step 8: turret coordination uses the worker-pad line, not the city
+// damage centroid. The city/combat systems anchor structural hits at y=540,
+// while this bonus asks whether a worker is being chased near the defensive
+// turret line at y=490.
 const HOME_X = 500;
-const HOME_Y = 490;
+const TURRET_LINE_Y = 490;
 const TURRET_COORD_RADIUS = 200;  // px from home centre that qualifies a worker as "near home"
 const TURRET_COORD_BONUS  = 60;   // score reduction (lower = higher priority)
 
@@ -31,7 +31,7 @@ export function getTurretTargetScore(state: GameState, turret: GameState["turret
   // this turret.
   if (enemy.targetKind === "agent" && enemy.targetId !== null) {
     const victim = state.agents.find((a) => a.id === enemy.targetId && a.active);
-    if (victim && Math.hypot(victim.x - HOME_X, victim.y - HOME_Y) < TURRET_COORD_RADIUS) {
+    if (victim && Math.hypot(victim.x - HOME_X, victim.y - TURRET_LINE_Y) < TURRET_COORD_RADIUS) {
       score -= TURRET_COORD_BONUS;
     }
   }

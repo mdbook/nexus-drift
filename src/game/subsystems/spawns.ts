@@ -131,12 +131,14 @@ export function stepWardenSpawn(state: GameState) {
     return;
   }
 
-  // Check field limits before advancing the cooldown. The timer represents
-  // time since the field was eligible for a new infestation, not time spent
-  // waiting behind an existing warden/corrupted worker.
   const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
   const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
   if (wardenOnField || corruptedWorker) {
+    // The timer is "time since the field was fully clear and eligible", not
+    // time spent waiting behind a blocker. Interruptions reset progress rather
+    // than pausing it, which prevents cooldown banking after an infestation.
+    // Repeatedly triggering and clearing wardens can therefore delay respawns
+    // indefinitely; switch this block to pause if that pacing model changes.
     state.timers.warden = 0;
     return;
   }

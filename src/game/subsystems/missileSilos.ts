@@ -48,10 +48,11 @@ export function stepMissileSilos(state: GameState) {
     if (silo.cooldown > 0) continue;
 
     // Pick the most dangerous eligible enemy within range in one pass. Higher
-    // threat-tier wins; wounded first within the same tier.
-    let target: GameState["enemies"][number] | null = null;
-    let targetTier = -Infinity;
-    let targetHp = Infinity;
+    // threat-tier wins; wounded first within the same tier. This preserves the
+    // previous stable-sort winner by keeping the first candidate on exact ties.
+    let bestTarget: GameState["enemies"][number] | null = null;
+    let bestTargetTier = -Infinity;
+    let bestTargetHp = Infinity;
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
       if (enemy.role === "corruptor") continue;
@@ -59,23 +60,23 @@ export function stepMissileSilos(state: GameState) {
       if (dist(silo.x, silo.y, enemy.x, enemy.y) > range) continue;
 
       const tier = siloTargetTier(enemy.kind);
-      if (tier > targetTier || (tier === targetTier && enemy.hp < targetHp)) {
-        target = enemy;
-        targetTier = tier;
-        targetHp = enemy.hp;
+      if (tier > bestTargetTier || (tier === bestTargetTier && enemy.hp < bestTargetHp)) {
+        bestTarget = enemy;
+        bestTargetTier = tier;
+        bestTargetHp = enemy.hp;
       }
     }
 
-    if (!target) continue;
+    if (!bestTarget) continue;
 
-    silo.targetId = target.id;
-    silo.angle = Math.atan2(target.y - silo.y, target.x - silo.x);
+    silo.targetId = bestTarget.id;
+    silo.angle = Math.atan2(bestTarget.y - silo.y, bestTarget.x - silo.x);
 
-    const d = Math.max(1, Math.hypot(target.x - silo.x, target.y - silo.y));
-    const vx = (target.x - silo.x) / d;
-    const vy = (target.y - silo.y) / d;
+    const d = Math.max(1, Math.hypot(bestTarget.x - silo.x, bestTarget.y - silo.y));
+    const vx = (bestTarget.x - silo.x) / d;
+    const vy = (bestTarget.y - silo.y) / d;
 
-    addMissile(state, silo.x, silo.y, vx, vy, target.id, damage, {
+    addMissile(state, silo.x, silo.y, vx, vy, bestTarget.id, damage, {
       speed: MISSILE_SILO.missileSpeed,
       maxLife: MISSILE_SILO.missileMaxLife,
       steering: MISSILE_SILO.missileSteering,
