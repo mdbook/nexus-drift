@@ -132,6 +132,33 @@ export function damageCorruptedWorker(worker: Agent, amount: number) {
   worker.damageTicks = WORKER.combatDamageTicks;
 }
 
+/**
+ * 3.1.0 — single damage funnel for healthy (non-corrupted) workers.
+ *
+ * Mirrors the damageTurret / damageScout / damageSentinel pattern so every
+ * path that reduces a worker's HP goes through one clamp + flash + panic-bump
+ * helper. Guards on active/corrupted/rebootTicks so a caller that forgets the
+ * invariant (corrupted workers are immune to non-sentinel damage, inactive or
+ * rebooting workers are off-field) cannot accidentally deal damage. HP is
+ * clamped at 0 — respawn-on-death is handled by the main stepCombat loop
+ * which picks up zombie workers the next tick when an attacker is in range.
+ */
+export function damageWorker(agent: Agent, amount: number) {
+  if (amount <= 0) return;
+  if (!agent.active) return;
+  if (agent.corrupted || agent.rebootTicks > 0) return;
+
+  agent.hp = Math.max(0, agent.hp - amount);
+  agent.damageTicks = WORKER.combatDamageTicks;
+  agent.panic = clamp(agent.panic + WORKER.panicDelta.damagedBurst, 0, 100);
+  // Note: we intentionally do not trigger respawn here. The main stepCombat
+  // worker-damage loop already handles `nextHp <= 0 -> respawn` whenever an
+  // attacker is in contact, which resolves sapper-killed workers within one
+  // tick. Keeping respawn out of this funnel avoids duplicating the panic /
+  // evade / home-teleport bookkeeping. Signature matches damageCorruptedWorker
+  // (no state param) since no stats/log writes are needed here.
+}
+
 export function resolveEnemyDeaths(state: GameState) {
   // Find newly killed enemies (hp ≤ 0 but not yet started dying).
   const killed = state.enemies.filter((enemy) => enemy.hp <= 0 && enemy.dyingTicks === 0);
@@ -318,11 +345,11 @@ export function stepCombat(state: GameState) {
     if (!nearWorker) continue;
 
     for (const agent of state.agents) {
-      if (!agent.active) continue;
-      if (agent.corrupted || agent.rebootTicks > 0) continue;
       if (dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.explosionRadius) {
-        agent.hp -= ENEMY_SPECIAL.sapper.explosionDamage;
-        agent.damageTicks = WORKER.combatDamageTicks;
+        // 3.1.0: route sapper explosion through damageWorker funnel so
+        // clamp/flash/panic bookkeeping lives in one place and the
+        // corrupted/reboot guard cannot be forgotten at the callsite.
+        damageWorker(agent, ENEMY_SPECIAL.sapper.explosionDamage);
       }
     }
 

@@ -33,7 +33,7 @@ import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepWardenSpawn } from "@/game/subsystems/spawns";
 import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
-import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
+import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret, damageWorker } from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepEnemies } from "@/game/subsystems/movement";
@@ -876,6 +876,65 @@ describe("zapper enemy", () => {
 
     expect(state.achievements.synthwave).toBe(true);
     expect(state.achievements.drift_heard).toBeUndefined();
+  });
+});
+
+describe("worker damage funnel (3.1.0)", () => {
+  it("damageWorker clamps hp at 0 and flags damage + panic", () => {
+    const state = createInitialGameState();
+    const agent = state.agents.find((a) => a.active)!;
+    agent.hp = 20;
+    agent.panic = 0;
+    agent.damageTicks = 0;
+
+    damageWorker(agent, 50);
+
+    expect(agent.hp).toBe(0);
+    expect(agent.damageTicks).toBe(WORKER.combatDamageTicks);
+    expect(agent.panic).toBeCloseTo(WORKER.panicDelta.damagedBurst, 5);
+  });
+
+  it("damageWorker is a no-op for corrupted / rebooting / inactive workers", () => {
+    const state = createInitialGameState();
+    const [a, b, c] = state.agents.filter((agent) => agent.active);
+    a.hp = 50; a.corrupted = true;
+    b.hp = 50; b.rebootTicks = 120;
+    c.hp = 50; c.active = false;
+
+    damageWorker(a, 20);
+    damageWorker(b, 20);
+    damageWorker(c, 20);
+
+    expect(a.hp).toBe(50);
+    expect(b.hp).toBe(50);
+    expect(c.hp).toBe(50);
+  });
+
+  it("sapper detonation routes through damageWorker (honors corrupted + reboot guards)", () => {
+    const state = createInitialGameState();
+    state.timers.tick = COMBAT_TICK; // step boundary
+
+    const active = state.agents.filter((a) => a.active);
+    const healthy = active[0];
+    const corrupted = active[1];
+    const rebooting = active[2];
+
+    healthy.hp = 80; healthy.x = 500; healthy.y = 300;
+    corrupted.hp = 80; corrupted.x = 510; corrupted.y = 300; corrupted.corrupted = true;
+    rebooting.hp = 80; rebooting.x = 520; rebooting.y = 300; rebooting.rebootTicks = 60;
+
+    const sapper = spawnEnemy(state.rng, 9001, 0, "sapper", state.timers.tick);
+    sapper.x = 505; sapper.y = 300; sapper.hp = 30;
+    state.enemies.push(sapper);
+
+    stepCombat(state);
+
+    // Healthy worker took the hit; corrupted + rebooting are untouched.
+    expect(healthy.hp).toBeLessThan(80);
+    expect(corrupted.hp).toBe(80);
+    expect(rebooting.hp).toBe(80);
+    // Sapper self-destructed regardless.
+    expect(sapper.hp).toBe(0);
   });
 });
 
