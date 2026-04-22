@@ -321,6 +321,7 @@ export default function App() {
   } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
+  const versionTapTimestamps = useRef<number[]>([]);
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
   const synthwaveRef = useRef(synthwave);
   useEffect(() => {
@@ -444,7 +445,19 @@ export default function App() {
             <span>Autonomous Colony Sim</span>
             <button
               type="button"
-              onClick={openChangelog}
+              onClick={() => {
+                const now = Date.now();
+                versionTapTimestamps.current = [
+                  ...versionTapTimestamps.current.filter((ts) => now - ts < 2000),
+                  now,
+                ];
+                if (versionTapTimestamps.current.length >= 5) {
+                  versionTapTimestamps.current = [];
+                  setAdminOpen((v) => !v);
+                  return;
+                }
+                openChangelog();
+              }}
               className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
               aria-expanded={changelogOpen}
               aria-haspopup="dialog"

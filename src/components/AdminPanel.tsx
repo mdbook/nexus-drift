@@ -48,7 +48,7 @@ const TONE_CLASS: Record<(typeof QUICK_ACTIONS)[number]["tone"], string> = {
   violet: "border-violet-300/20 bg-violet-300/10 text-violet-100 hover:bg-violet-300/15",
 };
 const COLLAPSE_TOGGLE_CLASS =
-  "absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-100/30 bg-cyan-300/15 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.2),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl transition hover:border-cyan-100/45 hover:bg-cyan-200/20 hover:text-white";
+  "absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/45 shadow-[0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white";
 
 function resultTone(result: AdminCommandResult): TerminalEntry["tone"] {
   return result.ok ? "success" : "error";
@@ -350,7 +350,7 @@ export function AdminPanel({
 
             <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
               <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">Trigger Event</div>
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+              <div className="flex flex-wrap gap-2">
                 {EVENT_DEFS.map((eventDef) => (
                   <button
                     key={eventDef.id}
