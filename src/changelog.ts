@@ -58,6 +58,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Added admin command coverage for resource grants, upgrades, timed-event trigger/revert, seeded enemy spawning, corruption cleanup, speed requests, and banner requests.",
         ],
       },
+      {
+        title: "Balance",
+        items: [
+          "Wisps now appear from the very start of a run (tier 0) instead of being gated to tier 1, so early waves include more than just mites.",
+          "Raiders start appearing at tier 1 instead of tier 2, adding a third enemy variant well before corruptors arrive.",
+          "Scout upgrade is now hidden until tier 2 (the same point corruptors first spawn), so it only shows up when it is actually needed.",
+          "Autobuy's emergency scout trigger now aligns with tier 2 to match the new visibility gate.",
+        ],
+      },
     ],
   },
   {

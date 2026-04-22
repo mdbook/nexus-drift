@@ -65,7 +65,7 @@ export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedStat
     canAffordUpgrade(state.resources, nextUpgradeCost(getUpgradeDef(key), state.upgrades[key]));
 
   if (
-    (derived.corruptorCount > 0 || derived.activeCorruptionNodes > 0 || derived.progression.tier >= 3) &&
+    (derived.corruptorCount > 0 || derived.activeCorruptionNodes > 0 || derived.progression.tier >= 2) &&
     state.upgrades.scout < 1 &&
     canAfford("scout")
   ) {
