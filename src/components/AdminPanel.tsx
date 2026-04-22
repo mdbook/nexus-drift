@@ -345,6 +345,22 @@ export function AdminPanel({
                 backlog.
               </p>
             </section>
+
+            <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
+              <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">Trigger Event</div>
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                {EVENT_DEFS.map((eventDef) => (
+                  <button
+                    key={eventDef.id}
+                    type="button"
+                    onClick={() => runCommand(`event ${eventDef.id}`)}
+                    className="shrink-0 rounded-full border border-cyan-300/15 bg-cyan-300/8 px-3 py-1.5 text-[11px] text-cyan-50/65 transition hover:border-cyan-200/25 hover:bg-cyan-300/14 hover:text-cyan-50"
+                  >
+                    {eventDef.label}
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
 
           <div className="flex min-w-0 flex-col rounded-3xl border border-cyan-300/15 bg-black/35">
@@ -386,18 +402,6 @@ export function AdminPanel({
                   Run
                 </button>
               </form>
-              <div className="mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none]">
-                {EVENT_DEFS.map((eventDef) => (
-                  <button
-                    key={eventDef.id}
-                    type="button"
-                    onClick={() => runCommand(`event ${eventDef.id}`)}
-                    className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/50 transition hover:bg-white/10 hover:text-white"
-                  >
-                    {eventDef.label}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
         </div>
