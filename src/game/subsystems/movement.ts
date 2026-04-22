@@ -32,6 +32,24 @@ import {
 import type { Agent, Enemy, GameState } from "@/game/types";
 import { clamp, dist, normalize, pushLog } from "@/game/utils";
 
+// TODO(3.2.0): `movement.ts` is ~800 lines and houses three distinct concerns:
+//   - worker movement + evasion (`stepWorkers`)
+//   - enemy movement + squad bucketing (`stepEnemies`)
+//   - ghost / phantom reposition helpers
+// Split into `subsystems/workerMovement.ts`, `subsystems/enemyMovement.ts`,
+// and a `ghostReposition.ts` helper so each file fits under the ~300 LOC
+// project guideline. Deferred from 3.1.0 because the split needs careful
+// attention to the shared liveEnemies/combatEnemies slicing and regroup
+// centroid wiring — not worth mid-release destabilization.
+//
+// TODO(3.2.0): enemy and worker targeting do O(N·M) scans of the live-enemy
+// list every tick (pickEnemyTargetMulti, measureWorkerEnemyBlocking, squad
+// bucketing, separation, ghost reposition). At high admin speeds with 100+
+// enemies this is measurable. Add a coarse grid spatial index (bucket size
+// ~64 px) built once per tick at the top of advanceGame and reuse it across
+// movement + combat + targeting. Do not try to hand-roll this in 3.1.0 — the
+// index needs to track enemy HP changes mid-tick and invalidate cleanly.
+
 /**
  * Squad bearing bucketing helpers — squadmates sharing a target spread
  * across bearing slices so a group doesn't all approach from the same angle.
