@@ -48,8 +48,10 @@ function stepWardenAttach(state: GameState) {
         closest.corrupted = true;
         closest.corruptionTicks = 0;
         closest.corruptingTicks = 0;
-        // Corruption boosts effective HP (tracked via corruptionTicks ramp — see FieldSvg).
-        // We don't modify closest.hp here; the HP change is cosmetic / for the drain scale.
+        // Boost maxHp so the corrupted worker is harder to cleanse. Base off
+        // workerBaseHp (not closest.maxHp) to prevent stacking on re-corruption.
+        closest.maxHp = Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult);
+        closest.hp = Math.min(closest.hp, closest.maxHp);
         attachedWardenIndices.push(ei);
         state.log = pushLog(
           state.log,
@@ -132,7 +134,7 @@ function stepWorkerReporting(state: GameState) {
     // standing right next to it. The scan now runs unconditionally so any
     // reporter in range keeps the timer pinned at max.
     for (const reporter of state.agents) {
-      if (!reporter.active || reporter.corrupted || reporter.id === corrupted.id) continue;
+      if (!reporter.active || reporter.corrupted || reporter.rebootTicks > 0 || reporter.id === corrupted.id) continue;
       const reportRadius =
         WARDEN.workerReportRadius * (reporter.kind === "drone" ? WARDEN.workerDroneReportMult : 1);
       if (dist(reporter.x, reporter.y, corrupted.x, corrupted.y) <= reportRadius) {

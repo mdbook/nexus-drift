@@ -1991,6 +1991,30 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
   });
 
+  it("corruption boosts worker maxHp to workerBaseHp * corruptToughnessMult", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = WARDEN.attachTicks - 1;
+    worker.x = 400;
+    worker.y = 300;
+    worker.hp = 80;
+    worker.maxHp = WARDEN.workerBaseHp; // 100
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x + WARDEN.attachRadius - 2;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    expect(worker.corrupted).toBe(true);
+    expect(worker.maxHp).toBe(Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult));
+    expect(worker.hp).toBeLessThanOrEqual(worker.maxHp);
+  });
+
   it("corruptingTicks decays when warden is out of attachRadius", () => {
     const state = createInitialGameState();
     const worker = state.agents[0];
@@ -2200,6 +2224,28 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(corrupted.spottedTicks).toBe(WARDEN.workerReportDuration);
   });
 
+  it("rebooting worker does not count as a healthy reporter", () => {
+    const state = createInitialGameState();
+    const corrupted = state.agents[0];
+    corrupted.active = true;
+    corrupted.corrupted = true;
+    corrupted.spottedTicks = 0;
+    corrupted.x = 300;
+    corrupted.y = 300;
+
+    const reporter = state.agents[1];
+    reporter.active = true;
+    reporter.corrupted = false;
+    reporter.rebootTicks = 60; // rebooting — should not count
+    reporter.kind = "miner";
+    reporter.x = corrupted.x + WARDEN.workerReportRadius - 5;
+    reporter.y = corrupted.y;
+
+    stepWorkerCorruption(state);
+
+    expect(corrupted.spottedTicks).toBe(0); // rebooting reporter must not refresh
+  });
+
   // ── Sentinel cleanse ────────────────────────────────────────────────────────
 
   it("sentinel fires cleanse beam at visible corrupted worker and earns rewards on kill", () => {
@@ -2238,6 +2284,36 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.resources.flux).toBeGreaterThan(fluxBefore);
     expect(state.resources.cores).toBe(coresBefore + WARDEN.cleanseCoreReward);
     expect(state.stats.corruptedPurified).toBe(1);
+  });
+
+  it("sentinel cleanse restores worker maxHp to workerBaseHp", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 1;
+
+    const sentinel = state.sentinels[0];
+    sentinel.rebootTicks = 0;
+    sentinel.retreating = false;
+    sentinel.cooldown = 0;
+    sentinel.hp = sentinel.maxHp;
+
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = true;
+    worker.corruptionTicks = 50;
+    worker.maxHp = Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult); // 150 — boosted
+    worker.spottedTicks = WARDEN.workerReportDuration;
+
+    const cleanseDamage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
+    worker.hp = cleanseDamage - 1;
+    worker.x = sentinel.x + WARDEN.corruptionVisionRadius - 5;
+    worker.y = sentinel.y;
+    sentinel.x = worker.x - SENTINEL.rangeBase + 5;
+    sentinel.y = worker.y;
+
+    stepSentinels(state);
+
+    expect(worker.corrupted).toBe(false);
+    expect(worker.maxHp).toBe(WARDEN.workerBaseHp); // toughness buff removed on cleanse
   });
 
   it("damageCorruptedWorker clamps HP, flashes, and ignores non-corrupted workers", () => {

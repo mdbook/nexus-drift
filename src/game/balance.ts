@@ -558,6 +558,10 @@ export const WARDEN = {
   // Warden spawn gate — separate from the normal wave system
   wardenSpawnIntervalTicks: 3600,
   wardenSpawnTierThreshold: 4,
+
+  // Corrupted worker toughness — corruption boosts maxHp to make cleansing harder
+  corruptToughnessMult: 1.5,
+  workerBaseHp: 100, // matches makeWorker default; used to restore maxHp on cleanse
 } as const;
 
 export const COMBAT = {

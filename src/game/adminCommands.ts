@@ -1,3 +1,4 @@
+import { WARDEN } from "@/game/balance";
 import { upgradeDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
 import { spawnEnemy } from "@/game/factories";
@@ -146,6 +147,7 @@ function clearCorruption(state: GameState) {
     agent.corruptionTicks = 0;
     agent.corruptingTicks = 0;
     agent.spottedTicks = 0;
+    agent.maxHp = WARDEN.workerBaseHp; // restore toughness boost if corruption was active
     if (agent.rebootTicks > 0) {
       agent.rebootTicks = 0;
       agent.hp = agent.maxHp;

@@ -214,6 +214,7 @@ export function stepSentinels(state: GameState) {
           cleanseTarget.corrupted = false;
           cleanseTarget.corruptionTicks = 0;
           cleanseTarget.corruptingTicks = 0;
+          cleanseTarget.maxHp = WARDEN.workerBaseHp;
           cleanseTarget.hp = cleanseTarget.maxHp;
           cleanseTarget.rebootTicks = WARDEN.corruptionRebootTicks;
           state.resources.flux = Math.min(
