@@ -2358,7 +2358,9 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.timers.warden).toBe(0);
   });
 
-  it("stepWardenSpawn restarts the cooldown after a blocking infestation clears", () => {
+  it("stepWardenSpawn blocks spawn and restarts cooldown when only 1 healthy worker remains", () => {
+    // Default state has 3 active workers (slot 0 of miner/runner/drone).
+    // Corrupt 2 of them → 1 healthy → gate triggers.
     const state = createInitialGameState();
     state.level = 80;
     state.prestige = 5;
@@ -2367,16 +2369,17 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     });
     state.timers.warden = WARDEN.wardenSpawnIntervalTicks + 120;
 
-    const worker = state.agents[0];
-    worker.active = true;
-    worker.corrupted = true;
+    // agents[0] = miner slot 0 (active), agents[3] = runner slot 0 (active)
+    state.agents[0].corrupted = true;
+    state.agents[3].corrupted = true; // leaves drone slot 0 as the 1 healthy worker
 
     stepWardenSpawn(state);
 
     expect(state.timers.warden).toBe(0);
     expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
 
-    worker.corrupted = false;
+    // Clearing one corruption → 2 healthy → gate lifts
+    state.agents[0].corrupted = false;
     for (let i = 0; i < WARDEN.wardenSpawnIntervalTicks - 1; i += 1) {
       stepWardenSpawn(state);
     }
@@ -2384,5 +2387,57 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
 
     stepWardenSpawn(state);
     expect(state.enemies.some((e) => e.kind === "warden")).toBe(true);
+  });
+
+  it("stepWardenSpawn allows spawn when 1 worker is corrupted but 2+ healthy remain", () => {
+    // Default: 3 active workers. Corrupt 1 → 2 healthy → gate should not block.
+    const state = createInitialGameState();
+    state.level = 80;
+    state.prestige = 5;
+    Object.keys(state.upgrades).forEach((key) => {
+      state.upgrades[key as keyof typeof state.upgrades] = 10;
+    });
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks;
+
+    state.agents[0].corrupted = true; // 1 corrupted, 2 healthy
+
+    stepWardenSpawn(state);
+
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(true);
+  });
+
+  it("stepWardenSpawn healthy-worker gate scales with fleet size", () => {
+    // 6 active workers (activate slot 1 of each kind). With 4 corrupted → 2 healthy → allowed.
+    // Then 5 corrupted → 1 healthy → blocked.
+    const state = createInitialGameState();
+    state.level = 80;
+    state.prestige = 5;
+    Object.keys(state.upgrades).forEach((key) => {
+      state.upgrades[key as keyof typeof state.upgrades] = 10;
+    });
+
+    // Activate slot 1 of miner (agents[1]), runner (agents[4]), drone (agents[7])
+    state.agents[1].active = true;
+    state.agents[4].active = true;
+    state.agents[7].active = true;
+    // 6 active total: agents 0,1 (miner), 3,4 (runner), 6,7 (drone)
+
+    // Corrupt 4 → 2 healthy → spawn should be allowed
+    state.agents[0].corrupted = true;
+    state.agents[1].corrupted = true;
+    state.agents[3].corrupted = true;
+    state.agents[4].corrupted = true;
+
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks;
+    stepWardenSpawn(state);
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(true);
+
+    // Reset and corrupt a 5th → 1 healthy → blocked
+    state.enemies = state.enemies.filter((e) => e.kind !== "warden");
+    state.agents[6].corrupted = true;
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks;
+    stepWardenSpawn(state);
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
+    expect(state.timers.warden).toBe(0);
   });
 });

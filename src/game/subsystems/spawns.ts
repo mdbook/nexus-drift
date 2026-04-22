@@ -120,9 +120,11 @@ export function stepSpawns(state: GameState) {
  *
  * Wardens bypass the regular wave budget. They have their own long cooldown
  * (wardenSpawnIntervalTicks) and are gated behind tier threshold. At most one
- * warden is ever on the field at a time, and we don't spawn a new one while a
- * worker is already corrupted (one infestation at a time — give the player a
- * chance to cleanse before another wave).
+ * warden is ever on the field at a time. A new warden is blocked only when
+ * spawning it could reduce the player to zero healthy workers — specifically,
+ * when fewer than 2 healthy workers remain (healthy = active, not corrupted,
+ * not rebooting). This lets 2 simultaneous corruptions occur in a larger
+ * fleet while always preserving at least 1 uncorrupted worker.
  */
 export function stepWardenSpawn(state: GameState) {
   const derived = computeDerived(state);
@@ -132,8 +134,10 @@ export function stepWardenSpawn(state: GameState) {
   }
 
   const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
-  const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
-  if (wardenOnField || corruptedWorker) {
+  const healthyWorkers = state.agents.filter(
+    (a) => a.active && !a.corrupted && a.rebootTicks === 0
+  ).length;
+  if (wardenOnField || healthyWorkers <= 1) {
     // The timer is "time since the field was fully clear and eligible", not
     // time spent waiting behind a blocker. Interruptions reset progress rather
     // than pausing it, which prevents cooldown banking after an infestation.
