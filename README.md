@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `3.0.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.0.1` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -25,6 +25,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, zappers — each kind maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking
 - **3.0.0**: Enemies now target deployed turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
+- **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
 - Zappers hold at firing distance and fire bolts that disable workers or turrets for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
 - **3.0.0**: Missile Silos are a separate upgrade track — long-range (~400 px), slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams
