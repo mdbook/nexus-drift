@@ -32,7 +32,7 @@ import { dist } from "@/game/utils";
 // Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
 // defensively by field presence, so v5 and branch-local v6 saves both load
 // through the same fallback paths below.
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -227,6 +227,7 @@ function makeScout(
     damageTicks: 0,
     retreating: false,
     rebootTicks: 0,
+    disabledTicks: 0,
   };
 }
 
@@ -262,6 +263,7 @@ function makeSentinel(id: number, x: number, y: number, speed: number): Sentinel
     damageTicks: 0,
     retreating: false,
     rebootTicks: 0,
+    disabledTicks: 0,
   };
 }
 
@@ -630,6 +632,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           damageTicks: scout.damageTicks ?? 0,
           retreating: scout.retreating ?? false,
           rebootTicks: scout.rebootTicks ?? 0,
+          disabledTicks: scout.disabledTicks ?? 0,
         }))
       : base.scouts,
     sentinels: Array.isArray(raw.sentinels)
@@ -640,6 +643,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           damageTicks: sentinel.damageTicks ?? 0,
           retreating: sentinel.retreating ?? false,
           rebootTicks: sentinel.rebootTicks ?? 0,
+          disabledTicks: sentinel.disabledTicks ?? 0,
         }))
       : base.sentinels,
     missileSilos: Array.isArray(raw.missileSilos)

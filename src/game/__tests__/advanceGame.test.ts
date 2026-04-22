@@ -837,6 +837,51 @@ describe("zapper enemy", () => {
     expect(state.turrets[0].disabledTicks).toBeGreaterThan(0);
   });
 
+  it("bolt applies disabledTicks to a scout when it is the nearest target", () => {
+    const state = createInitialGameState();
+    state.upgrades.scout = 2;
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.scouts[0].x + 60;
+    zapper.y = state.scouts[0].y;
+    // Move workers and turrets beyond firing range
+    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
+    state.turrets.forEach((t) => { t.x = 900; t.y = 50; });
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    expect(state.projectiles.length).toBeGreaterThan(0);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("scout");
+
+    bolt.life = 1;
+    stepProjectiles(state);
+    expect(state.scouts[0].disabledTicks).toBeGreaterThan(0);
+  });
+
+  it("bolt applies disabledTicks to a sentinel when it is the nearest target", () => {
+    const state = createInitialGameState();
+    state.upgrades.sentinel = 2;
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.sentinels[0].x + 60;
+    zapper.y = state.sentinels[0].y;
+    // Move everyone else beyond firing range
+    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
+    state.turrets.forEach((t) => { t.x = 900; t.y = 50; });
+    state.scouts.forEach((s) => { s.x = 900; s.y = 50; });
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    expect(state.projectiles.length).toBeGreaterThan(0);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("sentinel");
+
+    bolt.life = 1;
+    stepProjectiles(state);
+    expect(state.sentinels[0].disabledTicks).toBeGreaterThan(0);
+  });
+
   it("disabled worker skips movement and mining for the disable duration", () => {
     const state = createInitialGameState();
     state.agents[0].disabledTicks = 10;
@@ -915,11 +960,15 @@ describe("zapper enemy", () => {
       citySeed: 99,
       agents: [{ id: 1, kind: "miner", x: 100, y: 100 }],
       turrets: [{ id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2 }],
+      scouts: [{ id: 1, x: 220, y: 575 }],
+      sentinels: [{ id: 1, x: 300, y: 500 }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
     const restored = migrateGameState(save);
     expect(restored.agents[0].disabledTicks).toBe(0);
     expect(restored.turrets[0].disabledTicks).toBe(0);
+    expect(restored.scouts[0].disabledTicks).toBe(0);
+    expect(restored.sentinels[0].disabledTicks).toBe(0);
   });
 
   it("secret synthwave trigger unlocks Neon Protocol instead of Residual Signal", () => {

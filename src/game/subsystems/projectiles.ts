@@ -100,6 +100,18 @@ export function stepProjectiles(state: GameState) {
       } else if (p.targetKind === "turret") {
         const turret = state.turrets.find((t) => t.id === p.targetId);
         if (turret) turret.disabledTicks = ZAPPER.disableDurationTicks;
+      } else if (p.targetKind === "scout") {
+        const scout = state.scouts.find((s) => s.id === p.targetId);
+        if (scout) {
+          scout.disabledTicks = ZAPPER.disableDurationTicks;
+          scout.task = "Disabled";
+        }
+      } else if (p.targetKind === "sentinel") {
+        const sentinel = state.sentinels.find((s) => s.id === p.targetId);
+        if (sentinel) {
+          sentinel.disabledTicks = ZAPPER.disableDurationTicks;
+          sentinel.task = "Disabled";
+        }
       }
     }
   }

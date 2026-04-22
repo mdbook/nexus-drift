@@ -210,6 +210,8 @@ export type Scout = {
   retreating: boolean;
   /** Ticks until the scout is redeployed after a destruction. 0 = active. */
   rebootTicks: number;
+  /** Countdown in ticks while this scout is disabled by a zapper bolt. 0 = active. */
+  disabledTicks: number;
 };
 
 export type Sentinel = {
@@ -236,6 +238,8 @@ export type Sentinel = {
   retreating: boolean;
   /** Ticks until the sentinel is redeployed after a destruction. 0 = active. */
   rebootTicks: number;
+  /** Countdown in ticks while this sentinel is disabled by a zapper bolt. 0 = active. */
+  disabledTicks: number;
 };
 
 /** Long-range missile launcher, deployed per missileLauncher upgrade level. Independent from turrets. */
@@ -336,8 +340,8 @@ export type Projectile = {
   tag?: "zapper-bolt" | "turret-missile" | "instant-beam";
   /** Target entity id for tagged projectiles. */
   targetId?: number;
-  /** Whether the target is an agent or turret (zapper-bolt) or an enemy (turret-missile). */
-  targetKind?: "agent" | "turret";
+  /** Zapper-bolt disables agents, turrets, scouts, and sentinels; turret-missile targets enemies. */
+  targetKind?: "agent" | "turret" | "scout" | "sentinel";
   /** Homing missile velocity (unit vector). */
   vx?: number;
   vy?: number;

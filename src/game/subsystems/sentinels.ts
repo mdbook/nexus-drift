@@ -101,6 +101,14 @@ export function stepSentinels(state: GameState) {
     sentinel.pulse = (sentinel.pulse + 0.05) % (Math.PI * 2);
     sentinel.cooldown = Math.max(0, sentinel.cooldown - 1);
 
+    // 3.2.0: zapper disruptor gate. A sentinel hit by a zapper bolt freezes
+    // in place for ZAPPER.disableDurationTicks — no cleanse, no combat.
+    if (sentinel.disabledTicks > 0) {
+      sentinel.disabledTicks -= 1;
+      sentinel.task = "Disabled";
+      return;
+    }
+
     // 3.0.0: reboot lifecycle — parked at home, fully offline, full-HP
     // respawn on the tick the counter reaches 0.
     if (sentinel.rebootTicks > 0) {

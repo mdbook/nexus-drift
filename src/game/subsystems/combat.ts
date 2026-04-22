@@ -282,10 +282,13 @@ export function stepZapperFire(state: GameState) {
     if (enemy.fireCooldown === undefined) enemy.fireCooldown = 0;
     if (enemy.fireCooldown > 0) { enemy.fireCooldown -= 1; continue; }
 
-    // Find the nearest eligible target: workers + live turrets within firing range.
+    // Find the nearest eligible target. The zapper is a disruptor — any
+    // friendly entity with a disabledTicks field is fair game: workers,
+    // turrets, scouts, sentinels. Rebooting entities are skipped; they're
+    // already off-field and shouldn't eat a bolt.
     let bestDist = Infinity;
     let bestTargetId: number | null = null;
-    let bestTargetKind: "agent" | "turret" = "agent";
+    let bestTargetKind: "agent" | "turret" | "scout" | "sentinel" = "agent";
     let bestX = 0;
     let bestY = 0;
 
@@ -310,6 +313,30 @@ export function stepZapperFire(state: GameState) {
         bestTargetKind = "turret";
         bestX = turret.x;
         bestY = turret.y;
+      }
+    }
+
+    for (const scout of state.scouts.slice(0, derived.activeScouts)) {
+      if (scout.rebootTicks > 0) continue;
+      const d = dist(scout.x, scout.y, enemy.x, enemy.y);
+      if (d < ZAPPER.firingRange && d < bestDist) {
+        bestDist = d;
+        bestTargetId = scout.id;
+        bestTargetKind = "scout";
+        bestX = scout.x;
+        bestY = scout.y;
+      }
+    }
+
+    for (const sentinel of state.sentinels.slice(0, derived.activeSentinels)) {
+      if (sentinel.rebootTicks > 0) continue;
+      const d = dist(sentinel.x, sentinel.y, enemy.x, enemy.y);
+      if (d < ZAPPER.firingRange && d < bestDist) {
+        bestDist = d;
+        bestTargetId = sentinel.id;
+        bestTargetKind = "sentinel";
+        bestX = sentinel.x;
+        bestY = sentinel.y;
       }
     }
 

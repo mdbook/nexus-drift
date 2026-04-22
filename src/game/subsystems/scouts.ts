@@ -104,6 +104,15 @@ export function stepScouts(state: GameState) {
     scout.pulse = (scout.pulse + 0.08) % (Math.PI * 2);
     scout.cooldown = Math.max(0, scout.cooldown - 1);
 
+    // 3.2.0: zapper disruptor gate. A scout hit by a zapper bolt freezes in
+    // place for ZAPPER.disableDurationTicks — no movement, targeting, or
+    // firing. Decrement the timer and skip the rest of the tick.
+    if (scout.disabledTicks > 0) {
+      scout.disabledTicks -= 1;
+      scout.task = "Disabled";
+      return;
+    }
+
     // 3.0.0: reboot lifecycle. While rebootTicks > 0 the scout is fully
     // offline and parked at home. On the tick rebootTicks reaches 0 the
     // scout respawns at full HP.
