@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Sparkles, Terminal, Wrench, X } from "lucide-react";
+import { Activity, ChevronDown, ChevronUp, Sparkles, Terminal, Wrench, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PANEL_CLASS } from "@/theme";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
@@ -77,6 +77,7 @@ export function AdminPanel({
   onClose,
 }: AdminPanelProps) {
   const [input, setInput] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
   const [entries, setEntries] = useState<TerminalEntry[]>([
     {
       id: 1,
@@ -178,11 +179,84 @@ export function AdminPanel({
     setInput(history[nextCursor] ?? "");
   };
 
+  const commandInput = (
+    <input
+      value={input}
+      onChange={(event) => setInput(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          recallHistory("previous");
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          recallHistory("next");
+        }
+      }}
+      className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2 font-mono text-xs text-white outline-none transition placeholder:text-white/25 focus:border-cyan-200/35"
+      placeholder="event list · spawn brute 3 · grant all 50000"
+      aria-label={collapsed ? "Admin quick command" : "Admin command"}
+    />
+  );
+
+  if (collapsed) {
+    return (
+      <div className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-2xl lg:bottom-5">
+        <Card
+          className={`${PANEL_CLASS} relative overflow-visible border-cyan-300/15 bg-slate-950/92 px-3 pb-3 pt-4 shadow-[0_18px_70px_rgba(0,0,0,0.5)]`}
+        >
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-200/25 bg-slate-950 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)] transition hover:bg-cyan-300/10"
+            aria-label="Expand admin console"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 text-[10px] uppercase tracking-[0.26em] text-cyan-100/60">
+              <Wrench className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Admin Console</span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-white/45 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close admin console"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form onSubmit={submit} className="mt-3 flex gap-2">
+            {commandInput}
+            <button
+              type="submit"
+              className="rounded-2xl border border-cyan-200/25 bg-cyan-300/15 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-50 transition hover:bg-cyan-300/20"
+            >
+              Send
+            </button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-6xl lg:bottom-5">
       <Card
-        className={`${PANEL_CLASS} max-h-[82dvh] overflow-hidden border-cyan-300/15 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.55)]`}
+        className={`${PANEL_CLASS} relative max-h-[82dvh] overflow-visible border-cyan-300/15 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.55)]`}
       >
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="absolute left-1/2 top-0 z-10 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-200/25 bg-slate-950 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)] transition hover:bg-cyan-300/10"
+          aria-label="Collapse admin console"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-3 md:px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-cyan-100/55">
@@ -204,7 +278,7 @@ export function AdminPanel({
           </button>
         </div>
 
-        <div className="grid max-h-[calc(82dvh-72px)] min-h-0 gap-3 overflow-y-auto p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid max-h-[calc(82dvh-72px)] min-h-0 gap-3 overflow-y-auto rounded-b-3xl p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="min-w-0 space-y-3">
             <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
               <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-white/40">
@@ -304,23 +378,7 @@ export function AdminPanel({
 
             <div className="border-t border-white/10 p-3">
               <form onSubmit={submit} className="flex gap-2">
-                <input
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "ArrowUp") {
-                      event.preventDefault();
-                      recallHistory("previous");
-                    }
-                    if (event.key === "ArrowDown") {
-                      event.preventDefault();
-                      recallHistory("next");
-                    }
-                  }}
-                  className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2 font-mono text-xs text-white outline-none transition placeholder:text-white/25 focus:border-cyan-200/35"
-                  placeholder="event list · spawn brute 3 · grant all 50000"
-                  aria-label="Admin command"
-                />
+                {commandInput}
                 <button
                   type="submit"
                   className="rounded-2xl border border-cyan-200/25 bg-cyan-300/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50 transition hover:bg-cyan-300/20"

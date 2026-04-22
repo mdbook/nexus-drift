@@ -143,7 +143,8 @@ The hidden admin console opens with `Space` five times. Admin mode extends the e
 `src/game/adminCommands.ts` is the command executor for the console. Keep command effects centralized there so UI buttons and typed commands share behavior.
 
 - Route terminal state changes through `mutateGame()` in React so cloning and derived recomputation stay consistent.
-- Keep command history/session transcript in React state only. Do not persist it unless you update `GameState`, factory defaults, migration, and `cloneGameState()`.
+- Keep command history/session transcript and collapsed/expanded UI state in React state only. Do not persist them unless you update `GameState`, factory defaults, migration, and `cloneGameState()`.
+- The collapsed admin panel is intentionally a tiny quick-send terminal surface with title, close, command input, and top-center expand arrow. Keep it small enough not to obscure the field.
 - Use existing helpers for mutations: `spawnEnemy()` with `state.rng` and `state.timers.tick`, `activateEvent()` for event cards, `pushLog()` for activity entries, and structural damage funnels if damage commands are added later.
 - Commands that clear or bypass normal rewards should be explicit and documented in the terminal help text. Silent debug cleanup should not pretend to be a gameplay kill/purge.
 - `useGameLoop()` caps catch-up work for 100× admin speed. Preserve the cap if you tune high-speed presets so a stalled frame cannot process an unbounded backlog.

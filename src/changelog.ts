@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Pressing Space five times now opens a full admin console instead of the old compact speed/event popup.",
           "The console shows live diagnostics for speed, director tier/score, enemy counts, active events, and city integrity.",
           "Quick actions now cover midgame and late-game presets, siege drills, bankroll grants, healing, corruption cleanup, threat clearing, and update-banner preview.",
+          "The console can collapse into a tiny quick-send panel with only the admin title, close button, command input, and a top-center expand arrow.",
           "The synthwave visual mode can now be toggled from the console without needing the Konami-code path.",
         ],
       },
