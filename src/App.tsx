@@ -1,5 +1,5 @@
 import { memo, type ComponentType, type CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Bot,
@@ -420,6 +420,40 @@ export default function App() {
     setAchievementsOpen(true);
   };
 
+  // 3.1.0 — stable FieldSvg interactions prop so the memoized FieldSvg doesn't
+  // re-render on unrelated App-level state changes. mutateGame identity is
+  // stable from useGameLoop, so the only real dep here is mutateGame itself.
+  const fieldInteractions = useMemo(
+    () => ({
+      onTouristClick: () => {
+        mutateGame((next) => {
+          spotTourist(next);
+        });
+      },
+      onLostDroneClick: () => {
+        mutateGame((next) => {
+          recoverLostDrone(next);
+        });
+      },
+      onAnomalyClick: () => {
+        mutateGame((next) => {
+          witnessAnomaly(next);
+        });
+      },
+      onProjectileClick: (projectileId: number) => {
+        mutateGame((next) => {
+          clickProjectile(next, projectileId);
+        });
+      },
+      onEnemyClick: (enemyId: number) => {
+        mutateGame((next) => {
+          clickDyingEnemy(next, enemyId);
+        });
+      },
+    }),
+    [mutateGame]
+  );
+
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
     mutateGame((next) => {
@@ -642,33 +676,7 @@ export default function App() {
               <FieldSvg
                 game={game}
                 derived={derived}
-                interactions={{
-                  onTouristClick: () => {
-                    mutateGame((next) => {
-                      spotTourist(next);
-                    });
-                  },
-                  onLostDroneClick: () => {
-                    mutateGame((next) => {
-                      recoverLostDrone(next);
-                    });
-                  },
-                  onAnomalyClick: () => {
-                    mutateGame((next) => {
-                      witnessAnomaly(next);
-                    });
-                  },
-                  onProjectileClick: (projectileId) => {
-                    mutateGame((next) => {
-                      clickProjectile(next, projectileId);
-                    });
-                  },
-                  onEnemyClick: (enemyId) => {
-                    mutateGame((next) => {
-                      clickDyingEnemy(next, enemyId);
-                    });
-                  },
-                }}
+                interactions={fieldInteractions}
               />
             </div>
 

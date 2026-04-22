@@ -1,4 +1,4 @@
-import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
@@ -27,6 +27,21 @@ function despawnAlpha(currentTick: number, despawnAt: number): number {
   const remaining = despawnAt - currentTick;
   if (remaining > DESPAWN_WARN_TICKS) return 1;
   return clamp(remaining / DESPAWN_WARN_TICKS, 0, 1);
+}
+
+/**
+ * SVG hex polygon points helper. Hoisted to module scope so the allocation
+ * doesn't happen per-worker per-render — the per-agent loop runs O(agents)
+ * times every tick.
+ */
+function hexPoints(cx: number, cy: number, r: number): string {
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    out += `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+    if (i < 5) out += " ";
+  }
+  return out;
 }
 
 type FieldInteractionHandlers = {
@@ -88,7 +103,6 @@ type DistrictRenderData = {
   stage: number;
   buildProgress: number;
   chromatic: boolean;
-  paletteDrift: number;
   districtOpacity: number;
   activeTurretXs: number[];
   activeBuildings: DistrictBuilding[];
@@ -185,7 +199,12 @@ function buildDistrict(seed: number, turretXs: number[]) {
   return buildings.sort((a, b) => a.x - b.x);
 }
 
-function renderHomeDistrict(game: GameState, district: DistrictRenderData | null, dayFactor: number) {
+function renderHomeDistrict(
+  game: GameState,
+  district: DistrictRenderData | null,
+  dayFactor: number,
+  paletteDrift: number
+) {
   if (!district) return null;
 
   const {
@@ -193,7 +212,6 @@ function renderHomeDistrict(game: GameState, district: DistrictRenderData | null
     stage,
     buildProgress,
     chromatic,
-    paletteDrift,
     districtOpacity,
     activeTurretXs,
     activeBuildings,
@@ -480,7 +498,7 @@ function renderHomeDistrict(game: GameState, district: DistrictRenderData | null
   );
 }
 
-export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
+function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   const lowFxMode = useLowFxMode();
   const activeTurretXs = useMemo(
     () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
@@ -497,7 +515,6 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
     const stage = derived.cityStage;
     const buildProgress = clamp(derived.cityBuildProgress, 0, 1);
     const chromatic = stage >= 5 && buildProgress >= 1;
-    const paletteDrift = chromatic ? game.timers.tick * 0.0045 : 0;
     const sequentialCursor = buildProgress * districtBuildings.length;
     const fullyBuiltCount = Math.floor(sequentialCursor);
     const activeBuildIndex = Math.min(districtBuildings.length - 1, fullyBuiltCount);
@@ -507,7 +524,6 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
       stage,
       buildProgress,
       chromatic,
-      paletteDrift,
       districtOpacity: 0.36 + stage * 0.1,
       activeTurretXs,
       activeBuildings: districtBuildings.filter((_, index) => index <= activeBuildIndex),
@@ -520,6 +536,10 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
       ),
       activePalette: chromatic ? CITY_PALETTE.slice(0, 20) : CITY_PALETTE.slice(0, 12),
     };
+    // 3.1.0 — game.timers.tick was previously in the dep list for paletteDrift,
+    // which caused this memo to recompute every tick even though only the
+    // palette-shift animation (stage 5+) cared about it. paletteDrift is now
+    // computed outside the memo and threaded through renderHomeDistrict.
   }, [
     activeTurretXs,
     derived.cityBuildProgress,
@@ -527,8 +547,8 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
     derived.cityStage,
     districtBuildings,
     game.citySeed,
-    game.timers.tick,
   ]);
+  const paletteDrift = district?.chromatic ? game.timers.tick * 0.0045 : 0;
   const dayCycleMs = 30 * 60 * 1000;
   const dayPhase = (game.stats.runtimeMs % dayCycleMs) / dayCycleMs;
   const dayFactor = Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5;
@@ -623,7 +643,7 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         />
       )}
 
-      {renderHomeDistrict(game, district, dayFactor)}
+      {renderHomeDistrict(game, district, dayFactor, paletteDrift)}
 
       {(() => {
         // 3.0.0: city damage overlay + HP bar. A soft red wash layers over the
@@ -1546,12 +1566,8 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
               ? "rgba(255,150,150,0.75)"
               : "rgba(120,220,255,0.80)";
 
-        // hexagon points helper
-        const hex = (cx: number, cy: number, r: number) =>
-          Array.from({ length: 6 }, (_, i) => {
-            const a = (Math.PI / 3) * i - Math.PI / 6;
-            return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
-          }).join(" ");
+        // hexagon points helper — module-hoisted (hexPoints) to avoid per-render closure allocation.
+        const hex = hexPoints;
 
         return (
           <g
@@ -1757,3 +1773,13 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
     </svg>
   );
 }
+
+/**
+ * 3.1.0 — memoized export. FieldSvg re-renders every tick with new game/derived
+ * props by design, but memo still pays off when App.tsx re-renders for reasons
+ * unrelated to the sim frame (e.g. toggling a modal, hover state on a sidebar
+ * button). The `interactions` prop in App.tsx is now a useMemo'd handler bundle
+ * so identity stays stable across those renders.
+ */
+export const FieldSvg = memo(FieldSvgInner);
+FieldSvg.displayName = "FieldSvg";
