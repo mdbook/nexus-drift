@@ -31,7 +31,12 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     metrics.cityStage * PROGRESSION.scoreCoeffs.cityStage +
     metrics.totalIncome * PROGRESSION.scoreCoeffs.totalIncome;
 
-  const tier = Math.min(THREAT_LABELS.length - 1, Math.floor(score / PROGRESSION.tiersPerScore));
+  // 3.1.3 follow-up: rawTier is the uncapped score-derived tier. Used by
+  // enemy `minTier` gates that must fire past the display cap of 5 (e.g.
+  // phantom/zapper at minTier 6). Display and weight-scaling keep using the
+  // capped `tier` so THREAT_LABELS indexing stays in range.
+  const rawTier = Math.floor(score / PROGRESSION.tiersPerScore);
+  const tier = Math.min(THREAT_LABELS.length - 1, rawTier);
   const powerBalance =
     metrics.defenseScore -
     (metrics.threatScore * PROGRESSION.powerBalance.threatWeight + metrics.activeCorruptionNodes * PROGRESSION.powerBalance.corruptionNodeWeight + metrics.corruptorCount * PROGRESSION.powerBalance.corruptorWeight);
@@ -86,6 +91,7 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
   return {
     score,
     tier,
+    rawTier,
     label: THREAT_LABELS[tier],
     spawnIntervalTicks,
     waveBudget,
@@ -115,7 +121,9 @@ export function getCombatEnemyWeights(director: ProgressionDirector) {
       },
     ]
   >).forEach(([kind, config]) => {
-    if (director.tier < (config.minTier ?? 0)) {
+    // 3.1.3 follow-up: gate on uncapped rawTier so enemies whose minTier
+    // exceeds the display cap (phantom/zapper at 6) still unlock.
+    if (director.rawTier < (config.minTier ?? 0)) {
       weights[kind] = 0;
       return;
     }

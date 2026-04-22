@@ -67,11 +67,16 @@ Raise a version suggestion when one or more of these land:
 If the user asks for a release or version bump, update these together:
 
 - `package.json`
+- `package-lock.json` — run `npm install` after bumping `package.json`. The lockfile embeds the version at both `"version"` and `"packages.\"\""` and will otherwise sit stale (happened in 3.1.3 — a later review caught a lockfile still on `3.0.2`). Confirm the diff is limited to the version fields unless you also intentionally changed deps.
 - `src/changelog.ts`
 - `README.md`
 - `handoff.md`
 
 If the user does not ask for release work, keep the suggestion advisory only.
+
+## Test Count References
+
+Several docs quote the total test count (`README.md` `## Testing`, `AGENTS.md` `## Test Coverage`, `handoff.md` near the end of Operational Notes). When you add or remove tests, update all three in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
 
 ## Entity Spawn / Death Animation Fields
 
@@ -217,7 +222,7 @@ When a worker's HP reaches 0 in `stepCombat`, the combat-death path sets `reboot
 
 ## Test Coverage
 
-170 tests (3.1.2: two city-targeting tests updated to reflect mite/wisp/raider city:0 change) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
+174 tests (3.1.3 follow-up: added field-fill spawn-interval and phantom/zapper unlock-reachability tests) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

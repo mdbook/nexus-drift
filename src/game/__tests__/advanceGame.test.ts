@@ -42,6 +42,7 @@ import { stepMissileSilos } from "@/game/subsystems/missileSilos";
 import { pickEnemyTarget, pickEnemyTargetMulti } from "@/game/targeting";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
+import { getCombatEnemyWeights } from "@/game/progression";
 import type { GameState } from "@/game/types";
 import { nextUpgradeCost } from "@/game/utils";
 
@@ -189,6 +190,27 @@ describe("advanceGame simulation invariants", () => {
 
     expect(stressedDerived.progression.recoveryMode).toBe(true);
     expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
+  });
+
+  it("3.1.3 follow-up: phantom and zapper weights unlock past the display tier cap", () => {
+    // Display tier is capped at 5 (THREAT_LABELS length - 1), but phantom and
+    // zapper carry minTier 6. Before the rawTier fix these were permanently
+    // zeroed; after the fix they fire once score/tiersPerScore >= 6.
+    const latecolony = createInitialGameState();
+    latecolony.level = 200;
+    latecolony.prestige = 20;
+    (Object.keys(latecolony.upgrades) as Array<keyof typeof latecolony.upgrades>).forEach((key) => {
+      latecolony.upgrades[key] = 20;
+    });
+
+    const derived = computeDerived(latecolony);
+    expect(derived.progression.rawTier).toBeGreaterThanOrEqual(6);
+    expect(derived.progression.tier).toBe(5);
+
+    const weights = getCombatEnemyWeights(derived.progression);
+    expect(weights.phantom).toBeGreaterThan(0);
+    expect(weights.zapper).toBeGreaterThan(0);
+    expect(weights.leech).toBeGreaterThan(0);
   });
 
   it("threat director stretches spawn interval when the field fills up", () => {

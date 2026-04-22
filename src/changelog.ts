@@ -54,6 +54,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Combat enemy `minTier` gates lowered so unlocked variety lines up with the slowed-down score curve (rusher 3→2, brute 4→3, sapper 5→4, leech 6→5, phantom & zapper 7→6). Mid-game players see the right roster instead of being stuck on the early lineup.",
         ],
       },
+      {
+        title: "Follow-ups",
+        items: [
+          "Phantom and zapper enemy unlocks now actually fire at the documented score. The `minTier` gate in `getCombatEnemyWeights` now keys off an uncapped `rawTier` (score / `tiersPerScore`) instead of the display-capped `tier`, which was clamped at 5 and silently excluded every enemy with `minTier ≥ 6`.",
+          "Dev build favicon swap narrowed to the SVG variant only. Production raster icons were being rewritten to `-dev` paths that don't exist on disk; narrowing the regex to `link[rel*='icon'][type='image/svg+xml']` keeps the tinted icon working in SVG-capable browsers without the devtools 404s.",
+          "`package-lock.json` refreshed to `3.1.3` (was stuck at `3.0.2`) and stale test-count / release references in `README.md`, `AGENTS.md`, and `handoff.md` updated to match 174 tests. New guidance in `AGENTS.md` Release Work Checklist + Test Count References to keep these in sync going forward.",
+        ],
+      },
     ],
   },
   {

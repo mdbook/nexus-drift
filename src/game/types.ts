@@ -512,6 +512,7 @@ export type EnemyVisual = {
 export type ProgressionDirector = {
   score: number;
   tier: number;
+  rawTier: number;
   label: string;
   spawnIntervalTicks: number;
   waveBudget: number;
