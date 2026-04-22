@@ -15,7 +15,8 @@ export type EnemyKind =
   | "blight"
   | "leech"
   | "phantom"
-  | "zapper";
+  | "zapper"
+  | "warden";
 export type EnemyRole = "combat" | "corruptor";
 export type EnemyArchetype =
   | "direct"
@@ -37,7 +38,8 @@ export type UpgradeKey =
   | "foundry"
   | "sentinel"
   | "archive"
-  | "focusedBeam";
+  | "focusedBeam"
+  | "missileLauncher";
 export type StatusTone = "danger" | "toxic" | "ready" | "calm";
 
 export type LogCategory =
@@ -109,6 +111,28 @@ export type Agent = {
   active: boolean;
   /** EMA of recent threat-field samples at this worker's position. Feeds regroup and panic scaling. */
   threatMemory: number;
+  /** Per-individual multiplier on base speed (~0.88..1.12). Seeded at spawn. */
+  speedMod: number;
+  /** Per-individual multiplier on pathFearScale (~0.80..1.20). Seeded at spawn. */
+  fearMod: number;
+  /** Per-individual additive bias to kindPreferenceScore (-0.15..0.15). Seeded at spawn. */
+  harvestBias: number;
+  /** Miner overclock: counts up while continuously at a node and undamaged. Drives crit bonus. */
+  overclockTicks: number;
+  /** Runner sprint: remaining ticks of active sprint (speed boost). */
+  sprintTicks: number;
+  /** Runner sprint: cooldown ticks until next sprint is available. */
+  sprintCooldown: number;
+  /** Late-game corruption state. When true, worker is void-infested and only destroyable by sentinels. */
+  corrupted: boolean;
+  /** Counts up while corrupted. Drives drain intensity and shake visual. */
+  corruptionTicks: number;
+  /** Warden attach progress toward corrupting this worker. Decays when warden not adjacent. */
+  corruptingTicks: number;
+  /** While > 0 a healthy worker has reported this corrupted agent; any sentinel treats it as visible. */
+  spottedTicks: number;
+  /** Ticks until this slot's reboot cooldown ends after a cleansed corruption death. 0 = active. */
+  rebootTicks: number;
 };
 
 export type Turret = {
@@ -120,6 +144,14 @@ export type Turret = {
   angle: number;
   /** Countdown in ticks while this turret is disabled by a zapper bolt. 0 = active. */
   disabledTicks: number;
+  /** Current structural HP. Drops when enemies hit the turret; reaches 0 triggers brokenTicks. */
+  hp: number;
+  /** Maximum structural HP; scales with turret + shield upgrades. */
+  maxHp: number;
+  /** Recent-hit flash counter. 0 = idle. Identical semantics to Agent.damageTicks. */
+  damageTicks: number;
+  /** While > 0, turret is cracked/broken: no targeting, no firing. Resets hp to maxHp*0.5 when it expires. */
+  brokenTicks: number;
 };
 
 export type Scout = {
@@ -136,6 +168,16 @@ export type Scout = {
   homeX: number;
   homeY: number;
   targetId: number | null;
+  /** Current HP; drops on enemy contact. At 0, rebootTicks engages. */
+  hp: number;
+  /** Max HP; scales with scout + arsenal upgrades. */
+  maxHp: number;
+  /** Recent-hit flash counter. */
+  damageTicks: number;
+  /** While true, scout is retreating toward home to heal. */
+  retreating: boolean;
+  /** Ticks until the scout is redeployed after a destruction. 0 = active. */
+  rebootTicks: number;
 };
 
 export type Sentinel = {
@@ -152,6 +194,37 @@ export type Sentinel = {
   homeX: number;
   homeY: number;
   targetId: number | null;
+  /** Current HP; drops on damaging contact from specialized enemies. */
+  hp: number;
+  /** Max HP; scales with sentinel + shield upgrades. */
+  maxHp: number;
+  /** Recent-hit flash counter. */
+  damageTicks: number;
+  /** While true, sentinel is retreating toward home to heal. */
+  retreating: boolean;
+  /** Ticks until the sentinel is redeployed after a destruction. 0 = active. */
+  rebootTicks: number;
+};
+
+/** Long-range missile launcher, deployed per missileLauncher upgrade level. Independent from turrets. */
+export type MissileSilo = {
+  id: number;
+  x: number;
+  y: number;
+  cooldown: number;
+  angle: number;
+  targetId: number | null;
+  /** Whether this silo slot is currently deployed by the missileLauncher upgrade level. */
+  active: boolean;
+};
+
+/** Home district structural state. Damage modulates energy production and city visuals. */
+export type CityState = {
+  hp: number;
+  maxHp: number;
+  damageTicks: number;
+  /** Last tick at which any enemy was within regen-safe radius of the home district. */
+  lastHostileTick: number;
 };
 
 export type Enemy = {
@@ -164,6 +237,13 @@ export type Enemy = {
   maxHp: number;
   speed: number;
   targetId: number | null;
+  /**
+   * 3.0.0 — which class of entity `targetId` refers to. Workers are still the
+   * default ("agent"), but enemies may pivot toward turrets, sentinels,
+   * scouts, or the home district based on ENEMY_TARGET_PRIORITY. The "city"
+   * kind uses targetId=null because the city is not an id'd entity.
+   */
+  targetKind: "agent" | "turret" | "sentinel" | "scout" | "city";
   targetNodeId: number | null;
   flash: number;
   corruptTicks: number;
@@ -223,6 +303,8 @@ export type Projectile = {
   vy?: number;
   /** Movement speed in px/tick for turret-missile. */
   speed?: number;
+  /** Homing correction fraction per tick. Defaults to TURRET.missileSteering when absent. */
+  steering?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
   };
@@ -237,10 +319,15 @@ export type Stats = {
   phantomsKilled: number;
   leechesKilled: number;
   sappersKilled: number;
+  wardensKilled: number;
   sentinelKills: number;
   blocked: number;
   corruptions: number;
   purges: number;
+  corruptedPurified: number;
+  /** Running ticks with 3+ corrupted workers simultaneously — resets if count drops below 3. */
+  corruptedWorkerOutbreakTicks: number;
+  turretsBroken: number;
   eventsExperienced: string[];
   eventTagsInspected: string[];
   touristClicks: number;
@@ -254,6 +341,8 @@ export type Timers = {
   event: number;
   enemy: number;
   bigEvent: number;
+  /** Cooldown between warden spawns. Increments each tick; resets on spawn. */
+  warden: number;
 };
 
 export type ActiveEvent = {
@@ -301,8 +390,10 @@ export type GameState = {
   turrets: Turret[];
   scouts: Scout[];
   sentinels: Sentinel[];
+  missileSilos: MissileSilo[];
   enemies: Enemy[];
   projectiles: Projectile[];
+  city: CityState;
   stats: Stats;
   timers: Timers;
   touristWorker: TouristWorker | null;
@@ -322,6 +413,7 @@ export type GameState = {
   nextNodeId: number;
   nextEnemyId: number;
   nextProjectileId: number;
+  nextSiloId: number;
   frozenMissile: { id: number; x: number; y: number; ticks: number } | null;
   goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
   missileClickCooldown: number;
@@ -402,6 +494,10 @@ export type DerivedState = {
   activeTurrets: number;
   activeScouts: number;
   activeSentinels: number;
+  activeMissileSilos: number;
+  brokenTurrets: number;
+  corruptedWorkers: number;
+  cityIntegrity: number;
   hostilePressure: boolean;
   corruptionPressure: boolean;
   homeDevelopment: number;

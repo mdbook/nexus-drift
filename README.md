@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.4.5` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.0.1` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -14,19 +14,23 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
-- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, but extra crews are now a true late-game unlock: the relevant track still has to reach its slot levels, the colony must also hit sector levels 12 and 24, and those key unlock upgrades now charge both Flux and Cores
-- Workers now commit harder to partially mined resources: distant threats have less proactive pull, current nodes get a stronger finish bias, one or two nearby enemies no longer dislodge an undamaged harvesting worker, live enemy bodies now physically block and slow workers instead of letting them slip through, fleeing workers can opportunistically retarget to safe nodes ahead, and recently worked health bars leave a fading mined-progress cue without regenerating node HP
-- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
-- Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns; the 3 one-shot events now surface as short-lived inspectable cards instead of disappearing immediately, then fade away without a visible countdown
+- **3.0.0**: Economy stretched 5–8× for multi-session play — the second turret is a 25-35 min milestone, the third worker of any kind takes hours, and overnight runs are now first-class
+- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, dual-gated by upgrade level and sector level (level 22 / 42), with Flux+Cores surcharges
+- **3.0.0**: Workers now have per-individual variance (speed ±12%, fear ±20%, harvest bias ±15%) plus class abilities: miner overclock, runner sprint burst, drone corruption scan
+- Workers commit hard to partially mined resources; one or two nearby enemies no longer dislodge an undamaged harvesting worker; live enemy bodies slow movement; fleeing workers can retarget ahead
+- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs, Missile Silos)
+- Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns
 
 ### Combat & Enemies
 
-- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers — each kind now maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking when multiple hostiles share a target
-- Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
-- Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
-- Turrets fire homing missiles that travel visibly and steer toward their original target; launched missiles now have a small terminal grace window, but still never rehome or splash if that target dies first. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
-- Shielded enemies now show a separate cyan shield layer above their HP, and shield damage is consumed before HP without spilling excess damage through to the health underneath in the same hit
-- 54 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including click-driven secrets for event inspection, anomaly witnessing, corpse/projectile interactions, UI opens, and a timed speed-sequence
+- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, zappers — each kind maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking
+- **3.0.0**: Enemies now target deployed turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
+- **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
+- Zappers hold at firing distance and fire bolts that disable workers or turrets for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
+- **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
+- **3.0.0**: Missile Silos are a separate upgrade track — long-range (~400 px), slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams
+- Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
+- 58 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
 
 ### HUD & UI
 
@@ -68,7 +72,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (92 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (146 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview

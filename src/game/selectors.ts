@@ -1,4 +1,4 @@
-import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL } from "@/game/balance";
+import { CITY, CITY_HP, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL, TURRET_SLOTS_BY_LEVEL } from "@/game/balance";
 import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
@@ -18,6 +18,7 @@ export function computeDerived(state: GameState): DerivedState {
     leech: 0,
     phantom: 0,
     zapper: 0,
+    warden: 0,
   };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 
@@ -41,6 +42,14 @@ export function computeDerived(state: GameState): DerivedState {
     energy: Math.max(0.2, 1 - corruptedByType.energy * CORRUPTION.corruptibleKindsBiasWeight.energy),
   };
 
+  // 3.0.0: city HP modulates energy production. At full HP the energy rate
+  // runs at 100%; at 0 HP it floors at CITY_HP.energyMinRatio. Linear
+  // interpolation between the two keeps the feedback visible without
+  // creating a discontinuous cliff.
+  const cityIntegrityValue = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
+  const energyCityScale =
+    CITY_HP.energyMinRatio + (1 - CITY_HP.energyMinRatio) * cityIntegrityValue;
+
   const rates = {
     gold: (ECONOMY.rates.goldBase + state.upgrades.miner * ECONOMY.rates.goldPerMiner + state.upgrades.drill * ECONOMY.rates.goldPerDrill) * p * threatPenalty,
     ore:
@@ -56,7 +65,8 @@ export function computeDerived(state: GameState): DerivedState {
       (ECONOMY.rates.energyBase + state.upgrades.reactor * ECONOMY.rates.energyPerReactor + state.upgrades.shield * ECONOMY.rates.energyPerShield) *
       p *
       corruptionPenalty.energy *
-      state.eventModifiers.energyRate,
+      state.eventModifiers.energyRate *
+      energyCityScale,
     cores: 0,
     flux: 0,
   };
@@ -80,9 +90,18 @@ export function computeDerived(state: GameState): DerivedState {
     ? state.agents.reduce((sum, agent) => sum + agent.hp, 0) / state.agents.length
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
-  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
+  // 3.0.0: turret slot count is gated by both upgrade level AND sector level
+  // (mirrors WORKER_SLOTS_BY_LEVEL). The always-on first turret keeps its
+  // floor; additional turrets need both upgrade + level to line up.
+  const turretLevelSlots = TURRET_SLOTS_BY_LEVEL[Math.min(state.level, TURRET_SLOTS_BY_LEVEL.length - 1)];
+  const additionalTurretSlots = Math.min(state.upgrades.turret, turretLevelSlots);
+  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + additionalTurretSlots));
   const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
   const activeSentinels = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
+  const activeMissileSilos = state.missileSilos.filter((silo) => silo.active).length;
+  const brokenTurrets = state.turrets.filter((turret) => turret.brokenTicks > 0).length;
+  const corruptedWorkers = state.agents.filter((agent) => agent.corrupted).length;
+  const cityIntegrity = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
   const hostilePressure = combatThreats >= DEFENSE.hostilePressureEnemyThreshold || colonyHealth < DEFENSE.hostilePressureColonyHealth;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
@@ -169,5 +188,9 @@ export function computeDerived(state: GameState): DerivedState {
     cityBuildProgress,
     prestigeComboBonus,
     progression,
+    activeMissileSilos,
+    brokenTurrets,
+    corruptedWorkers,
+    cityIntegrity,
   };
 }

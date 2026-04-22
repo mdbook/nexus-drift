@@ -84,8 +84,16 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Focused Beam",
     baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.focusedBeam.growth,
-    effectText: "Turrets use instant-hit beam for close targets; missiles handle longer range",
+    effectText: "Extends turret beam range (+16px/level). All turret shots are now instant-hit.",
     minTier: 4,
+  },
+  {
+    key: "missileLauncher",
+    label: "Missile Launcher",
+    baseCost: { gold: 2200, cores: 6, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.missileLauncher.growth,
+    effectText: "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level.",
+    minTier: 2,
   },
 ];
 
@@ -184,6 +192,12 @@ export const ENEMY_STYLE: Record<Exclude<EnemyKind, "corruptor">, EnemyVisual> =
     glow: "rgba(160, 60, 240, 0.28)",
     stroke: "rgba(230, 200, 255, 0.80)",
     radius: 10,
+  },
+  warden: {
+    fill: "rgba(96, 40, 150, 0.78)",
+    glow: "rgba(150, 70, 220, 0.34)",
+    stroke: "rgba(210, 170, 255, 0.82)",
+    radius: 16,
   },
 };
 

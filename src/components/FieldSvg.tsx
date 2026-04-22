@@ -1,6 +1,6 @@
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
-import { SENTINEL } from "@/game/balance";
+import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -625,6 +625,48 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
 
       {renderHomeDistrict(game, district, dayFactor)}
 
+      {(() => {
+        // 3.0.0: city damage overlay + HP bar. A soft red wash layers over the
+        // home district while damageTicks is ticking down; a slim HP bar along
+        // the top of the home band appears whenever HP is below max.
+        const cityIntegrity = game.city.maxHp > 0 ? clamp(game.city.hp / game.city.maxHp, 0, 1) : 1;
+        const showCityBar = cityIntegrity < 1 - 1e-3;
+        const cityFlash = game.city.damageTicks > 0
+          ? Math.min(0.45, game.city.damageTicks / 30 * 0.45)
+          : 0;
+        const barWidth = 140;
+        const barX = WORLD_W / 2 - barWidth / 2;
+        const barY = 512;
+        return (
+          <g>
+            {cityFlash > 0 && (
+              <rect
+                x={0}
+                y={500}
+                width={WORLD_W}
+                height={WORLD_H - 500}
+                fill={`rgba(255,80,80,${cityFlash.toFixed(2)})`}
+                style={{ pointerEvents: "none" }}
+              />
+            )}
+            {showCityBar && (
+              <>
+                <rect x={barX} y={barY} rx="3" ry="3" width={barWidth} height="4" fill="rgba(0,0,0,0.5)" />
+                <rect
+                  x={barX}
+                  y={barY}
+                  rx="3"
+                  ry="3"
+                  width={barWidth * cityIntegrity}
+                  height="4"
+                  fill={cityIntegrity < 0.35 ? "rgba(255,120,100,0.92)" : "rgba(160,220,255,0.82)"}
+                />
+              </>
+            )}
+          </g>
+        );
+      })()}
+
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;
         return (
@@ -652,24 +694,170 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         }
 
         const turretDisabled = turret.disabledTicks > 0;
+        const turretBroken = turret.brokenTicks > 0;
         const disablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
+        // 3.0.0: damageTicks drives a brief red flash after any structural
+        // hit; brokenTicks drives the longer cracked-sprite downtime.
+        const damageFlash = !turretBroken && turret.damageTicks > 0
+          ? Math.min(0.85, turret.damageTicks / 12)
+          : 0;
+        const hpPct = turret.maxHp > 0 ? clamp(turret.hp / turret.maxHp, 0, 1) : 1;
+        const showHpBar = !turretBroken && hpPct < 1 - 1e-3;
+        const groupFilter = turretBroken
+          ? "grayscale(1) brightness(0.55)"
+          : turretDisabled
+            ? "grayscale(1)"
+            : undefined;
         return (
-          <g key={turret.id} style={turretDisabled ? { filter: "grayscale(1)" } : undefined}>
-            <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
-            {turretDisabled && (
+          <g key={turret.id} style={groupFilter ? { filter: groupFilter } : undefined}>
+            {!turretBroken && (
+              <circle cx={turret.x} cy={turret.y} r={turret.range} fill="none" stroke="rgba(80,200,255,0.07)" strokeDasharray="7 9" />
+            )}
+            {turretDisabled && !turretBroken && (
               <circle cx={turret.x} cy={turret.y} r="26" fill="none" stroke={`rgba(255,120,40,${disablePulse.toFixed(2)})`} strokeWidth="2.5" />
             )}
-            <circle cx={turret.x} cy={turret.y} r="22" fill="rgba(80,200,255,0.10)" />
-            <circle cx={turret.x} cy={turret.y} r="14" fill="rgba(40,120,200,0.55)" stroke="rgba(120,220,255,0.75)" strokeWidth="2" />
+            {damageFlash > 0 && (
+              <circle cx={turret.x} cy={turret.y} r="24" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
+            )}
+            <circle
+              cx={turret.x}
+              cy={turret.y}
+              r="22"
+              fill={turretBroken ? "rgba(90,40,40,0.28)" : "rgba(80,200,255,0.10)"}
+            />
+            <circle
+              cx={turret.x}
+              cy={turret.y}
+              r="14"
+              fill={turretBroken ? "rgba(60,40,50,0.72)" : "rgba(40,120,200,0.55)"}
+              stroke={turretBroken ? "rgba(220,90,90,0.7)" : "rgba(120,220,255,0.75)"}
+              strokeWidth="2"
+            />
             <line
               x1={turret.x}
               y1={turret.y}
               x2={turret.x + Math.cos(turret.angle) * 21}
               y2={turret.y + Math.sin(turret.angle) * 21}
-              stroke="rgba(160,235,255,0.95)"
+              stroke={turretBroken ? "rgba(180,80,80,0.6)" : "rgba(160,235,255,0.95)"}
               strokeWidth="3.5"
               strokeLinecap="round"
             />
+            {turretBroken && !lowFxMode && (
+              <>
+                <line
+                  x1={turret.x - 10}
+                  y1={turret.y - 8}
+                  x2={turret.x + 6}
+                  y2={turret.y + 4}
+                  stroke="rgba(255,160,160,0.75)"
+                  strokeWidth="1.3"
+                />
+                <line
+                  x1={turret.x - 3}
+                  y1={turret.y + 9}
+                  x2={turret.x + 11}
+                  y2={turret.y - 4}
+                  stroke="rgba(255,200,200,0.55)"
+                  strokeWidth="1.1"
+                />
+              </>
+            )}
+            {showHpBar && (
+              <>
+                <rect x={turret.x - 16} y={turret.y + 26} rx="2" ry="2" width="32" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={turret.x - 16}
+                  y={turret.y + 26}
+                  rx="2"
+                  ry="2"
+                  width={32 * hpPct}
+                  height="3"
+                  fill={hpPct < 0.3 ? "rgba(255,120,120,0.9)" : "rgba(160,235,255,0.85)"}
+                />
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* 3.0.0 Step 5 — missile silo pylons */}
+      {game.missileSilos.map((silo) => {
+        const siloAlpha = silo.active ? 1 : 0.22;
+        const cooldownRatio = silo.active ? Math.max(0, 1 - silo.cooldown / MISSILE_SILO.fireIntervalTicks) : 0;
+        // Charge-up pulse: ring brightens as the shot approaches ready.
+        const chargePulse = silo.active && silo.cooldown <= 60
+          ? 0.35 + (1 - silo.cooldown / 60) * 0.55
+          : 0;
+        // Brief flash after launch: cooldown resets to fireIntervalTicks,
+        // so a very high cooldown means a shot just left.
+        const launchFlash = silo.active && silo.cooldown > MISSILE_SILO.fireIntervalTicks - 8
+          ? (MISSILE_SILO.fireIntervalTicks - (MISSILE_SILO.fireIntervalTicks - silo.cooldown)) / 8
+          : 0;
+        return (
+          <g key={silo.id} opacity={siloAlpha}>
+            {/* Range ring — only when active */}
+            {silo.active && (
+              <circle
+                cx={silo.x}
+                cy={silo.y}
+                r={MISSILE_SILO.rangeBase}
+                fill="none"
+                stroke="rgba(255,100,0,0.04)"
+                strokeDasharray="12 16"
+              />
+            )}
+            {/* Launch flash overlay */}
+            {launchFlash > 0 && (
+              <circle cx={silo.x} cy={silo.y} r="20" fill={`rgba(255,140,30,${launchFlash.toFixed(2)})`} />
+            )}
+            {/* Charge ring */}
+            {chargePulse > 0 && !lowFxMode && (
+              <circle
+                cx={silo.x}
+                cy={silo.y}
+                r="18"
+                fill="none"
+                stroke={`rgba(255,120,20,${chargePulse.toFixed(2)})`}
+                strokeWidth="2"
+              />
+            )}
+            {/* Pylon body */}
+            <rect
+              x={silo.x - 6}
+              y={silo.y - 20}
+              width="12"
+              height="22"
+              rx="2"
+              ry="2"
+              fill={silo.active ? "rgba(200,80,20,0.75)" : "rgba(100,60,40,0.40)"}
+              stroke={silo.active ? "rgba(255,160,60,0.80)" : "rgba(160,100,60,0.40)"}
+              strokeWidth="1.5"
+            />
+            {/* Barrel pointing at angle */}
+            <line
+              x1={silo.x}
+              y1={silo.y - 12}
+              x2={silo.x + Math.cos(silo.angle) * 18}
+              y2={silo.y - 12 + Math.sin(silo.angle) * 18}
+              stroke={silo.active ? "rgba(255,180,80,0.95)" : "rgba(160,100,60,0.40)"}
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            {/* Cooldown / charge bar below */}
+            {silo.active && (
+              <>
+                <rect x={silo.x - 8} y={silo.y + 4} rx="1" ry="1" width="16" height="2" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={silo.x - 8}
+                  y={silo.y + 4}
+                  rx="1"
+                  ry="1"
+                  width={16 * cooldownRatio}
+                  height="2"
+                  fill={cooldownRatio > 0.9 ? "rgba(255,200,60,0.95)" : "rgba(255,110,20,0.80)"}
+                />
+              </>
+            )}
           </g>
         );
       })}
@@ -1175,13 +1363,32 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
 
         if (!live) return null;
 
+        // 3.0.0: during reboot the pad is empty — we already hide the scout
+        // sprite. While retreating the chrome shifts to a warmer tint; the
+        // hp bar appears any time hp is below max.
+        const rebooting = scout.rebootTicks > 0;
+        if (rebooting) return null;
+
+        const retreating = scout.retreating;
+        const hpPct = scout.maxHp > 0 ? clamp(scout.hp / scout.maxHp, 0, 1) : 1;
+        const showHpBar = hpPct < 1 - 1e-3;
+        const damageFlash = scout.damageTicks > 0 ? Math.min(0.85, scout.damageTicks / 12) : 0;
+        const bodyStroke = retreating ? "rgba(255,180,120,0.6)" : "rgba(120,220,255,0.42)";
+        const hullFill = retreating ? "rgba(255,180,120,0.18)" : "rgba(160,235,255,0.86)";
+        const beamStroke = retreating ? "rgba(255,180,120,0.7)" : "rgba(120,220,255,0.90)";
+
         return (
           <g key={scout.id}>
-            <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
-            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(80,200,255,0.10)" stroke="rgba(120,220,255,0.42)" strokeWidth="1.1" />
+            {!retreating && (
+              <line x1={scout.x} y1={scout.y} x2={scout.tx} y2={scout.ty} stroke="rgba(80,200,255,0.12)" strokeDasharray="4 4" />
+            )}
+            {damageFlash > 0 && (
+              <circle cx={scout.x} cy={scout.y + bob} r="18" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
+            )}
+            <circle cx={scout.x} cy={scout.y + bob} r="16" fill="rgba(80,200,255,0.10)" stroke={bodyStroke} strokeWidth="1.1" />
             <path
               d={`M ${scout.x} ${scout.y + bob - 8} L ${scout.x + 5.5} ${scout.y + bob + 1.5} L ${scout.x} ${scout.y + bob + 8} L ${scout.x - 5.5} ${scout.y + bob + 1.5} Z`}
-              fill="rgba(160,235,255,0.86)"
+              fill={hullFill}
               stroke="rgba(210,248,255,0.82)"
               strokeWidth="1"
               opacity="0.94"
@@ -1192,10 +1399,24 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
               y1={scout.y + bob}
               x2={scout.x + Math.cos(scout.angle) * 18}
               y2={scout.y + bob + Math.sin(scout.angle) * 18}
-              stroke="rgba(120,220,255,0.90)"
+              stroke={beamStroke}
               strokeWidth="2.5"
               strokeLinecap="round"
             />
+            {showHpBar && (
+              <>
+                <rect x={scout.x - 14} y={scout.y + bob + 14} rx="2" ry="2" width="28" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={scout.x - 14}
+                  y={scout.y + bob + 14}
+                  rx="2"
+                  ry="2"
+                  width={28 * hpPct}
+                  height="3"
+                  fill={hpPct < SCOUT_HP.retreatHpRatio ? "rgba(255,160,120,0.9)" : "rgba(160,235,255,0.85)"}
+                />
+              </>
+            )}
           </g>
         );
       })}
@@ -1204,6 +1425,13 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         const live = index < derived.activeSentinels;
         if (!live) return null;
 
+        // 3.0.0: hide the sentinel body while rebooting at home; retreating
+        // dims chassis + triangle fill toward a warmer tint; HP bar appears
+        // any time HP is below max.
+        const rebooting = sentinel.rebootTicks > 0;
+        if (rebooting) return null;
+
+        const retreating = sentinel.retreating;
         const pulse = Math.sin(sentinel.pulse) * 0.15 + 0.85;
         const size = 9;
         const points = [
@@ -1212,30 +1440,53 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           `${sentinel.x},${sentinel.y + size}`,
           `${sentinel.x - size * 0.7},${sentinel.y}`,
         ].join(" ");
+        const hpPct = sentinel.maxHp > 0 ? clamp(sentinel.hp / sentinel.maxHp, 0, 1) : 1;
+        const showHpBar = hpPct < 1 - 1e-3;
+        const damageFlash = sentinel.damageTicks > 0 ? Math.min(0.85, sentinel.damageTicks / 12) : 0;
+        const bodyFill = retreating ? "#c2410c" : "#fbbf24";
+        const bodyStroke = retreating ? "#7c2d12" : "#f59e0b";
 
         return (
-          <g
-            key={sentinel.id}
-            transform={`rotate(${(sentinel.angle * 180) / Math.PI + 90}, ${sentinel.x}, ${sentinel.y})`}
-          >
-            {sentinel.task === "Engaging" && (
-              <circle
-                cx={sentinel.x}
-                cy={sentinel.y}
-                r={SENTINEL.rangeBase}
-                fill="none"
-                stroke="#fbbf24"
-                strokeWidth="0.4"
-                opacity="0.15"
-              />
+          <g key={sentinel.id}>
+            {damageFlash > 0 && (
+              <circle cx={sentinel.x} cy={sentinel.y} r="14" fill={`rgba(255,80,80,${damageFlash.toFixed(2)})`} />
             )}
-            <polygon
-              points={points}
-              fill="#fbbf24"
-              opacity={pulse}
-              stroke="#f59e0b"
-              strokeWidth="1.5"
-            />
+            <g
+              transform={`rotate(${(sentinel.angle * 180) / Math.PI + 90}, ${sentinel.x}, ${sentinel.y})`}
+            >
+              {sentinel.task === "Engaging" && (
+                <circle
+                  cx={sentinel.x}
+                  cy={sentinel.y}
+                  r={SENTINEL.rangeBase}
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="0.4"
+                  opacity="0.15"
+                />
+              )}
+              <polygon
+                points={points}
+                fill={bodyFill}
+                opacity={pulse}
+                stroke={bodyStroke}
+                strokeWidth="1.5"
+              />
+            </g>
+            {showHpBar && (
+              <>
+                <rect x={sentinel.x - 14} y={sentinel.y + 12} rx="2" ry="2" width="28" height="3" fill="rgba(0,0,0,0.45)" />
+                <rect
+                  x={sentinel.x - 14}
+                  y={sentinel.y + 12}
+                  rx="2"
+                  ry="2"
+                  width={28 * hpPct}
+                  height="3"
+                  fill={hpPct < SENTINEL_HP.retreatHpRatio ? "rgba(255,120,80,0.92)" : "rgba(251,191,36,0.88)"}
+                />
+              </>
+            )}
           </g>
         );
       })}
@@ -1265,11 +1516,35 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
         const panicOpacity = clamp(agent.panic / 100, 0, 1) * 0.22;
         const dotColor = AGENT_STYLE[agent.kind];
         const damaged = agent.hp < 35;
-        const bodyFill = damaged ? "rgba(255,130,130,0.32)" : "rgba(40,110,180,0.50)";
-        const bodyStroke = damaged ? "rgba(255,150,150,0.75)" : "rgba(120,220,255,0.80)";
         const agentAlpha = spawnAlpha(game.timers.tick, agent.spawnTick);
         const agentDisabled = agent.disabledTicks > 0;
         const agentDisablePulse = 0.3 + Math.sin(game.timers.tick / 5) * 0.2;
+        // 3.0.0 Step 7: Corruption visuals.
+        const isCorrupted = agent.corrupted;
+        const isRebooting = agent.rebootTicks > 0;
+        // Shake amplitude grows with corruptionTicks, capped at 3 px.
+        const corruptShake = isCorrupted ? Math.min(3, agent.corruptionTicks / 400) : 0;
+        const corruptShakeX = corruptShake * Math.sin(game.timers.tick * 1.7 + agent.id);
+        const corruptShakeY = corruptShake * Math.cos(game.timers.tick * 2.3 + agent.id * 0.7);
+        const corruptPulse = 0.45 + Math.sin(game.timers.tick / 9) * 0.2;
+        const attachProgress = agent.corruptingTicks > 0 && !isCorrupted
+          ? agent.corruptingTicks / 210 // WARDEN.attachTicks
+          : 0;
+        // Override body colours when corrupted or rebooting.
+        const bodyFill = isCorrupted
+          ? "rgba(120,40,180,0.55)"
+          : isRebooting
+            ? "rgba(60,60,90,0.45)"
+            : damaged
+              ? "rgba(255,130,130,0.32)"
+              : "rgba(40,110,180,0.50)";
+        const bodyStroke = isCorrupted
+          ? "rgba(192,132,252,0.85)"
+          : isRebooting
+            ? "rgba(140,140,180,0.55)"
+            : damaged
+              ? "rgba(255,150,150,0.75)"
+              : "rgba(120,220,255,0.80)";
 
         // hexagon points helper
         const hex = (cx: number, cy: number, r: number) =>
@@ -1279,9 +1554,33 @@ export function FieldSvg({ game, derived, interactions }: FieldSvgProps) {
           }).join(" ");
 
         return (
-          <g key={agent.id} opacity={agentAlpha} style={agentDisabled ? { filter: "grayscale(1)" } : undefined}>
+          <g
+            key={agent.id}
+            opacity={isRebooting ? agentAlpha * 0.45 : agentAlpha}
+            style={agentDisabled ? { filter: "grayscale(1)" } : undefined}
+            transform={corruptShakeX !== 0 || corruptShakeY !== 0 ? `translate(${corruptShakeX.toFixed(2)},${corruptShakeY.toFixed(2)})` : undefined}
+          >
             {agentDisabled && (
               <circle cx={agent.x} cy={agent.y + bob} r="26" fill="none" stroke={`rgba(255,120,40,${agentDisablePulse.toFixed(2)})`} strokeWidth="2.5" />
+            )}
+            {/* 3.0.0 Step 7: warden-attach warning ring (pre-corruption) */}
+            {attachProgress > 0 && (
+              <circle
+                cx={agent.x} cy={agent.y + bob} r="28"
+                fill="none"
+                stroke={`rgba(220,160,60,${(attachProgress * 0.6).toFixed(2)})`}
+                strokeWidth="2"
+                strokeDasharray={`${(attachProgress * 30).toFixed(1)} 5`}
+              />
+            )}
+            {/* 3.0.0 Step 7: pulsing void-purple ring when fully corrupted */}
+            {isCorrupted && (
+              <circle
+                cx={agent.x} cy={agent.y + bob} r="30"
+                fill={`rgba(120,40,180,${(corruptPulse * 0.18).toFixed(2)})`}
+                stroke={`rgba(192,132,252,${corruptPulse.toFixed(2)})`}
+                strokeWidth="2.5"
+              />
             )}
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
             {agent.veteranRank > 0 &&

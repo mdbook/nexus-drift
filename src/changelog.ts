@@ -16,6 +16,152 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.0.1",
+    badge: "Targeting & Warden Hotfix",
+    summary:
+      "Patch release for the 3.0.0 Balancing & Behavior branch. Enemy target selection now respects deployed/live entity gates, void wardens no longer bank cooldown while blocked, and warden kill credit now reaches the matching achievement.",
+    sections: [
+      {
+        title: "Enemy Targeting",
+        items: [
+          "Combat enemies now ignore undeployed turret, scout, and sentinel slots when choosing targets.",
+          "Corrupted and rebooting workers are no longer valid enemy targets, preventing enemies from stalling on immune or off-field workers.",
+          "Stale contact targets are rechecked before damage lands, so rebooting scouts/sentinels and undeployed structures cannot be damaged by old target ids.",
+          "City targeting now updates its comparison score correctly, keeping the multi-class picker stable if target evaluation order changes later.",
+        ],
+      },
+      {
+        title: "Void Warden Fixes",
+        items: [
+          "Killing a void warden before it attaches now increments `wardensKilled` and unlocks the matching achievement.",
+          "The warden spawn timer now resets while a live warden or corrupted worker blocks the spawn gate, so cooldown cannot bank during an active infestation.",
+          "Partial warden attach progress now decays on the worker that actually has stale progress, even if another worker becomes the nearest candidate.",
+          "Sentinel cleanse damage now uses a dedicated corrupted-worker damage funnel with clamp and hit-flash handling.",
+        ],
+      },
+      {
+        title: "Performance & Coverage",
+        items: [
+          "Missile silo target selection now uses a single-pass best scan instead of allocating and sorting every tick.",
+          "Regression coverage now includes deployed-only enemy target eligibility, corrupted/rebooting worker exclusion, warden cooldown reset semantics, stale attach decay, cleanse damage routing, missile silo activation, city energy modulation, and warden kill credit.",
+          "146 tests across four files: 104 in the main simulation suite, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.0.0",
+    badge: "Balancing & Behavior",
+    summary:
+      "Major update stretching Nexus Drift into a true multi-session wallpaper. The economy is 5–8× slower, turrets and scouts can be broken or driven back, sentinels tank real hits and cleanse void-corrupted workers, void wardens stalk isolated miners in late game, and every worker now has a personality — a speed quirk, a fear profile, and a class ability.",
+    sections: [
+      {
+        title: "Progression & Economy",
+        items: [
+          "Upgrade costs and growth rates have been substantially increased across the board — the second turret is now a ~25-35 minute milestone rather than a sub-10-minute purchase, and late-game slots take multiple real-time hours to reach.",
+          "Worker extra-slot unlocks now require both an upgrade-track level and a sector level (level 22 for the second slot, level 42 for the third), and their Flux+Cores surcharges have roughly quadrupled.",
+          "XP gain, income rates, enemy wave budget, and mining yields were all scaled to match the stretched timeline — a session that previously peaked in one hour now rewards hours-long and overnight play equally.",
+          "Foundry yield was retuned from +12% per level to +5% per level so late-game stacking stays inside the slower economy curve.",
+          "Prestige now requires substantially more gold and gems, keeping late-game players invested in defending what they've built rather than refreshing immediately.",
+          "New runtime achievement tiers: 4 h, 8 h, and 24 h (legendary). New level gates at 50 and 75.",
+        ],
+      },
+      {
+        title: "Turret & Defense Structure HP",
+        items: [
+          "Turrets now have a structural HP pool. Enemies that reach and hammer a turret can crack it: when HP hits zero the turret breaks for ~80 seconds and respawns at half HP.",
+          "Turret HP scales with the turret upgrade track and the shield upgrade. All incoming turret damage flows through a single funnel so future threat types are automatically covered.",
+          "Active turret count is now dual-gated by upgrade level and sector level — the second slot opens at sector 2, the third at sector 8 — matching the worker-slot pattern.",
+          "Turret targeting now gives a priority bonus to enemies actively chasing workers near the home district, so sentinels don't ignore a brute marching on a miner while picking off stragglers at max range.",
+        ],
+      },
+      {
+        title: "Scout HP, Retreat & Speed",
+        items: [
+          "Scouts now have structural HP and a retreat state: below 50% HP the scout sprints home, heals at the pad, and redeploys once recovered to 90%.",
+          "A dead scout reboots for ~20 seconds then respawns at full HP — losing both scouts simultaneously creates a real cleanse vulnerability window.",
+          "Scout movement speed increased from 0.60 to 0.78 to offset the awareness overhead of routing around hostile lanes.",
+          "Scout pair-up now triggers with two active scouts instead of three, making the multi-scout synergy useful from the moment you buy the second scout upgrade.",
+        ],
+      },
+      {
+        title: "Sentinel HP & Cleanse",
+        items: [
+          "Sentinels now have a much larger HP pool than scouts and don't retreat until 35% HP, reflecting their heavier tank role. They heal faster at the home pad and reboot for ~40 seconds on death.",
+          "Sentinels gained a new cleanse priority that overrides normal combat: when a corrupted worker is visible, the sentinel moves toward it and fires a purple beam until the corruption is purged.",
+          "Cleansing a worker rewards flux and cores and initiates a worker reboot; the worker returns uncorrupted after a 60-second cooldown.",
+          "Sentinel kill credit only registers when the sentinel lands the lethal hit — cleansing a corrupted worker does not count toward sentinel kills.",
+        ],
+      },
+      {
+        title: "City HP & Energy Modulation",
+        items: [
+          "The home district now has a real HP pool. Brutes, leeches, and other enemies can deal structural damage when they reach it.",
+          "City integrity directly modulates energy production: full HP gives 100% energy; a fully destroyed district floors at 25%, compounding economic pressure during active sieges.",
+          "The district slowly regenerates when no combat enemies are nearby, giving players an incentive to break sieges rather than letting them drag.",
+        ],
+      },
+      {
+        title: "Enemies Targeting Structures",
+        items: [
+          "Combat enemies can now pivot between workers, turrets, scouts, sentinels, and the city based on per-kind priority weights.",
+          "Brutes are siege units — they weight turrets and the city higher than before. Sappers prefer turrets. Rushers hunt scouts. Raiders and wisps chip at the city. Phantoms assassinate sentinels.",
+          "Contact damage against non-worker targets is filtered by per-class armor: turrets are moderately armored, sentinels very heavily armored, the city lightly armored.",
+          "Enemy archetypes (flanker lead, ghost reposition, squad bearing spread) still activate only when targeting workers; structure pursuit uses direct chase.",
+        ],
+      },
+      {
+        title: "Missile Silos",
+        items: [
+          "Missiles have been separated from the turret loop into a dedicated Missile Silo upgrade track.",
+          "Silos fire long-range, slow-cadence shots: 400 px range (roughly 3× turret range), ~16-second reload, and high base damage that scales with the silo upgrade level.",
+          "Silo missile physics differ from the old turret missiles — more speed, less steering, longer flight time — so they feel like long-range artillery rather than guided turret shots.",
+          "Base turrets now always fire instant-hit beams. The Focused Beam upgrade extends turret acquisition range instead of switching fire modes.",
+          "Autobuy includes the missile silo track and fast-tracks the first level when brutes or leeches are active.",
+        ],
+      },
+      {
+        title: "Worker Abilities & Variance",
+        items: [
+          "Each worker now has a seeded personality: speed variance (±12%), fear variance (±20%), and a harvest bias (±15%) that tilts the individual toward or away from their preferred node tier.",
+          "Miners accumulate an overclock bonus while continuously mining without taking damage — after 120 ticks the crit chance for the next mining hit increases by 10%.",
+          "Runners gain a sprint burst when evading with high panic: 1.5× speed for 90 ticks once every 600 ticks.",
+          "Drones passively discount the corruption avoidance penalty for resource nodes they're within scan range of, slightly broadening safe harvesting options near moderate corruption.",
+          "All workers deal light retaliation damage to attackers when not in recovery. Damage scales with the bot upgrade track.",
+          "Worker evasion persistence now cascades super-linearly with enemy count — a single pursuer barely extends the evade timer, but a real surround compounds hard.",
+        ],
+      },
+      {
+        title: "Void Warden Corruption",
+        items: [
+          "A new late-game threat arrives at tier 4+: the Void Warden — a slow, tanky infester that bypasses normal combat and seeks isolated workers.",
+          "If a warden reaches a worker and stays adjacent for ~7 seconds, the worker becomes void-corrupted: it freezes in place, drains nearby resource nodes, and can only be destroyed by sentinel cleanse beams.",
+          "Corrupted workers are immune to enemy contact damage and turret/scout fire. They render with a purple body, a pulsing void ring, and a position shake that intensifies over time.",
+          "Healthy workers within reporting range of a corrupted ally flag the infestation, making it visible to sentinels across the full map even beyond the sentinel's vision radius.",
+          "Wardens spawn on their own 2-minute timer, not through the normal wave budget, and at most one warden and one corrupted worker are active at a time.",
+          "Killing a warden before it attaches counts toward combat stats. Successful attachment removes the warden without rewards — so letting it attach is always the worse outcome.",
+        ],
+      },
+      {
+        title: "Achievements",
+        items: [
+          "Four new corruption-category achievements: First Light (first cleanse), Cut the Thread (kill a warden before it attaches), Quarantine Protocol (5 cleanses in one run), and Void Outbreak (legendary — survive with 3+ simultaneously corrupted workers for 30 continuous seconds).",
+          "Four new long-session survival achievements: 4 h, 8 h, and 24 h runtime milestones plus sector level 50 and level 75 progression gates.",
+          "58 achievements total.",
+        ],
+      },
+      {
+        title: "Tests & Architecture",
+        items: [
+          "138 tests across four files: 96 in the main simulation suite covering all new subsystems, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+          "New subsystem: workerCorruption.ts (warden attach, node drain, worker reporting).",
+          "New subsystem: missileSilos.ts (silo targeting, fire cadence, damage).",
+          "advanceGame step order extended with stepWardenSpawn (after stepSpawns) and stepWorkerCorruption (after stepCorruption).",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.5",
     badge: "Surround Pressure",
     summary:

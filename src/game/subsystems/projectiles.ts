@@ -46,7 +46,7 @@ export function stepProjectiles(state: GameState) {
         const dx = originalTarget.x - p.x1;
         const dy = originalTarget.y - p.y1;
         const d = Math.max(1, Math.hypot(dx, dy));
-        const steer = TURRET.missileSteering;
+        const steer = p.steering ?? TURRET.missileSteering;
         let vx = p.vx * (1 - steer) + (dx / d) * steer;
         let vy = p.vy * (1 - steer) + (dy / d) * steer;
         const vl = Math.max(0.001, Math.hypot(vx, vy));

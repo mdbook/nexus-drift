@@ -3,10 +3,12 @@ import { WORLD_H, WORLD_W } from "@/game/constants";
 import { Rng } from "@/game/rng";
 import type {
   Agent,
+  CityState,
   Enemy,
   EnemyKind,
   GameState,
   LogEntry,
+  MissileSilo,
   ResourceNode,
   Scout,
   Sentinel,
@@ -15,7 +17,32 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
-export const SCHEMA_VERSION = 5;
+// Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
+// defensively by field presence, so v5 and branch-local v6 saves both load
+// through the same fallback paths below.
+export const SCHEMA_VERSION = 7;
+
+/**
+ * Deterministic per-agent variance computed from the agent id. These are procedural
+ * constants (stable per slot) — not simulation randomness — so they intentionally
+ * do not consume the seeded Rng. Using a multiplicative hash keeps the three
+ * derived values uncorrelated within the typical id range (1..20).
+ */
+function agentVariance(id: number): { speedMod: number; fearMod: number; harvestBias: number } {
+  const base = (id * 2654435761) >>> 0;
+  let harvestSeed = (base ^ 0xdeadbeef) >>> 0;
+  harvestSeed ^= harvestSeed << 13;
+  harvestSeed ^= harvestSeed >>> 17;
+  harvestSeed ^= harvestSeed << 5;
+  const u1 = (base >>> 0) / 0xffffffff;
+  const u2 = ((base ^ 0x9e3779b9) >>> 0) / 0xffffffff;
+  const u3 = (harvestSeed >>> 0) / 0xffffffff;
+  return {
+    speedMod: 1 + (u1 * 2 - 1) * 0.12,
+    fearMod: 1 + (u2 * 2 - 1) * 0.20,
+    harvestBias: (u3 * 2 - 1) * 0.15,
+  };
+}
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -104,6 +131,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
   const xOffset = (slot - 1) * 28;
   const homeX = home.x + xOffset;
   const homeY = home.y;
+  const variance = agentVariance(id);
 
   return {
     id,
@@ -131,115 +159,137 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
     disabledTicks: 0,
     active,
     threatMemory: 0,
+    speedMod: variance.speedMod,
+    fearMod: variance.fearMod,
+    harvestBias: variance.harvestBias,
+    overclockTicks: 0,
+    sprintTicks: 0,
+    sprintCooldown: 0,
+    corrupted: false,
+    corruptionTicks: 0,
+    corruptingTicks: 0,
+    spottedTicks: 0,
+    rebootTicks: 0,
   };
 }
 
+/** Initial turret HP — final tuning comes with the break-state step. */
+const TURRET_HP_DEFAULT = 120;
+
 export function makeTurrets(): Turret[] {
+  const hp = TURRET_HP_DEFAULT;
   return [
-    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2, disabledTicks: 0 },
-    { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57, disabledTicks: 0 },
-    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9, disabledTicks: 0 },
+    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
+    { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
+    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
   ];
+}
+
+/** Initial scout HP — final tuning comes with the retreat/heal step. */
+const SCOUT_HP_DEFAULT = 45;
+
+function makeScout(
+  id: number,
+  x: number,
+  y: number,
+  speed: number,
+  angle: number,
+  pulse: number,
+): Scout {
+  return {
+    id,
+    x,
+    y,
+    tx: x,
+    ty: y,
+    speed,
+    cooldown: 0,
+    angle,
+    task: "Standby",
+    pulse,
+    homeX: x,
+    homeY: y,
+    targetId: null,
+    hp: SCOUT_HP_DEFAULT,
+    maxHp: SCOUT_HP_DEFAULT,
+    damageTicks: 0,
+    retreating: false,
+    rebootTicks: 0,
+  };
 }
 
 export function makeScouts(): Scout[] {
   return [
-    {
-      id: 1,
-      x: 220,
-      y: 575,
-      tx: 220,
-      ty: 575,
-      speed: 0.98,
-      cooldown: 0,
-      angle: -1.25,
-      task: "Standby",
-      pulse: 0.2,
-      homeX: 220,
-      homeY: 575,
-      targetId: null,
-    },
-    {
-      id: 2,
-      x: 500,
-      y: 575,
-      tx: 500,
-      ty: 575,
-      speed: 0.95,
-      cooldown: 0,
-      angle: -1.18,
-      task: "Standby",
-      pulse: 1.4,
-      homeX: 500,
-      homeY: 575,
-      targetId: null,
-    },
-    {
-      id: 3,
-      x: 790,
-      y: 575,
-      tx: 790,
-      ty: 575,
-      speed: 1.02,
-      cooldown: 0,
-      angle: -1.03,
-      task: "Standby",
-      pulse: 2.2,
-      homeX: 790,
-      homeY: 575,
-      targetId: null,
-    },
-    {
-      id: 4,
-      x: 355,
-      y: 575,
-      tx: 355,
-      ty: 575,
-      speed: 0.97,
-      cooldown: 0,
-      angle: -1.12,
-      task: "Standby",
-      pulse: 0.7,
-      homeX: 355,
-      homeY: 575,
-      targetId: null,
-    },
+    makeScout(1, 220, 575, 0.98, -1.25, 0.2),
+    makeScout(2, 500, 575, 0.95, -1.18, 1.4),
+    makeScout(3, 790, 575, 1.02, -1.03, 2.2),
+    makeScout(4, 355, 575, 0.97, -1.12, 0.7),
   ];
+}
+
+/** Initial sentinel HP — final tuning comes with the retreat/heal step. */
+const SENTINEL_HP_DEFAULT = 220;
+
+function makeSentinel(id: number, x: number, y: number, speed: number): Sentinel {
+  return {
+    id,
+    x,
+    y,
+    tx: x,
+    ty: y,
+    speed,
+    cooldown: 0,
+    angle: 0,
+    task: "Standby",
+    pulse: 0,
+    homeX: x,
+    homeY: y,
+    targetId: null,
+    hp: SENTINEL_HP_DEFAULT,
+    maxHp: SENTINEL_HP_DEFAULT,
+    damageTicks: 0,
+    retreating: false,
+    rebootTicks: 0,
+  };
 }
 
 export function makeSentinels(): Sentinel[] {
   return [
-    {
-      id: 1,
-      x: 300,
-      y: 500,
-      tx: 300,
-      ty: 500,
-      speed: SENTINEL.speedBase + 0.02,
-      cooldown: 0,
-      angle: 0,
-      task: "Standby",
-      pulse: 0,
-      homeX: 300,
-      homeY: 500,
-      targetId: null,
-    },
-    {
-      id: 2,
-      x: 660,
-      y: 500,
-      tx: 660,
-      ty: 500,
-      speed: SENTINEL.speedBase - 0.02,
-      cooldown: 0,
-      angle: 0,
-      task: "Standby",
-      pulse: 0,
-      homeX: 660,
-      homeY: 500,
-      targetId: null,
-    },
+    makeSentinel(1, 300, 500, SENTINEL.speedBase + 0.02),
+    makeSentinel(2, 660, 500, SENTINEL.speedBase - 0.02),
   ];
+}
+
+/** Missile silo slot coordinates — wedged between turret pads at ground level. */
+const MISSILE_SILO_LAYOUT: Array<{ x: number; y: number }> = [
+  { x: 355, y: 560 },
+  { x: 645, y: 560 },
+  { x: 135, y: 560 },
+  { x: 865, y: 560 },
+];
+
+export function makeMissileSilos(): MissileSilo[] {
+  return MISSILE_SILO_LAYOUT.map((pos, index) => ({
+    id: index + 1,
+    x: pos.x,
+    y: pos.y,
+    cooldown: 0,
+    angle: -Math.PI / 2,
+    targetId: null,
+    active: false,
+  }));
+}
+
+/** Initial city HP — energy modulation math uses this via derived state. */
+const CITY_HP_DEFAULT = 1000;
+
+export function makeCityState(): CityState {
+  return {
+    hp: CITY_HP_DEFAULT,
+    maxHp: CITY_HP_DEFAULT,
+    damageTicks: 0,
+    lastHostileTick: 0,
+  };
 }
 
 export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null, currentTick = 0): Enemy {
@@ -261,6 +311,7 @@ export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind
     maxHp: hp,
     speed,
     targetId: null,
+    targetKind: "agent",
     targetNodeId: null,
     flash: 0,
     corruptTicks: 0,
@@ -314,6 +365,7 @@ export function createInitialGameState(seed?: number): GameState {
       sentinel: 0,
       archive: 0,
       focusedBeam: 0,
+      missileLauncher: 0,
     },
     log: [
       { tick: 0, category: "system" as const, message: "Passive income stable." },
@@ -330,8 +382,10 @@ export function createInitialGameState(seed?: number): GameState {
     turrets: makeTurrets(),
     scouts: makeScouts(),
     sentinels: makeSentinels(),
+    missileSilos: makeMissileSilos(),
     enemies: [],
     projectiles: [],
+    city: makeCityState(),
     stats: {
       mined: 0,
       spent: 0,
@@ -342,10 +396,14 @@ export function createInitialGameState(seed?: number): GameState {
       phantomsKilled: 0,
       leechesKilled: 0,
       sappersKilled: 0,
+      wardensKilled: 0,
       sentinelKills: 0,
       blocked: 0,
       corruptions: 0,
       purges: 0,
+      corruptedPurified: 0,
+      corruptedWorkerOutbreakTicks: 0,
+      turretsBroken: 0,
       eventsExperienced: [],
       eventTagsInspected: [],
       touristClicks: 0,
@@ -358,6 +416,7 @@ export function createInitialGameState(seed?: number): GameState {
       event: 0,
       enemy: 0,
       bigEvent: 0,
+      warden: 0,
     },
     touristWorker: null,
     lostDrone: null,
@@ -376,6 +435,7 @@ export function createInitialGameState(seed?: number): GameState {
     nextNodeId: 14,
     nextEnemyId: 1,
     nextProjectileId: 1,
+    nextSiloId: MISSILE_SILO_LAYOUT.length + 1,
     frozenMissile: null,
     goldExplosion: null,
     missileClickCooldown: 0,
@@ -406,11 +466,13 @@ export function cloneGameState(prev: GameState): GameState {
     turrets: prev.turrets.map((turret) => ({ ...turret })),
     scouts: prev.scouts.map((scout) => ({ ...scout })),
     sentinels: prev.sentinels.map((sentinel) => ({ ...sentinel })),
+    missileSilos: prev.missileSilos.map((silo) => ({ ...silo })),
     enemies: prev.enemies.map((enemy) => ({
       ...enemy,
       trail: enemy.trail.map(([x, y]) => [x, y] as [number, number]),
     })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
+    city: { ...prev.city },
   };
 }
 
@@ -443,7 +505,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       phantomsKilled: raw.stats?.phantomsKilled ?? 0,
       leechesKilled: raw.stats?.leechesKilled ?? 0,
       sappersKilled: raw.stats?.sappersKilled ?? 0,
+      wardensKilled: raw.stats?.wardensKilled ?? 0,
       sentinelKills: raw.stats?.sentinelKills ?? 0,
+      corruptedPurified: raw.stats?.corruptedPurified ?? 0,
+      corruptedWorkerOutbreakTicks: raw.stats?.corruptedWorkerOutbreakTicks ?? 0,
+      turretsBroken: raw.stats?.turretsBroken ?? 0,
       eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
         ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
         : base.stats.eventsExperienced,
@@ -453,7 +519,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       touristClicks: raw.stats?.touristClicks ?? 0,
       touristPassesClicked: raw.stats?.touristPassesClicked ?? 0,
     },
-    timers: { ...base.timers, ...raw.timers },
+    timers: { ...base.timers, ...raw.timers, warden: raw.timers?.warden ?? 0 },
     touristWorker: raw.touristWorker
       ? {
           x: raw.touristWorker.x ?? -30,
@@ -503,26 +569,79 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         }))
       : base.nodes,
     agents: Array.isArray(raw.agents)
-      ? raw.agents.map((agent) => ({
-          ...makeWorker(agent.kind, agent.id),
-          ...agent,
-          killsNearby: agent.killsNearby ?? 0,
-          veteranRank: agent.veteranRank ?? 0,
-          spawnTick: agent.spawnTick ?? 0,
-          disabledTicks: agent.disabledTicks ?? 0,
-          active: agent.active ?? true,
-          threatMemory: agent.threatMemory ?? 0,
-        }))
+      ? raw.agents.map((agent) => {
+          const variance = agentVariance(agent.id);
+          return {
+            ...makeWorker(agent.kind, agent.id),
+            ...agent,
+            killsNearby: agent.killsNearby ?? 0,
+            veteranRank: agent.veteranRank ?? 0,
+            spawnTick: agent.spawnTick ?? 0,
+            disabledTicks: agent.disabledTicks ?? 0,
+            active: agent.active ?? true,
+            threatMemory: agent.threatMemory ?? 0,
+            speedMod: agent.speedMod ?? variance.speedMod,
+            fearMod: agent.fearMod ?? variance.fearMod,
+            harvestBias: agent.harvestBias ?? variance.harvestBias,
+            overclockTicks: agent.overclockTicks ?? 0,
+            sprintTicks: agent.sprintTicks ?? 0,
+            sprintCooldown: agent.sprintCooldown ?? 0,
+            corrupted: agent.corrupted ?? false,
+            corruptionTicks: agent.corruptionTicks ?? 0,
+            corruptingTicks: agent.corruptingTicks ?? 0,
+            spottedTicks: agent.spottedTicks ?? 0,
+            rebootTicks: agent.rebootTicks ?? 0,
+          };
+        })
       : base.agents,
     turrets: Array.isArray(raw.turrets)
-      ? raw.turrets.map((turret) => ({ ...turret, disabledTicks: turret.disabledTicks ?? 0 }))
+      ? raw.turrets.map((turret) => ({
+          ...turret,
+          disabledTicks: turret.disabledTicks ?? 0,
+          maxHp: turret.maxHp ?? TURRET_HP_DEFAULT,
+          hp: turret.hp ?? turret.maxHp ?? TURRET_HP_DEFAULT,
+          damageTicks: turret.damageTicks ?? 0,
+          brokenTicks: turret.brokenTicks ?? 0,
+        }))
       : base.turrets,
     scouts: Array.isArray(raw.scouts)
-      ? raw.scouts.map((scout) => ({ ...scout }))
+      ? raw.scouts.map((scout) => ({
+          ...scout,
+          maxHp: scout.maxHp ?? SCOUT_HP_DEFAULT,
+          hp: scout.hp ?? scout.maxHp ?? SCOUT_HP_DEFAULT,
+          damageTicks: scout.damageTicks ?? 0,
+          retreating: scout.retreating ?? false,
+          rebootTicks: scout.rebootTicks ?? 0,
+        }))
       : base.scouts,
     sentinels: Array.isArray(raw.sentinels)
-      ? raw.sentinels.map((sentinel) => ({ ...sentinel }))
+      ? raw.sentinels.map((sentinel) => ({
+          ...sentinel,
+          maxHp: sentinel.maxHp ?? SENTINEL_HP_DEFAULT,
+          hp: sentinel.hp ?? sentinel.maxHp ?? SENTINEL_HP_DEFAULT,
+          damageTicks: sentinel.damageTicks ?? 0,
+          retreating: sentinel.retreating ?? false,
+          rebootTicks: sentinel.rebootTicks ?? 0,
+        }))
       : base.sentinels,
+    missileSilos: Array.isArray(raw.missileSilos)
+      ? raw.missileSilos.map((silo) => ({
+          ...silo,
+          active: silo.active ?? false,
+          cooldown: silo.cooldown ?? 0,
+          angle: silo.angle ?? -Math.PI / 2,
+          targetId: silo.targetId ?? null,
+        }))
+      : base.missileSilos,
+    city: raw.city
+      ? {
+          maxHp: raw.city.maxHp ?? CITY_HP_DEFAULT,
+          hp: raw.city.hp ?? raw.city.maxHp ?? CITY_HP_DEFAULT,
+          damageTicks: raw.city.damageTicks ?? 0,
+          lastHostileTick: raw.city.lastHostileTick ?? 0,
+        }
+      : base.city,
+    nextSiloId: (raw as { nextSiloId?: number }).nextSiloId ?? base.nextSiloId,
     enemies: Array.isArray(raw.enemies)
       ? raw.enemies.map((enemy) => {
           const shieldMax = ENEMY_SHIELD.shieldMax[enemy.kind as import("@/game/types").EnemyKind];
@@ -534,6 +653,8 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             dyingTicks: enemy.dyingTicks ?? 0,
             archetype: enemy.archetype ?? ENEMY_ARCHETYPE[kind],
             squadId: enemy.squadId ?? Math.floor((enemy.spawnTick ?? 0) / ENEMY_AI.squadBucketTicks),
+            // 3.0.0 Step 4 — pre-targetKind saves default to worker targeting.
+            targetKind: enemy.targetKind ?? "agent",
             ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.
@@ -580,31 +701,33 @@ export function addProjectile(
   });
 }
 
-  export function addMissile(
-    state: GameState,
-    fromX: number,
-    fromY: number,
-    vx: number,
-    vy: number,
-    targetId: number,
-    damage: number
-  ) {
-    state.projectiles.push({
+export function addMissile(
+  state: GameState,
+  fromX: number,
+  fromY: number,
+  vx: number,
+  vy: number,
+  targetId: number,
+  damage: number,
+  opts?: { speed?: number; maxLife?: number; steering?: number; color?: string }
+) {
+  const maxLife = opts?.maxLife ?? TURRET.missileMaxLife;
+  state.projectiles.push({
     id: state.nextProjectileId++,
     x1: fromX,
     y1: fromY,
     x2: fromX,
     y2: fromY,
-    life: TURRET.missileMaxLife,
-    maxLife: TURRET.missileMaxLife,
-    color: "rgba(255, 140, 0, 0.95)",
+    life: maxLife,
+    maxLife,
+    color: opts?.color ?? "rgba(255, 140, 0, 0.95)",
     width: 3,
     tag: "turret-missile",
     targetId,
-      vx,
-      vy,
-      speed: TURRET.missileSpeed,
-      damage,
-    });
-  }
-
+    vx,
+    vy,
+    speed: opts?.speed ?? TURRET.missileSpeed,
+    ...(opts?.steering !== undefined && { steering: opts.steering }),
+    damage,
+  });
+}

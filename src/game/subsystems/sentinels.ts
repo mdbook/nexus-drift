@@ -1,8 +1,30 @@
-import { SENTINEL, SENTINEL_AI } from "@/game/balance";
+import { FLUX, SENTINEL, SENTINEL_AI, SENTINEL_HP, WARDEN } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
-import type { Enemy, EnemyKind, GameState } from "@/game/types";
-import { dist } from "@/game/utils";
+import { damageCorruptedWorker } from "@/game/subsystems/combat";
+import type { Agent, Enemy, EnemyKind, GameState } from "@/game/types";
+import { dist, pushLog } from "@/game/utils";
+
+/** Purple cleanse-beam colour — distinct from the yellow combat projectile. */
+const CLEANSE_PROJECTILE_COLOR = "rgba(192, 132, 252, 0.9)";
+
+/**
+ * Find the nearest visible corrupted worker for sentinel cleanse targeting.
+ * A worker is "visible" if it is within corruptionVisionRadius of the sentinel
+ * OR if a healthy worker nearby has spotted it (spottedTicks > 0).
+ */
+function pickCleanseTarget(sentinel: { x: number; y: number }, state: GameState): Agent | null {
+  let best: Agent | null = null;
+  let bestDist = Infinity;
+  for (const agent of state.agents) {
+    if (!agent.active || !agent.corrupted) continue;
+    const d = dist(sentinel.x, sentinel.y, agent.x, agent.y);
+    if (d <= WARDEN.corruptionVisionRadius || agent.spottedTicks > 0) {
+      if (d < bestDist) { bestDist = d; best = agent; }
+    }
+  }
+  return best;
+}
 
 const PRIORITY_BONUS: Partial<Record<EnemyKind, number>> = {
   leech: 240,
@@ -57,9 +79,78 @@ export function stepSentinels(state: GameState) {
   }
 
   state.sentinels.forEach((sentinel, index) => {
+    // 3.0.0: recompute maxHp every tick so sentinel/shield upgrades buff HP
+    // live; scale current HP proportionally to avoid mid-fight resets.
+    const nextMaxHp =
+      SENTINEL_HP.hpBase +
+      state.upgrades.sentinel * SENTINEL_HP.hpPerSentinelUpgrade +
+      state.upgrades.shield * SENTINEL_HP.hpPerShieldUpgrade;
+    if (sentinel.maxHp !== nextMaxHp && sentinel.maxHp > 0) {
+      const ratio = sentinel.hp / sentinel.maxHp;
+      sentinel.hp = nextMaxHp * ratio;
+    }
+    sentinel.maxHp = nextMaxHp;
+    sentinel.hp = Math.min(sentinel.hp, sentinel.maxHp);
+
+    if (sentinel.damageTicks > 0) sentinel.damageTicks -= 1;
+
     const live = index < liveCount;
     sentinel.pulse = (sentinel.pulse + 0.05) % (Math.PI * 2);
     sentinel.cooldown = Math.max(0, sentinel.cooldown - 1);
+
+    // 3.0.0: reboot lifecycle — parked at home, fully offline, full-HP
+    // respawn on the tick the counter reaches 0.
+    if (sentinel.rebootTicks > 0) {
+      sentinel.rebootTicks -= 1;
+      sentinel.x = sentinel.homeX;
+      sentinel.y = sentinel.homeY;
+      sentinel.tx = sentinel.homeX;
+      sentinel.ty = sentinel.homeY;
+      sentinel.targetId = null;
+      sentinel.task = "Rebooting";
+      if (sentinel.rebootTicks === 0) {
+        sentinel.hp = sentinel.maxHp;
+        sentinel.retreating = false;
+        state.log = pushLog(state.log, "Sentinel redeployed from home pad.", "combat", state.timers.tick);
+      }
+      return;
+    }
+
+    // 3.0.0: retreat state machine — enter at 35% HP, exit at 90%.
+    if (!sentinel.retreating && sentinel.hp < sentinel.maxHp * SENTINEL_HP.retreatHpRatio) {
+      sentinel.retreating = true;
+      sentinel.targetId = null;
+    } else if (sentinel.retreating && sentinel.hp >= sentinel.maxHp * SENTINEL_HP.exitRetreatHpRatio) {
+      sentinel.retreating = false;
+    }
+
+    if (sentinel.retreating) {
+      const dxHome = sentinel.homeX - sentinel.x;
+      const dyHome = sentinel.homeY - sentinel.y;
+      const dHome = Math.hypot(dxHome, dyHome);
+      if (dHome > 1) {
+        const spd = Math.min(dHome, sentinel.speed * SENTINEL_HP.retreatSpeedScale);
+        sentinel.x += (dxHome / dHome) * spd;
+        sentinel.y += (dyHome / dHome) * spd;
+        sentinel.angle = Math.atan2(dyHome, dxHome);
+      }
+      if (dist(sentinel.x, sentinel.y, sentinel.homeX, sentinel.homeY) <= SENTINEL_HP.homeHealRadius) {
+        sentinel.hp = Math.min(sentinel.maxHp, sentinel.hp + SENTINEL_HP.healRatePerTick);
+      }
+      sentinel.task = "Retreating";
+      sentinel.tx = sentinel.homeX;
+      sentinel.ty = sentinel.homeY;
+      return;
+    }
+
+    // Passive home-pad top-off for lightly damaged sentinels that are not
+    // below the retreat threshold. Half rate so it's not a free heal.
+    if (
+      sentinel.hp < sentinel.maxHp &&
+      dist(sentinel.x, sentinel.y, sentinel.homeX, sentinel.homeY) <= SENTINEL_HP.homeHealRadius
+    ) {
+      sentinel.hp = Math.min(sentinel.maxHp, sentinel.hp + SENTINEL_HP.healRatePerTick * 0.5);
+    }
 
     if (!live) {
       sentinel.targetId = null;
@@ -75,6 +166,67 @@ export function stepSentinels(state: GameState) {
         sentinel.angle = Math.atan2(dy, dx);
       }
       sentinel.task = "Standby";
+      return;
+    }
+
+    // 3.0.0 Step 7: Corrupted-worker cleanse — takes priority over enemy combat.
+    // Sentinel moves to the visible corrupted worker and fires a purple cleanse
+    // beam until its HP reaches 0, then fully purges the corruption.
+    const cleanseTarget = pickCleanseTarget(sentinel, state);
+    if (cleanseTarget) {
+      sentinel.targetId = null;
+      const dxC = cleanseTarget.x - sentinel.x;
+      const dyC = cleanseTarget.y - sentinel.y;
+      const distC = Math.max(1, Math.hypot(dxC, dyC));
+
+      sentinel.tx = cleanseTarget.x;
+      sentinel.ty = cleanseTarget.y;
+      sentinel.angle = Math.atan2(dyC, dxC);
+
+      if (distC > 6) {
+        sentinel.x += (dxC / distC) * sentinel.speed;
+        sentinel.y += (dyC / distC) * sentinel.speed;
+      }
+      sentinel.task = "Cleansing";
+
+      if (distC <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
+        const cleanseDamage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
+        damageCorruptedWorker(cleanseTarget, cleanseDamage);
+
+        sentinel.cooldown = Math.max(
+          SENTINEL.cooldownFloor,
+          Math.round(SENTINEL.cooldownBase - state.upgrades.sentinel * 2)
+        );
+        addProjectile(
+          state,
+          sentinel.x, sentinel.y,
+          cleanseTarget.x, cleanseTarget.y,
+          CLEANSE_PROJECTILE_COLOR,
+          SENTINEL.projectileWidth,
+          SENTINEL.projectileLife
+        );
+
+        if (cleanseTarget.hp <= 0) {
+          // Cleanse complete — purge corruption, restore HP, enter reboot.
+          cleanseTarget.corrupted = false;
+          cleanseTarget.corruptionTicks = 0;
+          cleanseTarget.corruptingTicks = 0;
+          cleanseTarget.hp = cleanseTarget.maxHp;
+          cleanseTarget.rebootTicks = WARDEN.corruptionRebootTicks;
+          state.resources.flux = Math.min(
+            FLUX.softCap + FLUX.overCapBuffer,
+            state.resources.flux + WARDEN.cleanseFluxReward
+          );
+          state.resources.cores += WARDEN.cleanseCoreReward;
+          state.stats.corruptedPurified += 1;
+          state.log = pushLog(
+            state.log,
+            `Sentinel cleanses a corrupted ${cleanseTarget.kind} worker. Reboot initiated.`,
+            "corruption",
+            state.timers.tick
+          );
+        }
+      }
       return;
     }
 

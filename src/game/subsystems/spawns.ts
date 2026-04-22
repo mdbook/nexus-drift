@@ -1,4 +1,4 @@
-import { ENEMY_BUDGET_COST } from "@/game/balance";
+import { ENEMY_BUDGET_COST, WARDEN } from "@/game/balance";
 import { spawnEnemy } from "@/game/factories";
 import { getCombatEnemyWeights, getCorruptorSpawnChance, getEnemyWavePower } from "@/game/progression";
 import { computeDerived } from "@/game/selectors";
@@ -22,6 +22,7 @@ function describeSpawnWave(spawned: EnemyKind[], derived: DerivedState) {
     leech: 0,
     phantom: 0,
     zapper: 0,
+    warden: 0,
   };
   spawned.forEach((kind) => {
     counts[kind] += 1;
@@ -112,4 +113,41 @@ export function stepSpawns(state: GameState) {
   if (message) {
     state.log = pushLog(state.log, message, "combat", state.timers.tick);
   }
+}
+
+/**
+ * 3.0.0 Step 7 — Warden spawn gate.
+ *
+ * Wardens bypass the regular wave budget. They have their own long cooldown
+ * (wardenSpawnIntervalTicks) and are gated behind tier threshold. At most one
+ * warden is ever on the field at a time, and we don't spawn a new one while a
+ * worker is already corrupted (one infestation at a time — give the player a
+ * chance to cleanse before another wave).
+ */
+export function stepWardenSpawn(state: GameState) {
+  const derived = computeDerived(state);
+  if (derived.progression.tier < WARDEN.wardenSpawnTierThreshold) {
+    state.timers.warden = 0;
+    return;
+  }
+
+  const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
+  const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
+  if (wardenOnField || corruptedWorker) {
+    // The timer is "time since the field was fully clear and eligible", not
+    // time spent waiting behind a blocker. Interruptions reset progress rather
+    // than pausing it, which prevents cooldown banking after an infestation.
+    // Repeatedly triggering and clearing wardens can therefore delay respawns
+    // indefinitely; switch this block to pause if that pacing model changes.
+    state.timers.warden = 0;
+    return;
+  }
+
+  state.timers.warden += 1;
+  if (state.timers.warden < WARDEN.wardenSpawnIntervalTicks) return;
+
+  state.timers.warden = 0;
+  const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
+  state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, "warden", state.timers.tick));
+  state.log = pushLog(state.log, "Void warden detected on perimeter. Infestation risk.", "corruption", state.timers.tick);
 }
