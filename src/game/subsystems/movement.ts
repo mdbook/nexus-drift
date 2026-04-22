@@ -183,8 +183,8 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
-    // 3.0.0 Step 7: post-cleanse reboot — worker parks at home and skips
-    // all logic until the reboot countdown expires.
+    // 3.0.0 / 3.1.2 — reboot: parks at home, regen HP, skips all logic.
+    // Used for both corruption-cleanse reboot and combat-death reboot.
     if (agent.rebootTicks > 0) {
       agent.rebootTicks -= 1;
       agent.x = agent.homeX;
@@ -193,12 +193,14 @@ export function stepWorkers(state: GameState) {
       agent.ty = agent.homeY;
       agent.target = null;
       agent.task = "Rebooting";
+      agent.hp = Math.min(agent.maxHp, agent.hp + agent.maxHp / WORKER.respawn.rebootDuration);
       if (agent.rebootTicks === 0) {
         agent.hp = agent.maxHp;
+        agent.spawnTick = state.timers.tick;
         state.log = pushLog(
           state.log,
-          `${agent.kind} worker back online after cleanse.`,
-          "corruption",
+          `${agent.kind} worker redeployed.`,
+          "combat",
           state.timers.tick
         );
       }

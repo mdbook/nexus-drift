@@ -1061,6 +1061,19 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         );
       })}
 
+      {game.workerDeathFlash && (() => {
+        const { x, y, ticks, maxTicks } = game.workerDeathFlash;
+        const progress = 1 - ticks / maxTicks;
+        const alpha = ticks / maxTicks;
+        const r = 14 + progress * 28;
+        return (
+          <g key="worker-death-flash">
+            <circle cx={x} cy={y} r={r} fill="none" stroke={`rgba(80,180,255,${(alpha * 0.9).toFixed(2)})`} strokeWidth={3} />
+            <circle cx={x} cy={y} r={r * 0.55} fill={`rgba(80,200,255,${(alpha * 0.18).toFixed(2)})`} />
+          </g>
+        );
+      })()}
+
       {game.goldExplosion && (() => {
         const { x, y, ticks, maxTicks } = game.goldExplosion;
         const progress = 1 - ticks / maxTicks;
@@ -1598,6 +1611,22 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                 strokeWidth="2.5"
               />
             )}
+            {/* 3.1.2: HP-charge ring shown while rebooting after combat death */}
+            {isRebooting && agent.hp < agent.maxHp && (() => {
+              const hpFrac = agent.maxHp > 0 ? agent.hp / agent.maxHp : 0;
+              const circumference = 2 * Math.PI * 24;
+              return (
+                <circle
+                  cx={agent.x} cy={agent.y + bob} r="24"
+                  fill="none"
+                  stroke="rgba(80,200,255,0.70)"
+                  strokeWidth="3"
+                  strokeDasharray={`${(hpFrac * circumference).toFixed(1)} ${circumference.toFixed(1)}`}
+                  strokeDashoffset={(circumference * 0.25).toFixed(1)}
+                  strokeLinecap="round"
+                />
+              );
+            })()}
             <line x1={agent.x} y1={agent.y} x2={agent.tx} y2={agent.ty} stroke="rgba(255,255,255,0.09)" strokeDasharray="4 5" />
             {agent.veteranRank > 0 &&
               Array.from({ length: agent.veteranRank }, (_, index) => (

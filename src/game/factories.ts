@@ -458,6 +458,7 @@ export function createInitialGameState(seed?: number): GameState {
     nextSiloId: MISSILE_SILO_LAYOUT.length + 1,
     frozenMissile: null,
     goldExplosion: null,
+    workerDeathFlash: null,
     missileClickCooldown: 0,
   };
 }
@@ -478,6 +479,7 @@ export function cloneGameState(prev: GameState): GameState {
     lostDrone: prev.lostDrone ? { ...prev.lostDrone } : null,
     frozenMissile: prev.frozenMissile ? { ...prev.frozenMissile } : null,
     goldExplosion: prev.goldExplosion ? { ...prev.goldExplosion } : null,
+    workerDeathFlash: prev.workerDeathFlash ? { ...prev.workerDeathFlash } : null,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
     log: prev.log.map((entry) => ({ ...entry })),
@@ -566,6 +568,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     lostWorkerFound: raw.lostWorkerFound ?? false,
     frozenMissile: null,
     goldExplosion: null,
+    workerDeathFlash: null,
     missileClickCooldown: (raw as { missileClickCooldown?: number }).missileClickCooldown ?? 0,
     activeEvents: Array.isArray(raw.activeEvents)
       ? raw.activeEvents.map((event) => ({

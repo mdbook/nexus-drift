@@ -17,7 +17,6 @@ import {
 } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
-import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import type { Agent, GameState, Scout, Sentinel, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
@@ -360,6 +359,11 @@ export function stepZapperFire(state: GameState) {
 }
 
 export function stepCombat(state: GameState) {
+  if (state.workerDeathFlash) {
+    state.workerDeathFlash.ticks -= 1;
+    if (state.workerDeathFlash.ticks <= 0) state.workerDeathFlash = null;
+  }
+
   if (state.timers.tick % COMBAT_TICK !== 0) return;
 
   for (const enemy of state.enemies) {
@@ -435,21 +439,16 @@ export function stepCombat(state: GameState) {
     }
 
     if (nextHp <= 0) {
-      agent.x = state.rng.range(agent.homeX - 18, agent.homeX + 18);
-      agent.y = state.rng.range(agent.homeY - 18, agent.homeY + 18);
-      agent.tx = agent.homeX;
-      agent.ty = agent.homeY;
-      agent.hp = clamp(agent.maxHp * (WORKER.respawn.hpBase + state.upgrades.shield * WORKER.respawn.hpShieldBonus), WORKER.respawn.hpMin, agent.maxHp);
-      agent.panic = WORKER.respawn.panic;
-      agent.evadeTicks = WORKER.respawn.evadeTicks;
-      agent.evadeDx = 0;
-      agent.evadeDy = -1;
-      agent.damageTicks = WORKER.respawn.damageTicks;
+      state.workerDeathFlash = { x: agent.x, y: agent.y, ticks: 25, maxTicks: 25 };
+      agent.hp = 0;
+      agent.rebootTicks = WORKER.respawn.rebootDuration;
+      agent.panic = 0;
+      agent.evadeTicks = 0;
+      agent.damageTicks = 0;
       agent.disabledTicks = 0;
-      agent.spawnTick = state.timers.tick;
-      agent.target = chooseWorkerTarget(state, agent);
+      agent.target = null;
       agent.task = "Rebooting";
-      state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`, "combat", state.timers.tick);
+      state.log = pushLog(state.log, `${agent.kind} drone lost. Rebooting from backup.`, "combat", state.timers.tick);
       return;
     }
 

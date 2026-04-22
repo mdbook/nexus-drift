@@ -1636,8 +1636,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     expect(target?.id).toBe(healthy.id);
   });
 
-  it("falls back to the city when no higher-priority targets exist", () => {
-    // Clear workers + defences so only the city remains as a valid pick.
+  it("returns null for early enemies (raider/mite/wisp) when no workers/defences exist", () => {
+    // 3.1.2: mite/wisp/raider have city:0 so they don't camp the city in early
+    // game when the one turret is out of range and there are no workers nearby.
     const state = createInitialGameState();
     state.agents.forEach((agent) => { agent.active = false; });
     state.turrets = [];
@@ -1650,8 +1651,7 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     state.enemies.push(raider);
 
     const pick = pickEnemyTargetMulti(raider, state);
-    expect(pick?.kind).toBe("city");
-    expect(pick?.id).toBeNull();
+    expect(pick).toBeNull();
   });
 
   it("corruptor-role enemies have zero priority across the board", () => {
@@ -1744,15 +1744,17 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     expect(state.city.damageTicks).toBeGreaterThan(0);
   });
 
-  it("stepEnemies writes targetKind alongside targetId", () => {
-    // Only the city should be in reach, so the movement step must stamp
-    // targetKind="city" with targetId=null rather than leaving the enemy
-    // stuck on the legacy "agent" default.
+  it("stepEnemies writes targetKind=agent when a worker is available", () => {
+    // When workers are present, mites should target them (worker priority 1.0).
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
     state.turrets = [];
     state.scouts = [];
     state.sentinels = [];
+    state.agents.forEach((agent) => {
+      agent.active = true;
+      agent.corrupted = false;
+      agent.rebootTicks = 0;
+    });
 
     const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     mite.x = 500;
@@ -1760,8 +1762,7 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     state.enemies.push(mite);
 
     stepEnemies(state);
-    expect(mite.targetKind).toBe("city");
-    expect(mite.targetId).toBeNull();
+    expect(mite.targetKind).toBe("agent");
   });
 
   it("non-worker contact damage only lands while inside the contact radius", () => {
