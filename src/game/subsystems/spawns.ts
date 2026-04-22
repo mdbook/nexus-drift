@@ -53,8 +53,11 @@ export function stepSpawns(state: GameState) {
   const openSlots = derived.progression.enemyCap - state.enemies.length;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
   const spawned: EnemyKind[] = [];
+  // 3.1.3: lerp the budget ceiling out of recovery instead of binary flipping.
+  // recoveryStrength=0 → ceiling 1.3 (full pressure); strength=1 → 1.05 (eased).
+  const budgetCeiling = 1.3 - derived.progression.recoveryStrength * 0.25;
   let remainingBudget =
-    derived.progression.waveBudget * clamp(openSlots / 3, 0.7, derived.progression.recoveryMode ? 1.05 : 1.3);
+    derived.progression.waveBudget * clamp(openSlots / 3, 0.7, budgetCeiling);
   let remainingSlots = openSlots;
 
   const corruptorChance = getCorruptorSpawnChance(

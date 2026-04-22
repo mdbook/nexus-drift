@@ -30,6 +30,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "FieldSvg silo range ring now reflects the dynamic per-upgrade silo range instead of the static base.",
         ],
       },
+      {
+        title: "Spawn Director Pacing",
+        items: [
+          "Defensive interval drag eased so a healthy turret line no longer starves the field (`intervalPerTurret` 4 → 1.5, `intervalPerScout` 3 → 1.0). Pressure now lifts as defences come online instead of cratering.",
+          "New field-fill feedback: when live enemies approach the dynamic `enemyCap`, spawn cadence stretches up to 1.85× and decays smoothly back as the field clears (applied AFTER the interval clamp so it can exceed `intervalMax` when truly full).",
+          "Recovery mode replaced by a 0..1 `recoveryStrength` scalar; the wave-budget ceiling now lerps from 1.3 → 1.05 instead of binary-flipping. The boolean `recoveryMode` is preserved (threshold 0.4) for log prefixes and the early-break gate.",
+          "Combat enemy `minTier` gates lowered so unlocked variety lines up with the slowed-down score curve (rusher 3→2, brute 4→3, sapper 5→4, leech 6→5, phantom & zapper 7→6). Mid-game players see the right roster instead of being stuck on the early lineup.",
+        ],
+      },
     ],
   },
   {

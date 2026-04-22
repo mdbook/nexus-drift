@@ -191,6 +191,27 @@ describe("advanceGame simulation invariants", () => {
     expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
   });
 
+  it("threat director stretches spawn interval when the field fills up", () => {
+    const empty = createInitialGameState();
+    const full = createInitialGameState();
+    empty.level = 12;
+    full.level = empty.level;
+
+    const emptyDerived = computeDerived(empty);
+    const cap = emptyDerived.progression.enemyCap;
+    for (let i = 0; i < cap; i += 1) {
+      const e = spawnEnemy(full.rng, full.nextEnemyId++, 0, "raider");
+      e.x = 200 + i * 4;
+      e.y = -240;
+      full.enemies.push(e);
+    }
+
+    const fullDerived = computeDerived(full);
+    expect(fullDerived.progression.spawnIntervalTicks).toBeGreaterThanOrEqual(
+      Math.round(emptyDerived.progression.spawnIntervalTicks * 1.5),
+    );
+  });
+
   it("caps active corruption-killer drones at two by default and three when upgrade is 10+", () => {
     const seeded = createInitialGameState();
     seeded.upgrades.scout = 10;

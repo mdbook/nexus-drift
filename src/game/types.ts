@@ -517,6 +517,7 @@ export type ProgressionDirector = {
   waveBudget: number;
   enemyCap: number;
   recoveryMode: boolean;
+  recoveryStrength: number;
   powerBalance: number;
 };
 

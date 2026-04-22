@@ -166,6 +166,7 @@ export function computeDerived(state: GameState): DerivedState {
     activeTurrets,
     activeScouts,
     cityStage,
+    liveEnemyCount: state.enemies.filter((enemy) => enemy.hp > 0).length,
   });
 
   return {

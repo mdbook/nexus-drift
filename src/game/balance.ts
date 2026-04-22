@@ -686,9 +686,16 @@ export const PROGRESSION = {
   spawn: {
     baselineInterval: 280,
     intervalPerScore: 0.35,
-    intervalPerTurret: 4,
-    intervalPerScout: 3,
+    // 3.1.3: turret/scout interval drag eased so a healthy defense doesn't
+    // crater spawn cadence. Field-fill feedback (intervalFillFactor) takes
+    // over for "field is already full, ease off" pacing.
+    intervalPerTurret: 1.5,
+    intervalPerScout: 1.0,
     intervalPerPrestige: 4,
+    // 3.1.3: when the field is fully occupied (live enemies / enemyCap = 1),
+    // the spawn interval lengthens by up to this multiplier and decays smoothly
+    // back as kills clear the field.
+    intervalFillFactor: 0.85,
     intervalMin: 72,
     intervalMax: 260,
     recoveryPressureMultiplier: 5.5,
@@ -739,12 +746,15 @@ export const PROGRESSION = {
     mite: { base: 2.2, tier: -0.26, pressure: 0.08, min: 0.45, max: 2.4 },
     wisp: { base: 0.6, tier: 0.32, dominance: 0.08, pressure: -0.02, min: 0.35, max: 3.2 },
     raider: { base: 0.28, tier: 0.36, dominance: 0.12, pressure: -0.1, min: 0.15, max: 2.8, minTier: 1 },
-    rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 3 },
-    brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 4 },
-    sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 5 },
-    leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 6 },
-    phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 7 },
-    zapper: { base: 0, tier: 0.10, min: 0.06, max: 1.0, minTier: 7 },
+    // 3.1.3: minTier gates lowered so unlocked variety lines up with the
+    // slowed-down score curve; mid-game players see the proper enemy roster
+    // for their actual power instead of staying stuck on the early lineup.
+    rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 2 },
+    brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 3 },
+    sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 4 },
+    leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 5 },
+    phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 6 },
+    zapper: { base: 0, tier: 0.10, min: 0.06, max: 1.0, minTier: 6 },
   },
 } as const;
 

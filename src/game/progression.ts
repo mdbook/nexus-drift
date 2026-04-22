@@ -17,6 +17,7 @@ type ProgressionMetrics = {
   activeTurrets: number;
   activeScouts: number;
   cityStage: number;
+  liveEnemyCount: number;
 };
 
 const THREAT_LABELS = ["Settling", "Probe", "Skirmish", "Raid", "Siege", "Cataclysm"] as const;
@@ -37,6 +38,15 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
 
   const pressure = Math.max(0, -powerBalance);
   const dominance = Math.max(0, powerBalance);
+
+  // 3.1.3: enemyCap computed early so the field-fill factor can ride alongside
+  // the existing nominal/recovery interval pair without erasing their delta.
+  const enemyCap = Math.round(
+    clamp(PROGRESSION.wave.capBase + tier * PROGRESSION.wave.capPerTier + metrics.level * PROGRESSION.wave.capPerLevel + metrics.activeTurrets + metrics.activeScouts, PROGRESSION.wave.capMin, PROGRESSION.wave.capMax)
+  );
+  const fillRatio = clamp(metrics.liveEnemyCount / Math.max(1, enemyCap), 0, 1);
+  const fillFactor = 1 + fillRatio * PROGRESSION.spawn.intervalFillFactor;
+
   const baselineInterval =
     PROGRESSION.spawn.baselineInterval - score * PROGRESSION.spawn.intervalPerScore - metrics.activeTurrets * PROGRESSION.spawn.intervalPerTurret - metrics.activeScouts * PROGRESSION.spawn.intervalPerScout - metrics.prestige * PROGRESSION.spawn.intervalPerPrestige;
   const recoveryPenalty =
@@ -46,7 +56,10 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) * PROGRESSION.spawn.recoveryCorruptionSurplusMultiplier;
   const momentumBonus = dominance * PROGRESSION.spawn.momentumDominanceBonus + Math.max(0, metrics.colonyHealth - PROGRESSION.spawn.momentumHealthRef) * PROGRESSION.spawn.momentumHealthBonus;
   const nominalIntervalTicks = Math.round(clamp(baselineInterval - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
-  const spawnIntervalTicks = Math.round(clamp(baselineInterval + recoveryPenalty - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
+  const clampedSpawnInterval = clamp(baselineInterval + recoveryPenalty - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax);
+  // 3.1.3: fillFactor is applied AFTER the clamp so a full field can stretch
+  // spawn cadence past the cap without erasing the recovery vs nominal delta.
+  const spawnIntervalTicks = Math.round(clampedSpawnInterval * fillFactor);
 
   const waveBudget = clamp(
     PROGRESSION.wave.budgetBase +
@@ -59,8 +72,15 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     PROGRESSION.wave.budgetMax
   );
 
-  const enemyCap = Math.round(
-    clamp(PROGRESSION.wave.capBase + tier * PROGRESSION.wave.capPerTier + metrics.level * PROGRESSION.wave.capPerLevel + metrics.activeTurrets + metrics.activeScouts, PROGRESSION.wave.capMin, PROGRESSION.wave.capMax)
+  // 3.1.3: derive a 0..1 strength scalar from the pre-fill interval surplus so
+  // spawn budget lerps out of recovery instead of binary flipping. Computed
+  // from the pre-fillFactor clamped value so the field-fill multiplier doesn't
+  // skew the recovery signal. recoveryMode kept for callers (early-break gate,
+  // log prefixes) that still want a boolean.
+  const recoveryStrength = clamp(
+    (clampedSpawnInterval - nominalIntervalTicks) / Math.max(1, PROGRESSION.spawn.recoveryThreshold * 2),
+    0,
+    1,
   );
 
   return {
@@ -70,7 +90,8 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     spawnIntervalTicks,
     waveBudget,
     enemyCap,
-    recoveryMode: spawnIntervalTicks > nominalIntervalTicks + PROGRESSION.spawn.recoveryThreshold,
+    recoveryMode: recoveryStrength > 0.4,
+    recoveryStrength,
     powerBalance,
   };
 }
