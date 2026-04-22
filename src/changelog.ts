@@ -16,6 +16,65 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.0",
+    badge: "Field Archive & Correctness",
+    summary:
+      "Correctness-and-polish release. Adds the in-game Field Archive overlay, closes a batch of sim invariants (sapper damage funnel, worker reporting, TICK_WRAP city regen, kill-stat double-count), and reworks void wardens into permanently cloaked ghosts. Ships accessibility, render-perf, and CI hardening alongside a documented deferred-work list.",
+    sections: [
+      {
+        title: "Field Archive Overlay",
+        items: [
+          "New lore-first archive overlay covering 42 entries across Field Entities, Resources, Defenses, Sector Operations, and Field Events. Opens from the header ARCHIVE button; purely presentational and never touches sim state.",
+          "Left sidebar index + right content pane on desktop; mobile collapses to an index-first view with entry navigation.",
+          "Written as atmospheric field dossiers with Field Notes bullets for key behaviors — no stat tables so player discovery through play is preserved.",
+        ],
+      },
+      {
+        title: "Simulation Correctness",
+        items: [
+          "Sapper detonations now route contact damage through the `damageWorker` funnel and skip corrupted or rebooting targets, matching every other worker-damage path.",
+          "Worker reporting no longer early-exits after the first tick — reporters now pin `spottedTicks` at max for any corrupted worker they can see every tick, so sentinels keep uninterrupted vision through long cleanse approaches.",
+          "City regen gate now uses a modulo-safe `(tick - lastHostileTick + TICK_WRAP) % TICK_WRAP` delta, so the home district does not incorrectly unlock regen after the 10M-tick counter wraps.",
+          "Enemy kill statistics now separate `hostileKills` (combat enemies only) from `totalEnemiesKilled`, so corruptor purges and cleanse removals stop inflating the Hostiles Cleared counter.",
+          "Turret, scout, sentinel, and city HP defaults are now sourced from `balance.ts` instead of duplicated literals in `factories.ts`, preventing balance drift between initial-state and migration paths.",
+          "Save schema stamps `schemaVersion: 8` with a `?? default` migration fallback for every new field.",
+        ],
+      },
+      {
+        title: "Void Warden Rework",
+        items: [
+          "Wardens are now permanently cloaked ghosts. They add a `permanentCloak` flag, reposition continuously like the ghost archetype, and stay invisible to sentinel and scout targeting at all times.",
+          "Worker retaliation still reaches wardens during attach attempts, so `warden_killed` remains achievable without exposing wardens to normal combat targeting.",
+          "Migration backfills `permanentCloak = true` for wardens in older saves so mid-run saves carry over without regression.",
+        ],
+      },
+      {
+        title: "Accessibility & Render Perf",
+        items: [
+          "Achievements modal gained a proper focus trap, Escape-to-close, `role=\"dialog\"` + `aria-modal`, `aria-labelledby`, and explicit `aria-label`s on its category and close buttons.",
+          "Speed buttons now expose `aria-pressed` + `aria-label` so the active speed is announced correctly by assistive tech.",
+          "`FieldSvg` is wrapped in `React.memo`, district render data no longer bakes in `game.timers.tick`, and the hexagon geometry helper was hoisted to module scope. Field interaction handlers in `App.tsx` are memoized so identity-stable props reach the memoized field.",
+          "`EventChip` collapsed an old duplicated one-shot / timed branch where both arms emitted identical classes.",
+        ],
+      },
+      {
+        title: "Stability & Types",
+        items: [
+          "Agent / Scout / Sentinel `task` fields tighten from `string` to a new `TaskState` union covering every in-sim assignment site. Balance's `WORKERS_AT_HOME` uses the same type.",
+          "Worker retarget cadence in `stepWorkers` hashes off `agent.id` instead of the array index, so a worker's retarget window does not silently shift when peers die or reboot.",
+          "Added `damageEnemy` tests for shield regen cooldown arming and zero-amount no-ops.",
+        ],
+      },
+      {
+        title: "CI & Docs",
+        items: [
+          "GitLab CI `verify` stage now runs `npm run lint` alongside `typecheck` and `test`, so lint regressions can no longer sneak through on green pipelines.",
+          "README gains a Known Deferred Work section anchoring each deliberately-deferred follow-up (computeDerived lift, spatial index, movement split, unseeded Math.random helpers, React 19 upgrade) with matching in-source TODO comments.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.0.2",
     badge: "Admin Console",
     summary:

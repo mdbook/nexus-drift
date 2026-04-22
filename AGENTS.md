@@ -197,15 +197,19 @@ Close-combat damage scales up when multiple attackers are already in contact wit
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
-- All simulation randomness must use the seeded `Rng` instance on `GameState`, never `Math.random()`.
+- All simulation randomness must use the seeded `Rng` instance on `GameState`, never `Math.random()`. The utility helpers `rand`, `pick`, `chance`, and `pickWeighted` in `src/game/utils.ts` still rely on `Math.random` and are only safe for cosmetic layers (starfield); keep them out of every subsystem.
 - `cloneGameState()` is shallow-spread only. State must stay single-level. Deeper nesting silently breaks cloning.
 - Save migration lives in `migrateGameState()` in `factories.ts`. Always stamp `schemaVersion` (the `SCHEMA_VERSION` constant) on the returned state.
 - Derived/presentation calculations belong in `selectors.ts`, never inside subsystems.
 - ESLint `no-explicit-any` is `error` — any `any` usage will fail the build and CI.
+- Elapsed-tick comparisons against `state.timers.tick` must be `(tick - last + TICK_WRAP) % TICK_WRAP`. The tick counter wraps at `TICK_WRAP = 10_000_000`; naive subtraction goes negative after a wrap and silently breaks the gate it is driving.
+- `TaskState` in `types.ts` enumerates every HUD task label. Any new `agent.task = "…"` / `scout.task = "…"` / `sentinel.task = "…"` assignment must add its label to that union.
+- Cloak checks go through `isCloaked(enemy)` in `enemyUtils.ts`. Wardens carry `permanentCloak: true` and are always considered cloaked; unit target-selection paths must filter cloaked enemies. Retaliation paths (worker contact during warden attach) intentionally do not consult cloak — do not add a cloak filter there or warden kill credit regresses.
+- Worker identity in cadence math uses `agent.id`, not the array index. Array positions shift when peers die or reboot; `agent.id` is stable for the worker's lifetime.
 
 ## Test Coverage
 
-152 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown/attach behavior, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
+163 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 
