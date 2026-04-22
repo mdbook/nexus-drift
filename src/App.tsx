@@ -504,6 +504,14 @@ export default function App() {
             >
               v{CURRENT_VERSION}
             </button>
+            {import.meta.env.DEV && (
+              <span
+                className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-[9px] font-bold tracking-[0.3em] text-amber-100"
+                aria-label="Development build"
+              >
+                BETA
+              </span>
+            )}
             <a
               href={SOURCE_URL}
               target="_blank"

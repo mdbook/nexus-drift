@@ -28,7 +28,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
 - Zappers hold at firing distance and fire bolts that disable workers or turrets for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
-- **3.0.0**: Missile Silos are a separate upgrade track — long-range (~400 px), slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams
+- **3.0.0**: Missile Silos are a separate upgrade track — long-range, slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams. **3.1.3 invariant**: turret range is hard-clamped to 270 px regardless of upgrades, and missile silos always out-range turrets (silo base 400 px + 6 px per missileLauncher level)
 - Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
 - 58 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
 
@@ -79,6 +79,8 @@ npm run build
 npm run preview
 npm run format:check
 ```
+
+`npm run dev` boots with a `BETA` pill next to the version button, an amber-tinted favicon, and a `[DEV]` document-title prefix so the development tab is unmistakable next to a production tab. Production builds are unaffected.
 
 ---
 

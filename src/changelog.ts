@@ -31,6 +31,13 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Dev Build Indicator",
+        items: [
+          "Dev builds (`npm run dev`) now render an amber `BETA` pill next to the version button so the development tab is unmistakable next to a production tab.",
+          "Dev builds also swap the favicon to a tinted variant (`public/nexus-drift-dev.svg`, brand purple → amber) and prefix the document title with `[DEV]`. Production builds are unchanged.",
+        ],
+      },
+      {
         title: "Worker Speed Smoothing",
         items: [
           "Tightened the spread between baseline worker movement states so transitions don't feel like gear shifts. Maxed-panic flee multiplier now caps at 1.06× the base (was 1.28×) — flee speed lives within ~12% of work speed (`evadeSpeedBase` 1.1 → 1.0, `evadeSpeedPanicCap` 0.18 → 0.06, `evadePanicDivisor` 180 → 400).",
