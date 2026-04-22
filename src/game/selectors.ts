@@ -3,6 +3,13 @@ import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
 
+// TODO(3.2.0): `computeDerived` runs ~15 times per tick because subsystems call
+// it independently. A naive memoization keyed on `state` identity is unsafe —
+// subsystems mutate state between calls (spawns/combat/movement), so cached
+// values would go stale. The correct fix is to compute `derived` once at the
+// top of `advanceGame`, thread it through subsystem signatures, and recompute
+// (or patch) after phases that mutate tracked fields. Deferred from 3.1.0
+// because the subsystem-signature churn is too large for release polish.
 export function computeDerived(state: GameState): DerivedState {
   const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > CORRUPTION.nodeActiveThreshold).length;
   const p = 1 + state.prestige * ECONOMY.prestigeMultiplier;
