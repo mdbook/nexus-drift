@@ -4,7 +4,7 @@
 
 Nexus Drift is a React + TypeScript + Vite app that runs an ambient autonomous colony sim entirely in the browser. The original single-file artifact is preserved at `reference/idle_wallpaper_game.reference.jsx`; the maintainable app lives under `src/`.
 
-Current version: **3.0.1**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
+Current version: **3.0.2**. The in-game changelog is at `src/changelog.ts` and opens via the version badge in the header. As of 2.0.0 the project dropped its leading `0.` prefix from all historical versions — the first release is now `0.1.0` (was `0.0.1`), and the "Living Field" milestone is `2.0.0` (was `0.2.0`).
 
 ## Core Architecture
 
@@ -18,7 +18,8 @@ Current version: **3.0.1**. The in-game changelog is at `src/changelog.ts` and o
 
 ## Project Structure
 
-- `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin panel, and release-history modal
+- `src/App.tsx` — top-level layout, save bootstrap, speed presets, achievement UI, easter-egg listeners, admin console mount, and release-history modal
+- `src/components/AdminPanel.tsx` — hidden admin console opened with Space × 5. Provides live diagnostics, quick scenario/setup actions, shell toggles, event trigger shortcuts, and a command terminal. The console is app-shell/UI state only; command history is not persisted.
 - `src/changelog.ts` — structured in-game release notes (source of truth for version history). Every non-trivial shipped change should be represented there, either as a new release entry or by expanding the current version's entry before release.
 - `index.html` — app metadata, multi-format favicon/manifest links, and Open Graph / Twitter embed tags. Current setup: favicon uses the branded `nexus-drift` mark via SVG + PNG + ICO fallbacks; embeds still use `public/og-image.png`.
 - `src/hooks/useLowFxMode.ts` — presentation-only media-query hook for coarse-pointer `lg` desktop layouts (notably iPadOS landscape Safari). Use it to keep the same visual direction while dropping the most expensive continuous FX; never branch gameplay or sim logic on it.
@@ -38,6 +39,7 @@ Current version: **3.0.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/hooks/useGameLoop.ts` — rAF-driven simulation loop, pause-on-hidden, autosave, direct state mutation hook for admin controls, and a throttled `uiGame` / `uiDerived` snapshot for scroll-heavy chrome surfaces
 - `src/game/advanceGame.ts` — thin orchestrator over subsystem steps; execution order documented inline
 - `src/game/achievements.ts` — achievement definitions, unlock helper, and the explicit `spotTourist()` secret trigger used by the UI click path
+- `src/game/adminCommands.ts` — pure admin command executor used by `AdminPanel`. Commands mutate the cloned `GameState` supplied by `mutateGame()` and return shell effects for speed/banner actions instead of reaching into React state directly.
 - `src/game/persistence.ts` — localStorage save/load with `schemaVersion`-aware migration
 - `src/game/factories.ts` — initial state, entity construction, `SCHEMA_VERSION`, `migrateGameState`
 - `src/game/selectors.ts` — UI-facing derived state
@@ -47,6 +49,7 @@ Current version: **3.0.1**. The in-game changelog is at `src/changelog.ts` and o
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper
 - `src/game/subsystems/` — economy, spawns (+ stepWardenSpawn), movement, workers (slot activation), corruption, workerCorruption (warden attach + node drain + worker reporting), turrets, scouts, sentinels (+ cleanse path), combat, mining, autobuy, projectiles, events, achievements
 - `src/game/__tests__/advanceGame.test.ts` — 104 tests: simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, worker class abilities (Step 6), and worker corruption system including warden attach cycle/decay, warden kill credit, node drain, worker reporting, sentinel cleanse, worker reboot, and stepWardenSpawn gates/cooldown semantics (Step 7)
+- `src/game/__tests__/adminCommands.test.ts` — 6 tests: admin resource grants, upgrade mutation, timed event trigger/revert, seeded enemy spawning, corruption cleanup, and shell-effect commands for speed/banner requests.
 - `src/game/__tests__/interactionAchievements.test.ts` — 10 tests: explicit interaction-driven achievement paths, event HUD linger, anomaly gating, migration of newer interaction fields, and manual-override timing
 - `src/game/__tests__/aiBehavior.test.ts` — 25 tests: worker path safety, commitment, flee-direction retargeting, and crowded-node avoidance, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash trigger/duration, ghost reposition window, group dispersal, save migration, and threat-field path weighting
 - `src/lib/versionCheck.test.ts` — 7 tests: flat-version parsing, preview-version generation, semver comparison, and `/version` fetch handling for plain text and JSON payloads
@@ -123,6 +126,7 @@ When `hp < maxHp * 0.5` (hurt but not yet in full recovery), workers nudge towar
 Evasion direction blends 70% old heading / 30% new signal (smooth curves). As of 2.4.2, workers are intentionally less proactive about distant threats: enter radius is 62 px, exit radius is 104 px, evasion persistence is 52 ticks, and `WORKER_AI.pathSafetyPenalty` is 34. Workers at their node use a tighter `harvestingEvasionRadius` (42 px) so they finish a harvest under mild pressure. As of 2.4.3, harvesting workers ignore one or two nearby enemies until `damageTicks` shows actual damage; three or more nearby enemies still force early evasion. As of 2.4.4, close-combat pressure also scales up when multiple attackers are already in contact, so a real surround hurts harder instead of letting a worker slip out. Sticky retarget threshold is 0.64, meaning a candidate must be much better before it unseats the current assignment; partially mined current nodes also get `currentTargetProgressBonus`. Workers in persistent evasion with no immediate threat periodically call `chooseFleeDirectionTarget()` to look for a safe node ahead along `evadeDx/evadeDy`; candidates behind the worker, outside the flee lane, too far ahead, or behind a high-threat path are rejected. Each worker carries `threatMemory` (EMA of local enemy threat) to drive the regroup trigger. Workers recover from damage, reboot from home pads on destruction, and accumulate veteran ranks (kills nearby → speed bonus + visual chevron).
 
 **3.0.0 Step 8 — Director polish.** Three targeted AI tweaks:
+
 - **Panic cascade**: evade persistence now scales super-linearly with attacker count — `Math.pow(n, 1.5) - 1) * EVADE_BONUS_PER_THREAT` replaces the old linear `(n-1) * 10`. A single pursuer barely extends evasion; a real three-enemy surround compounds hard.
 - **Scout pair-up at 2**: `SCOUT_AI.pairUpScoutCount` lowered from 3 → 2 so multi-scout synergy fires in standard mid-game play, not only if a full three-scout squad is active.
 - **Turret coordination bonus**: `getTurretTargetScore` in `turrets.ts` reduces the score (raises priority) by `TURRET_COORD_BONUS` (60) when the target enemy is actively chasing a worker within 200 px of the home district, preventing turrets from tunnel-visioning on distant strays while a brute marches on the home pad.
@@ -146,6 +150,7 @@ Worker movement now treats live enemy bodies as physical obstacles. `stepWorkers
 Squadmates sharing a target spread across `ENEMY_AI.squadBearingBuckets` (6) bearing slices; each enemy prefers the bucket with fewest same-squad competitors, producing emergent flanking without an explicit coordinator.
 
 **Multi-class targeting** (3.0.0 Step 4). Combat enemies can now pivot between workers, turrets, scouts, sentinels, and the city via `ENEMY_TARGET_PRIORITY[kind]` in `balance.ts` (shape `{ worker, turret, sentinel, scout, city }`). `pickEnemyTargetMulti` in `targeting.ts` scores each deployed/live class as `priority / (distance + 40)` and returns `{ kind, id, x, y }` — id is `null` for the city. Undeployed turret/scout/sentinel slots, rebooting scouts/sentinels, and corrupted/rebooting workers are not valid picks; broken-but-deployed turrets remain targetable. `stepEnemies` in `movement.ts` writes both `Enemy.targetKind` and `Enemy.targetId` so the rest of the sim can look up whatever the enemy is chasing. Archetype-specific refinements (flanker lead, ghost reposition, squad bearing spread) only run when `targetKind === "agent"`; non-worker targets use plain direct pursuit because structures don't have movement vectors. Corruptor / blight / leech keep zeroed priorities and their existing flows (corruption nodes / home-drain rush). Most kinds still strongly prefer workers, but a few specialize:
+
 - **brute**: turret 0.85 / city 0.4 — pivots to the line when close.
 - **sapper**: turret 1.2 (higher than workers) so it arcs toward defences to detonate.
 - **rusher**: scout 0.9 — chases the softer mobile unit.
@@ -322,7 +327,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - While 3 event cards overlap, a dedicated anomaly artifact appears in the field. Clicking it is now the only way to unlock the repurposed `event_streak` secret (`Anomaly Witness`).
 - A damaged lost drone can drift through the outer zone on late-game big-event rolls (score threshold equivalent to old tier 9+). Click it to recover the unit and permanently add an extra drone beyond the normal 9-slot roster.
 - Zapper bolts, in-flight turret missiles, and death-fading corpses are all valid click targets for hidden secrets.
-- Admin panel: press `Space` five times with page focus. Exposes speed controls and event trigger buttons.
+- Admin console: press `Space` five times with page focus. Admin mode extends the existing header speed selector with 10×, 20×, and 100× options, and opens a console with diagnostics, quick setup actions, event trigger shortcuts, shell toggles, and a command terminal.
 
 ## Invariants
 
@@ -342,7 +347,9 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Header version badge opens the in-game changelog.
 - Header version badge click records the hidden `release_reader` achievement.
 - Top project chrome also carries a GitLab source link beside the version badge.
-- Public speed presets (1×/2×/4×) are in the main UI. Admin panel (5× Space) adds extended controls and event triggers. Hidden `manual_override` is specifically `1x -> 4x -> 1x` with 10–60 seconds between the 4x and 1x clicks and no other speed click in between.
+- Public speed presets (1×/2×/4×) are in the main UI. Admin mode (5× Space) extends that same selector with 10×/20×/100× rather than rendering a second admin speed row. Hidden `manual_override` is specifically `1x -> 4x -> 1x` with 10–60 seconds between the 4x and 1x clicks and no other speed click in between.
+- `useGameLoop()` caps catch-up work at 180 simulation ticks per animation frame so admin 100× mode can fast-forward aggressively without one delayed frame attempting an unbounded backlog.
+- Admin commands live in `src/game/adminCommands.ts`; keep new commands routed through existing helpers (`spawnEnemy`, `activateEvent`, `pushLog`, structural damage funnels when damage commands are added) and return app-shell effects for non-`GameState` actions such as speed or update-banner preview. Do not persist terminal history unless the save-state migration checklist is followed.
 - Sector card, resource bar, and sidebar intentionally read the throttled `uiGame` / `uiDerived` snapshot. The field SVG and field-card live indicators still read the per-tick snapshot.
 - Favicon assets now live across `public/nexus-drift.svg`, `public/nexus-drift.png`, `public/favicon.ico`, `public/favicon-32x32.png`, `public/favicon-16x16.png`, `public/apple-touch-icon.png`, and `public/site.webmanifest`. Social embeds intentionally remain pointed at `public/og-image.png`; do not swap embed art when only the favicon changes.
 - ESLint intentionally ignores `.claude/` so local agent configuration and auxiliary worktrees do not create parser-root conflicts during `npm run lint`.
@@ -351,7 +358,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 - Unless the user explicitly asks for a new release boundary, assume follow-up polish work belongs to the same current release line and expand that changelog entry instead of bumping again.
 - When releasing, also update `README.md` and this file if architecture or player-facing behavior changed.
 - ESLint `no-explicit-any` is set to `error` — any `any` will fail the build.
-- 146 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, save/load round-trips, multi-class enemy target eligibility, and worker corruption + sentinel cleanse (Step 7).
+- 152 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts` cover simulation invariants, interaction achievements, late-game worker-slot gating, worker unlock resource costs, event HUD linger behavior, AI behavior and archetype targeting, flee-direction worker retargeting, crowded-node avoidance, missile grace behavior, corruption linger, surround-pressure combat, live-version polling helpers, admin preview-version generation, manual-override timing, save/load round-trips, multi-class enemy target eligibility, worker corruption + sentinel cleanse (Step 7), and admin command mutation/shell-effect paths.
 
 ## Remaining Work
 
@@ -362,7 +369,7 @@ Late-game gotcha: the visible director tier is capped at 5 (`Settling` → `Cata
 
 ### Medium Priority
 
-- Dev overlay for live tick counts, enemy counts, corruption state, and autobuy choices.
+- Richer admin terminal commands for timer forcing, paid/free upgrade purchase checks, and damage-funnel drills.
 - More late-game sinks for `cores` and `flux`.
 - Headless soak-test utility for large deterministic runs.
 

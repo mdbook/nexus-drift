@@ -25,6 +25,7 @@ import { EventBackdrop } from "@/components/EventBackdrop";
 import { EventChip } from "@/components/EventChip";
 import { FieldStatsStrip } from "@/components/FieldStatsStrip";
 import { FieldSvg } from "@/components/FieldSvg";
+import { AdminPanel } from "@/components/AdminPanel";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
@@ -48,10 +49,11 @@ import {
 } from "@/game/achievements";
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
-import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
+import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, pushLog } from "@/game/utils";
+import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { INITIAL_MANUAL_OVERRIDE_SEQUENCE, recordManualOverrideClick } from "@/lib/manualOverride";
 
@@ -104,13 +106,20 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   missileLauncher: Rocket,
 };
 
-const PUBLIC_SPEEDS = [1, 2, 4];
+const PUBLIC_SPEEDS = [1, 2, 4] as const;
 const SOURCE_URL = "https://gitlab.mdbook.me/mikayla/nexus-drift";
 const SPEED_TOOLTIP: Record<number, string> = {
   1: "Normal speed — standard simulation rate.",
   2: "2× speed — double tick rate, useful for mid-game grinding.",
   4: "4× speed — fast-forward through long upgrade waits.",
+  10: "10× speed — admin fast-forward for setup checks.",
+  20: "20× speed — admin stress speed; watch active wave pressure.",
+  100: "100× speed — admin burst mode with catch-up capped to protect frame time.",
 };
+
+function isPublicSpeed(value: number): value is (typeof PUBLIC_SPEEDS)[number] {
+  return PUBLIC_SPEEDS.includes(value as (typeof PUBLIC_SPEEDS)[number]);
+}
 
 function SpeedButton({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
   const id = `speed-btn-${value}`;
@@ -161,16 +170,18 @@ function NewGameButton({ onClick }: { onClick: () => void }) {
 function HeaderControls({
   speed,
   setSpeed,
+  speedOptions,
   onNewGame,
 }: {
   speed: number;
   setSpeed: (value: number) => void;
+  speedOptions: readonly number[];
   onNewGame: () => void;
 }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
-        {PUBLIC_SPEEDS.map((value) => (
+        {speedOptions.map((value) => (
           <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
         ))}
       </div>
@@ -300,7 +311,14 @@ export default function App() {
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
-  const { liveVersion, updateAvailable, dismissForSession, ignoreVersion, showPreviewBanner, refreshForUpdate } = useVersionCheck(CURRENT_VERSION);
+  const {
+    liveVersion,
+    updateAvailable,
+    dismissForSession,
+    ignoreVersion,
+    showPreviewBanner,
+    refreshForUpdate,
+  } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
@@ -318,6 +336,7 @@ export default function App() {
   const hasActiveEvents = derived.activeEvents.length > 0;
   const unlockedAchievementIds = (Object.keys(game.achievements) as AchievementId[]).reverse();
   const fieldFooterInsetClass = "mb-[124px] lg:mb-[83px]";
+  const speedOptions = adminOpen || !isPublicSpeed(speed) ? ADMIN_SPEED_PRESETS : PUBLIC_SPEEDS;
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -397,6 +416,18 @@ export default function App() {
     setAchievementsOpen(true);
   };
 
+  const handleSynthwaveChange = (enabled: boolean) => {
+    setSynthwave(enabled);
+    mutateGame((next) => {
+      next.log = pushLog(
+        next.log,
+        enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.",
+        "system",
+        next.timers.tick
+      );
+    });
+  };
+
   return (
     <div
       className={`relative min-h-[100dvh] bg-[#050814] text-white lg:h-[100dvh] lg:overflow-hidden ${
@@ -446,6 +477,7 @@ export default function App() {
           <HeaderControls
             speed={speed}
             setSpeed={handleSpeedSelect}
+            speedOptions={speedOptions}
             onNewGame={() => {
               localStorage.removeItem(SAVE_KEY);
               window.location.reload();
@@ -457,7 +489,9 @@ export default function App() {
           <Card className="mb-3 border-emerald-300/20 bg-emerald-300/10 px-4 py-3 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-100/60">Live Update Available</div>
+                <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-100/60">
+                  Live Update Available
+                </div>
                 <div className="mt-1 text-sm text-emerald-50/95 md:text-base">
                   Version {liveVersion} is live. You&apos;re currently on {CURRENT_VERSION}.
                 </div>
@@ -648,59 +682,17 @@ export default function App() {
       </div>
 
       {adminOpen && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-          <div className={`${PANEL_CLASS} flex flex-col gap-3 px-4 py-3`}>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Admin // Speed</span>
-              {[1, 2, 5, 10].map((value) => (
-                <button
-                  key={value}
-                  onClick={() => handleSpeedSelect(value)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
-                    speed === value
-                      ? "bg-white/20 text-white"
-                      : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80"
-                  }`}
-                >
-                  {value}x
-                </button>
-              ))}
-              <button
-                onClick={() => setAdminOpen(false)}
-                className="ml-1 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/40 hover:text-white/70"
-              >
-                x
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Trigger Event</span>
-              {EVENT_DEFS.map((eventDef) => (
-                <button
-                  key={eventDef.id}
-                  className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
-                  onClick={() =>
-                    mutateGame((next) => {
-                      activateEvent(next, eventDef);
-                    })
-                  }
-                >
-                  {eventDef.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Shell</span>
-              <button
-                className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
-                onClick={showPreviewBanner}
-              >
-                Show Update Banner
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminPanel
+          game={game}
+          derived={derived}
+          speed={speed}
+          synthwave={synthwave}
+          mutateGame={mutateGame}
+          onSpeedSelect={handleSpeedSelect}
+          onShowPreviewBanner={showPreviewBanner}
+          onSynthwaveChange={handleSynthwaveChange}
+          onClose={() => setAdminOpen(false)}
+        />
       )}
 
       {changelogOpen && (

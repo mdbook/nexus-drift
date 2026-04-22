@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `3.0.1` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.0.2` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -46,8 +46,9 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### Controls & Persistence
 
-- Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
-- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live; the hidden admin panel can also force that banner open for testing
+- Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin mode behind `Space` × 5 extends that same selector with `10x`, `20x`, and `100x`
+- The hidden admin console now includes live diagnostics, scenario/preset buttons, event triggers, shell toggles, and a command terminal (`status`, `grant`, `upgrade`, `spawn`, `event`, `heal`, `clear`, `preset`, and more) for QA and balance setup
+- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live; the admin console can also force that banner open for testing
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
 - In-game release history: click the version badge next to `Autonomous Colony Sim`; the version badge itself now also participates in a hidden secret achievement
@@ -72,7 +73,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (146 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (152 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -85,7 +86,7 @@ npm run format:check
 
 | Path                                      | Role                                                                                                                                                                                                                                                 |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/App.tsx`                             | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin panel, event test triggers, release-history modal                                                                                                            |
+| `src/App.tsx`                             | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin-console mount, release-history modal                                                                                                                         |
 | `src/changelog.ts`                        | In-game release notes sourced from repo milestones                                                                                                                                                                                                   |
 | `index.html`                              | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags                                                                                                                                                     |
 | `src/hooks/useLowFxMode.ts`               | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic                                                                                                      |
@@ -93,6 +94,7 @@ npm run format:check
 | `src/hooks/useGameLoop.ts`                | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot                                                                                                                                         |
 | `src/game/advanceGame.ts`                 | Thin orchestrator that runs the simulation step order                                                                                                                                                                                                |
 | `src/game/achievements.ts`                | Achievement definitions plus the UI/field interaction helpers for tourist, event cards, projectiles, corpses, modal opens, and lost-drone recovery                                                                                                   |
+| `src/game/adminCommands.ts`               | Pure admin command executor for console actions such as resource grants, event triggers, enemy spawns, healing, cleanup, presets, speed requests, and update-banner requests                                                                         |
 | `src/game/persistence.ts`                 | localStorage save/load bootstrap and migration entry point                                                                                                                                                                                           |
 | `src/game/balance.ts`                     | Central tuning constants                                                                                                                                                                                                                             |
 | `src/game/events/eventDefs.ts`            | Seeded mechanical event definitions, HUD linger metadata, and activation helpers                                                                                                                                                                     |
@@ -100,6 +102,7 @@ npm run format:check
 | `src/game/targeting.ts`                   | Shared targeting helpers                                                                                                                                                                                                                             |
 | `src/game/subsystems/`                    | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events                                                                                                          |
 | `src/components/FieldSvg.tsx`             | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode and interactive targets for the tourist, lost drone, anomaly artifact, projectiles, and death-fade corpses |
+| `src/components/AdminPanel.tsx`           | Hidden admin console opened by Space × 5: diagnostics, quick actions, shell toggles, event trigger shortcuts, and command-terminal UI                                                                                                                |
 | `src/components/EventBackdrop.tsx`        | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode)                                                                                                |
 | `src/components/EventChip.tsx`            | Active-event HUD pill/card with hover/focus tooltip and click-to-inspect behavior                                                                                                                                                                    |
 | `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus                                                                                                                                                       |

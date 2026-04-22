@@ -16,6 +16,45 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.0.2",
+    badge: "Admin Console",
+    summary:
+      "Admin tooling release. The hidden panel is now a proper console with shared high-speed presets, scenario buttons, event triggers, shell settings, live diagnostics, and a command terminal for setting up balance and QA scenarios without touching save schema.",
+    sections: [
+      {
+        title: "Admin Console",
+        items: [
+          "Pressing Space five times now opens a full admin console instead of the old compact speed/event popup.",
+          "The console shows live diagnostics for speed, director tier/score, enemy counts, active events, and city integrity.",
+          "Quick actions now cover midgame and late-game presets, siege drills, bankroll grants, healing, corruption cleanup, threat clearing, and update-banner preview.",
+          "The synthwave visual mode can now be toggled from the console without needing the Konami-code path.",
+        ],
+      },
+      {
+        title: "Speed Controls",
+        items: [
+          "Admin mode extends the existing header speed selector with 10x, 20x, and 100x options, so there is no separate admin-only speed row.",
+          "100x mode now runs behind a per-frame catch-up cap so a stalled frame cannot try to process an unbounded simulation backlog.",
+          "The public 1x, 2x, and 4x selector remains unchanged until admin mode is opened or an admin-only speed is active.",
+        ],
+      },
+      {
+        title: "Command Terminal",
+        items: [
+          "New admin commands include status, speed, grant, upgrade, level, xp, event, spawn, heal, clear, preset, and banner.",
+          "Commands route through the existing mutation and helper paths: events use `activateEvent`, enemy spawns use `spawnEnemy` with the seeded RNG, and log entries use `pushLog`.",
+          "Terminal history is session-local React state only; no command state was added to saved games.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added admin command coverage for resource grants, upgrades, timed-event trigger/revert, seeded enemy spawning, corruption cleanup, speed requests, and banner requests.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.0.1",
     badge: "Targeting & Warden Hotfix",
     summary:
