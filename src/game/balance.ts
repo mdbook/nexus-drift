@@ -54,6 +54,7 @@ export const WORKER = {
     panic: 40,
     evadeTicks: 36,
     damageTicks: 30,
+    rebootDuration: 180,
   },
   combatDamageTicks: 24,
   heavyFireThreshold: 24,
@@ -186,7 +187,7 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
  *  - sapper: wants to detonate on turrets (1.2 — higher than workers) so we
  *    see it arc toward the line rather than always running past
  *  - rusher: chases scouts (0.9) since they're the softest roamers
- *  - raider / wisp: pick off scouts (0.7) and swing at the city (0.3)
+ *  - raider / wisp: pick off scouts (0.7); city: 0 so early-game enemies don't camp city when no workers are nearby
  *  - phantom: assassinates sentinels (0.6), the only mobile tank line
  *  - zapper: bolts scouts (0.8) at range
  *  - warden: balanced attach pressure — still mostly workers but willing to
@@ -199,9 +200,9 @@ export const ENEMY_TARGET_PRIORITY: Record<
   EnemyKind,
   { worker: number; turret: number; sentinel: number; scout: number; city: number }
 > = {
-  mite:      { worker: 1.0, turret: 0.15, sentinel: 0.10, scout: 0.20, city: 0.15 },
-  raider:    { worker: 1.0, turret: 0.25, sentinel: 0.10, scout: 0.70, city: 0.30 },
-  wisp:      { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.70, city: 0.30 },
+  mite:      { worker: 1.0, turret: 0.15, sentinel: 0.10, scout: 0.20, city: 0    },
+  raider:    { worker: 1.0, turret: 0.25, sentinel: 0.10, scout: 0.70, city: 0    },
+  wisp:      { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.70, city: 0    },
   corruptor: { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
   rusher:    { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.90, city: 0.20 },
   brute:     { worker: 1.0, turret: 0.85, sentinel: 0.30, scout: 0.15, city: 0.40 },
@@ -711,7 +712,7 @@ export const PROGRESSION = {
     perDominance: 0.18,
   },
   corruptor: {
-    minTier: 2,
+    minTier: 1,
     capLowTier: 2,
     capHighTier: 3,
     highTierThreshold: 4,
