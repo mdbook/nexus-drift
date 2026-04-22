@@ -1,6 +1,7 @@
 import { ENEMY_AI, ENEMY_TARGET_PRIORITY } from "@/game/balance";
+import { computeDerived } from "@/game/selectors";
 import { countThreats } from "@/game/subsystems/threatField";
-import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
+import type { Agent, DerivedState, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
 
 // Home district centroid — matches combat.ts / economy.ts so "city target"
@@ -45,7 +46,9 @@ export function findClosestEnemy(
  * when no active workers match the preference.
  */
 export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
-  const candidates = state.agents.filter((a) => a.active && a.hp > 0);
+  const candidates = state.agents.filter(
+    (a) => a.active && a.hp > 0 && !a.corrupted && a.rebootTicks <= 0
+  );
   if (!candidates.length) return null;
 
   const archetype = enemy.archetype;
@@ -125,7 +128,11 @@ export type EnemyTargetPick =
   | { kind: "sentinel"; id: number; x: number; y: number }
   | { kind: "city"; id: null; x: number; y: number };
 
-export function pickEnemyTargetMulti(enemy: Enemy, state: GameState): EnemyTargetPick | null {
+export function pickEnemyTargetMulti(
+  enemy: Enemy,
+  state: GameState,
+  derived: Pick<DerivedState, "activeTurrets" | "activeScouts" | "activeSentinels"> = computeDerived(state)
+): EnemyTargetPick | null {
   const priority = ENEMY_TARGET_PRIORITY[enemy.kind];
   if (!priority) return null;
 
@@ -138,63 +145,55 @@ export function pickEnemyTargetMulti(enemy: Enemy, state: GameState): EnemyTarge
 
   let bestScore = 0;
   let bestPick: EnemyTargetPick | null = null;
+  const considerPick = (score: number, pick: EnemyTargetPick) => {
+    if (score > bestScore) {
+      bestScore = score;
+      bestPick = pick;
+    }
+  };
 
   if (priority.worker > 0) {
     const worker = pickEnemyTarget(enemy, state);
     if (worker) {
       const d = dist(enemy.x, enemy.y, worker.x, worker.y);
       const score = priority.worker / (d + FLOOR);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPick = { kind: "agent", id: worker.id, x: worker.x, y: worker.y };
-      }
+      considerPick(score, { kind: "agent", id: worker.id, x: worker.x, y: worker.y });
     }
   }
 
   if (priority.turret > 0) {
-    for (const turret of state.turrets) {
+    for (const turret of state.turrets.slice(0, derived.activeTurrets)) {
       // Broken turrets still read as target candidates — visually the hull is
       // there, and it keeps enemies pushing the line instead of instantly
       // retargeting workers the moment a turret cracks.
       const d = dist(enemy.x, enemy.y, turret.x, turret.y);
       const score = priority.turret / (d + FLOOR);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPick = { kind: "turret", id: turret.id, x: turret.x, y: turret.y };
-      }
+      considerPick(score, { kind: "turret", id: turret.id, x: turret.x, y: turret.y });
     }
   }
 
   if (priority.scout > 0) {
-    for (const scout of state.scouts) {
+    for (const scout of state.scouts.slice(0, derived.activeScouts)) {
       if (scout.rebootTicks > 0) continue; // downed scouts are off-field
       const d = dist(enemy.x, enemy.y, scout.x, scout.y);
       const score = priority.scout / (d + FLOOR);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPick = { kind: "scout", id: scout.id, x: scout.x, y: scout.y };
-      }
+      considerPick(score, { kind: "scout", id: scout.id, x: scout.x, y: scout.y });
     }
   }
 
   if (priority.sentinel > 0) {
-    for (const sentinel of state.sentinels) {
+    for (const sentinel of state.sentinels.slice(0, derived.activeSentinels)) {
       if (sentinel.rebootTicks > 0) continue;
       const d = dist(enemy.x, enemy.y, sentinel.x, sentinel.y);
       const score = priority.sentinel / (d + FLOOR);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPick = { kind: "sentinel", id: sentinel.id, x: sentinel.x, y: sentinel.y };
-      }
+      considerPick(score, { kind: "sentinel", id: sentinel.id, x: sentinel.x, y: sentinel.y });
     }
   }
 
   if (priority.city > 0) {
     const d = dist(enemy.x, enemy.y, CITY_TARGET_X, CITY_TARGET_Y);
     const score = priority.city / (d + FLOOR);
-    if (score > bestScore) {
-      bestPick = { kind: "city", id: null, x: CITY_TARGET_X, y: CITY_TARGET_Y };
-    }
+    considerPick(score, { kind: "city", id: null, x: CITY_TARGET_X, y: CITY_TARGET_Y });
   }
 
   return bestPick;

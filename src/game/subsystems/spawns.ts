@@ -126,16 +126,23 @@ export function stepSpawns(state: GameState) {
  */
 export function stepWardenSpawn(state: GameState) {
   const derived = computeDerived(state);
-  if (derived.progression.tier < WARDEN.wardenSpawnTierThreshold) return;
+  if (derived.progression.tier < WARDEN.wardenSpawnTierThreshold) {
+    state.timers.warden = 0;
+    return;
+  }
+
+  // Check field limits before advancing the cooldown. The timer represents
+  // time since the field was eligible for a new infestation, not time spent
+  // waiting behind an existing warden/corrupted worker.
+  const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
+  const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
+  if (wardenOnField || corruptedWorker) {
+    state.timers.warden = 0;
+    return;
+  }
 
   state.timers.warden += 1;
   if (state.timers.warden < WARDEN.wardenSpawnIntervalTicks) return;
-
-  // Check field limits before spawning.
-  const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
-  if (wardenOnField) return;
-  const corruptedWorker = state.agents.some((a) => a.active && a.corrupted);
-  if (corruptedWorker) return;
 
   state.timers.warden = 0;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);

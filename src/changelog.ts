@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Upgrade costs and growth rates have been substantially increased across the board — the second turret is now a ~25-35 minute milestone rather than a sub-10-minute purchase, and late-game slots take multiple real-time hours to reach.",
           "Worker extra-slot unlocks now require both an upgrade-track level and a sector level (level 22 for the second slot, level 42 for the third), and their Flux+Cores surcharges have roughly quadrupled.",
           "XP gain, income rates, enemy wave budget, and mining yields were all scaled to match the stretched timeline — a session that previously peaked in one hour now rewards hours-long and overnight play equally.",
+          "Foundry yield was retuned from +12% per level to +5% per level so late-game stacking stays inside the slower economy curve.",
           "Prestige now requires substantially more gold and gems, keeping late-game players invested in defending what they've built rather than refreshing immediately.",
           "New runtime achievement tiers: 4 h, 8 h, and 24 h (legendary). New level gates at 50 and 75.",
         ],
@@ -73,6 +74,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Brutes are siege units — they weight turrets and the city higher than before. Sappers prefer turrets. Rushers hunt scouts. Raiders and wisps chip at the city. Phantoms assassinate sentinels.",
           "Contact damage against non-worker targets is filtered by per-class armor: turrets are moderately armored, sentinels very heavily armored, the city lightly armored.",
           "Enemy archetypes (flanker lead, ghost reposition, squad bearing spread) still activate only when targeting workers; structure pursuit uses direct chase.",
+          "Target selection now ignores undeployed structure slots, rebooting scouts/sentinels, and corrupted or rebooting workers; broken deployed turrets still stay targetable as visible battlefield objects.",
         ],
       },
       {
@@ -104,6 +106,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Corrupted workers are immune to enemy contact damage and turret/scout fire. They render with a purple body, a pulsing void ring, and a position shake that intensifies over time.",
           "Healthy workers within reporting range of a corrupted ally flag the infestation, making it visible to sentinels across the full map even beyond the sentinel's vision radius.",
           "Wardens spawn on their own 2-minute timer, not through the normal wave budget, and at most one warden and one corrupted worker are active at a time.",
+          "The warden cooldown now measures eligible time only: an active warden or ongoing corruption resets the timer so the next warden cannot spawn immediately after an infestation clears.",
           "Killing a warden before it attaches counts toward combat stats. Successful attachment removes the warden without rewards — so letting it attach is always the worse outcome.",
         ],
       },
@@ -118,7 +121,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Tests & Architecture",
         items: [
-          "138 tests across four files: 96 in the main simulation suite covering all new subsystems, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+          "146 tests across four files: 104 in the main simulation suite covering all new subsystems, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+          "Regression coverage now includes deployed-only enemy target eligibility, corrupted/rebooting worker exclusion, warden cooldown reset semantics, stale attach decay, cleanse damage routing, missile silo activation, city energy modulation, and warden kill credit.",
           "New subsystem: workerCorruption.ts (warden attach, node drain, worker reporting).",
           "New subsystem: missileSilos.ts (silo targeting, fire cadence, damage).",
           "advanceGame step order extended with stepWardenSpawn (after stepSpawns) and stepWorkerCorruption (after stepCorruption).",

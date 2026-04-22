@@ -24,7 +24,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 ### Combat & Enemies
 
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, zappers — each kind maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking
-- **3.0.0**: Enemies now target turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
+- **3.0.0**: Enemies now target deployed turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
 - Zappers hold at firing distance and fire bolts that disable workers or turrets for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
 - **3.0.0**: Missile Silos are a separate upgrade track — long-range (~400 px), slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams
@@ -71,7 +71,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (138 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (146 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview

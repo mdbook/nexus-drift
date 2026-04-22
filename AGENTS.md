@@ -136,7 +136,7 @@ Rules for adding achievements:
 
 ## Worker Slot Invariants
 
-`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active. Extra slots are intentionally late-game: the relevant upgrade track must reach its normal threshold (level 3 for the second slot, level 6 for the third), the colony must also reach sector level 12 / 24 before those units deploy, and those two worker-track purchases now add `flux` + `cores` on top of the normal gold cost. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
+`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active. Extra slots are intentionally late-game: the relevant upgrade track must reach its normal threshold (level 3 for the second slot, level 6 for the third), the colony must also reach sector level 22 / 42 before those units deploy, and those two worker-track purchases now add `flux` + `cores` on top of the normal gold cost. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
 
 - `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the slot count allowed by that worker track's upgrade level.
 - `WORKER_SLOTS_BY_LEVEL[level]` is the slot count allowed by colony progression; `stepWorkerSlots()` uses the lower of the upgrade-based and level-based gates.
@@ -162,6 +162,12 @@ Harvesting workers are intentionally stubborn under light pressure. While at a n
 - Keep those blocking radii aligned with the rendered body sizes in `FieldSvg.tsx` if you tune worker or enemy visuals.
 - Use live enemies only. Dying enemies (`hp <= 0`) still fade out visually, but they must not block movement.
 
+## Enemy Target Eligibility
+
+Enemy target selection must only consider deployed/live targets. `pickEnemyTargetMulti()` uses `derived.activeTurrets`, `derived.activeScouts`, and `derived.activeSentinels`; do not iterate raw turret/scout/sentinel arrays for target eligibility. Broken-but-deployed turrets remain valid targets because the hull is visible in the field.
+
+Workers are valid enemy targets only when `active`, `hp > 0`, not `corrupted`, and `rebootTicks <= 0`. Keep cached target reuse and contact-damage paths aligned with those same rules so enemies do not chase or damage immune/off-field workers.
+
 ## Enemy Shield Layer
 
 Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
@@ -184,7 +190,7 @@ Close-combat damage scales up when multiple attackers are already in contact wit
 
 ## Test Coverage
 
-92 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+146 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown/attach behavior, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

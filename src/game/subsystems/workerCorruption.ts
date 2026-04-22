@@ -20,6 +20,7 @@ import { dist, pushLog } from "@/game/utils";
 function stepWardenAttach(state: GameState) {
   // Collect wardens that successfully attach this tick (to remove after the loop).
   const attachedWardenIndices: number[] = [];
+  const activelyAttachedWorkerIds = new Set<number>();
 
   for (let ei = 0; ei < state.enemies.length; ei++) {
     const enemy = state.enemies[ei];
@@ -40,6 +41,7 @@ function stepWardenAttach(state: GameState) {
     if (!closest) continue;
 
     if (closestDist <= WARDEN.attachRadius) {
+      activelyAttachedWorkerIds.add(closest.id);
       closest.corruptingTicks += 1;
       if (closest.corruptingTicks >= WARDEN.attachTicks) {
         // Successful corruption. Worker converts; warden depletes itself.
@@ -56,9 +58,18 @@ function stepWardenAttach(state: GameState) {
           state.timers.tick
         );
       }
-    } else {
-      // Not touching — slowly decay the attach progress if warden drifts away.
-      closest.corruptingTicks = Math.max(0, closest.corruptingTicks - 0.5);
+    }
+  }
+
+  // Not touching — slowly decay all stale attach progress. This intentionally
+  // scans the workers that actually have progress rather than the nearest
+  // worker to a warden this tick, because the nearest worker can change while
+  // a previous target still has partial corruption banked.
+  for (const agent of state.agents) {
+    if (!agent.active || agent.corrupted) continue;
+    if (activelyAttachedWorkerIds.has(agent.id)) continue;
+    if (agent.corruptingTicks > 0) {
+      agent.corruptingTicks = Math.max(0, agent.corruptingTicks - 0.5);
     }
   }
 

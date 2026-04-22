@@ -462,6 +462,7 @@ export function stepLostDrone(state: GameState) {
 }
 
 export function stepEnemies(state: GameState) {
+  const derived = computeDerived(state);
   state.enemies.forEach((enemy) => {
     // Skip enemies that are in the death fade-out — they no longer act.
     if (enemy.hp <= 0) return;
@@ -547,7 +548,14 @@ export function stepEnemies(state: GameState) {
     // every tick (cheap and keeps responsiveness on non-worker pivots).
     const currentTankTarget =
       enemy.kind === "brute" && enemy.targetKind === "agent" && enemy.targetId !== null
-        ? state.agents.find((agent) => agent.id === enemy.targetId && agent.active && agent.hp > 0) ?? null
+        ? state.agents.find(
+            (agent) =>
+              agent.id === enemy.targetId &&
+              agent.active &&
+              agent.hp > 0 &&
+              !agent.corrupted &&
+              agent.rebootTicks <= 0
+          ) ?? null
         : null;
     const shouldRefreshTankTarget =
       enemy.kind !== "brute" || (state.timers.tick + enemy.id * 7) % ENEMY_AI.tankTargetRefreshTicks === 0;
@@ -559,7 +567,7 @@ export function stepEnemies(state: GameState) {
       target = currentTankTarget;
       targetKind = "agent";
     } else {
-      const pick = pickEnemyTargetMulti(enemy, state);
+      const pick = pickEnemyTargetMulti(enemy, state, derived);
       if (pick) {
         targetKind = pick.kind;
         if (pick.kind === "agent") {

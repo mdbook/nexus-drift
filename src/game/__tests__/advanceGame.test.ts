@@ -33,12 +33,12 @@ import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepWardenSpawn } from "@/game/subsystems/spawns";
 import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
-import { damageCity, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
+import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret } from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepEnemies } from "@/game/subsystems/movement";
 import { stepMissileSilos } from "@/game/subsystems/missileSilos";
-import { pickEnemyTargetMulti } from "@/game/targeting";
+import { pickEnemyTarget, pickEnemyTargetMulti } from "@/game/targeting";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -1385,6 +1385,78 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     expect(pick?.id).toBe(turret.id);
   });
 
+  it("ignores undeployed turret slots as enemy targets", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.level = 1;
+    state.upgrades.turret = 0;
+
+    const activeTurret = state.turrets[0];
+    const undeployedTurret = state.turrets[1];
+    activeTurret.x = 100;
+    activeTurret.y = 540;
+    undeployedTurret.x = 500;
+    undeployedTurret.y = 300;
+
+    const brute = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    brute.x = undeployedTurret.x;
+    brute.y = undeployedTurret.y;
+    state.enemies.push(brute);
+
+    const pick = pickEnemyTargetMulti(brute, state);
+    expect(pick).not.toMatchObject({ kind: "turret", id: undeployedTurret.id });
+  });
+
+  it("ignores undeployed and rebooting scout/sentinel slots as enemy targets", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.turrets = [];
+    state.upgrades.scout = 0;
+    state.upgrades.sentinel = 1;
+
+    const undeployedScout = state.scouts[0];
+    undeployedScout.x = 500;
+    undeployedScout.y = 300;
+    const rebootingSentinel = state.sentinels[0];
+    rebootingSentinel.x = 520;
+    rebootingSentinel.y = 300;
+    rebootingSentinel.rebootTicks = 10;
+
+    const phantom = spawnEnemy(state.rng, state.nextEnemyId++, 0, "phantom");
+    phantom.x = 510;
+    phantom.y = 300;
+    state.enemies.push(phantom);
+
+    const pick = pickEnemyTargetMulti(phantom, state);
+    expect(pick).not.toMatchObject({ kind: "scout", id: undeployedScout.id });
+    expect(pick).not.toMatchObject({ kind: "sentinel", id: rebootingSentinel.id });
+  });
+
+  it("excludes corrupted and rebooting workers from enemy worker targeting", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent, index) => {
+      agent.active = index < 3;
+      agent.x = 500 + index * 40;
+      agent.y = 300;
+      agent.hp = agent.maxHp;
+      agent.corrupted = false;
+      agent.rebootTicks = 0;
+    });
+    const corrupted = state.agents[0];
+    const rebooting = state.agents[1];
+    const healthy = state.agents[2];
+    corrupted.corrupted = true;
+    rebooting.rebootTicks = 20;
+
+    const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    mite.x = corrupted.x;
+    mite.y = corrupted.y;
+    state.enemies.push(mite);
+
+    const target = pickEnemyTarget(mite, state);
+    expect(target?.id).toBe(healthy.id);
+  });
+
   it("falls back to the city when no higher-priority targets exist", () => {
     // Clear workers + defences so only the city remains as a valid pick.
     const state = createInitialGameState();
@@ -1437,6 +1509,39 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     const expectedDamage = ENEMY_CONTACT_DAMAGE.brute * TARGET_ARMOR.turretArmor;
     expect(turret.hp).toBeCloseTo(hpBefore - expectedDamage, 5);
     expect(turret.damageTicks).toBeGreaterThan(0);
+  });
+
+  it("contact damage ignores stale targets for undeployed and rebooting entities", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent) => { agent.active = false; });
+    state.level = 1;
+    state.upgrades.turret = 0;
+    const undeployedTurret = state.turrets[1];
+    const turretHp = undeployedTurret.hp;
+
+    const turretAttacker = spawnEnemy(state.rng, state.nextEnemyId++, 0, "brute");
+    turretAttacker.x = undeployedTurret.x;
+    turretAttacker.y = undeployedTurret.y;
+    turretAttacker.targetKind = "turret";
+    turretAttacker.targetId = undeployedTurret.id;
+    state.enemies.push(turretAttacker);
+
+    state.upgrades.scout = 1;
+    const rebootingScout = state.scouts[0];
+    rebootingScout.rebootTicks = 30;
+    const scoutHp = rebootingScout.hp;
+    const scoutAttacker = spawnEnemy(state.rng, state.nextEnemyId++, 0, "rusher");
+    scoutAttacker.x = rebootingScout.x;
+    scoutAttacker.y = rebootingScout.y;
+    scoutAttacker.targetKind = "scout";
+    scoutAttacker.targetId = rebootingScout.id;
+    state.enemies.push(scoutAttacker);
+
+    state.timers.tick = 0;
+    stepCombat(state);
+
+    expect(undeployedTurret.hp).toBe(turretHp);
+    expect(rebootingScout.hp).toBe(scoutHp);
   });
 
   it("contact damage to the city applies the cityArmor mitigation", () => {
@@ -1778,6 +1883,46 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(worker.corrupted).toBe(false);
   });
 
+  it("corruptingTicks decays on the partially attached worker even if another worker is now closer", () => {
+    const state = createInitialGameState();
+    state.agents.forEach((agent, index) => {
+      agent.active = index < 2;
+      agent.corrupted = false;
+      agent.corruptingTicks = 0;
+    });
+    const partial = state.agents[0];
+    partial.x = 250;
+    partial.y = 300;
+    partial.corruptingTicks = 12;
+    const closer = state.agents[1];
+    closer.x = 500;
+    closer.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = closer.x + WARDEN.attachRadius + 4;
+    warden.y = closer.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    expect(partial.corruptingTicks).toBe(11.5);
+    expect(closer.corruptingTicks).toBe(0);
+  });
+
+  it("counts wardensKilled when a warden dies before attaching", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.hp = 0;
+    state.enemies.push(warden);
+
+    resolveEnemyDeaths(state);
+    stepAchievements(state);
+
+    expect(state.stats.wardensKilled).toBe(1);
+    expect(state.achievements.warden_killed).toBe(true);
+  });
+
   // ── Corrupted worker node drain ─────────────────────────────────────────────
 
   it("corrupted worker drains nearby resource nodes over time", () => {
@@ -1885,6 +2030,25 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.stats.corruptedPurified).toBe(1);
   });
 
+  it("damageCorruptedWorker clamps HP, flashes, and ignores non-corrupted workers", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.corrupted = true;
+    worker.hp = 5;
+
+    damageCorruptedWorker(worker, 10);
+
+    expect(worker.hp).toBe(0);
+    expect(worker.damageTicks).toBe(WORKER.combatDamageTicks);
+
+    worker.corrupted = false;
+    worker.hp = 5;
+    worker.damageTicks = 0;
+    damageCorruptedWorker(worker, 3);
+    expect(worker.hp).toBe(5);
+    expect(worker.damageTicks).toBe(0);
+  });
+
   it("sentinel cannot see corrupted worker beyond visionRadius without spotting", () => {
     const state = createInitialGameState();
     state.upgrades.sentinel = 1;
@@ -1960,13 +2124,17 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     // No warden should spawn at low tier regardless of timer
     expect(state.enemies.filter((e) => e.kind === "warden").length).toBe(0);
     expect(state.enemies.length).toBe(enemiesBefore);
+    expect(state.timers.warden).toBe(0);
   });
 
   it("stepWardenSpawn does not spawn a second warden while one is already on field", () => {
     const state = createInitialGameState();
-    // Force tier high enough via level.
-    state.level = 20;
-    state.prestige = 1;
+    // Force tier high enough via level + upgrades.
+    state.level = 80;
+    state.prestige = 5;
+    Object.keys(state.upgrades).forEach((key) => {
+      state.upgrades[key as keyof typeof state.upgrades] = 10;
+    });
     state.timers.warden = WARDEN.wardenSpawnIntervalTicks + 1;
 
     // Place a live warden on the field already.
@@ -1977,5 +2145,34 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     stepWardenSpawn(state);
 
     expect(state.enemies.filter((e) => e.kind === "warden").length).toBe(1);
+    expect(state.timers.warden).toBe(0);
+  });
+
+  it("stepWardenSpawn restarts the cooldown after a blocking infestation clears", () => {
+    const state = createInitialGameState();
+    state.level = 80;
+    state.prestige = 5;
+    Object.keys(state.upgrades).forEach((key) => {
+      state.upgrades[key as keyof typeof state.upgrades] = 10;
+    });
+    state.timers.warden = WARDEN.wardenSpawnIntervalTicks + 120;
+
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = true;
+
+    stepWardenSpawn(state);
+
+    expect(state.timers.warden).toBe(0);
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
+
+    worker.corrupted = false;
+    for (let i = 0; i < WARDEN.wardenSpawnIntervalTicks - 1; i += 1) {
+      stepWardenSpawn(state);
+    }
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
+
+    stepWardenSpawn(state);
+    expect(state.enemies.some((e) => e.kind === "warden")).toBe(true);
   });
 });

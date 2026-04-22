@@ -18,7 +18,8 @@ import {
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
-import type { GameState, Scout, Sentinel, Turret } from "@/game/types";
+import { computeDerived } from "@/game/selectors";
+import type { Agent, GameState, Scout, Sentinel, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 const HOME_X = 500;
@@ -116,6 +117,21 @@ export function damageCity(state: GameState, amount: number) {
   state.city.lastHostileTick = state.timers.tick;
 }
 
+/**
+ * Cleanse damage funnel for corrupted workers.
+ *
+ * Corrupted workers are immune to regular enemy contact and only sentinel
+ * cleanse beams should reduce their HP. Keeping that damage path here gives
+ * cleanse hits the same clamp + flash bookkeeping as other combat funnels.
+ */
+export function damageCorruptedWorker(worker: Agent, amount: number) {
+  if (amount <= 0) return;
+  if (!worker.corrupted || worker.rebootTicks > 0) return;
+
+  worker.hp = Math.max(0, worker.hp - amount);
+  worker.damageTicks = WORKER.combatDamageTicks;
+}
+
 export function resolveEnemyDeaths(state: GameState) {
   // Find newly killed enemies (hp ≤ 0 but not yet started dying).
   const killed = state.enemies.filter((enemy) => enemy.hp <= 0 && enemy.dyingTicks === 0);
@@ -184,6 +200,9 @@ export function resolveEnemyDeaths(state: GameState) {
     if (enemy.kind === "sapper") {
       state.stats.sappersKilled += 1;
     }
+    if (enemy.kind === "warden") {
+      state.stats.wardensKilled += 1;
+    }
 
     const coreDrop =
       enemy.coreDropOverride ??
@@ -227,6 +246,7 @@ export function resolveEnemyDeaths(state: GameState) {
 }
 
 export function stepZapperFire(state: GameState) {
+  const derived = computeDerived(state);
   for (const enemy of state.enemies) {
     if (enemy.kind !== "zapper" || enemy.hp <= 0) continue;
     if (enemy.fireCooldown === undefined) enemy.fireCooldown = 0;
@@ -241,6 +261,7 @@ export function stepZapperFire(state: GameState) {
 
     for (const agent of state.agents) {
       if (!agent.active) continue;
+      if (agent.corrupted || agent.rebootTicks > 0) continue;
       const d = dist(agent.x, agent.y, enemy.x, enemy.y);
       if (d < ZAPPER.firingRange && d < bestDist) {
         bestDist = d;
@@ -251,7 +272,7 @@ export function stepZapperFire(state: GameState) {
       }
     }
 
-    for (const turret of state.turrets) {
+    for (const turret of state.turrets.slice(0, derived.activeTurrets)) {
       const d = dist(turret.x, turret.y, enemy.x, enemy.y);
       if (d < ZAPPER.firingRange && d < bestDist) {
         bestDist = d;
@@ -287,11 +308,18 @@ export function stepCombat(state: GameState) {
   for (const enemy of state.enemies) {
     if (enemy.kind !== "sapper" || enemy.hp <= 0) continue;
 
-    const nearWorker = state.agents.some((agent) => agent.active && dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.triggerRadius);
+    const nearWorker = state.agents.some(
+      (agent) =>
+        agent.active &&
+        !agent.corrupted &&
+        agent.rebootTicks <= 0 &&
+        dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.triggerRadius
+    );
     if (!nearWorker) continue;
 
     for (const agent of state.agents) {
       if (!agent.active) continue;
+      if (agent.corrupted || agent.rebootTicks > 0) continue;
       if (dist(agent.x, agent.y, enemy.x, enemy.y) < ENEMY_SPECIAL.sapper.explosionRadius) {
         agent.hp -= ENEMY_SPECIAL.sapper.explosionDamage;
         agent.damageTicks = WORKER.combatDamageTicks;
@@ -317,7 +345,7 @@ export function stepCombat(state: GameState) {
     if (!agent.active) return;
     // 3.0.0 Step 7: corrupted workers are immune to enemy contact damage.
     // Only sentinel cleanse attacks (in stepSentinels) can reduce their HP.
-    if (agent.corrupted) return;
+    if (agent.corrupted || agent.rebootTicks > 0) return;
     const attackers = state.enemies.filter(
       (enemy) =>
         enemy.hp > 0 &&
@@ -395,6 +423,7 @@ export function stepCombat(state: GameState) {
   // armor dials ("this is a turret") covers every attacker. The damage
   // itself routes through the existing damageTurret/Scout/Sentinel/City
   // funnels so break / reboot / hostile-tick bookkeeping stays centralized.
+  const derived = computeDerived(state);
   for (const enemy of state.enemies) {
     if (enemy.hp <= 0) continue;
     if (enemy.role !== "combat") continue;
@@ -402,18 +431,26 @@ export function stepCombat(state: GameState) {
     if (contactDamage <= 0) continue;
 
     if (enemy.targetKind === "turret" && enemy.targetId != null) {
-      const turret = state.turrets.find((t) => t.id === enemy.targetId);
+      const turretIndex = state.turrets.findIndex((t) => t.id === enemy.targetId);
+      if (turretIndex < 0 || turretIndex >= derived.activeTurrets) continue;
+      const turret = state.turrets[turretIndex];
       if (!turret) continue;
       if (dist(enemy.x, enemy.y, turret.x, turret.y) > ENEMY_CONTACT_RADIUS.turret) continue;
       damageTurret(state, turret, contactDamage * TARGET_ARMOR.turretArmor);
     } else if (enemy.targetKind === "scout" && enemy.targetId != null) {
-      const scout = state.scouts.find((s) => s.id === enemy.targetId);
+      const scoutIndex = state.scouts.findIndex((s) => s.id === enemy.targetId);
+      if (scoutIndex < 0 || scoutIndex >= derived.activeScouts) continue;
+      const scout = state.scouts[scoutIndex];
       if (!scout) continue;
+      if (scout.rebootTicks > 0) continue;
       if (dist(enemy.x, enemy.y, scout.x, scout.y) > ENEMY_CONTACT_RADIUS.scout) continue;
       damageScout(state, scout, contactDamage * TARGET_ARMOR.scoutArmor);
     } else if (enemy.targetKind === "sentinel" && enemy.targetId != null) {
-      const sentinel = state.sentinels.find((s) => s.id === enemy.targetId);
+      const sentinelIndex = state.sentinels.findIndex((s) => s.id === enemy.targetId);
+      if (sentinelIndex < 0 || sentinelIndex >= derived.activeSentinels) continue;
+      const sentinel = state.sentinels[sentinelIndex];
       if (!sentinel) continue;
+      if (sentinel.rebootTicks > 0) continue;
       if (dist(enemy.x, enemy.y, sentinel.x, sentinel.y) > ENEMY_CONTACT_RADIUS.sentinel) continue;
       damageSentinel(state, sentinel, contactDamage * TARGET_ARMOR.sentinelArmor);
     } else if (enemy.targetKind === "city") {

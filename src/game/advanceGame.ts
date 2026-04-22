@@ -42,7 +42,7 @@ export function advanceGame(prev: GameState): GameState {
   //     before ZapperFire so silo shot + zapper bolt land on the same frame.
   // 5c. ZapperFire — after movement so zappers aim at current positions; before
   //     resolveEnemyDeaths so freshly killed zappers don't fire.
-  // 5c. EnemyShields — regen step runs after all damage for this tick has been applied
+  // 5d. EnemyShields — regen step runs after all damage for this tick has been applied
   //     so a shield that reaches 0 this tick cannot also regen this tick.
   // 6. resolveEnemyDeaths (first pass) — removes turret/scout kills before stepCombat
   //    so workers don't target already-dead enemies.

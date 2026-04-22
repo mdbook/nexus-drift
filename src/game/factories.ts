@@ -17,6 +17,9 @@ import type {
 } from "@/game/types";
 import { dist } from "@/game/utils";
 
+// Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
+// defensively by field presence, so v5 and branch-local v6 saves both load
+// through the same fallback paths below.
 export const SCHEMA_VERSION = 7;
 
 /**
@@ -27,9 +30,13 @@ export const SCHEMA_VERSION = 7;
  */
 function agentVariance(id: number): { speedMod: number; fearMod: number; harvestBias: number } {
   const base = (id * 2654435761) >>> 0;
+  let harvestSeed = (base ^ 0xdeadbeef) >>> 0;
+  harvestSeed ^= harvestSeed << 13;
+  harvestSeed ^= harvestSeed >>> 17;
+  harvestSeed ^= harvestSeed << 5;
   const u1 = (base >>> 0) / 0xffffffff;
   const u2 = ((base ^ 0x9e3779b9) >>> 0) / 0xffffffff;
-  const u3 = ((base * 3 + 0xdeadbeef) >>> 0) / 0xffffffff;
+  const u3 = (harvestSeed >>> 0) / 0xffffffff;
   return {
     speedMod: 1 + (u1 * 2 - 1) * 0.12,
     fearMod: 1 + (u2 * 2 - 1) * 0.20,
@@ -724,4 +731,3 @@ export function addMissile(
     damage,
   });
 }
-

@@ -5,7 +5,10 @@ import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { dist } from "@/game/utils";
 
-// 3.0.0 Step 8: turret coordination — home-district anchor and bonus radius.
+// 3.0.0 Step 8: turret coordination — worker-pad anchor and bonus radius.
+// This intentionally uses y=490 rather than the city damage centroid y=540:
+// the bonus is about workers being chased near the home pad, not enemies
+// touching the lower home-district damage band.
 const HOME_X = 500;
 const HOME_Y = 490;
 const TURRET_COORD_RADIUS = 200;  // px from home centre that qualifies a worker as "near home"

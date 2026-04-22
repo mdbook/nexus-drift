@@ -1,6 +1,7 @@
 import { FLUX, SENTINEL, SENTINEL_AI, SENTINEL_HP, WARDEN } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
+import { damageCorruptedWorker } from "@/game/subsystems/combat";
 import type { Agent, Enemy, EnemyKind, GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
 
@@ -190,7 +191,7 @@ export function stepSentinels(state: GameState) {
 
       if (distC <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
         const cleanseDamage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
-        cleanseTarget.hp -= cleanseDamage;
+        damageCorruptedWorker(cleanseTarget, cleanseDamage);
 
         sentinel.cooldown = Math.max(
           SENTINEL.cooldownFloor,

@@ -4,6 +4,12 @@ import { isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
 
+function siloTargetTier(kind: GameState["enemies"][number]["kind"]): number {
+  if (kind === "brute") return 2;
+  if (kind === "leech") return 1.5;
+  return 1;
+}
+
 /**
  * 3.0.0 Step 5 — missile silo fire step.
  *
@@ -41,22 +47,24 @@ export function stepMissileSilos(state: GameState) {
     silo.cooldown = Math.max(0, silo.cooldown - 1);
     if (silo.cooldown > 0) continue;
 
-    // Pick the most dangerous eligible enemy within range.
-    const target = [...state.enemies]
-      .filter(
-        (e) =>
-          e.hp > 0 &&
-          e.role !== "corruptor" &&
-          !isCloaked(e) &&
-          dist(silo.x, silo.y, e.x, e.y) <= range
-      )
-      .sort((a, b) => {
-        // Higher threat-tier first; wounded first within the same tier.
-        const tierA = a.kind === "brute" ? 2 : a.kind === "leech" ? 1.5 : 1;
-        const tierB = b.kind === "brute" ? 2 : b.kind === "leech" ? 1.5 : 1;
-        if (tierA !== tierB) return tierB - tierA;
-        return a.hp - b.hp; // wounded-first tiebreak
-      })[0];
+    // Pick the most dangerous eligible enemy within range in one pass. Higher
+    // threat-tier wins; wounded first within the same tier.
+    let target: GameState["enemies"][number] | null = null;
+    let targetTier = -Infinity;
+    let targetHp = Infinity;
+    for (const enemy of state.enemies) {
+      if (enemy.hp <= 0) continue;
+      if (enemy.role === "corruptor") continue;
+      if (isCloaked(enemy)) continue;
+      if (dist(silo.x, silo.y, enemy.x, enemy.y) > range) continue;
+
+      const tier = siloTargetTier(enemy.kind);
+      if (tier > targetTier || (tier === targetTier && enemy.hp < targetHp)) {
+        target = enemy;
+        targetTier = tier;
+        targetHp = enemy.hp;
+      }
+    }
 
     if (!target) continue;
 
