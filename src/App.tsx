@@ -1,6 +1,7 @@
 import { memo, type ComponentType, type CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
+  BookOpen,
   Bot,
   Coins,
   Cpu,
@@ -30,6 +31,7 @@ import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
+import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
@@ -306,6 +308,7 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
@@ -476,11 +479,24 @@ export default function App() {
               <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
-            NEXUS DRIFT
-            <span className="mx-2 font-thin text-white/40"> //</span>
-            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
-              purge wing online
+          <h1 className="flex flex-wrap items-end gap-x-2 text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
+            <span>NEXUS DRIFT</span>
+            <span className="font-thin text-white/40"> //</span>
+            <span className="ml-1 inline-flex flex-col items-start leading-none">
+              <button
+                type="button"
+                onClick={() => setWikiOpen(true)}
+                className="mb-1 inline-flex items-center gap-1 rounded-md border border-cyan-300/25 bg-cyan-300/5 px-1.5 py-0.5 text-[9px] font-medium tracking-[0.28em] text-cyan-200/75 uppercase transition hover:border-cyan-200/50 hover:bg-cyan-300/10 hover:text-cyan-100"
+                aria-label="Open field archive"
+                aria-haspopup="dialog"
+                aria-expanded={wikiOpen}
+              >
+                <BookOpen className="h-3 w-3" />
+                <span>archive</span>
+              </button>
+              <span className="text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
+                purge wing online
+              </span>
             </span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
@@ -790,6 +806,8 @@ export default function App() {
           }}
         />
       )}
+
+      <WikiOverlay open={wikiOpen} onClose={() => setWikiOpen(false)} />
     </div>
   );
 }
