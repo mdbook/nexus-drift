@@ -466,6 +466,14 @@ export function createInitialGameState(seed?: number): GameState {
 export function cloneGameState(prev: GameState): GameState {
   return {
     ...prev,
+    // 3.1.3 audit follow-up: Rng is a mutable class instance. Spreading
+    // prev aliased the same instance across old + new state, so snapshot
+    // tests, replay tooling, or admin preview paths that rely on holding
+    // a pre-advance clone would see RNG mutations bleed through. In the
+    // normal advance loop the clone replaces prev each tick so the
+    // aliasing self-heals, but isolation is cheap and the invariant is
+    // worth enforcing.
+    rng: Rng.fromState(prev.rng.getState()),
     resources: { ...prev.resources },
     upgrades: { ...prev.upgrades },
     achievements: { ...prev.achievements },

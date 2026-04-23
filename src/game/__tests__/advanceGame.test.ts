@@ -21,7 +21,7 @@ import {
 } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
-import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
+import { cloneGameState, createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
@@ -2749,6 +2749,20 @@ describe("event modifier composition", () => {
     const derived = computeDerived(state);
     expect(derived.progression.rawTier).toBeGreaterThanOrEqual(7);
     expect(derived.progression.tier).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("cloneGameState RNG isolation (3.1.3 audit)", () => {
+  it("clone has an independent RNG instance (mutations don't bleed)", () => {
+    const original = createInitialGameState(123);
+    const clone = cloneGameState(original);
+
+    expect(clone.rng).not.toBe(original.rng);
+    expect(clone.rng.getState()).toBe(original.rng.getState());
+
+    const beforeClone = clone.rng.getState();
+    original.rng.next();
+    expect(clone.rng.getState()).toBe(beforeClone);
   });
 });
 

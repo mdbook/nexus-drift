@@ -71,6 +71,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Dying enemies (corpses still fading out on-field) no longer pressure-feed gameplay. `enemyCounts`, `combatThreats`, and `corruptorCount` now filter `hp > 0`, and `stepSpawns` counts live enemies against the director's cap. Before, a brief stack of fading corpses inflated threat scoring and stalled spawns just after a clear.",
           "Zapper bolts revalidate their target at impact. Mid-flight the target can enter reboot (worker/scout/sentinel destroyed, turret broken) — previously the bolt would still stamp `disabledTicks` + a `Disabled` task onto the rebooting slot, extending the disable into the next active window. The impact path now requires the target to be on-field and operational.",
           "`colonyHealth` is now averaged as `hp/maxHp` over *active* workers and scaled to 0..100. Before, it averaged raw `hp` across every slot — locked slots dragged the reading, and a warden-toughened worker (`maxHp=150`) pushed it above the 0..100 ceiling that every consumer (`hostilePressure`, autobuy triggers, `stable_colony`, director recovery reference) compares against.",
+          "`cloneGameState` now builds a fresh `Rng` instance from the previous state's seed instead of aliasing the class instance. In the normal advance loop the clone replaces prev each tick so aliasing self-healed, but snapshot tests, replay tooling, and admin preview paths that held a pre-advance clone would see RNG mutations bleed through.",
         ],
       },
     ],
