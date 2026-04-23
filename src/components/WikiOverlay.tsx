@@ -100,12 +100,7 @@ const PREVIEW_SIZE = 72;
 
 function PreviewSvg({ children }: { children: ReactNode }) {
   return (
-    <svg
-      width={PREVIEW_SIZE}
-      height={PREVIEW_SIZE}
-      viewBox="0 0 80 80"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width={PREVIEW_SIZE} height={PREVIEW_SIZE} viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
       {children}
     </svg>
   );
@@ -284,17 +279,7 @@ function EnemyAntennae() {
   );
 }
 
-function GenericEnemy({
-  r,
-  fill,
-  stroke,
-  glow,
-}: {
-  r: number;
-  fill: string;
-  stroke: string;
-  glow: string;
-}) {
+function GenericEnemy({ r, fill, stroke, glow }: { r: number; fill: string; stroke: string; glow: string }) {
   return (
     <PreviewSvg>
       <circle cx={40} cy={40} r={r + 11} fill={glow} />
@@ -481,12 +466,7 @@ const CORRUPTOR_PREVIEW = (
       strokeWidth={1.4}
     />
     <circle cx={35} cy={35} r={4} fill="rgba(245,210,255,0.75)" />
-    <path
-      d="M 31 49 q 7 10 18 4"
-      stroke="rgba(235,180,255,0.7)"
-      strokeWidth={2}
-      fill="none"
-    />
+    <path d="M 31 49 q 7 10 18 4" stroke="rgba(235,180,255,0.7)" strokeWidth={2} fill="none" />
   </PreviewSvg>
 );
 
@@ -570,12 +550,7 @@ const SCOUT_PREVIEW = (
 const SENTINEL_PREVIEW = (
   <PreviewSvg>
     <circle cx={40} cy={40} r={22} fill="none" stroke="#fbbf24" strokeWidth={0.5} opacity={0.2} />
-    <polygon
-      points="40,31 46.3,40 40,49 33.7,40"
-      fill="#fbbf24"
-      stroke="#f59e0b"
-      strokeWidth={1.5}
-    />
+    <polygon points="40,31 46.3,40 40,49 33.7,40" fill="#fbbf24" stroke="#f59e0b" strokeWidth={1.5} />
   </PreviewSvg>
 );
 
@@ -596,8 +571,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Left-sector specialist. Pushes deep. Rarely complains.",
         preview: MINER_PREVIEW,
-        lore:
-          "Ore-line units built for the long haul. They drift out to the far rim of the left sector and grind on seams long after colony advisories ping yellow. Telemetry from recovered chassis shows an unusual rise in extraction rate during calm hours — like they enjoy the quiet.",
+        lore: "Ore-line units built for the long haul. They drift out to the far rim of the left sector and grind on seams long after colony advisories ping yellow. Telemetry from recovered chassis shows an unusual rise in extraction rate during calm hours — like they enjoy the quiet.",
         notes: [
           "Favour the deepest left-side deposits; they will not retreat lightly.",
           "Overclock passively when no hostiles are in their lane.",
@@ -612,8 +586,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Mid-field logistics runner. Flinches. Survives.",
         preview: RUNNER_PREVIEW,
-        lore:
-          "The sector's middle belt belongs to Ops. They balance ore and flux hauls through the most trafficked corridors, which means they also catch most of the crossfire. Courage is moderate; panic-sprint protocols were added after the third lane-collapse incident.",
+        lore: "The sector's middle belt belongs to Ops. They balance ore and flux hauls through the most trafficked corridors, which means they also catch most of the crossfire. Courage is moderate; panic-sprint protocols were added after the third lane-collapse incident.",
         notes: [
           "Routes prefer the mid-field where raids tend to cluster.",
           "Will break contact and sprint clear when cornered.",
@@ -628,8 +601,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Right-sector harvester. Careful. Always listening.",
         preview: DRONE_PREVIEW,
-        lore:
-          "Energy and gem seams live on the right rim, and Scout Drones inherited the beat. Their chassis hums with a passive corruption scanner — older pilots swear the drones pull back seconds before a void reading actually trips. Cautious to a fault, and the colony is better for it.",
+        lore: "Energy and gem seams live on the right rim, and Scout Drones inherited the beat. Their chassis hums with a passive corruption scanner — older pilots swear the drones pull back seconds before a void reading actually trips. Cautious to a fault, and the colony is better for it.",
         notes: [
           "Harvest gem and energy nodes; never ore lines.",
           "Back off early when threat density spikes.",
@@ -644,8 +616,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "rose",
         tagline: "Swarm unit. Smallest teeth. Lots of them.",
         preview: MITE_PREVIEW,
-        lore:
-          "The first thing a new colony sees. Mites are crude void-spawn, barely shaped, barely intelligent — they pick a target and go. Alone, a non-event. In a column, they chew through unattended miners before anyone notices the lane.",
+        lore: "The first thing a new colony sees. Mites are crude void-spawn, barely shaped, barely intelligent — they pick a target and go. Alone, a non-event. In a column, they chew through unattended miners before anyone notices the lane.",
         notes: [
           "Direct pursuers — no flanking, no tricks.",
           "Dangerous in numbers; trivial in isolation.",
@@ -660,8 +631,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "rose",
         tagline: "Flanking predator. Leads the shot.",
         preview: RAIDER_PREVIEW,
-        lore:
-          "Raiders don't charge — they arc. They read worker movement vectors and come in from the side, preferring miners who have wandered too far from a turret shadow. If a single drone goes dark on the rim, odds are a raider saw it go.",
+        lore: "Raiders don't charge — they arc. They read worker movement vectors and come in from the side, preferring miners who have wandered too far from a turret shadow. If a single drone goes dark on the rim, odds are a raider saw it go.",
         notes: [
           "Pick isolated workers over the main herd.",
           "Predict target position; hard to juke in open lane.",
@@ -676,8 +646,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "violet",
         tagline: "Ghost-class flanker. Barely there.",
         preview: WISP_PREVIEW,
-        lore:
-          "A smear of light on the grid, gone before the eye finishes parsing it. Wisps slip between turret cones at speeds the hardware struggles to resolve. The standard doctrine is don't track them — track where they haven't been yet, and wait.",
+        lore: "A smear of light on the grid, gone before the eye finishes parsing it. Wisps slip between turret cones at speeds the hardware struggles to resolve. The standard doctrine is don't track them — track where they haven't been yet, and wait.",
         notes: [
           "Fastest standard hostile; hardest to pin.",
           "Prefers tight weaves through contested lanes.",
@@ -692,8 +661,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "rose",
         tagline: "Glass cannon. Drone-hunter. Blinks in, gone.",
         preview: RUSHER_PREVIEW,
-        lore:
-          "Everything a rusher has goes into one straight line. It will ignore your turrets, your sentinels, your front line — and put a scout drone on the floor before anyone locks on. Once its sprint is spent, it folds like paper.",
+        lore: "Everything a rusher has goes into one straight line. It will ignore your turrets, your sentinels, your front line — and put a scout drone on the floor before anyone locks on. Once its sprint is spent, it folds like paper.",
         notes: [
           "Preferentially targets scouts and other fragile units.",
           "Extreme speed, negligible armour.",
@@ -708,8 +676,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Slow. Enormous. Takes the turrets with it.",
         preview: BRUTE_PREVIEW,
-        lore:
-          "A mountain of plating around a void-slab heart. Brutes move at a crawl and do not care — they eat turret fire like weather and put themselves face-first into the perimeter. When one finally comes apart, the Core fragment it leaves behind is worth the damage.",
+        lore: "A mountain of plating around a void-slab heart. Brutes move at a crawl and do not care — they eat turret fire like weather and put themselves face-first into the perimeter. When one finally comes apart, the Core fragment it leaves behind is worth the damage.",
         notes: [
           "Drops Core fragments on death — non-resetting, precious.",
           "Prioritises static defences over workers.",
@@ -724,8 +691,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Suicide ambusher. Dashes. Ends loudly.",
         preview: SAPPER_PREVIEW,
-        lore:
-          "Sappers aren't enemies so much as payloads with legs. They close range in a single committed dash and detonate against whatever structure they reach. If a perimeter turret disappears between frames, a sapper was there between frames.",
+        lore: "Sappers aren't enemies so much as payloads with legs. They close range in a single committed dash and detonate against whatever structure they reach. If a perimeter turret disappears between frames, a sapper was there between frames.",
         notes: [
           "Targets buildings, not workers.",
           "Closes distance in one explosive commitment.",
@@ -740,8 +706,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "fuchsia",
         tagline: "Skips the fight. Goes for the vault.",
         preview: LEECH_PREVIEW,
-        lore:
-          "Leeches ignore workers, turrets, sentinels — everything. They track straight for the home district and start draining gold and energy the moment they touch it. By the time a leech is on the wall, the sector economy is already bleeding.",
+        lore: "Leeches ignore workers, turrets, sentinels — everything. They track straight for the home district and start draining gold and energy the moment they touch it. By the time a leech is on the wall, the sector economy is already bleeding.",
         notes: [
           "Bypasses combat units entirely.",
           "Drains resources on contact with the home district.",
@@ -756,8 +721,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "violet",
         tagline: "Sentinel-assassin. Cloaks. Reappears behind you.",
         preview: PHANTOM_PREVIEW,
-        lore:
-          "Phantoms do not brawl. They drop cloak, reposition behind the line, and select a high-value target — usually a sentinel mid-cleanse. A shield layer buys them the seconds they need to recloak before return fire arrives.",
+        lore: "Phantoms do not brawl. They drop cloak, reposition behind the line, and select a high-value target — usually a sentinel mid-cleanse. A shield layer buys them the seconds they need to recloak before return fire arrives.",
         notes: [
           "Cloaks to reposition; uncloaks to strike.",
           "Carries a shield layer above its HP.",
@@ -772,8 +736,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "violet",
         tagline: "Range holder. Freezes the line.",
         preview: ZAPPER_PREVIEW,
-        lore:
-          "Zappers hang back at the edge of engagement range and throw disable bolts into whichever asset looks most useful. A frozen turret is a silent turret; a frozen worker is a worker waiting to die. The disable is not long — it is only long enough.",
+        lore: "Zappers hang back at the edge of engagement range and throw disable bolts into whichever asset looks most useful. A frozen turret is a silent turret; a frozen worker is a worker waiting to die. The disable is not long — it is only long enough.",
         notes: [
           "Disable bolts lock turrets and workers for several seconds.",
           "Stays at range; rarely commits into melee.",
@@ -788,8 +751,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "fuchsia",
         tagline: "Attaches to nodes. Rots them slowly. Never fights.",
         preview: CORRUPTOR_PREVIEW,
-        lore:
-          "Corruptors do not attack. They crawl onto a resource node, anchor, and begin the rot. Yields drop, then invert. Left alone, a single corruptor will hollow a gem seam before the next pay cycle. They are not dangerous — they are patient.",
+        lore: "Corruptors do not attack. They crawl onto a resource node, anchor, and begin the rot. Yields drop, then invert. Left alone, a single corruptor will hollow a gem seam before the next pay cycle. They are not dangerous — they are patient.",
         notes: [
           "Attach to resource nodes; ignore workers entirely.",
           "Steadily reduces node yield the longer they hold.",
@@ -804,8 +766,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "fuchsia",
         tagline: "Heavy corruptor. Faster rot. Harder to burn off.",
         preview: BLIGHT_PREVIEW,
-        lore:
-          "A corruptor that grew up. Blights carry more mass and more resistance — scout fire that would sear a standard corruptor only irritates a blight. Rot accelerates when they settle, and two blights on one seam can finish it before a purge team even arrives.",
+        lore: "A corruptor that grew up. Blights carry more mass and more resistance — scout fire that would sear a standard corruptor only irritates a blight. Rot accelerates when they settle, and two blights on one seam can finish it before a purge team even arrives.",
         notes: [
           "Much faster corruption spread than baseline.",
           "Partially resistant to scout fire; pair up on them.",
@@ -820,8 +781,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "fuchsia",
         tagline: "Does not fight. Infects. Vanishes.",
         preview: WARDEN_PREVIEW,
-        lore:
-          "The thing you see in the corner of the scope and then can't find again. Wardens stalk individual workers for long minutes, never attacking, never drawing fire — and then the worker's telemetry goes wrong, and the warden is already somewhere else. Sentinels exist in large part because of them.",
+        lore: "The thing you see in the corner of the scope and then can't find again. Wardens stalk individual workers for long minutes, never attacking, never drawing fire — and then the worker's telemetry goes wrong, and the warden is already somewhere else. Sentinels exist in large part because of them.",
         notes: [
           "No attack profile; infection is the whole behaviour.",
           "Disappears from the field after a successful infect.",
@@ -844,8 +804,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Colony currency. Anchors the early economy.",
         preview: GOLD_PREVIEW,
-        lore:
-          "The ledger still runs on gold — a convention older than any of the gear pulling it out of the ground. Every upgrade, every perimeter, every new turret begins as a gold line in the logbook. When the vault runs dry, the colony runs quiet.",
+        lore: "The ledger still runs on gold — a convention older than any of the gear pulling it out of the ground. Every upgrade, every perimeter, every new turret begins as a gold line in the logbook. When the vault runs dry, the colony runs quiet.",
       },
       {
         id: "ore",
@@ -855,8 +814,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Raw extraction material. The baseline pull.",
         preview: ORE_PREVIEW,
-        lore:
-          "Dense, grey, abundant, and almost never interesting on its own — ore is the filler that makes everything else possible. The left sector is nearly all ore seams, which is why the Auto Miners never stop walking.",
+        lore: "Dense, grey, abundant, and almost never interesting on its own — ore is the filler that makes everything else possible. The left sector is nearly all ore seams, which is why the Auto Miners never stop walking.",
       },
       {
         id: "gems",
@@ -866,8 +824,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Crystalline rarity. Required to step up.",
         preview: GEMS_PREVIEW,
-        lore:
-          "Crystalline formations that shouldn't, by any local geology, exist. Gems are the currency of prestige — of leaving this sector behind and stepping into the next. Colonies without gems stay colonies. Colonies with gems become something else.",
+        lore: "Crystalline formations that shouldn't, by any local geology, exist. Gems are the currency of prestige — of leaving this sector behind and stepping into the next. Colonies without gems stay colonies. Colonies with gems become something else.",
       },
       {
         id: "energy",
@@ -877,8 +834,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Power infrastructure. Falls with the city.",
         preview: ENERGY_PREVIEW,
-        lore:
-          "The colony's heartbeat. Energy output is modulated by the city's health — take a hit on the home district and the grid dims in real time. Everything with a sensor, a turret, or a beam is watching the energy line.",
+        lore: "The colony's heartbeat. Energy output is modulated by the city's health — take a hit on the home district and the grid dims in real time. Everything with a sensor, a turret, or a beam is watching the energy line.",
       },
       {
         id: "cores",
@@ -887,8 +843,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Hexagon,
         accent: "violet",
         tagline: "Fragments from elite kills. Do not reset.",
-        lore:
-          "Cores drop from brutes and other heavy voidspawn. They do not reset on prestige. They do not refund on teardown. A colony's true wealth isn't the gold in its vault — it's the core pile in the back room, hoarded through every reset.",
+        lore: "Cores drop from brutes and other heavy voidspawn. They do not reset on prestige. They do not refund on teardown. A colony's true wealth isn't the gold in its vault — it's the core pile in the back room, hoarded through every reset.",
       },
       {
         id: "flux",
@@ -897,8 +852,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Waves,
         accent: "fuchsia",
         tagline: "Resonance material. Only from fighting corruption.",
-        lore:
-          "Flux is what a cleansed node gives back. You cannot mine it. You cannot trade for it. The only way to earn flux is to burn corruption out of the seam that carries it — and that means feeding scouts, sentinels, and purge wings faster than the void can spread.",
+        lore: "Flux is what a cleansed node gives back. You cannot mine it. You cannot trade for it. The only way to earn flux is to burn corruption out of the seam that carries it — and that means feeding scouts, sentinels, and purge wings faster than the void can spread.",
       },
     ],
   },
@@ -916,8 +870,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Static perimeter gun. Reboots on hard hits.",
         preview: TURRET_PREVIEW,
-        lore:
-          "Plain, proven, and endlessly repairable. Turrets do the unglamorous work of painting fire on anything that crosses the line. Sustained assault will break them, and the hull will reboot at half health — scarred, ready, already reacquiring.",
+        lore: "Plain, proven, and endlessly repairable. Turrets do the unglamorous work of painting fire on anything that crosses the line. Sustained assault will break them, and the hull will reboot at half health — scarred, ready, already reacquiring.",
         notes: [
           "Breaks under concentrated pressure; reboots rather than dies.",
           "Lane coverage only; will not chase.",
@@ -932,8 +885,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "cyan",
         tagline: "Mobile anti-corruption unit. Paired cleanses.",
         preview: SCOUT_PREVIEW,
-        lore:
-          "Scouts roam. They do not hold lanes — they hunt rot. When a node is heavily corrupted they pair up automatically, because one scout against a dug-in blight is a long, bad fight. Take damage and the scout breaks contact; we build replacements, not martyrs.",
+        lore: "Scouts roam. They do not hold lanes — they hunt rot. When a node is heavily corrupted they pair up automatically, because one scout against a dug-in blight is a long, bad fight. Take damage and the scout breaks contact; we build replacements, not martyrs.",
         notes: [
           "Autonomous target selection against void contamination.",
           "Retreats when damaged; re-engages once healed.",
@@ -948,8 +900,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "violet",
         tagline: "Late-game guardian. Purple beam. Purifies on contact.",
         preview: SENTINEL_PREVIEW,
-        lore:
-          "The sentinel is what you field when the sector has stopped being polite. It intercepts threats close to workers and carries a cleanse beam that does not kill so much as remove — infected workers walk away human, and the thing that was inside them does not walk away at all.",
+        lore: "The sentinel is what you field when the sector has stopped being polite. It intercepts threats close to workers and carries a cleanse beam that does not kill so much as remove — infected workers walk away human, and the thing that was inside them does not walk away at all.",
         notes: [
           "Positions near workers, not the perimeter.",
           "Cleanse beam purifies warden-infected workers.",
@@ -964,8 +915,7 @@ const CATEGORIES: WikiCategory[] = [
         accent: "amber",
         tagline: "Long-range strike. Slow. Heavy. Surgical.",
         preview: SILO_PREVIEW,
-        lore:
-          "The silo is patient. It watches the field, waits for the targets worth spending a warhead on, and then spends one. Brutes and leeches sit permanently at the top of its priority list — the silo exists to remove the threats nothing else can remove in time.",
+        lore: "The silo is patient. It watches the field, waits for the targets worth spending a warhead on, and then spends one. Brutes and leeches sit permanently at the top of its priority list — the silo exists to remove the threats nothing else can remove in time.",
         notes: [
           "Long range; slow reload cadence.",
           "Prioritises brutes and leeches.",
@@ -987,8 +937,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Biohazard,
         accent: "fuchsia",
         tagline: "Void contamination. Spreads through the seams.",
-        lore:
-          "Corruption is not a faction. It is a condition — the sector's slow answer to anyone who tries to extract from it. It moves through resource nodes, reduces yields, and does not burn off on its own. Active purge is the entire defence.",
+        lore: "Corruption is not a faction. It is a condition — the sector's slow answer to anyone who tries to extract from it. It moves through resource nodes, reduces yields, and does not burn off on its own. Active purge is the entire defence.",
         notes: [
           "Spreads between connected nodes over time.",
           "Reduces yield the longer it lingers.",
@@ -1002,8 +951,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Sparkles,
         accent: "amber",
         tagline: "Colony reset. Permanent multiplier. Steep cost.",
-        lore:
-          "Every colony eventually reaches the ceiling of what this sector will give it. Prestige is the decision to fold — to trade accumulated wealth for a permanent multiplier on the next run. Requires extreme resource reserves; the colony that prestiges is the colony that could have kept going.",
+        lore: "Every colony eventually reaches the ceiling of what this sector will give it. Prestige is the decision to fold — to trade accumulated wealth for a permanent multiplier on the next run. Requires extreme resource reserves; the colony that prestiges is the colony that could have kept going.",
         notes: [
           "Resets most progression; stacks a permanent bonus.",
           "Cores do not reset across prestige.",
@@ -1017,8 +965,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Star,
         accent: "amber",
         tagline: "Threat scales with the colony. Tiers unlock enemies.",
-        lore:
-          "The sector watches. As the colony grows — upgrades, slots, prestige stacks — the void sends heavier envelopes in response. Tiers unlock enemy variants, not just more of the same. A quiet colony is a colony not yet seen.",
+        lore: "The sector watches. As the colony grows — upgrades, slots, prestige stacks — the void sends heavier envelopes in response. Tiers unlock enemy variants, not just more of the same. A quiet colony is a colony not yet seen.",
         notes: [
           "Tier climbs with a combined progression score.",
           "Higher tiers introduce new hostile archetypes.",
@@ -1032,8 +979,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Bot,
         accent: "cyan",
         tagline: "More hands. Late. Expensive. Conditional.",
-        lore:
-          "Each worker kind starts with exactly one active unit and two dormant slots. Unlocking those slots takes both upgrade investment and sector advancement — the colony has to want them and deserve them. A recovered lost drone is the one recorded exception.",
+        lore: "Each worker kind starts with exactly one active unit and two dormant slots. Unlocking those slots takes both upgrade investment and sector advancement — the colony has to want them and deserve them. A recovered lost drone is the one recorded exception.",
         notes: [
           "Second slot gates at upgrade level 3 plus sector level 22.",
           "Third slot gates at upgrade level 10 plus sector level 42.",
@@ -1047,8 +993,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Cpu,
         accent: "cyan",
         tagline: "The colony's heart. Also a target.",
-        lore:
-          "The home district is not a unit — it is the reason units exist. Uncontested incursions chew directly into its walls. Energy output is bound to its health, which makes every breach a two-layered wound: less wall, less grid. Keep it intact.",
+        lore: "The home district is not a unit — it is the reason units exist. Uncontested incursions chew directly into its walls. Energy output is bound to its health, which makes every breach a two-layered wound: less wall, less grid. Keep it intact.",
         notes: [
           "Takes damage when enemies reach the colony untouched.",
           "Energy output scales with remaining health.",
@@ -1070,8 +1015,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Diamond,
         accent: "amber",
         tagline: "Boon. Yields surge across the field.",
-        lore:
-          "The sky lights up and the numbers follow. For a short window every node in the sector pays more — the kind of payout that turns a routine shift into a banner hour. Usually harmless. Usually.",
+        lore: "The sky lights up and the numbers follow. For a short window every node in the sector pays more — the kind of payout that turns a routine shift into a banner hour. Usually harmless. Usually.",
       },
       {
         id: "solar-flare",
@@ -1080,8 +1024,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Sun,
         accent: "amber",
         tagline: "Mixed. Energy spikes, targeting suffers.",
-        lore:
-          "The grid sings, and the sensors scream. Energy pours in while targeting systems across the colony get noisy enough to miss shots that should not be missed. A profitable mess, if nothing heavy is already on the perimeter.",
+        lore: "The grid sings, and the sensors scream. Energy pours in while targeting systems across the colony get noisy enough to miss shots that should not be missed. A profitable mess, if nothing heavy is already on the perimeter.",
       },
       {
         id: "cache-discovery",
@@ -1090,8 +1033,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: PackageOpen,
         accent: "cyan",
         tagline: "Boon. A forgotten gem cache surfaces.",
-        lore:
-          "Somebody else's bad day, a long time ago. A buried gem cache ticks up through the regolith and onto the sector feed — bonus crystals, no effort, no catch. The colony takes the gift and does not ask.",
+        lore: "Somebody else's bad day, a long time ago. A buried gem cache ticks up through the regolith and onto the sector feed — bonus crystals, no effort, no catch. The colony takes the gift and does not ask.",
       },
       {
         id: "pirate-caravan",
@@ -1100,8 +1042,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Swords,
         accent: "rose",
         tagline: "Mixed. Raiders arrive with loot on board.",
-        lore:
-          "Not a raid — a convoy. Pirate raiders come through the lanes carrying bonus cargo, and every one that drops pays extra on top of the standard bounty. The trade is straightforward: survive them, and profit.",
+        lore: "Not a raid — a convoy. Pirate raiders come through the lanes carrying bonus cargo, and every one that drops pays extra on top of the standard bounty. The trade is straightforward: survive them, and profit.",
       },
       {
         id: "xeno-bloom",
@@ -1110,8 +1051,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Biohazard,
         accent: "fuchsia",
         tagline: "Mixed. Corruption accelerates; purges pay triple flux.",
-        lore:
-          "The void exhales. Corruption spreads visibly faster across the sector — but every successful purge during the bloom returns triple flux. A fight worth having, if the purge wing is already standing.",
+        lore: "The void exhales. Corruption spreads visibly faster across the sector — but every successful purge during the bloom returns triple flux. A fight worth having, if the purge wing is already standing.",
       },
       {
         id: "dust-storm",
@@ -1120,8 +1060,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Wind,
         accent: "amber",
         tagline: "Mixed. Turret range collapses; enemies slow.",
-        lore:
-          "Visibility dies. Turret cones shrink to knife range, and every hostile on the grid wades through the same weather. A patient defence still wins this one; a sloppy defence loses the perimeter.",
+        lore: "Visibility dies. Turret cones shrink to knife range, and every hostile on the grid wades through the same weather. A patient defence still wins this one; a sloppy defence loses the perimeter.",
       },
       {
         id: "echo-signal",
@@ -1130,8 +1069,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Satellite,
         accent: "violet",
         tagline: "Rare. Elite-signature brute. Enormous core drop.",
-        lore:
-          "A ping from the far rim — old, huge, not in any known signature library. Whatever answers the ping answers as a brute, but bigger, slower, heavier. If it goes down, the core fragment it leaves behind funds half a prestige.",
+        lore: "A ping from the far rim — old, huge, not in any known signature library. Whatever answers the ping answers as a brute, but bigger, slower, heavier. If it goes down, the core fragment it leaves behind funds half a prestige.",
       },
       {
         id: "core-breach",
@@ -1140,8 +1078,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: AlertTriangle,
         accent: "rose",
         tagline: "Threat. Reactor shudders. Energy halved. Rot spreads.",
-        lore:
-          "The reactor does not fail — but it flinches. Energy output drops by half while engineers chase the fault, and in the gap corruption accelerates through every exposed seam. A bad time to run a thin line.",
+        lore: "The reactor does not fail — but it flinches. Energy output drops by half while engineers chase the fault, and in the gap corruption accelerates through every exposed seam. A bad time to run a thin line.",
       },
       {
         id: "hunter-pack",
@@ -1150,8 +1087,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Swords,
         accent: "rose",
         tagline: "Threat. Coordinated fast assault.",
-        lore:
-          "Not a swarm — a team. A hunter pack enters the sector moving in tight, deliberate formation, picking targets before anything sensible has time to posture. They leave as fast as they came, whether they got what they wanted or not.",
+        lore: "Not a swarm — a team. A hunter pack enters the sector moving in tight, deliberate formation, picking targets before anything sensible has time to posture. They leave as fast as they came, whether they got what they wanted or not.",
       },
       {
         id: "signal-drought",
@@ -1160,8 +1096,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Cloud,
         accent: "rose",
         tagline: "Threat. Jamming collapses yields and purge payouts.",
-        lore:
-          "Something in the upper atmosphere is chewing the signal. Every yield registers light, every purge pays thin. The field keeps working, but the logbook runs red until the noise clears.",
+        lore: "Something in the upper atmosphere is chewing the signal. Every yield registers light, every purge pays thin. The field keeps working, but the logbook runs red until the noise clears.",
       },
       {
         id: "starcall",
@@ -1170,8 +1105,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Star,
         accent: "emerald",
         tagline: "Very rare. Yields double; bonus node surfaces.",
-        lore:
-          "Nobody on the colony knows what starcall actually is. What they know is that when it hits, every node pays double, and a bonus seam surfaces somewhere on the field. Old pilots refuse to log it — they say naming it makes it stop happening.",
+        lore: "Nobody on the colony knows what starcall actually is. What they know is that when it hits, every node pays double, and a bonus seam surfaces somewhere on the field. Old pilots refuse to log it — they say naming it makes it stop happening.",
       },
       {
         id: "null-surge",
@@ -1180,8 +1114,7 @@ const CATEGORIES: WikiCategory[] = [
         icon: Moon,
         accent: "fuchsia",
         tagline: "Rarest threat. Turrets dark. Hostiles faster.",
-        lore:
-          "The sector goes quiet the way a held breath goes quiet. Turrets lose power in unison — every one of them, all at once — and the hostiles on the field accelerate. Null surges are short. They do not need to be long.",
+        lore: "The sector goes quiet the way a held breath goes quiet. Turrets lose power in unison — every one of them, all at once — and the hostiles on the field accelerate. Null surges are short. They do not need to be long.",
       },
     ],
   },
@@ -1200,10 +1133,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const allEntries = useMemo(
-    () => CATEGORIES.flatMap((category) => category.entries),
-    []
-  );
+  const allEntries = useMemo(() => CATEGORIES.flatMap((category) => category.entries), []);
 
   const selected = useMemo(
     () => allEntries.find((entry) => entry.id === selectedId) ?? allEntries[0],
@@ -1212,9 +1142,8 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
 
   const selectedCategory = useMemo(
     () =>
-      CATEGORIES.find((category) =>
-        category.entries.some((entry) => entry.id === selected?.id)
-      ) ?? CATEGORIES[0],
+      CATEGORIES.find((category) => category.entries.some((entry) => entry.id === selected?.id)) ??
+      CATEGORIES[0],
     [selected]
   );
 
@@ -1272,9 +1201,11 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
       {/* panel */}
       <div
         className="relative z-10 flex h-full max-h-[96vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[28px] border border-cyan-400/25 bg-slate-950/80 backdrop-blur-xl shadow-[0_0_80px_-20px_rgba(34,211,238,0.45)] animate-[wiki-pop_180ms_ease-out]"
-        style={{
-          // inline keyframe via style for a soft scale+fade in
-        }}
+        style={
+          {
+            // inline keyframe via style for a soft scale+fade in
+          }
+        }
       >
         <style>{`
           @keyframes wiki-pop {
@@ -1332,9 +1263,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
               <div className="text-[9px] font-medium uppercase tracking-[0.32em] text-white/40">
                 Data Banks
               </div>
-              <div className="mt-0.5 text-xs text-white/60">
-                {allEntries.length} entries logged
-              </div>
+              <div className="mt-0.5 text-xs text-white/60">{allEntries.length} entries logged</div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
               {CATEGORIES.map((category) => {
@@ -1387,9 +1316,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
                               </div>
                               <span
                                 className={`shrink-0 font-mono text-[9px] tracking-wider ${
-                                  isSelected
-                                    ? ACCENT_TEXT[entry.accent]
-                                    : "text-white/30"
+                                  isSelected ? ACCENT_TEXT[entry.accent] : "text-white/30"
                                 }`}
                               >
                                 {entry.code}
@@ -1424,9 +1351,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span
-                          className={`font-mono text-[10px] tracking-[0.2em] ${ACCENT_TEXT[accent]}`}
-                        >
+                        <span className={`font-mono text-[10px] tracking-[0.2em] ${ACCENT_TEXT[accent]}`}>
                           {selected.code}
                         </span>
                         <span className="text-[9px] uppercase tracking-[0.3em] text-white/40">
@@ -1436,9 +1361,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
                       <h2 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                         {selected.title}
                       </h2>
-                      <p className={`mt-1.5 text-sm italic ${ACCENT_TEXT[accent]}/90`}>
-                        {selected.tagline}
-                      </p>
+                      <p className={`mt-1.5 text-sm italic ${ACCENT_TEXT[accent]}/90`}>{selected.tagline}</p>
                     </div>
                     {selected.preview && (
                       <div
@@ -1484,10 +1407,7 @@ export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
                     </div>
                     <ul className="space-y-2">
                       {selected.notes.map((note, idx) => (
-                        <li
-                          key={idx}
-                          className="flex gap-2.5 text-sm leading-relaxed text-white/75"
-                        >
+                        <li key={idx} className="flex gap-2.5 text-sm leading-relaxed text-white/75">
                           <span
                             className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${ACCENT_TEXT[accent]}`}
                             style={{ backgroundColor: "currentColor" }}

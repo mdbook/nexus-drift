@@ -9,16 +9,16 @@ import { dist } from "@/game/utils";
 const CITY_TARGET_X = 500;
 const CITY_TARGET_Y = 540;
 
-export function findClosestAgent(
-  from: { x: number; y: number },
-  agents: Agent[]
-): Agent | null {
+export function findClosestAgent(from: { x: number; y: number }, agents: Agent[]): Agent | null {
   if (!agents.length) return null;
   let closest: Agent | null = null;
   let minDist = Infinity;
   for (const agent of agents) {
     const d = dist(from.x, from.y, agent.x, agent.y);
-    if (d < minDist) { minDist = d; closest = agent; }
+    if (d < minDist) {
+      minDist = d;
+      closest = agent;
+    }
   }
   return closest;
 }
@@ -34,7 +34,10 @@ export function findClosestEnemy(
   let minDist = Infinity;
   for (const enemy of candidates) {
     const d = dist(from.x, from.y, enemy.x, enemy.y);
-    if (d < minDist) { minDist = d; closest = enemy; }
+    if (d < minDist) {
+      minDist = d;
+      closest = enemy;
+    }
   }
   return closest;
 }
@@ -46,9 +49,7 @@ export function findClosestEnemy(
  * when no active workers match the preference.
  */
 export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
-  const candidates = state.agents.filter(
-    (a) => a.active && a.hp > 0 && !a.corrupted && a.rebootTicks <= 0
-  );
+  const candidates = state.agents.filter((a) => a.active && a.hp > 0 && !a.corrupted && a.rebootTicks <= 0);
   if (!candidates.length) return null;
 
   const archetype = enemy.archetype;
@@ -58,7 +59,12 @@ export function pickEnemyTarget(enemy: Enemy, state: GameState): Agent | null {
   // Still O(workers²) total, but runs once per call rather than once per
   // (enemy × worker) pair. Swap inner loop for spatial index when scaling.
   const nearbyAllyCounts = new Map<number, number>();
-  if (archetype === "flanker" || archetype === "ambusher" || archetype === "ghost" || archetype === "skirmisher") {
+  if (
+    archetype === "flanker" ||
+    archetype === "ambusher" ||
+    archetype === "ghost" ||
+    archetype === "skirmisher"
+  ) {
     for (const worker of candidates) {
       let count = 0;
       for (const other of candidates) {
@@ -210,7 +216,10 @@ export function findClosestNode(
   let minDist = Infinity;
   for (const node of candidates) {
     const d = dist(from.x, from.y, node.x, node.y);
-    if (d < minDist) { minDist = d; closest = node; }
+    if (d < minDist) {
+      minDist = d;
+      closest = node;
+    }
   }
   return closest;
 }

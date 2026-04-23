@@ -27,7 +27,7 @@ function stepWardenAttach(state: GameState) {
     if (enemy.kind !== "warden" || enemy.hp <= 0) continue;
 
     // Find the closest non-corrupted, non-rebooting active worker.
-    let closest = null as typeof state.agents[0] | null;
+    let closest = null as (typeof state.agents)[0] | null;
     let closestDist = Infinity;
     for (const agent of state.agents) {
       if (!agent.active || agent.corrupted || agent.rebootTicks > 0) continue;
@@ -94,8 +94,7 @@ function stepCorruptedWorkers(state: GameState) {
     if (agent.spottedTicks > 0) agent.spottedTicks -= 1;
 
     // Node drain: bleeds nearby resource nodes at an increasing rate.
-    const drainRate =
-      WARDEN.drainRatePerTick * (1 + agent.corruptionTicks / WARDEN.drainRampDivisor);
+    const drainRate = WARDEN.drainRatePerTick * (1 + agent.corruptionTicks / WARDEN.drainRampDivisor);
 
     for (const node of state.nodes) {
       if (dist(agent.x, agent.y, node.x, node.y) > WARDEN.drainRadius) continue;
@@ -134,7 +133,8 @@ function stepWorkerReporting(state: GameState) {
     // standing right next to it. The scan now runs unconditionally so any
     // reporter in range keeps the timer pinned at max.
     for (const reporter of state.agents) {
-      if (!reporter.active || reporter.corrupted || reporter.rebootTicks > 0 || reporter.id === corrupted.id) continue;
+      if (!reporter.active || reporter.corrupted || reporter.rebootTicks > 0 || reporter.id === corrupted.id)
+        continue;
       const reportRadius =
         WARDEN.workerReportRadius * (reporter.kind === "drone" ? WARDEN.workerDroneReportMult : 1);
       if (dist(reporter.x, reporter.y, corrupted.x, corrupted.y) <= reportRadius) {

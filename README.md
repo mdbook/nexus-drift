@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `3.1.1` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.1.4` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -26,11 +26,11 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, zappers — each kind maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking
 - **3.0.0**: Enemies now target deployed turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
 - **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
-- Zappers hold at firing distance and fire bolts that disable workers or turrets for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
+- Zappers hold at firing distance and fire bolts that disable workers, turrets, scouts, or sentinels for ~7 seconds; late-game Void Wardens stalk isolated workers and can corrupt them
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
-- **3.0.0**: Missile Silos are a separate upgrade track — long-range (~400 px), slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams
+- **3.0.0**: Missile Silos are a separate upgrade track — long-range, slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams. **3.1.3 invariant**: turret range is hard-clamped to 270 px regardless of upgrades, and missile silos always out-range turrets (silo base 400 px + 6 px per missileLauncher level)
 - Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
-- 58 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
+- 71 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
 
 ### HUD & UI
 
@@ -73,12 +73,14 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (163 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (188 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
 npm run format:check
 ```
+
+`npm run dev` boots with a `BETA` pill next to the version button, an amber-tinted favicon, and a `[DEV]` document-title prefix so the development tab is unmistakable next to a production tab. Production builds are unaffected.
 
 ---
 
@@ -142,7 +144,7 @@ The production image serves the static Vite build with Nginx on port `80`.
 
 GitLab CI runs:
 
-- **verify** — `npm ci`, `npm run typecheck`, `npm test`
+- **verify** — `npm ci`, `npm run typecheck`, `npm run format:check`, `npm run lint`, `npm test`
 - **image build** — Kaniko-based build that publishes the container image
 - **notifications** — success and failure alerts after the pipeline completes
 
@@ -183,6 +185,75 @@ item has an in-source `TODO(3.2.0)` comment anchoring it.
   matching type packages. Upgrading unlocks the newer `useOptimistic` /
   `useFormStatus` ergonomics and the compiler, but `framer-motion` and
   `lucide-react` peer ranges need revalidation first.
+
+### Audit-pass polish (3.1.4)
+
+Smaller follow-ups surfaced by the 3.1.4 audit that were consciously
+scoped out. Not structural — mostly a11y, tooling, and migration
+tightening. Each of these can be its own tiny PR.
+
+- **TODO: `AchievementsModal` target-scroll effect re-runs per sim
+  render.** The sorted list re-creates each sim render at
+  `src/components/AchievementsModal.tsx:207`. Memoize the sort or
+  narrow the scroll effect to fire only on target-id change.
+- **TODO: `WikiOverlay` focus trap / restore weaker than
+  `AchievementsModal`.** A11y consistency pass, not a regression.
+- **TODO: Tourist drone keyboard focus ring.** `src/components/FieldSvg.tsx:1537`
+  removes the outline without a `:focus-visible` fallback — keyboard
+  users lose the focus ring on that target.
+- **TODO: Mobile `ResourceBar` order check.** `order-4` on the resource
+  bar may push resources below the sidebar on mobile. Verify on a real
+  mobile viewport before treating it as a bug — the current order may
+  be intentional.
+- **TODO: Pin CI notification script.** `.gitlab-ci.yml:53,63` `wget`s
+  a mutable `master` URL from self-hosted GitLab. Pin to a commit SHA
+  or vendor the script into the repo.
+- **TODO: Run `npm audit` locally.** Not part of the 3.1.4 triage;
+  worth one pass to baseline dependency advisories.
+- **TODO: Add `npm run build` to the CI verify stage.** Currently only
+  exercised by the Docker build on `main` and `dev`, so branch
+  pipelines can miss Vite compile regressions until deploy.
+- **TODO: Tighten `migrateGameState` unknown-key handling.**
+  `src/game/factories.ts:523` spreads `raw.achievements` unfiltered;
+  the stats migration accepts unknown event-stat keys the same way.
+  Inert because the UI renders from `ACHIEVEMENT_DEFS`, but the
+  tightening is cheap.
+- **TODO: Seed pattern for `createInitialGameState()`-based tests.**
+  Audit-caught a flaky test (see commit 12) rooted in
+  `createInitialGameState()` without a fixed seed; fixed that specific
+  case and added a header comment in `src/game/__tests__/advanceGame.test.ts`,
+  but the broader pattern-level refactor (either default-seed the
+  helper in test contexts or audit every call site) is deferred.
+
+### Balance / progression follow-ups
+
+- **TODO: Speed up early-game progression so variety arrives sooner.**
+  New players currently sit on the tier 0 roster (mite + wisp) until
+  the director `score` crosses 75, and the full roster doesn't open
+  until tier 6 (score 450) — see the score coeffs and `combatWeights`
+  `minTier` gates in `src/game/balance.ts:686`. The goal is for players
+  to see rushers / brutes / sappers noticeably faster without
+  collapsing the long-haul curve that 3.0.0 established. Candidate
+  levers: raise `PROGRESSION.scoreCoeffs.level` / `totalUpgrades`,
+  lower `tiersPerScore`, or pull the `minTier` gates for the early
+  variety enemies (rusher/brute/sapper) down a tier. Needs a balance
+  pass, not a one-line tweak — pick after deciding whether tier pacing
+  or unlock gates is the right knob.
+- **TODO: Scale enemy HP to keep pace with turret upgrade investment.**
+  Turret damage grows with both `upgrades.turret` and `upgrades.reactor`
+  (see `TURRET` in `src/game/balance.ts:356`) but enemy `hpBase` and
+  `hpWave` (`ENEMY_STATS`, `src/game/balance.ts:139`) are flat values
+  with no upgrade-linked scaling — late-game turrets can one- or
+  two-shot mid-tier enemies regardless of how far into the run you are.
+  Two candidate approaches: (a) apply a multiplicative scaling factor
+  to `hpBase` driven by `director.score` or `director.tier` on enemy
+  spawn (keeps balance.ts values as baselines), or (b) directly buff
+  `hpBase` / `hpWave` per problem enemy and nudge turret
+  `damagePerTurret` / `damagePerReactor` down proportionally. Approach
+  (a) is more self-correcting; (b) gives finer per-archetype control.
+  Either way, cross-check against sapper explosion, missile silo
+  `damageBase`, and sentinel `damageBase` so one-shot outliers don't
+  just shift to a different weapon.
 
 ---
 

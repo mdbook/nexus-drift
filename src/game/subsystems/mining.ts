@@ -16,7 +16,8 @@ export function stepMining(state: GameState) {
       (agent) =>
         agent.active &&
         agent.target === node.id &&
-        dist(agent.x, agent.y, node.x, node.y) < Math.max(MINING.contactRadiusMin, node.size * MINING.contactRadiusRatio) &&
+        dist(agent.x, agent.y, node.x, node.y) <
+          Math.max(MINING.contactRadiusMin, node.size * MINING.contactRadiusRatio) &&
         agent.hp > MINING.workerActiveHpThreshold &&
         agent.evadeTicks <= 0
     );
@@ -35,7 +36,9 @@ export function stepMining(state: GameState) {
 
     const damage =
       workers *
-      (MINING.damageBase + state.upgrades.miner * MINING.damagePerMiner + state.upgrades.drill * MINING.damagePerDrill) *
+      (MINING.damageBase +
+        state.upgrades.miner * MINING.damagePerMiner +
+        state.upgrades.drill * MINING.damagePerDrill) *
       (node.corrupted ? MINING.corruptedDamagePenalty : 1);
 
     node.hp -= damage;
@@ -47,8 +50,9 @@ export function stepMining(state: GameState) {
         (w) => w.kind === "miner" && w.overclockTicks >= WORKER_ABILITIES.overclockThresholdTicks
       );
       const crit = state.rng.chance(
-        MINING.critChanceBase + state.upgrades.bot * MINING.critChancePerBot +
-        (overclockActive ? WORKER_ABILITIES.overclockCritBonus : 0)
+        MINING.critChanceBase +
+          state.upgrades.bot * MINING.critChancePerBot +
+          (overclockActive ? WORKER_ABILITIES.overclockCritBonus : 0)
       );
       const baseAmount = MINING.yield[node.kind];
       // 3.0.0: foundry per-level yield multiplier cut from +12% to +5% so

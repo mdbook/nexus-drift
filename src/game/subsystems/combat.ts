@@ -17,7 +17,6 @@ import {
 } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
-import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
 import type { Agent, GameState, Scout, Sentinel, Turret } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
@@ -140,8 +139,8 @@ export function damageCorruptedWorker(worker: Agent, amount: number) {
  * helper. Guards on active/corrupted/rebootTicks so a caller that forgets the
  * invariant (corrupted workers are immune to non-sentinel damage, inactive or
  * rebooting workers are off-field) cannot accidentally deal damage. HP is
- * clamped at 0 — respawn-on-death is handled by the main stepCombat loop
- * which picks up zombie workers the next tick when an attacker is in range.
+ * clamped at 0 — respawn-on-death is handled by `killWorker`, called from
+ * the same stepCombat path that owns reboot bookkeeping.
  */
 export function damageWorker(agent: Agent, amount: number) {
   if (amount <= 0) return;
@@ -151,14 +150,53 @@ export function damageWorker(agent: Agent, amount: number) {
   agent.hp = Math.max(0, agent.hp - amount);
   agent.damageTicks = WORKER.combatDamageTicks;
   agent.panic = clamp(agent.panic + WORKER.panicDelta.damagedBurst, 0, 100);
-  // Note: we intentionally do not trigger respawn here. The main stepCombat
-  // worker-damage loop already handles `nextHp <= 0 -> respawn` whenever an
-  // attacker is in contact, which resolves sapper-killed workers within one
-  // tick. Keeping respawn out of this funnel avoids duplicating the panic /
-  // evade / home-teleport bookkeeping. Signature matches damageCorruptedWorker
-  // (no state param) since no stats/log writes are needed here.
 }
 
+/**
+ * 3.1.3 audit follow-up — single death-bookkeeping funnel for workers.
+ *
+ * Used by the contact-damage path AND the sapper explosion sweep. Before,
+ * only contact damage ran this block; a lone sapper blast that killed the
+ * sole worker in range left the worker at hp=0 with rebootTicks=0 (a
+ * "zombie") because the sapper died in the same tick, so no attacker was
+ * in contact on the next tick to trip the death check. Now the sapper
+ * path explicitly kills workers whose hp reached 0 from the blast.
+ *
+ * Pre-conditions: agent must be healthy (not corrupted, not already
+ * rebooting). Callers guard these invariants before invoking.
+ */
+export function killWorker(state: GameState, agent: Agent) {
+  state.workerDeathFlash = { x: agent.x, y: agent.y, ticks: 25, maxTicks: 25 };
+  agent.hp = 0;
+  agent.rebootTicks = WORKER.respawn.rebootDuration;
+  agent.panic = 0;
+  agent.evadeTicks = 0;
+  agent.damageTicks = 0;
+  agent.disabledTicks = 0;
+  agent.target = null;
+  agent.task = "Rebooting";
+  state.log = pushLog(
+    state.log,
+    `${agent.kind} drone lost. Rebooting from backup.`,
+    "combat",
+    state.timers.tick
+  );
+}
+
+/**
+ * 3.1.3 audit follow-up — this function used to tick down existing death
+ * fades on every call, and advanceGame called it twice per tick (before + after
+ * stepCombat). Fades were decremented twice, halving corpse visual windows
+ * and the click window for `clickDyingEnemy`. The work is now split:
+ *
+ * - `resolveEnemyDeaths` (kept name for API compat) is idempotent per tick:
+ *   it starts fade countdowns for newly-killed enemies and awards rewards.
+ * - `tickDeathFades` runs exactly once per tick, decrementing existing
+ *   dyingTicks and removing fully-faded corpses.
+ *
+ * advanceGame calls resolveEnemyDeaths twice (after defences + after stepCombat)
+ * and tickDeathFades once at the bottom.
+ */
 export function resolveEnemyDeaths(state: GameState) {
   // Find newly killed enemies (hp ≤ 0 but not yet started dying).
   const killed = state.enemies.filter((enemy) => enemy.hp <= 0 && enemy.dyingTicks === 0);
@@ -169,12 +207,6 @@ export function resolveEnemyDeaths(state: GameState) {
   for (const enemy of killed) {
     enemy.dyingTicks = DEATH_FADE_TICKS;
   }
-
-  // Tick down already-dying enemies and remove fully faded ones.
-  for (const enemy of state.enemies) {
-    if (enemy.dyingTicks > 0) enemy.dyingTicks -= 1;
-  }
-  state.enemies = state.enemies.filter((enemy) => !(enemy.hp <= 0 && enemy.dyingTicks <= 0));
 
   if (!killed.length) return;
 
@@ -268,11 +300,34 @@ export function resolveEnemyDeaths(state: GameState) {
       state.timers.tick
     );
   } else if (purged > 0) {
-    state.log = pushLog(state.log, `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`, "combat", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`,
+      "combat",
+      state.timers.tick
+    );
   } else {
-    state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`, "combat", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`,
+      "combat",
+      state.timers.tick
+    );
   }
+}
 
+/**
+ * 3.1.3 audit follow-up — runs once per tick to advance existing death
+ * fade-outs and remove fully-faded corpses. Kept separate from
+ * `resolveEnemyDeaths` so starting a fade is idempotent per tick
+ * (the latter can be called multiple times in advanceGame without
+ * double-decrementing `dyingTicks`).
+ */
+export function tickDeathFades(state: GameState) {
+  for (const enemy of state.enemies) {
+    if (enemy.dyingTicks > 0) enemy.dyingTicks -= 1;
+  }
+  state.enemies = state.enemies.filter((enemy) => !(enemy.hp <= 0 && enemy.dyingTicks <= 0));
 }
 
 export function stepZapperFire(state: GameState) {
@@ -280,7 +335,10 @@ export function stepZapperFire(state: GameState) {
   for (const enemy of state.enemies) {
     if (enemy.kind !== "zapper" || enemy.hp <= 0) continue;
     if (enemy.fireCooldown === undefined) enemy.fireCooldown = 0;
-    if (enemy.fireCooldown > 0) { enemy.fireCooldown -= 1; continue; }
+    if (enemy.fireCooldown > 0) {
+      enemy.fireCooldown -= 1;
+      continue;
+    }
 
     // Find the nearest eligible target. The zapper is a disruptor — any
     // friendly entity with a disabledTicks field is fair game: workers,
@@ -306,6 +364,7 @@ export function stepZapperFire(state: GameState) {
     }
 
     for (const turret of state.turrets.slice(0, derived.activeTurrets)) {
+      if (turret.brokenTicks > 0 || turret.hp <= 0) continue;
       const d = dist(turret.x, turret.y, enemy.x, enemy.y);
       if (d < ZAPPER.firingRange && d < bestDist) {
         bestDist = d;
@@ -344,8 +403,10 @@ export function stepZapperFire(state: GameState) {
 
     addProjectile(
       state,
-      enemy.x, enemy.y,
-      bestX, bestY,
+      enemy.x,
+      enemy.y,
+      bestX,
+      bestY,
       ZAPPER.boltColor,
       ZAPPER.boltWidth,
       ZAPPER.boltLifeTicks,
@@ -360,6 +421,11 @@ export function stepZapperFire(state: GameState) {
 }
 
 export function stepCombat(state: GameState) {
+  if (state.workerDeathFlash) {
+    state.workerDeathFlash.ticks -= 1;
+    if (state.workerDeathFlash.ticks <= 0) state.workerDeathFlash = null;
+  }
+
   if (state.timers.tick % COMBAT_TICK !== 0) return;
 
   for (const enemy of state.enemies) {
@@ -380,6 +446,16 @@ export function stepCombat(state: GameState) {
         // clamp/flash/panic bookkeeping lives in one place and the
         // corrupted/reboot guard cannot be forgotten at the callsite.
         damageWorker(agent, ENEMY_SPECIAL.sapper.explosionDamage);
+        // 3.1.3 audit follow-up: if the blast dropped the worker to 0 HP,
+        // kick off reboot here. Previously this relied on the contact-damage
+        // path to run next tick, but the sapper kills itself below — so if
+        // it was the only attacker in range, the worker stayed at hp=0 with
+        // rebootTicks=0 forever (zombie). damageWorker already rejected
+        // corrupted / rebooting agents, so reaching hp<=0 here implies a
+        // healthy worker.
+        if (agent.active && agent.hp <= 0 && agent.rebootTicks === 0 && !agent.corrupted) {
+          killWorker(state, agent);
+        }
       }
     }
 
@@ -414,18 +490,24 @@ export function stepCombat(state: GameState) {
 
     const rawIncoming = attackers.reduce((sum, enemy) => sum + ENEMY_CONTACT_DAMAGE[enemy.kind], 0);
     const mitigation = attackers.reduce((sum, enemy) => {
-      const baseline = state.upgrades.shield * COMBAT.mitigation.baselineShield + state.upgrades.turret * COMBAT.mitigation.baselineTurret;
+      const baseline =
+        state.upgrades.shield * COMBAT.mitigation.baselineShield +
+        state.upgrades.turret * COMBAT.mitigation.baselineTurret;
       const counterMitigation =
         enemy.kind === "mite"
           ? state.upgrades.shield * COMBAT.mitigation.miteShield
           : enemy.kind === "wisp"
-            ? state.upgrades.turret * COMBAT.mitigation.wispTurret + state.upgrades.shield * COMBAT.mitigation.wispShield
-            : state.upgrades.reactor * COMBAT.mitigation.raiderReactor + state.upgrades.shield * COMBAT.mitigation.raiderShield;
+            ? state.upgrades.turret * COMBAT.mitigation.wispTurret +
+              state.upgrades.shield * COMBAT.mitigation.wispShield
+            : state.upgrades.reactor * COMBAT.mitigation.raiderReactor +
+              state.upgrades.shield * COMBAT.mitigation.raiderShield;
 
       return sum + baseline + counterMitigation;
     }, 0);
     const surroundBonus = Math.max(0, attackers.length - 1) * COMBAT.surroundBonusPerAttacker;
-    const incoming = Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation) * (1 + surroundBonus);
+    const incoming =
+      Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation) *
+      (1 + surroundBonus);
     const blocked = Math.max(0, rawIncoming - incoming);
     state.stats.blocked += blocked;
 
@@ -435,21 +517,7 @@ export function stepCombat(state: GameState) {
     }
 
     if (nextHp <= 0) {
-      agent.x = state.rng.range(agent.homeX - 18, agent.homeX + 18);
-      agent.y = state.rng.range(agent.homeY - 18, agent.homeY + 18);
-      agent.tx = agent.homeX;
-      agent.ty = agent.homeY;
-      agent.hp = clamp(agent.maxHp * (WORKER.respawn.hpBase + state.upgrades.shield * WORKER.respawn.hpShieldBonus), WORKER.respawn.hpMin, agent.maxHp);
-      agent.panic = WORKER.respawn.panic;
-      agent.evadeTicks = WORKER.respawn.evadeTicks;
-      agent.evadeDx = 0;
-      agent.evadeDy = -1;
-      agent.damageTicks = WORKER.respawn.damageTicks;
-      agent.disabledTicks = 0;
-      agent.spawnTick = state.timers.tick;
-      agent.target = chooseWorkerTarget(state, agent);
-      agent.task = "Rebooting";
-      state.log = pushLog(state.log, `${agent.kind} drone restored from backup shell.`, "combat", state.timers.tick);
+      killWorker(state, agent);
       return;
     }
 
@@ -465,7 +533,8 @@ export function stepCombat(state: GameState) {
     // corrupted workers cannot defend themselves against anything but sentinels).
     const isRecovering = nextHp < agent.maxHp * WORKER.recoveryHpThreshold;
     if (!isRecovering && agent.disabledTicks === 0 && !agent.corrupted) {
-      const retDamage = WORKER_ABILITIES.retaliateBase + state.upgrades.bot * WORKER_ABILITIES.retaliatePerBot;
+      const retDamage =
+        WORKER_ABILITIES.retaliateBase + state.upgrades.bot * WORKER_ABILITIES.retaliatePerBot;
       for (const attacker of attackers) {
         damageEnemy(attacker, retDamage);
       }

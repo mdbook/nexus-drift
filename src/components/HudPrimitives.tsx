@@ -102,7 +102,9 @@ export function UpgradeTile({
       <div className="mt-3 text-sm font-medium text-white">{def.label}</div>
       <div className="mt-1 text-[11px] leading-relaxed text-white/45">{def.effectText}</div>
       <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.18em]">
-        <span className={canAfford ? "text-emerald-200" : "text-white/35"}>{canAfford ? "Ready" : "Queue"}</span>
+        <span className={canAfford ? "text-emerald-200" : "text-white/35"}>
+          {canAfford ? "Ready" : "Queue"}
+        </span>
         <span className="text-right text-white/55">{formatUpgradeCost(cost)}</span>
       </div>
     </div>

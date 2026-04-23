@@ -17,6 +17,7 @@ type ProgressionMetrics = {
   activeTurrets: number;
   activeScouts: number;
   cityStage: number;
+  liveEnemyCount: number;
 };
 
 const THREAT_LABELS = ["Settling", "Probe", "Skirmish", "Raid", "Siege", "Cataclysm"] as const;
@@ -30,23 +31,66 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     metrics.cityStage * PROGRESSION.scoreCoeffs.cityStage +
     metrics.totalIncome * PROGRESSION.scoreCoeffs.totalIncome;
 
-  const tier = Math.min(THREAT_LABELS.length - 1, Math.floor(score / PROGRESSION.tiersPerScore));
+  // 3.1.3 follow-up: rawTier is the uncapped score-derived tier. Used by
+  // enemy `minTier` gates that must fire past the display cap of 5 (e.g.
+  // phantom/zapper at minTier 6). Display and weight-scaling keep using the
+  // capped `tier` so THREAT_LABELS indexing stays in range.
+  const rawTier = Math.floor(score / PROGRESSION.tiersPerScore);
+  const tier = Math.min(THREAT_LABELS.length - 1, rawTier);
   const powerBalance =
     metrics.defenseScore -
-    (metrics.threatScore * PROGRESSION.powerBalance.threatWeight + metrics.activeCorruptionNodes * PROGRESSION.powerBalance.corruptionNodeWeight + metrics.corruptorCount * PROGRESSION.powerBalance.corruptorWeight);
+    (metrics.threatScore * PROGRESSION.powerBalance.threatWeight +
+      metrics.activeCorruptionNodes * PROGRESSION.powerBalance.corruptionNodeWeight +
+      metrics.corruptorCount * PROGRESSION.powerBalance.corruptorWeight);
 
   const pressure = Math.max(0, -powerBalance);
   const dominance = Math.max(0, powerBalance);
+
+  // 3.1.3: enemyCap computed early so the field-fill factor can ride alongside
+  // the existing nominal/recovery interval pair without erasing their delta.
+  const enemyCap = Math.round(
+    clamp(
+      PROGRESSION.wave.capBase +
+        tier * PROGRESSION.wave.capPerTier +
+        metrics.level * PROGRESSION.wave.capPerLevel +
+        metrics.activeTurrets +
+        metrics.activeScouts,
+      PROGRESSION.wave.capMin,
+      PROGRESSION.wave.capMax
+    )
+  );
+  const fillRatio = clamp(metrics.liveEnemyCount / Math.max(1, enemyCap), 0, 1);
+  const fillFactor = 1 + fillRatio * PROGRESSION.spawn.intervalFillFactor;
+
   const baselineInterval =
-    PROGRESSION.spawn.baselineInterval - score * PROGRESSION.spawn.intervalPerScore - metrics.activeTurrets * PROGRESSION.spawn.intervalPerTurret - metrics.activeScouts * PROGRESSION.spawn.intervalPerScout - metrics.prestige * PROGRESSION.spawn.intervalPerPrestige;
+    PROGRESSION.spawn.baselineInterval -
+    score * PROGRESSION.spawn.intervalPerScore -
+    metrics.activeTurrets * PROGRESSION.spawn.intervalPerTurret -
+    metrics.activeScouts * PROGRESSION.spawn.intervalPerScout -
+    metrics.prestige * PROGRESSION.spawn.intervalPerPrestige;
   const recoveryPenalty =
     pressure * PROGRESSION.spawn.recoveryPressureMultiplier +
-    Math.max(0, PROGRESSION.spawn.recoveryColonyHealthRef - metrics.colonyHealth) * PROGRESSION.spawn.recoveryColonyHealthMultiplier +
-    Math.max(0, metrics.combatThreats - (metrics.activeTurrets + 2)) * PROGRESSION.spawn.recoveryThreatSurplusMultiplier +
-    Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) * PROGRESSION.spawn.recoveryCorruptionSurplusMultiplier;
-  const momentumBonus = dominance * PROGRESSION.spawn.momentumDominanceBonus + Math.max(0, metrics.colonyHealth - PROGRESSION.spawn.momentumHealthRef) * PROGRESSION.spawn.momentumHealthBonus;
-  const nominalIntervalTicks = Math.round(clamp(baselineInterval - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
-  const spawnIntervalTicks = Math.round(clamp(baselineInterval + recoveryPenalty - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax));
+    Math.max(0, PROGRESSION.spawn.recoveryColonyHealthRef - metrics.colonyHealth) *
+      PROGRESSION.spawn.recoveryColonyHealthMultiplier +
+    Math.max(0, metrics.combatThreats - (metrics.activeTurrets + 2)) *
+      PROGRESSION.spawn.recoveryThreatSurplusMultiplier +
+    Math.max(0, metrics.corruptorCount + metrics.activeCorruptionNodes - (metrics.activeScouts + 1)) *
+      PROGRESSION.spawn.recoveryCorruptionSurplusMultiplier;
+  const momentumBonus =
+    dominance * PROGRESSION.spawn.momentumDominanceBonus +
+    Math.max(0, metrics.colonyHealth - PROGRESSION.spawn.momentumHealthRef) *
+      PROGRESSION.spawn.momentumHealthBonus;
+  const nominalIntervalTicks = Math.round(
+    clamp(baselineInterval - momentumBonus, PROGRESSION.spawn.intervalMin, PROGRESSION.spawn.intervalMax)
+  );
+  const clampedSpawnInterval = clamp(
+    baselineInterval + recoveryPenalty - momentumBonus,
+    PROGRESSION.spawn.intervalMin,
+    PROGRESSION.spawn.intervalMax
+  );
+  // 3.1.3: fillFactor is applied AFTER the clamp so a full field can stretch
+  // spawn cadence past the cap without erasing the recovery vs nominal delta.
+  const spawnIntervalTicks = Math.round(clampedSpawnInterval * fillFactor);
 
   const waveBudget = clamp(
     PROGRESSION.wave.budgetBase +
@@ -59,18 +103,27 @@ export function computeProgressionDirector(metrics: ProgressionMetrics): Progres
     PROGRESSION.wave.budgetMax
   );
 
-  const enemyCap = Math.round(
-    clamp(PROGRESSION.wave.capBase + tier * PROGRESSION.wave.capPerTier + metrics.level * PROGRESSION.wave.capPerLevel + metrics.activeTurrets + metrics.activeScouts, PROGRESSION.wave.capMin, PROGRESSION.wave.capMax)
+  // 3.1.3: derive a 0..1 strength scalar from the pre-fill interval surplus so
+  // spawn budget lerps out of recovery instead of binary flipping. Computed
+  // from the pre-fillFactor clamped value so the field-fill multiplier doesn't
+  // skew the recovery signal. recoveryMode kept for callers (early-break gate,
+  // log prefixes) that still want a boolean.
+  const recoveryStrength = clamp(
+    (clampedSpawnInterval - nominalIntervalTicks) / Math.max(1, PROGRESSION.spawn.recoveryThreshold * 2),
+    0,
+    1
   );
 
   return {
     score,
     tier,
+    rawTier,
     label: THREAT_LABELS[tier],
     spawnIntervalTicks,
     waveBudget,
     enemyCap,
-    recoveryMode: spawnIntervalTicks > nominalIntervalTicks + PROGRESSION.spawn.recoveryThreshold,
+    recoveryMode: recoveryStrength > 0.4,
+    recoveryStrength,
     powerBalance,
   };
 }
@@ -80,21 +133,25 @@ export function getCombatEnemyWeights(director: ProgressionDirector) {
   const pressure = Math.max(0, -director.powerBalance);
   const weights = {} as Record<Exclude<EnemyKind, "corruptor" | "blight">, number>;
 
-  (Object.entries(PROGRESSION.combatWeights) as Array<
-    [
-      Exclude<EnemyKind, "corruptor" | "blight">,
-      {
-        base: number;
-        tier: number;
-        dominance?: number;
-        pressure?: number;
-        min: number;
-        max: number;
-        minTier?: number;
-      },
-    ]
-  >).forEach(([kind, config]) => {
-    if (director.tier < (config.minTier ?? 0)) {
+  (
+    Object.entries(PROGRESSION.combatWeights) as Array<
+      [
+        Exclude<EnemyKind, "corruptor" | "blight">,
+        {
+          base: number;
+          tier: number;
+          dominance?: number;
+          pressure?: number;
+          min: number;
+          max: number;
+          minTier?: number;
+        },
+      ]
+    >
+  ).forEach(([kind, config]) => {
+    // 3.1.3 follow-up: gate on uncapped rawTier so enemies whose minTier
+    // exceeds the display cap (phantom/zapper at 6) still unlock.
+    if (director.rawTier < (config.minTier ?? 0)) {
       weights[kind] = 0;
       return;
     }
@@ -124,7 +181,8 @@ export function getCorruptorSpawnChance(
 
   const pressure = Math.max(0, -director.powerBalance);
   const dominance = Math.max(0, director.powerBalance);
-  const cap = director.tier >= c.highTierThreshold ? c.capHighTier : director.tier >= c.minTier ? c.capLowTier : 1;
+  const cap =
+    director.tier >= c.highTierThreshold ? c.capHighTier : director.tier >= c.minTier ? c.capLowTier : 1;
   if (existingCorruptors >= cap) return 0;
 
   return clamp(
@@ -140,5 +198,10 @@ export function getCorruptorSpawnChance(
 
 export function getEnemyWavePower(level: number, prestige: number, director: ProgressionDirector) {
   const wp = PROGRESSION.wavePower;
-  return level * wp.perLevel + prestige * wp.perPrestige + director.tier * wp.perTier + Math.max(0, director.powerBalance) * wp.perDominance;
+  return (
+    level * wp.perLevel +
+    prestige * wp.perPrestige +
+    director.tier * wp.perTier +
+    Math.max(0, director.powerBalance) * wp.perDominance
+  );
 }

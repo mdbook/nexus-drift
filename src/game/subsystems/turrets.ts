@@ -11,10 +11,14 @@ import { dist } from "@/game/utils";
 // turret line at y=490.
 const HOME_X = 500;
 const TURRET_LINE_Y = 490;
-const TURRET_COORD_RADIUS = 200;  // px from home centre that qualifies a worker as "near home"
-const TURRET_COORD_BONUS  = 60;   // score reduction (lower = higher priority)
+const TURRET_COORD_RADIUS = 200; // px from home centre that qualifies a worker as "near home"
+const TURRET_COORD_BONUS = 60; // score reduction (lower = higher priority)
 
-export function getTurretTargetScore(state: GameState, turret: GameState["turrets"][number], enemy: GameState["enemies"][number]) {
+export function getTurretTargetScore(
+  state: GameState,
+  turret: GameState["turrets"][number],
+  enemy: GameState["enemies"][number]
+) {
   const distanceScore = dist(enemy.x, enemy.y, turret.x, turret.y);
   const threatWeight =
     enemy.kind === "raider"
@@ -88,12 +92,17 @@ export function stepTurrets(state: GameState) {
 
     // 3.0.0 Step 5: focusedBeam now extends acquisition range directly.
     // Turrets always fire instant-hit beams; missiles are silo-only.
-    turret.range =
+    // 3.1.3: hard ceiling at TURRET.rangeMax so turrets never out-range
+    // missile silos no matter how much the upgrade tracks or event modifiers
+    // stack.
+    turret.range = Math.min(
+      TURRET.rangeMax,
       (TURRET.rangeBase +
         state.upgrades.turret * TURRET.rangePerUpgrade +
         state.upgrades.reactor * TURRET.rangePerReactor +
         state.upgrades.focusedBeam * FOCUSED_BEAM.rangePerLevel) *
-      state.eventModifiers.turretRangeScale;
+        state.eventModifiers.turretRangeScale
+    );
     turret.cooldown = Math.max(0, turret.cooldown - 1);
     const target = [...state.enemies]
       .filter(
@@ -115,8 +124,12 @@ export function stepTurrets(state: GameState) {
         TURRET.damageBase +
         state.upgrades.turret * TURRET.damagePerTurret +
         state.upgrades.reactor * TURRET.damagePerReactor +
-        (target.kind === "wisp" ? TURRET.damageWispBonusBase + state.upgrades.turret * TURRET.damageWispBonusPerTurret : 0) +
-        (target.kind === "raider" ? TURRET.damageRaiderBonusBase + state.upgrades.reactor * TURRET.damageRaiderBonusPerReactor : 0);
+        (target.kind === "wisp"
+          ? TURRET.damageWispBonusBase + state.upgrades.turret * TURRET.damageWispBonusPerTurret
+          : 0) +
+        (target.kind === "raider"
+          ? TURRET.damageRaiderBonusBase + state.upgrades.reactor * TURRET.damageRaiderBonusPerReactor
+          : 0);
       turret.cooldown = Math.max(
         TURRET.cooldownFloor,
         Math.round(

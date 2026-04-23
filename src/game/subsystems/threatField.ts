@@ -18,7 +18,7 @@ export function threatAt(x: number, y: number, enemies: Enemy[]): number {
     const dx = x - enemy.x;
     const dy = y - enemy.y;
     const d2 = Math.max(AI_THREAT.falloffFloor, dx * dx + dy * dy);
-    total += weight / d2 * 1000;
+    total += (weight / d2) * 1000;
   }
   return total;
 }
@@ -28,13 +28,7 @@ export function threatAt(x: number, y: number, enemies: Enemy[]): number {
  * start / midpoint / destination, weighted so the destination matters
  * more than the origin (the worker already survived the origin).
  */
-export function threatAlongPath(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  enemies: Enemy[]
-): number {
+export function threatAlongPath(x1: number, y1: number, x2: number, y2: number, enemies: Enemy[]): number {
   const weights = AI_THREAT.weight;
   if (!enemies.length) return 0;
   // Weights intentionally inlined: [1, 1.4, 1.8] destination-biased. Tune here, not in balance.ts.
@@ -47,9 +41,12 @@ export function threatAlongPath(
     if (enemy.hp <= 0) continue;
     const weight = weights[enemy.kind];
     if (!weight) continue;
-    const dx0 = x1 - enemy.x, dy0 = y1 - enemy.y;
-    const dx1 = mx - enemy.x, dy1 = my - enemy.y;
-    const dx2 = x2 - enemy.x, dy2 = y2 - enemy.y;
+    const dx0 = x1 - enemy.x,
+      dy0 = y1 - enemy.y;
+    const dx1 = mx - enemy.x,
+      dy1 = my - enemy.y;
+    const dx2 = x2 - enemy.x,
+      dy2 = y2 - enemy.y;
     const d0 = Math.max(AI_THREAT.falloffFloor, dx0 * dx0 + dy0 * dy0);
     const d1 = Math.max(AI_THREAT.falloffFloor, dx1 * dx1 + dy1 * dy1);
     const d2 = Math.max(AI_THREAT.falloffFloor, dx2 * dx2 + dy2 * dy2);

@@ -1,5 +1,14 @@
 import { UPGRADES } from "@/game/balance";
-import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, ResourceKey, UpgradeDef, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type {
+  EnemyKind,
+  EnemyVisual,
+  NodeVisual,
+  ResourceDef,
+  ResourceKey,
+  UpgradeDef,
+  VisibleResourceKey,
+  WorkerKind,
+} from "@/game/types";
 
 export const resourceDefs: ResourceDef[] = [
   {
@@ -43,24 +52,56 @@ export const upgradeDefs: UpgradeDef[] = [
     growth: UPGRADES.drill.growth,
     effectText: "+ Ore + Gems extraction, extra drones at sector 22 / 42; unlock steps use flux + cores",
   },
-  { key: "reactor", label: "Reactor", baseCost: UPGRADES.reactor.baseCost, growth: UPGRADES.reactor.growth, effectText: "+ Energy + anti-raider gun power" },
+  {
+    key: "reactor",
+    label: "Reactor",
+    baseCost: UPGRADES.reactor.baseCost,
+    growth: UPGRADES.reactor.growth,
+    effectText: "+ Energy + anti-raider gun power",
+  },
   {
     key: "bot",
     label: "Ops Bot",
     baseCost: UPGRADES.bot.baseCost,
     growth: UPGRADES.bot.growth,
-    effectText: "Adaptive counter-build logic, extra runners at sector 22 / 42; unlock steps use flux + cores",
+    effectText:
+      "Adaptive counter-build logic, extra runners at sector 22 / 42; unlock steps use flux + cores",
   },
-  { key: "turret", label: "Defense Turret", baseCost: UPGRADES.turret.baseCost, growth: UPGRADES.turret.growth, effectText: "+ Range + fire rate, anti-wisp" },
-  { key: "shield", label: "Shield Grid", baseCost: UPGRADES.shield.baseCost, growth: UPGRADES.shield.growth, effectText: "Swarm mitigation + recovery" },
-  { key: "scout", label: "Assault Scout", baseCost: UPGRADES.scout.baseCost, growth: UPGRADES.scout.growth, effectText: "Intercepts corrupters", minTier: 2 },
-  { key: "arsenal", label: "Scout Arsenal", baseCost: UPGRADES.arsenal.baseCost, growth: UPGRADES.arsenal.growth, effectText: "Purge burst + field cleanse" },
+  {
+    key: "turret",
+    label: "Defense Turret",
+    baseCost: UPGRADES.turret.baseCost,
+    growth: UPGRADES.turret.growth,
+    effectText: "+ Range + fire rate, anti-wisp",
+  },
+  {
+    key: "shield",
+    label: "Shield Grid",
+    baseCost: UPGRADES.shield.baseCost,
+    growth: UPGRADES.shield.growth,
+    effectText: "Swarm mitigation + recovery",
+  },
+  {
+    key: "scout",
+    label: "Assault Scout",
+    baseCost: UPGRADES.scout.baseCost,
+    growth: UPGRADES.scout.growth,
+    effectText: "Intercepts corrupters",
+    minTier: 1,
+  },
+  {
+    key: "arsenal",
+    label: "Scout Arsenal",
+    baseCost: UPGRADES.arsenal.baseCost,
+    growth: UPGRADES.arsenal.growth,
+    effectText: "Purge burst + field cleanse",
+  },
   {
     key: "foundry",
     label: "Foundry",
     baseCost: { ore: 200, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.foundry.growth,
-    effectText: "+5% node yield, +8% node respawn rate per level",
+    effectText: "+5% node yield per level",
     minTier: 3,
   },
   {
@@ -84,7 +125,8 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Focused Beam",
     baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.focusedBeam.growth,
-    effectText: "Extends turret beam range (+16px/level). All turret shots are now instant-hit.",
+    effectText:
+      "Extends turret beam range (+6px/level, capped by TURRET.rangeMax). All turret shots are now instant-hit.",
     minTier: 4,
   },
   {

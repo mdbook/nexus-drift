@@ -6,13 +6,7 @@ import { pushLog } from "@/game/utils";
 // ─── Rarity & Category ────────────────────────────────────────────────────────
 
 export type AchievementRarity = "common" | "uncommon" | "rare" | "legendary";
-export type AchievementCategory =
-  | "combat"
-  | "corruption"
-  | "mining"
-  | "progression"
-  | "survival"
-  | "secret";
+export type AchievementCategory = "combat" | "corruption" | "mining" | "progression" | "survival" | "secret";
 
 // ─── IDs ──────────────────────────────────────────────────────────────────────
 
@@ -112,7 +106,7 @@ export type SecretAchievementTrigger = "drift" | "synthwave";
 
 const EVENT_IDS = EVENT_DEFS.map((def) => def.id);
 
-// ─── Definitions (54 total) ───────────────────────────────────────────────────
+// ─── Definitions ─────────────────────────────────────────────────────────────
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // ── Progression ─────────────────────────────────────────────────────────────
@@ -646,12 +640,7 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   state.achievements[id] = true;
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
-    state.log = pushLog(
-      state.log,
-      `Achievement unlocked: ${def.label}`,
-      "achievement",
-      state.timers.tick
-    );
+    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`, "achievement", state.timers.tick);
   }
   return true;
 }
@@ -711,7 +700,12 @@ export function recoverLostDrone(state: GameState) {
   state.agents.push(recovered);
   state.lostDrone = null;
   state.lostWorkerFound = true;
-  state.log = pushLog(state.log, "Recovered the damaged drone and folded it into the roster.", "event", state.timers.tick);
+  state.log = pushLog(
+    state.log,
+    "Recovered the damaged drone and folded it into the roster.",
+    "event",
+    state.timers.tick
+  );
   return unlockAchievement(state, "lost_drone");
 }
 

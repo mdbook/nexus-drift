@@ -67,11 +67,16 @@ Raise a version suggestion when one or more of these land:
 If the user asks for a release or version bump, update these together:
 
 - `package.json`
+- `package-lock.json` — run `npm install` after bumping `package.json`. The lockfile embeds the version at both `"version"` and `"packages.\"\""` and will otherwise sit stale (happened in 3.1.3 — a later review caught a lockfile still on `3.0.2`). Confirm the diff is limited to the version fields unless you also intentionally changed deps.
 - `src/changelog.ts`
 - `README.md`
 - `handoff.md`
 
 If the user does not ask for release work, keep the suggestion advisory only.
+
+## Test Count References
+
+Several docs quote the total test count (`README.md` `## Testing`, `AGENTS.md` `## Test Coverage`, `handoff.md` near the end of Operational Notes). When you add or remove tests, update all three in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
 
 ## Entity Spawn / Death Animation Fields
 
@@ -125,6 +130,7 @@ Rules for adding achievements:
 - One-shot events (`cache_discovery`, `pirate_caravan`, `echo_signal`) keep `durationTicks = 0` but set `hudDurationTicks` so they still surface as inspectable cards and backdrops for roughly 10 seconds.
 - `stepEvents()` must only call `eventDef.revert()` when `activeEvent.revertOnExpire` is true.
 - Event inspection is click-only. Hover/focus tooltip behaviour in `EventChip.tsx` must never count as inspection progress.
+- Timed modifier values live on `EventDef.modifierContributions` (multiplicative factors — e.g. `{ yieldMultiplier: 1.6 }`). `state.eventModifiers` is recomputed from the active event list via `recomputeEventModifiers()` on activate, expire, and admin clear — never written directly from an event's `apply`/`revert`. This lets overlapping events stack (e.g. Meteor Shower + Starcall both touching yield) without one expiring clobbering the other's contribution.
 
 ## Activity Log Invariants
 
@@ -183,6 +189,8 @@ Enemy target selection must only consider deployed/live targets. `pickEnemyTarge
 
 Workers are valid enemy targets only when `active`, `hp > 0`, not `corrupted`, and `rebootTicks <= 0`. Keep cached target reuse and contact-damage paths aligned with those same rules so enemies do not chase or damage immune/off-field workers.
 
+**3.1.2 early-game city targeting**: mite, wisp, and raider have `city: 0` in `ENEMY_TARGET_PRIORITY`. Do not raise this back above 0 without intentional design — city: 0 is the correct default for enemies that appear before the player has defenses up, to prevent early-game city camping when no workers are nearby.
+
 ## Enemy Shield Layer
 
 Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
@@ -193,6 +201,12 @@ Shielded enemies still have normal HP underneath their shield. `damageEnemy()` i
 ## Surround Combat Pressure
 
 Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.
+
+## Worker Death And Reboot (3.1.2)
+
+When a worker's HP reaches 0 in `stepCombat`, the combat-death path sets `rebootTicks = WORKER.respawn.rebootDuration` (180 ticks), emits `state.workerDeathFlash`, and returns without teleporting. Movement.ts parks the worker at home, regen HP linearly, and on expiry sets `spawnTick` and logs "worker redeployed". **Do not write the old instant-teleport-and-55%-HP path back.**
+
+`workerDeathFlash` is a transient `GameState` field (`{ x, y, ticks, maxTicks } | null`). It is always `null` in `createInitialGameState` and `migrateGameState`. Its tick-down lives inside `stepCombat` before the cadence guard so it runs every frame, not just on combat ticks.
 
 ## Key Invariants (Do Not Break)
 
@@ -209,7 +223,7 @@ Close-combat damage scales up when multiple attackers are already in contact wit
 
 ## Test Coverage
 
-170 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
+188 tests (3.1.4 audit follow-ups: event modifier composition, late-tier rawTier reachability, lone-sapper worker reboot, dying-enemy selector filter, zapper bolt target revalidation, colonyHealth hp/maxHp normalization, cloneGameState RNG isolation, resolveEnemyDeaths split idempotency, late-game defense scoring contributions, tick-wrap-safe elapsed delta + temp node expiry across wrap) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak behavior, save migration for the permanent-cloak flag, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

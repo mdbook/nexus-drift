@@ -6,7 +6,8 @@ import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number; ay: number } {
-  let ax = 0, ay = 0;
+  let ax = 0,
+    ay = 0;
   for (const enemy of state.enemies) {
     if (enemy.role === "corruptor") continue;
     // 3.1.0 — scouts don't get psychic avoidance of cloaked threats
@@ -26,8 +27,9 @@ function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number;
 
 export function stepScouts(state: GameState) {
   const corruptors = state.enemies.filter((enemy) => enemy.role === "corruptor");
-  const corruptedNodes = [...state.nodes]
-    .filter((node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3));
+  const corruptedNodes = [...state.nodes].filter(
+    (node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3)
+  );
   const liveScouts = Math.min(
     state.scouts.length,
     state.upgrades.scout,
@@ -40,9 +42,7 @@ export function stepScouts(state: GameState) {
   const activelyCorrupting = corruptedNodes.filter(
     (node) => node.corruptedBy != null && node.corruption < 100
   ).length;
-  const finishable = corruptedNodes.filter(
-    (node) => node.corruption <= SCOUT_AI.finishNodeThreshold
-  ).length;
+  const finishable = corruptedNodes.filter((node) => node.corruption <= SCOUT_AI.finishNodeThreshold).length;
   const preferFinish = finishable >= activelyCorrupting;
   const rankedNodes = [...corruptedNodes].sort((a, b) => {
     const aFinish = a.corruption <= SCOUT_AI.finishNodeThreshold ? SCOUT_AI.finishNodeBias : 0;
@@ -53,13 +53,9 @@ export function stepScouts(state: GameState) {
     // otherwise bleed gets the double. Raw corruption is a small tiebreaker
     // so ties between equally-biased nodes favour the dirtier one.
     const aScore =
-      (preferFinish ? aFinish * 2 : aFinish) +
-      (preferFinish ? aBleed : aBleed * 2) +
-      a.corruption * 0.05;
+      (preferFinish ? aFinish * 2 : aFinish) + (preferFinish ? aBleed : aBleed * 2) + a.corruption * 0.05;
     const bScore =
-      (preferFinish ? bFinish * 2 : bFinish) +
-      (preferFinish ? bBleed : bBleed * 2) +
-      b.corruption * 0.05;
+      (preferFinish ? bFinish * 2 : bFinish) + (preferFinish ? bBleed : bBleed * 2) + b.corruption * 0.05;
     return bScore - aScore || a.id - b.id;
   });
 
@@ -67,7 +63,7 @@ export function stepScouts(state: GameState) {
   // let the second scout stack there instead of moving on.
   const pairUpEnabled = liveScouts >= SCOUT_AI.pairUpScoutCount;
   const pairUpNodeId = pairUpEnabled
-    ? rankedNodes.find((node) => node.corruption >= SCOUT_AI.pairUpCorruptionThreshold)?.id ?? null
+    ? (rankedNodes.find((node) => node.corruption >= SCOUT_AI.pairUpCorruptionThreshold)?.id ?? null)
     : null;
 
   // Pre-pass: determine which corrupted node each active scout without a corruptor target would sweep.
@@ -216,9 +212,8 @@ export function stepScouts(state: GameState) {
           enemy.kind === "blight"
             ? ENEMY_SPECIAL.blight.corruptionRatePerTick
             : ENEMY_SPECIAL.corruptor.corruptionRatePerTick;
-        const attachedNode = enemy.targetNodeId != null
-          ? state.nodes.find((node) => node.id === enemy.targetNodeId)
-          : undefined;
+        const attachedNode =
+          enemy.targetNodeId != null ? state.nodes.find((node) => node.id === enemy.targetNodeId) : undefined;
         const urgency = attachedNode ? 1 + attachedNode.corruption / 100 : 1;
         const d = dist(scout.x, scout.y, enemy.x, enemy.y);
         const score = d * SCOUT_AI.distanceScoreWeight - rate * urgency * SCOUT_AI.rateScoreWeight;
@@ -226,8 +221,7 @@ export function stepScouts(state: GameState) {
       })
       .sort((a, b) => a.score - b.score);
     const interceptTarget =
-      currentTarget ??
-      scoredCorruptors[Math.min(index, Math.max(0, scoredCorruptors.length - 1))]?.enemy;
+      currentTarget ?? scoredCorruptors[Math.min(index, Math.max(0, scoredCorruptors.length - 1))]?.enemy;
 
     if (interceptTarget) {
       scout.targetId = interceptTarget.id;
@@ -244,7 +238,10 @@ export function stepScouts(state: GameState) {
         state.upgrades.arsenal * SCOUT.preferredRangePerArsenal;
 
       if (d > preferredRange) {
-        const spd = scout.speed + state.upgrades.scout * SCOUT.speedPerScout + state.upgrades.arsenal * SCOUT.speedPerArsenal;
+        const spd =
+          scout.speed +
+          state.upgrades.scout * SCOUT.speedPerScout +
+          state.upgrades.arsenal * SCOUT.speedPerArsenal;
         scout.x += (dx / d) * spd;
         scout.y += (dy / d) * spd;
         scout.task = "Intercepting";
@@ -264,11 +261,20 @@ export function stepScouts(state: GameState) {
           SCOUT.cooldownFloor,
           Math.round(
             SCOUT.cooldownBase -
-            state.upgrades.scout * SCOUT.cooldownPerScout -
-            state.upgrades.arsenal * SCOUT.cooldownPerArsenal
+              state.upgrades.scout * SCOUT.cooldownPerScout -
+              state.upgrades.arsenal * SCOUT.cooldownPerArsenal
           )
         );
-        addProjectile(state, scout.x, scout.y, interceptTarget.x, interceptTarget.y, "rgba(220, 170, 255, 0.95)", 2.4, 8);
+        addProjectile(
+          state,
+          scout.x,
+          scout.y,
+          interceptTarget.x,
+          interceptTarget.y,
+          "rgba(220, 170, 255, 0.95)",
+          2.4,
+          8
+        );
         let effectiveDamage = damage;
         if (
           interceptTarget.kind === "blight" &&
@@ -317,10 +323,7 @@ export function stepScouts(state: GameState) {
           FLUX.cleanseTickReward *
           (state.eventModifiers.fluxPurgeMultiplier ?? 1) *
           (1 + state.upgrades.arsenal * FLUX.arsenalTickBonus);
-        state.resources.flux = Math.min(
-          FLUX.softCap + FLUX.overCapBuffer,
-          state.resources.flux + tickFlux
-        );
+        state.resources.flux = Math.min(FLUX.softCap + FLUX.overCapBuffer, state.resources.flux + tickFlux);
 
         const baseCleanseRate = SCOUT.cleanseRateBase + state.upgrades.arsenal * SCOUT.cleanseRatePerArsenal;
         // Synergy: each additional scout on the same node adds 60% of base cleanse rate.
@@ -335,7 +338,8 @@ export function stepScouts(state: GameState) {
           state.stats.purges += 1;
           state.resources.flux = Math.min(
             FLUX.softCap,
-            state.resources.flux + FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
+            state.resources.flux +
+              FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
           );
           state.log = pushLog(state.log, "Node cleansed. Flux recovered.", "corruption", state.timers.tick);
         }

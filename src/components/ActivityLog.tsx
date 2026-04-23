@@ -1,17 +1,8 @@
 import { memo, useState } from "react";
-import {
-  Activity,
-  Award,
-  Biohazard,
-  Bot,
-  ChevronRight,
-  Pickaxe,
-  Radio,
-  Swords,
-  Zap,
-} from "lucide-react";
+import { Activity, Award, Biohazard, Bot, ChevronRight, Pickaxe, Radio, Swords, Zap } from "lucide-react";
 import type { LogCategory, LogEntry } from "@/game/types";
 import { TICK_MS } from "@/game/constants";
+import { elapsedTicks } from "@/game/utils";
 
 type CategoryMeta = {
   icon: React.ComponentType<{ className?: string }>;
@@ -85,7 +76,10 @@ const FILTER_TABS: Array<{ key: LogCategory | "all"; label: string }> = [
 ];
 
 function formatAge(currentTick: number, entryTick: number): string {
-  const deltaTicks = currentTick - entryTick;
+  // 3.1.3 audit follow-up: wrap-safe delta. state.timers.tick wraps at
+  // TICK_WRAP; raw subtract can go negative for a window after wrap,
+  // showing "now" or a bogus large age on pre-wrap entries.
+  const deltaTicks = elapsedTicks(currentTick, entryTick);
   if (deltaTicks <= 0) return "now";
   const seconds = Math.round((deltaTicks * TICK_MS) / 1000);
   if (seconds < 60) return `${seconds}s ago`;
@@ -102,10 +96,7 @@ type ActivityLogProps = {
 export const ActivityLog = memo(function ActivityLog({ log, currentTick }: ActivityLogProps) {
   const [activeFilter, setActiveFilter] = useState<LogCategory | "all">("all");
 
-  const filtered =
-    activeFilter === "all"
-      ? log
-      : log.filter((entry) => entry.category === activeFilter);
+  const filtered = activeFilter === "all" ? log : log.filter((entry) => entry.category === activeFilter);
 
   return (
     <div className="mt-3 flex flex-col rounded-3xl border border-white/10 bg-white/5 p-3">
@@ -140,7 +131,9 @@ export const ActivityLog = memo(function ActivityLog({ log, currentTick }: Activ
               }`}
             >
               {meta && (
-                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${isActive ? "opacity-100" : "opacity-50"}`} />
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${isActive ? "opacity-100" : "opacity-50"}`}
+                />
               )}
               {label}
             </button>
@@ -182,9 +175,7 @@ export const ActivityLog = memo(function ActivityLog({ log, currentTick }: Activ
                 </p>
                 <div className="mt-0.5 flex items-center gap-1.5">
                   <span className={`h-0.5 w-0.5 rounded-full ${meta.dot} opacity-60`} />
-                  <span className="text-[9px] uppercase tracking-[0.15em] text-white/25">
-                    {meta.label}
-                  </span>
+                  <span className="text-[9px] uppercase tracking-[0.15em] text-white/25">{meta.label}</span>
                   <ChevronRight className="h-2 w-2 text-white/15" />
                   <span className="text-[9px] text-white/20">{formatAge(currentTick, entry.tick)}</span>
                 </div>

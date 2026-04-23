@@ -205,7 +205,7 @@ const SectorStatusCard = memo(function SectorStatusCard({
 }) {
   return (
     <Card
-      className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}
+      className={`order-1 mb-3 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:mb-0 lg:min-w-[380px]`}
     >
       <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
         <div className="flex items-baseline gap-2">
@@ -223,18 +223,19 @@ const SectorStatusCard = memo(function SectorStatusCard({
         </div>
       </div>
       <div className="lg:hidden">
-        <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
-          <span>Sector Level</span>
-          <span>{game.level}</span>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
+            <span className="text-[10px] uppercase tracking-[0.24em] text-white/45">
+              combo · lv {game.level}
+            </span>
+          </div>
+          <span className="text-[10px] text-white/40">
+            XP {fmt(game.xp)} / {fmt(derived.targetXp)}
+          </span>
         </div>
-        <div className="mt-3 text-4xl font-semibold text-white">x{game.combo.toFixed(1)}</div>
-        <div className="mt-1 text-sm text-white/55">combo multiplier</div>
-        <Progress value={xpPct} className="mt-4 h-2 bg-white/10" />
-        <div className="mt-2 flex items-center justify-between text-xs text-white/45">
-          <span>XP {fmt(game.xp)}</span>
-          <span>{fmt(derived.targetXp)}</span>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <Progress value={xpPct} className="mt-2 h-1.5 bg-white/10" />
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
             {derived.hostilePressure ? "Perimeter Hot" : "Perimeter Stable"}
           </StatusBadge>
@@ -504,6 +505,14 @@ export default function App() {
             >
               v{CURRENT_VERSION}
             </button>
+            {import.meta.env.DEV && (
+              <span
+                className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-[9px] font-bold tracking-[0.3em] text-amber-100"
+                aria-label="Development build"
+              >
+                BETA
+              </span>
+            )}
             <a
               href={SOURCE_URL}
               target="_blank"
@@ -588,7 +597,7 @@ export default function App() {
           </Card>
         )}
 
-        {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
+        {/* sector card — order-1 on mobile (directly under header), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
 
         <div className="hidden lg:absolute lg:right-6 lg:top-[84px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
@@ -675,11 +684,7 @@ export default function App() {
             )}
 
             <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
-              <FieldSvg
-                game={game}
-                derived={derived}
-                interactions={fieldInteractions}
-              />
+              <FieldSvg game={game} derived={derived} interactions={fieldInteractions} />
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">

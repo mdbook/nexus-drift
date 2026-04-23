@@ -65,8 +65,14 @@ export const Background = memo(function Background() {
               height: star.size,
               opacity: star.opacity,
             }}
-            animate={motionEnabled ? { opacity: [star.opacity * 0.35, star.opacity, star.opacity * 0.55], scale: [1, 1.2, 1] } : undefined}
-            transition={motionEnabled ? { duration: 3 + (star.id % 5), repeat: Infinity, ease: "easeInOut" } : undefined}
+            animate={
+              motionEnabled
+                ? { opacity: [star.opacity * 0.35, star.opacity, star.opacity * 0.55], scale: [1, 1.2, 1] }
+                : undefined
+            }
+            transition={
+              motionEnabled ? { duration: 3 + (star.id % 5), repeat: Infinity, ease: "easeInOut" } : undefined
+            }
           />
         ))}
       </div>

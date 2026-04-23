@@ -65,12 +65,8 @@ export function stepCity(state: GameState) {
   // TICK_WRAP, so a naive subtract can go massively negative once the
   // counter rolls over, leaving the regen gate closed forever. We fold
   // back into [0, TICK_WRAP) before comparing to regenIdleTicks.
-  const ticksSinceHostile =
-    (state.timers.tick - state.city.lastHostileTick + TICK_WRAP) % TICK_WRAP;
-  if (
-    state.city.hp < state.city.maxHp &&
-    ticksSinceHostile >= CITY_HP.regenIdleTicks
-  ) {
+  const ticksSinceHostile = (state.timers.tick - state.city.lastHostileTick + TICK_WRAP) % TICK_WRAP;
+  if (state.city.hp < state.city.maxHp && ticksSinceHostile >= CITY_HP.regenIdleTicks) {
     state.city.hp = Math.min(state.city.maxHp, state.city.hp + CITY_HP.regenPerTick);
   }
 }

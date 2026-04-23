@@ -208,7 +208,11 @@ export function AdminPanel({
   return (
     <div
       className="fixed inset-x-3 bottom-3 z-50 mx-auto lg:bottom-5"
-      style={{ maxWidth: collapsed ? "42rem" : "72rem", transition: `max-width ${dur} ${ease}` }}
+      style={{
+        maxWidth: collapsed ? "42rem" : "72rem",
+        transition: `max-width ${dur} ${ease}`,
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
     >
       <Card
         className={`${PANEL_CLASS} relative overflow-visible border-cyan-300/15 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.55)]`}
@@ -260,7 +264,10 @@ export function AdminPanel({
         {/* Collapsed quick form — grows when collapsed */}
         <div
           className="grid overflow-hidden"
-          style={{ gridTemplateRows: collapsed ? "1fr" : "0fr", transition: `grid-template-rows ${dur} ${ease}` }}
+          style={{
+            gridTemplateRows: collapsed ? "1fr" : "0fr",
+            transition: `grid-template-rows ${dur} ${ease}`,
+          }}
         >
           <div className="min-h-0">
             <form onSubmit={submit} className="flex gap-2 px-3 pb-3 pt-3">
@@ -278,7 +285,10 @@ export function AdminPanel({
         {/* Expanded body — grows when expanded */}
         <div
           className="grid overflow-hidden"
-          style={{ gridTemplateRows: collapsed ? "0fr" : "1fr", transition: `grid-template-rows ${dur} ${ease}` }}
+          style={{
+            gridTemplateRows: collapsed ? "0fr" : "1fr",
+            transition: `grid-template-rows ${dur} ${ease}`,
+          }}
         >
           <div className="min-h-0">
             <div className="border-t border-white/10 px-4 py-3 md:px-5">
@@ -288,7 +298,7 @@ export function AdminPanel({
               </p>
             </div>
 
-            <div className="grid max-h-[calc(82dvh-104px)] min-h-0 gap-3 overflow-y-auto rounded-b-3xl p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="grid max-h-[calc(76dvh-104px)] min-h-0 gap-3 overflow-y-auto rounded-b-3xl p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]">
               <div className="min-w-0 space-y-3">
                 <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
                   <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-white/40">
@@ -301,7 +311,9 @@ export function AdminPanel({
                         key={item.label}
                         className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2"
                       >
-                        <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{item.label}</div>
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">
+                          {item.label}
+                        </div>
                         <div className="mt-1 text-sm font-semibold text-white/85">{item.value}</div>
                       </div>
                     ))}
@@ -309,7 +321,9 @@ export function AdminPanel({
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
-                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">Quick Actions</div>
+                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">
+                    Quick Actions
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {QUICK_ACTIONS.map((action) => (
                       <button
@@ -319,7 +333,9 @@ export function AdminPanel({
                         className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition ${TONE_CLASS[action.tone]}`}
                       >
                         <span className="block text-white/90">{action.label}</span>
-                        <span className="mt-1 block font-mono text-[10px] text-white/40">{action.command}</span>
+                        <span className="mt-1 block font-mono text-[10px] text-white/40">
+                          {action.command}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -357,7 +373,9 @@ export function AdminPanel({
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
-                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">Trigger Event</div>
+                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-white/40">
+                    Trigger Event
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {EVENT_DEFS.map((eventDef) => (
                       <button

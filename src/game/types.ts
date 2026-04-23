@@ -351,7 +351,7 @@ export type Projectile = {
   steering?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
-  };
+};
 
 export type Stats = {
   mined: number;
@@ -460,6 +460,7 @@ export type GameState = {
   nextSiloId: number;
   frozenMissile: { id: number; x: number; y: number; ticks: number } | null;
   goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
+  workerDeathFlash: { x: number; y: number; ticks: number; maxTicks: number } | null;
   missileClickCooldown: number;
 };
 
@@ -511,11 +512,13 @@ export type EnemyVisual = {
 export type ProgressionDirector = {
   score: number;
   tier: number;
+  rawTier: number;
   label: string;
   spawnIntervalTicks: number;
   waveBudget: number;
   enemyCap: number;
   recoveryMode: boolean;
+  recoveryStrength: number;
   powerBalance: number;
 };
 

@@ -74,7 +74,10 @@ function pickSquadBearingBucket(enemy: Enemy, state: GameState, target: Agent): 
   for (let i = 0; i < buckets; i++) {
     const angularDist = Math.min(Math.abs(i - ownBucket), buckets - Math.abs(i - ownBucket));
     const cost = counts[i] * 2 + angularDist * 0.5;
-    if (cost < bestCost) { bestCost = cost; best = i; }
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = i;
+    }
   }
   return best;
 }
@@ -82,13 +85,15 @@ function pickSquadBearingBucket(enemy: Enemy, state: GameState, target: Agent): 
 function pickSquadTangentSign(enemy: Enemy, squadmates: Enemy[], target: Agent): number {
   // Prefer the side with fewer squadmates already there.
   const ownBearing = Math.atan2(enemy.y - target.y, enemy.x - target.x);
-  let leftCount = 0, rightCount = 0;
+  let leftCount = 0,
+    rightCount = 0;
   for (const other of squadmates) {
     const b = Math.atan2(other.y - target.y, other.x - target.x);
     let delta = b - ownBearing;
     while (delta > Math.PI) delta -= Math.PI * 2;
     while (delta < -Math.PI) delta += Math.PI * 2;
-    if (delta > 0) leftCount += 1; else rightCount += 1;
+    if (delta > 0) leftCount += 1;
+    else rightCount += 1;
   }
   if (leftCount === rightCount) return enemy.id % 2 === 0 ? 1 : -1;
   return leftCount > rightCount ? -1 : 1;
@@ -124,13 +129,12 @@ function computeWorkerEnemyBlocking(agent: Agent, enemies: Enemy[]): WorkerEnemy
     }
   }
 
-  const speedScale =
-    Math.max(
-      0.16,
-      1 -
-        Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap) -
-        Math.min(touching * WORKER_BLOCKING.touchingPenaltyPerEnemy, WORKER_BLOCKING.touchingPenaltyCap)
-    );
+  const speedScale = Math.max(
+    0.16,
+    1 -
+      Math.min(blockers * WORKER_BLOCKING.speedPenaltyPerEnemy, WORKER_BLOCKING.speedPenaltyCap) -
+      Math.min(touching * WORKER_BLOCKING.touchingPenaltyPerEnemy, WORKER_BLOCKING.touchingPenaltyCap)
+  );
 
   return { speedScale, blockers, touching };
 }
@@ -183,8 +187,8 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
-    // 3.0.0 Step 7: post-cleanse reboot — worker parks at home and skips
-    // all logic until the reboot countdown expires.
+    // 3.0.0 / 3.1.2 — reboot: parks at home, regen HP, skips all logic.
+    // Used for both corruption-cleanse reboot and combat-death reboot.
     if (agent.rebootTicks > 0) {
       agent.rebootTicks -= 1;
       agent.x = agent.homeX;
@@ -193,14 +197,11 @@ export function stepWorkers(state: GameState) {
       agent.ty = agent.homeY;
       agent.target = null;
       agent.task = "Rebooting";
+      agent.hp = Math.min(agent.maxHp, agent.hp + agent.maxHp / WORKER.respawn.rebootDuration);
       if (agent.rebootTicks === 0) {
         agent.hp = agent.maxHp;
-        state.log = pushLog(
-          state.log,
-          `${agent.kind} worker back online after cleanse.`,
-          "corruption",
-          state.timers.tick
-        );
+        agent.spawnTick = state.timers.tick;
+        state.log = pushLog(state.log, `${agent.kind} worker redeployed.`, "combat", state.timers.tick);
       }
       return;
     }
@@ -239,9 +240,12 @@ export function stepWorkers(state: GameState) {
     const recovering = agent.damageTicks > 0 && agent.hp < agent.maxHp * WORKER.recoveryHpThreshold;
     const nodeWorkRadius = clamp(node.size * 0.45, 16, 24);
     const atNode = !recovering && Math.hypot(node.x - agent.x, node.y - agent.y) <= nodeWorkRadius;
-    const threatRadius = agent.evadeTicks > 0
-      ? EVADE_EXIT_RADIUS
-      : atNode ? WORKER_AI.harvestingEvasionRadius : EVADE_ENTER_RADIUS;
+    const threatRadius =
+      agent.evadeTicks > 0
+        ? EVADE_EXIT_RADIUS
+        : atNode
+          ? WORKER_AI.harvestingEvasionRadius
+          : EVADE_ENTER_RADIUS;
     const evadeThreats = combatEnemies
       .map((enemy) => {
         const d = dist(enemy.x, enemy.y, agent.x, agent.y);
@@ -283,8 +287,8 @@ export function stepWorkers(state: GameState) {
       );
 
       const blendedDirection = normalize(
-        agent.evadeDx * 0.70 + direction.x * 0.30,
-        agent.evadeDy * 0.70 + direction.y * 0.30,
+        agent.evadeDx * 0.7 + direction.x * 0.3,
+        agent.evadeDy * 0.7 + direction.y * 0.3,
         direction.x,
         direction.y
       );
@@ -314,23 +318,21 @@ export function stepWorkers(state: GameState) {
     }
 
     if (agent.evadeTicks > 0) {
-      if (
-        !recovering &&
-        evadeThreats.length === 0 &&
-        shouldScanFleeTarget(state.timers.tick, agent.id)
-      ) {
+      if (!recovering && evadeThreats.length === 0 && shouldScanFleeTarget(state.timers.tick, agent.id)) {
         const fleeTarget = chooseFleeDirectionTarget(state, agent);
         if (fleeTarget !== null) agent.target = fleeTarget;
       }
 
       const veteranBonus = 1 + agent.veteranRank * 0.05;
-      const sprintMult = agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
+      const sprintMult =
+        agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
       const evadeSpeed =
         agent.speed *
         agent.speedMod *
         sprintMult *
         veteranBonus *
-        (WORKER.evadeSpeedBase + Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor)) *
+        (WORKER.evadeSpeedBase +
+          Math.min(WORKER.evadeSpeedPanicCap, agent.panic / WORKER.evadePanicDivisor)) *
         blocking.speedScale;
       agent.x = clamp(agent.x + agent.evadeDx * evadeSpeed, 20, WORLD_W - 20);
       agent.y = clamp(agent.y + agent.evadeDy * evadeSpeed, 50, WORLD_H - 32);
@@ -338,8 +340,17 @@ export function stepWorkers(state: GameState) {
       agent.ty = clamp(agent.y + agent.evadeDy * 84, 50, WORLD_H - 32);
       agent.swing = 0;
       agent.task = "Evading";
-      agent.panic = clamp(agent.panic + (evadeThreats.length > 0 ? WORKER.panicDelta.evadingWithThreat : WORKER.panicDelta.evadingPassive), 0, 100);
-      agent.hp = clamp(agent.hp + WORKER.healRate.evading + state.upgrades.shield * WORKER.healRate.evadingShield, 0, agent.maxHp);
+      agent.panic = clamp(
+        agent.panic +
+          (evadeThreats.length > 0 ? WORKER.panicDelta.evadingWithThreat : WORKER.panicDelta.evadingPassive),
+        0,
+        100
+      );
+      agent.hp = clamp(
+        agent.hp + WORKER.healRate.evading + state.upgrades.shield * WORKER.healRate.evadingShield,
+        0,
+        agent.maxHp
+      );
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
       // Miner overclock resets while evading (not at node).
       if (agent.kind === "miner") agent.overclockTicks = 0;
@@ -364,10 +375,17 @@ export function stepWorkers(state: GameState) {
         ? "Recovering"
         : destination.corrupted
           ? "Purging residue"
-          : WORK_TASKS[agent.kind] ?? "Working";
-      agent.panic = clamp(agent.panic - (recovering ? WORKER.panicDelta.recovering : WORKER.panicDelta.working), 0, 100);
+          : (WORK_TASKS[agent.kind] ?? "Working");
+      agent.panic = clamp(
+        agent.panic - (recovering ? WORKER.panicDelta.recovering : WORKER.panicDelta.working),
+        0,
+        100
+      );
       agent.hp = clamp(
-        agent.hp + (recovering ? WORKER.healRate.recovering : WORKER.healRate.working) + state.upgrades.shield * (recovering ? WORKER.healRate.recoveringShield : WORKER.healRate.workingShield),
+        agent.hp +
+          (recovering ? WORKER.healRate.recovering : WORKER.healRate.working) +
+          state.upgrades.shield *
+            (recovering ? WORKER.healRate.recoveringShield : WORKER.healRate.workingShield),
         0,
         agent.maxHp
       );
@@ -383,12 +401,31 @@ export function stepWorkers(state: GameState) {
       return;
     }
 
-    const speedMultiplier = recovering ? WORKER.recoverySpeed : agent.damageTicks > 0 ? WORKER.damagedSpeed : WORKER.traversingSpeed;
+    const speedMultiplier = recovering
+      ? WORKER.recoverySpeed
+      : agent.damageTicks > 0
+        ? WORKER.damagedSpeed
+        : WORKER.traversingSpeed;
     const veteranBonus = 1 + agent.veteranRank * 0.05;
     const blockingSpeed = blocking.speedScale;
-    const traversalSprintMult = agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
-    agent.x += (dx / d) * agent.speed * agent.speedMod * traversalSprintMult * speedMultiplier * veteranBonus * blockingSpeed;
-    agent.y += (dy / d) * agent.speed * agent.speedMod * traversalSprintMult * speedMultiplier * veteranBonus * blockingSpeed;
+    const traversalSprintMult =
+      agent.kind === "runner" && agent.sprintTicks > 0 ? WORKER_ABILITIES.sprintSpeedMult : 1;
+    agent.x +=
+      (dx / d) *
+      agent.speed *
+      agent.speedMod *
+      traversalSprintMult *
+      speedMultiplier *
+      veteranBonus *
+      blockingSpeed;
+    agent.y +=
+      (dy / d) *
+      agent.speed *
+      agent.speedMod *
+      traversalSprintMult *
+      speedMultiplier *
+      veteranBonus *
+      blockingSpeed;
     // Miner overclock resets while traversing (not at node).
     if (agent.kind === "miner") agent.overclockTicks = 0;
 
@@ -403,8 +440,16 @@ export function stepWorkers(state: GameState) {
     agent.ty = destination.y;
     agent.swing = 0;
     agent.task = recovering ? "Recovering" : "Traversing";
-    agent.panic = clamp(agent.panic - (recovering ? WORKER.panicDelta.traversingRecovering : WORKER.panicDelta.traversing), 0, 100);
-    agent.hp = clamp(agent.hp + WORKER.healRate.traversing + state.upgrades.shield * WORKER.healRate.traversingShield, 0, agent.maxHp);
+    agent.panic = clamp(
+      agent.panic - (recovering ? WORKER.panicDelta.traversingRecovering : WORKER.panicDelta.traversing),
+      0,
+      100
+    );
+    agent.hp = clamp(
+      agent.hp + WORKER.healRate.traversing + state.upgrades.shield * WORKER.healRate.traversingShield,
+      0,
+      agent.maxHp
+    );
     agent.damageTicks = Math.max(0, agent.damageTicks - 1);
   });
 
@@ -475,8 +520,7 @@ export function stepLostDrone(state: GameState) {
     Math.sin(lostDrone.wobblePhase) * 18 +
     Math.sin(lostDrone.wobblePhase * 0.42 + state.timers.tick / 55) * 6;
   lostDrone.angle =
-    Math.sin(lostDrone.wobblePhase * 0.9) * 0.22 +
-    Math.sin(lostDrone.wobblePhase * 0.37) * 0.08;
+    Math.sin(lostDrone.wobblePhase * 0.9) * 0.22 + Math.sin(lostDrone.wobblePhase * 0.37) * 0.08;
 
   if (lostDrone.x > WORLD_W + 48) {
     lostDrone.x = -48;
@@ -534,7 +578,12 @@ export function stepEnemies(state: GameState) {
         if (preferredNode.corruption >= 100 && !preferredNode.corrupted) {
           preferredNode.corrupted = true;
           state.stats.corruptions += 1;
-          state.log = pushLog(state.log, `${preferredNode.kind} node fully corrupted. Gross.`, "corruption", state.timers.tick);
+          state.log = pushLog(
+            state.log,
+            `${preferredNode.kind} node fully corrupted. Gross.`,
+            "corruption",
+            state.timers.tick
+          );
         }
         return;
       }
@@ -557,7 +606,8 @@ export function stepEnemies(state: GameState) {
         enemy.x += (dx / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
         enemy.y += (dy / d) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
         // Gentle weaving so multiple leeches don't stack on the same path.
-        const drift = Math.sin((state.timers.tick + enemy.id * 13) / 18) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
+        const drift =
+          Math.sin((state.timers.tick + enemy.id * 13) / 18) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
         enemy.x += (-dy / d) * drift;
         enemy.y += (dx / d) * drift;
       }
@@ -571,20 +621,23 @@ export function stepEnemies(state: GameState) {
     // every tick (cheap and keeps responsiveness on non-worker pivots).
     const currentTankTarget =
       enemy.kind === "brute" && enemy.targetKind === "agent" && enemy.targetId !== null
-        ? state.agents.find(
+        ? (state.agents.find(
             (agent) =>
               agent.id === enemy.targetId &&
               agent.active &&
               agent.hp > 0 &&
               !agent.corrupted &&
               agent.rebootTicks <= 0
-          ) ?? null
+          ) ?? null)
         : null;
     const shouldRefreshTankTarget =
       enemy.kind !== "brute" || (state.timers.tick + enemy.id * 7) % ENEMY_AI.tankTargetRefreshTicks === 0;
 
     let targetKind: Enemy["targetKind"] = "agent";
-    let target: Agent | { x: number; y: number; tx?: number; ty?: number; speed?: number; id?: number } | null = null;
+    let target:
+      | Agent
+      | { x: number; y: number; tx?: number; ty?: number; speed?: number; id?: number }
+      | null = null;
 
     if (currentTankTarget && !shouldRefreshTankTarget) {
       target = currentTankTarget;
@@ -651,8 +704,7 @@ export function stepEnemies(state: GameState) {
           : (enemy.cloakTicks ?? 0) / ENEMY_SPECIAL.phantom.cycleTicks;
         if (
           alwaysReposition ||
-          (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart &&
-            cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd)
+          (cloakPhase > ENEMY_AI.ghostRepositionPhaseStart && cloakPhase < ENEMY_AI.ghostRepositionPhaseEnd)
         ) {
           const wdx = agentTarget.tx - agentTarget.x;
           const wdy = agentTarget.ty - agentTarget.y;
@@ -681,7 +733,8 @@ export function stepEnemies(state: GameState) {
         enemy.x -= (dxRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
         enemy.y -= (dyRaw / dRaw) * enemy.speed * ENEMY_MOVEMENT.combatSpeedScale * speedScale;
       }
-      const drift = Math.sin((state.timers.tick + enemy.id * 17) / 20) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
+      const drift =
+        Math.sin((state.timers.tick + enemy.id * 17) / 20) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
       enemy.x += (-dyRaw / dRaw) * drift;
       enemy.y += (dxRaw / dRaw) * drift;
       return;
@@ -780,7 +833,8 @@ export function stepEnemies(state: GameState) {
 
       enemy.x += moveX * enemy.speed * speedMultiplier * speedScale;
       enemy.y += moveY * enemy.speed * speedMultiplier * speedScale;
-      const strafe = Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
+      const strafe =
+        Math.sin((state.timers.tick + enemy.id * 13) / 14) * ENEMY_MOVEMENT.strafeAmplitude * speedScale;
       enemy.x += (-dy / d) * strafe;
       enemy.y += (dx / d) * strafe;
     }

@@ -1,4 +1,12 @@
-import type { EnemyArchetype, EnemyKind, ResourceKey, TaskState, UpgradeKey, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type {
+  EnemyArchetype,
+  EnemyKind,
+  ResourceKey,
+  TaskState,
+  UpgradeKey,
+  VisibleResourceKey,
+  WorkerKind,
+} from "@/game/types";
 
 // 3.0.0: base costs stretched so 3rd turret / multi-worker slots take 1+ hr
 // each, and full-doctrine runs land in the multi-session wallpaper range
@@ -6,23 +14,27 @@ import type { EnemyArchetype, EnemyKind, ResourceKey, TaskState, UpgradeKey, Vis
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
   miner: { baseCost: 28, growth: 1.24 },
   drill: { baseCost: 220, growth: 1.27 },
-  reactor: { baseCost: 520, growth: 1.30 },
+  reactor: { baseCost: 520, growth: 1.3 },
   bot: { baseCost: 1100, growth: 1.32 },
-  turret: { baseCost: 520, growth: 1.30 },
+  turret: { baseCost: 520, growth: 1.3 },
   shield: { baseCost: 420, growth: 1.28 },
   scout: { baseCost: 280, growth: 1.26 },
   arsenal: { baseCost: 540, growth: 1.29 },
   foundry: { baseCost: 200, growth: 1.26 },
   sentinel: { baseCost: 800, growth: 1.35 },
-  archive: { baseCost: 0, growth: 1.30 },
+  archive: { baseCost: 0, growth: 1.3 },
   focusedBeam: { baseCost: 600, growth: 1.35 },
   missileLauncher: { baseCost: 2200, growth: 1.32 },
 };
 
 export const WORKER = {
-  evadeSpeedBase: 1.1,
-  evadeSpeedPanicCap: 0.18,
-  evadePanicDivisor: 180,
+  // 3.1.3: tighter spread between work / evade / damaged / traversing so
+  // baseline state changes don't feel like gear shifts. Sprint cooldown
+  // (WORKER_ABILITIES.sprintSpeedMult) intentionally untouched — it stacks on
+  // top of these multipliers as a deliberate burst.
+  evadeSpeedBase: 1.0,
+  evadeSpeedPanicCap: 0.06,
+  evadePanicDivisor: 400,
   panicDelta: {
     evadingWithThreat: 1.8,
     evadingPassive: 0.75,
@@ -43,9 +55,9 @@ export const WORKER = {
     traversingShield: 0.006,
   },
   recoveryHpThreshold: 0.6,
-  recoverySpeed: 0.66,
-  damagedSpeed: 0.66,
-  traversingSpeed: 0.74,
+  recoverySpeed: 0.78,
+  damagedSpeed: 0.82,
+  traversingSpeed: 0.88,
   separationMinDist: 28,
   respawn: {
     hpMin: 25,
@@ -54,6 +66,7 @@ export const WORKER = {
     panic: 40,
     evadeTicks: 36,
     damageTicks: 30,
+    rebootDuration: 180,
   },
   combatDamageTicks: 24,
   heavyFireThreshold: 24,
@@ -69,7 +82,7 @@ export const WORKER_ABILITIES = {
   // A miner that stays at a node for overclockThresholdTicks without taking
   // damage earns overclockCritBonus added to the mining crit-chance roll.
   overclockThresholdTicks: 120,
-  overclockCritBonus: 0.10,
+  overclockCritBonus: 0.1,
 
   // Runner sprint — panic-triggered speed burst.
   // Fires once per sprintCooldownTicks when panic exceeds the threshold.
@@ -186,7 +199,7 @@ export const ENEMY_CONTACT_DAMAGE: Record<EnemyKind, number> = {
  *  - sapper: wants to detonate on turrets (1.2 — higher than workers) so we
  *    see it arc toward the line rather than always running past
  *  - rusher: chases scouts (0.9) since they're the softest roamers
- *  - raider / wisp: pick off scouts (0.7) and swing at the city (0.3)
+ *  - raider / wisp: pick off scouts (0.7); city: 0 so early-game enemies don't camp city when no workers are nearby
  *  - phantom: assassinates sentinels (0.6), the only mobile tank line
  *  - zapper: bolts scouts (0.8) at range
  *  - warden: balanced attach pressure — still mostly workers but willing to
@@ -199,18 +212,18 @@ export const ENEMY_TARGET_PRIORITY: Record<
   EnemyKind,
   { worker: number; turret: number; sentinel: number; scout: number; city: number }
 > = {
-  mite:      { worker: 1.0, turret: 0.15, sentinel: 0.10, scout: 0.20, city: 0.15 },
-  raider:    { worker: 1.0, turret: 0.25, sentinel: 0.10, scout: 0.70, city: 0.30 },
-  wisp:      { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.70, city: 0.30 },
-  corruptor: { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
-  rusher:    { worker: 1.0, turret: 0.20, sentinel: 0.10, scout: 0.90, city: 0.20 },
-  brute:     { worker: 1.0, turret: 0.85, sentinel: 0.30, scout: 0.15, city: 0.40 },
-  sapper:    { worker: 1.0, turret: 1.20, sentinel: 0.20, scout: 0.20, city: 0.30 },
-  blight:    { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
-  leech:     { worker: 0,   turret: 0,    sentinel: 0,    scout: 0,    city: 0    },
-  phantom:   { worker: 1.0, turret: 0.20, sentinel: 0.60, scout: 0.30, city: 0.20 },
-  zapper:    { worker: 1.0, turret: 0.40, sentinel: 0.15, scout: 0.80, city: 0.15 },
-  warden:    { worker: 1.0, turret: 0.15, sentinel: 0.25, scout: 0.15, city: 0.15 },
+  mite: { worker: 1.0, turret: 0.15, sentinel: 0.1, scout: 0.2, city: 0 },
+  raider: { worker: 1.0, turret: 0.25, sentinel: 0.1, scout: 0.7, city: 0 },
+  wisp: { worker: 1.0, turret: 0.2, sentinel: 0.1, scout: 0.7, city: 0 },
+  corruptor: { worker: 0, turret: 0, sentinel: 0, scout: 0, city: 0 },
+  rusher: { worker: 1.0, turret: 0.2, sentinel: 0.1, scout: 0.9, city: 0.2 },
+  brute: { worker: 1.0, turret: 0.85, sentinel: 0.3, scout: 0.15, city: 0.4 },
+  sapper: { worker: 1.0, turret: 1.2, sentinel: 0.2, scout: 0.2, city: 0.3 },
+  blight: { worker: 0, turret: 0, sentinel: 0, scout: 0, city: 0 },
+  leech: { worker: 0, turret: 0, sentinel: 0, scout: 0, city: 0 },
+  phantom: { worker: 1.0, turret: 0.2, sentinel: 0.6, scout: 0.3, city: 0.2 },
+  zapper: { worker: 1.0, turret: 0.4, sentinel: 0.15, scout: 0.8, city: 0.15 },
+  warden: { worker: 1.0, turret: 0.15, sentinel: 0.25, scout: 0.15, city: 0.15 },
 };
 
 /**
@@ -225,7 +238,7 @@ export const ENEMY_TARGET_PRIORITY: Record<
 export const TARGET_ARMOR = {
   turretArmor: 0.55,
   sentinelArmor: 0.25,
-  scoutArmor: 0.80,
+  scoutArmor: 0.8,
   cityArmor: 0.35,
 } as const;
 
@@ -335,19 +348,25 @@ export const TURRET_HP = {
   damageFlashTicks: 12,
 } as const;
 
+// 3.1.3: turret range cut hard so turrets become a tight perimeter weapon
+// rather than reaching halfway across the map at high upgrade levels. The
+// `rangeMax` ceiling (270 px on a 1000 px field) guarantees turrets can NEVER
+// out-range missile silos, regardless of event modifiers or upgrade stacking.
+// Damage and cooldown are nudged up to compensate for the smaller footprint.
 export const TURRET = {
-  rangeBase: 125,
-  rangePerUpgrade: 15,
-  rangePerReactor: 6,
+  rangeBase: 110,
+  rangePerUpgrade: 5,
+  rangePerReactor: 2,
+  rangeMax: 270,
   damageBase: 13,
-  damagePerTurret: 4,
+  damagePerTurret: 5,
   damagePerReactor: 3,
   damageWispBonusBase: 4,
   damageWispBonusPerTurret: 2,
   damageRaiderBonusBase: 5,
   damageRaiderBonusPerReactor: 4,
   cooldownBase: 21,
-  cooldownPerTurret: 1.4,
+  cooldownPerTurret: 1.7,
   cooldownPerReactor: 0.45,
   cooldownPerTierPair: 0.3,
   cooldownFloor: 7,
@@ -361,8 +380,10 @@ export const TURRET = {
   missileDamageBonus: 1.15,
 } as const;
 
+// 3.1.3: focused-beam range bonus reduced in line with the new turret range
+// budget. Even fully invested it cannot push a turret past `TURRET.rangeMax`.
 export const FOCUSED_BEAM = {
-  rangePerLevel: 16,
+  rangePerLevel: 6,
 } as const;
 
 /**
@@ -380,11 +401,14 @@ export const FOCUSED_BEAM = {
  */
 export const MISSILE_SILO = {
   rangeBase: 400,
-  fireIntervalTicks: 480,   // ~16s at 30 ticks/s — big cooldown, big hit
+  // 3.1.3: silos gain a small per-level range bump so the gap above turrets
+  // (capped at TURRET.rangeMax = 270) widens as the player invests further.
+  rangePerLevel: 6,
+  fireIntervalTicks: 480, // ~16s at 30 ticks/s — big cooldown, big hit
   damageBase: 48,
   damagePerLevel: 12,
   missileSpeed: 4.0,
-  missileSteering: 0.12,    // committed arc — slower to correct than turret (0.18)
+  missileSteering: 0.12, // committed arc — slower to correct than turret (0.18)
   missileMaxLife: 180,
   missileHitRadius: 18,
   missileGraceRadius: 30,
@@ -428,8 +452,8 @@ export const SCOUT = {
   preferredRangePerScout: 4,
   preferredRangePerArsenal: 8,
   speedPerScout: 0.05,
-  speedPerArsenal: 0.10,
-  cleanseRateBase: 0.10,
+  speedPerArsenal: 0.1,
+  cleanseRateBase: 0.1,
   cleanseRatePerArsenal: 0.08,
   avoidRadius: 90,
   capBase: 2,
@@ -495,7 +519,7 @@ export const SENTINEL = {
   cooldownBase: 28,
   cooldownFloor: 14,
   rangeBase: 140,
-  speedBase: 0.70,
+  speedBase: 0.7,
   projectileColor: "rgba(251, 191, 36, 0.9)",
   projectileWidth: 3.2,
   projectileLife: 9,
@@ -515,7 +539,10 @@ export const CORRUPTION = {
   yieldFloor: 0.45,
   yieldDivisor: 170,
   attachRadius: 10,
-  corruptibleKindsBiasWeight: { ore: 0.18, gems: 0.22, energy: 0.2 } as Record<"ore" | "gems" | "energy", number>,
+  corruptibleKindsBiasWeight: { ore: 0.18, gems: 0.22, energy: 0.2 } as Record<
+    "ore" | "gems" | "energy",
+    number
+  >,
 } as const;
 
 /**
@@ -594,7 +621,7 @@ export const ECONOMY = {
     goldPerMiner: 0.16,
     goldPerDrill: 0.1,
     oreBase: 0.32,
-    orePerMiner: 0.30,
+    orePerMiner: 0.3,
     orePerDrill: 1.0,
     gemsBase: 0.02,
     gemsPerDrill: 0.08,
@@ -674,9 +701,16 @@ export const PROGRESSION = {
   spawn: {
     baselineInterval: 280,
     intervalPerScore: 0.35,
-    intervalPerTurret: 4,
-    intervalPerScout: 3,
+    // 3.1.3: turret/scout interval drag eased so a healthy defense doesn't
+    // crater spawn cadence. Field-fill feedback (intervalFillFactor) takes
+    // over for "field is already full, ease off" pacing.
+    intervalPerTurret: 1.5,
+    intervalPerScout: 1.0,
     intervalPerPrestige: 4,
+    // 3.1.3: when the field is fully occupied (live enemies / enemyCap = 1),
+    // the spawn interval lengthens by up to this multiplier and decays smoothly
+    // back as kills clear the field.
+    intervalFillFactor: 0.85,
     intervalMin: 72,
     intervalMax: 260,
     recoveryPressureMultiplier: 5.5,
@@ -711,7 +745,7 @@ export const PROGRESSION = {
     perDominance: 0.18,
   },
   corruptor: {
-    minTier: 2,
+    minTier: 1,
     capLowTier: 2,
     capHighTier: 3,
     highTierThreshold: 4,
@@ -727,12 +761,15 @@ export const PROGRESSION = {
     mite: { base: 2.2, tier: -0.26, pressure: 0.08, min: 0.45, max: 2.4 },
     wisp: { base: 0.6, tier: 0.32, dominance: 0.08, pressure: -0.02, min: 0.35, max: 3.2 },
     raider: { base: 0.28, tier: 0.36, dominance: 0.12, pressure: -0.1, min: 0.15, max: 2.8, minTier: 1 },
-    rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 3 },
-    brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 4 },
-    sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 5 },
-    leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 6 },
-    phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 7 },
-    zapper: { base: 0, tier: 0.10, min: 0.06, max: 1.0, minTier: 7 },
+    // 3.1.3: minTier gates lowered so unlocked variety lines up with the
+    // slowed-down score curve; mid-game players see the proper enemy roster
+    // for their actual power instead of staying stuck on the early lineup.
+    rusher: { base: 0, tier: 0.28, pressure: 0.12, min: 0.2, max: 2.6, minTier: 2 },
+    brute: { base: 0, tier: 0.22, dominance: 0.15, pressure: -0.15, min: 0.1, max: 1.8, minTier: 3 },
+    sapper: { base: 0, tier: 0.18, pressure: 0.08, min: 0.1, max: 1.6, minTier: 4 },
+    leech: { base: 0, tier: 0.14, dominance: 0.1, min: 0.1, max: 1.4, minTier: 5 },
+    phantom: { base: 0, tier: 0.12, min: 0.08, max: 1.2, minTier: 6 },
+    zapper: { base: 0, tier: 0.1, min: 0.06, max: 1.0, minTier: 6 },
   },
 } as const;
 
@@ -758,6 +795,12 @@ export const DEFENSE = {
     scout: 1.6,
     arsenal: 1.2,
     sentinel: 2.1,
+    // 3.1.3 audit follow-up: late-game turret/silo investments were invisible
+    // to `defenseScore`. focusedBeam extends turret beam range; missileLauncher
+    // adds standalone silos. Without these the defense/threat ratio HUD stalls
+    // mid-game even as the player pours cores/flux into the late-game kit.
+    focusedBeam: 1.3,
+    missileLauncher: 2.2,
   },
   threat: {
     corruptorMultiplier: 1.3,
@@ -774,15 +817,20 @@ export const DEFENSE = {
     foundry: 1.15,
     sentinel: 1.9,
     archive: 1.2,
+    // 3.1.3 audit follow-up: keep `weightedUpgradeScore` in sync with the
+    // defense-score additions above. Drives director pressure and city
+    // build progression; omitting these understated player investment.
+    focusedBeam: 1.35,
+    missileLauncher: 2.0,
   },
   hostilePressureEnemyThreshold: 4,
   hostilePressureColonyHealth: 72,
 } as const;
 
 export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
-  miner:  [1, 1, 1, 2, 2, 2, 3],
+  miner: [1, 1, 1, 2, 2, 2, 3],
   runner: [1, 1, 1, 2, 2, 2, 3],
-  drone:  [1, 1, 1, 2, 2, 2, 3],
+  drone: [1, 1, 1, 2, 2, 2, 3],
 };
 
 // 3.0.0: second worker slot now gates behind sector level 22 (was 12); third
@@ -790,14 +838,15 @@ export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
 // curve so multi-worker deployment lands on a multi-hour, multi-session
 // cadence instead of an hour-long run.
 export const WORKER_SLOTS_BY_LEVEL = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-  3,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 3,
 ] as const;
 
 // 3.0.0: slot-unlock surcharges climb ~4× so the level 3 / level 6 worker
 // purchases feel like a deliberate flux+cores spend, not a rounding error.
-export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<Record<number, Partial<Record<ResourceKey, number>>>> = {
+export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<
+  Record<number, Partial<Record<ResourceKey, number>>>
+> = {
   3: { flux: 18, cores: 4 },
   6: { flux: 55, cores: 14 },
 };
@@ -811,9 +860,7 @@ export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<Record<number, Partial<R
  * first turret. Early levels keep 1 turret even if the upgrade has been
  * purchased; the 2nd turret unlocks at level 2, the 3rd at level 8.
  */
-export const TURRET_SLOTS_BY_LEVEL = [
-  0, 0, 1, 1, 1, 1, 1, 1, 2,
-] as const;
+export const TURRET_SLOTS_BY_LEVEL = [0, 0, 1, 1, 1, 1, 1, 1, 2] as const;
 
 /**
  * AI — shared threat field. Per-kind weight is the pressure that kind exerts
@@ -894,9 +941,9 @@ export const ENEMY_AI = {
  * Drone  — right sector, energy-gem clusters.
  */
 export const WORKER_REGIONS: Record<WorkerKind, { cx: number; cy: number; radius: number }> = {
-  miner:  { cx: 200, cy: 250, radius: 280 },
+  miner: { cx: 200, cy: 250, radius: 280 },
   runner: { cx: 500, cy: 280, radius: 300 },
-  drone:  { cx: 780, cy: 240, radius: 260 },
+  drone: { cx: 780, cy: 240, radius: 260 },
 } as const;
 
 /**
@@ -907,16 +954,37 @@ export const WORKER_REGIONS: Record<WorkerKind, { cx: number; cy: number; radius
  * groupRepelMinCount — minimum nearby same-kind peers before dispersal kicks in.
  * lowHpPull       — speed at which a hurt worker nudges toward their region center.
  */
-export const WORKER_PERSONALITY: Record<WorkerKind, {
-  pathFearScale: number;
-  regionBias: number;
-  groupRepelRadius: number;
-  groupRepelMinCount: number;
-  lowHpPull: number;
-}> = {
-  miner:  { pathFearScale: 0.60, regionBias: 0.28, groupRepelRadius: 130, groupRepelMinCount: 2, lowHpPull: 0.55 },
-  runner: { pathFearScale: 0.90, regionBias: 0.16, groupRepelRadius: 110, groupRepelMinCount: 2, lowHpPull: 0.40 },
-  drone:  { pathFearScale: 1.30, regionBias: 0.32, groupRepelRadius: 150, groupRepelMinCount: 2, lowHpPull: 0.60 },
+export const WORKER_PERSONALITY: Record<
+  WorkerKind,
+  {
+    pathFearScale: number;
+    regionBias: number;
+    groupRepelRadius: number;
+    groupRepelMinCount: number;
+    lowHpPull: number;
+  }
+> = {
+  miner: {
+    pathFearScale: 0.6,
+    regionBias: 0.28,
+    groupRepelRadius: 130,
+    groupRepelMinCount: 2,
+    lowHpPull: 0.55,
+  },
+  runner: {
+    pathFearScale: 0.9,
+    regionBias: 0.16,
+    groupRepelRadius: 110,
+    groupRepelMinCount: 2,
+    lowHpPull: 0.4,
+  },
+  drone: {
+    pathFearScale: 1.3,
+    regionBias: 0.32,
+    groupRepelRadius: 150,
+    groupRepelMinCount: 2,
+    lowHpPull: 0.6,
+  },
 } as const;
 
 /**
@@ -945,7 +1013,14 @@ export const WORKER_AI = {
   stickyThreshold: 0.64, // only switch target if candidate score is < this * current — lower = stickier
   threatMemoryDecay: 0.92,
   threatMemoryGain: 0.18,
-  cornerRotationCandidates: [Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, Math.PI * 0.75, -Math.PI * 0.75],
+  cornerRotationCandidates: [
+    Math.PI / 4,
+    -Math.PI / 4,
+    Math.PI / 2,
+    -Math.PI / 2,
+    Math.PI * 0.75,
+    -Math.PI * 0.75,
+  ],
 } as const;
 
 /**

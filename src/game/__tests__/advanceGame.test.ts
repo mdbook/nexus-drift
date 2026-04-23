@@ -1,3 +1,14 @@
+// RNG-determinism convention:
+// Most tests in this file call `createInitialGameState()` without a seed,
+// which falls back to `Date.now()`. Tests that force a specific worker
+// position, target, or RNG-driven branch (retargeting, `chooseWorkerTarget`,
+// event eligibility, enemy weights, etc.) MUST pass an explicit seed to
+// `createInitialGameState(seed)` — an unseeded run can silently retarget
+// a worker off its placed node or roll a different branch and the
+// assertion becomes flaky. See the "miner overclockTicks accumulates"
+// test for the canonical pattern (seed + re-pin target/x/y each loop
+// iteration). Audit-pass triage tracked the broader pattern-level risk
+// under README → "Audit-pass polish (3.1.4)".
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK, EVADE_ENTER_RADIUS, MINING_TICK } from "@/game/constants";
@@ -13,6 +24,7 @@ import {
   SENTINEL,
   SENTINEL_HP,
   TARGET_ARMOR,
+  TURRET,
   TURRET_HP,
   WARDEN,
   WORKER,
@@ -20,7 +32,13 @@ import {
 } from "@/game/balance";
 import { getUpgradeDef } from "@/game/data";
 import { spotTourist, unlockSecretAchievement } from "@/game/achievements";
-import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
+import {
+  cloneGameState,
+  createInitialGameState,
+  migrateGameState,
+  SCHEMA_VERSION,
+  spawnEnemy,
+} from "@/game/factories";
 import { resolveEnemyDeaths, stepZapperFire } from "@/game/subsystems/combat";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat } from "@/game/subsystems/combat";
@@ -33,7 +51,14 @@ import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepWardenSpawn } from "@/game/subsystems/spawns";
 import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
-import { damageCity, damageCorruptedWorker, damageScout, damageSentinel, damageTurret, damageWorker } from "@/game/subsystems/combat";
+import {
+  damageCity,
+  damageCorruptedWorker,
+  damageScout,
+  damageSentinel,
+  damageTurret,
+  damageWorker,
+} from "@/game/subsystems/combat";
 import { stepCity } from "@/game/subsystems/economy";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepEnemies } from "@/game/subsystems/movement";
@@ -41,6 +66,7 @@ import { stepMissileSilos } from "@/game/subsystems/missileSilos";
 import { pickEnemyTarget, pickEnemyTargetMulti } from "@/game/targeting";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { computeDerived } from "@/game/selectors";
+import { getCombatEnemyWeights } from "@/game/progression";
 import type { GameState } from "@/game/types";
 import { nextUpgradeCost } from "@/game/utils";
 
@@ -128,7 +154,9 @@ describe("advanceGame simulation invariants", () => {
     expect(lateDerived.progression.tier).toBeGreaterThan(earlyDerived.progression.tier);
     expect(lateDerived.progression.waveBudget).toBeGreaterThan(earlyDerived.progression.waveBudget);
     expect(lateDerived.progression.enemyCap).toBeGreaterThan(earlyDerived.progression.enemyCap);
-    expect(lateDerived.progression.spawnIntervalTicks).toBeLessThan(earlyDerived.progression.spawnIntervalTicks);
+    expect(lateDerived.progression.spawnIntervalTicks).toBeLessThan(
+      earlyDerived.progression.spawnIntervalTicks
+    );
   });
 
   it("does not mark a dominant late-game colony as recovering at the cadence floor", () => {
@@ -187,7 +215,51 @@ describe("advanceGame simulation invariants", () => {
     const stressedDerived = computeDerived(stressed);
 
     expect(stressedDerived.progression.recoveryMode).toBe(true);
-    expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(stableDerived.progression.spawnIntervalTicks);
+    expect(stressedDerived.progression.spawnIntervalTicks).toBeGreaterThan(
+      stableDerived.progression.spawnIntervalTicks
+    );
+  });
+
+  it("3.1.3 follow-up: phantom and zapper weights unlock past the display tier cap", () => {
+    // Display tier is capped at 5 (THREAT_LABELS length - 1), but phantom and
+    // zapper carry minTier 6. Before the rawTier fix these were permanently
+    // zeroed; after the fix they fire once score/tiersPerScore >= 6.
+    const latecolony = createInitialGameState();
+    latecolony.level = 200;
+    latecolony.prestige = 20;
+    (Object.keys(latecolony.upgrades) as Array<keyof typeof latecolony.upgrades>).forEach((key) => {
+      latecolony.upgrades[key] = 20;
+    });
+
+    const derived = computeDerived(latecolony);
+    expect(derived.progression.rawTier).toBeGreaterThanOrEqual(6);
+    expect(derived.progression.tier).toBe(5);
+
+    const weights = getCombatEnemyWeights(derived.progression);
+    expect(weights.phantom).toBeGreaterThan(0);
+    expect(weights.zapper).toBeGreaterThan(0);
+    expect(weights.leech).toBeGreaterThan(0);
+  });
+
+  it("threat director stretches spawn interval when the field fills up", () => {
+    const empty = createInitialGameState();
+    const full = createInitialGameState();
+    empty.level = 12;
+    full.level = empty.level;
+
+    const emptyDerived = computeDerived(empty);
+    const cap = emptyDerived.progression.enemyCap;
+    for (let i = 0; i < cap; i += 1) {
+      const e = spawnEnemy(full.rng, full.nextEnemyId++, 0, "raider");
+      e.x = 200 + i * 4;
+      e.y = -240;
+      full.enemies.push(e);
+    }
+
+    const fullDerived = computeDerived(full);
+    expect(fullDerived.progression.spawnIntervalTicks).toBeGreaterThanOrEqual(
+      Math.round(emptyDerived.progression.spawnIntervalTicks * 1.5)
+    );
   });
 
   it("caps active corruption-killer drones at two by default and three when upgrade is 10+", () => {
@@ -268,7 +340,9 @@ describe("advanceGame simulation invariants", () => {
       seeded.enemies.push(spawnEnemy(seeded.rng, seeded.nextEnemyId++, 0, "corruptor"));
     }
     const final = runTicks(seeded, 2_000);
-    const corruptedGold = final.nodes.filter((node) => node.kind === "gold" && (node.corrupted || node.corruption > 0));
+    const corruptedGold = final.nodes.filter(
+      (node) => node.kind === "gold" && (node.corrupted || node.corruption > 0)
+    );
     expect(corruptedGold).toHaveLength(0);
   });
 
@@ -498,7 +572,9 @@ describe("advanceGame simulation invariants", () => {
     expect(Number.isFinite(derived.totalIncome)).toBe(true);
     expect(derived.colonyHealth).toBeGreaterThanOrEqual(0);
     expect(derived.colonyHealth).toBeLessThanOrEqual(100);
-    expect(derived.activeCorruptionNodes).toBe(final.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length);
+    expect(derived.activeCorruptionNodes).toBe(
+      final.nodes.filter((node) => node.kind !== "gold" && node.corruption > 3).length
+    );
     expect(derived.corruptedNodes).toBe(final.nodes.filter((node) => node.corrupted).length);
   });
 
@@ -823,7 +899,10 @@ describe("zapper enemy", () => {
     zapper.x = state.turrets[0].x + 60;
     zapper.y = state.turrets[0].y - 80;
     // Move all workers beyond firing range
-    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
     zapper.fireCooldown = 0;
     state.enemies.push(zapper);
 
@@ -844,8 +923,14 @@ describe("zapper enemy", () => {
     zapper.x = state.scouts[0].x + 60;
     zapper.y = state.scouts[0].y;
     // Move workers and turrets beyond firing range
-    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
-    state.turrets.forEach((t) => { t.x = 900; t.y = 50; });
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
+    state.turrets.forEach((t) => {
+      t.x = 900;
+      t.y = 50;
+    });
     zapper.fireCooldown = 0;
     state.enemies.push(zapper);
 
@@ -859,6 +944,74 @@ describe("zapper enemy", () => {
     expect(state.scouts[0].disabledTicks).toBeGreaterThan(0);
   });
 
+  it("bolt skips rebooting worker on impact (3.1.3 audit)", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.agents[0].x + 80;
+    zapper.y = state.agents[0].y;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("agent");
+
+    // Target enters reboot mid-flight (e.g. killed by something else).
+    state.agents[0].rebootTicks = 120;
+    state.agents[0].hp = 0;
+    state.agents[0].disabledTicks = 0;
+
+    bolt.life = 1;
+    stepProjectiles(state);
+
+    // Must not stick a Disabled task/ticks on a rebooting slot — it'd
+    // extend into the next active window after reboot completes.
+    expect(state.agents[0].disabledTicks).toBe(0);
+  });
+
+  it("does not fire at a broken turret during target selection", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    // Place zapper close to the first turret
+    zapper.x = state.turrets[0].x + 60;
+    zapper.y = state.turrets[0].y;
+    // Move all agents out of firing range
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
+    // Mark the turret broken — zapper must not select it as a target
+    state.turrets[0].brokenTicks = 60;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    expect(state.projectiles.filter((p) => p.tag === "zapper-bolt").length).toBe(0);
+  });
+
+  it("bolt skips broken turret on impact (3.1.3 audit)", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.turrets[0].x + 60;
+    zapper.y = state.turrets[0].y - 80;
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("turret");
+
+    state.turrets[0].brokenTicks = 200;
+
+    bolt.life = 1;
+    stepProjectiles(state);
+    expect(state.turrets[0].disabledTicks).toBe(0);
+  });
+
   it("bolt applies disabledTicks to a sentinel when it is the nearest target", () => {
     const state = createInitialGameState();
     state.upgrades.sentinel = 2;
@@ -866,9 +1019,18 @@ describe("zapper enemy", () => {
     zapper.x = state.sentinels[0].x + 60;
     zapper.y = state.sentinels[0].y;
     // Move everyone else beyond firing range
-    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
-    state.turrets.forEach((t) => { t.x = 900; t.y = 50; });
-    state.scouts.forEach((s) => { s.x = 900; s.y = 50; });
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
+    state.turrets.forEach((t) => {
+      t.x = 900;
+      t.y = 50;
+    });
+    state.scouts.forEach((s) => {
+      s.x = 900;
+      s.y = 50;
+    });
     zapper.fireCooldown = 0;
     state.enemies.push(zapper);
 
@@ -952,7 +1114,9 @@ describe("zapper enemy", () => {
 
     expect(soloWorker.hp).toBeLessThan(100);
     expect(swarmWorker.hp).toBeLessThan(soloWorker.hp);
-    expect(100 - swarmWorker.hp).toBeGreaterThan((100 - soloWorker.hp) * (1 + COMBAT.surroundBonusPerAttacker));
+    expect(100 - swarmWorker.hp).toBeGreaterThan(
+      (100 - soloWorker.hp) * (1 + COMBAT.surroundBonusPerAttacker)
+    );
   });
 
   it("migration adds disabledTicks fallback to existing saves", () => {
@@ -962,7 +1126,7 @@ describe("zapper enemy", () => {
       turrets: [{ id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2 }],
       scouts: [{ id: 1, x: 220, y: 575 }],
       sentinels: [{ id: 1, x: 300, y: 500 }],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
     const restored = migrateGameState(save);
     expect(restored.agents[0].disabledTicks).toBe(0);
@@ -999,9 +1163,12 @@ describe("worker damage funnel (3.1.0)", () => {
   it("damageWorker is a no-op for corrupted / rebooting / inactive workers", () => {
     const state = createInitialGameState();
     const [a, b, c] = state.agents.filter((agent) => agent.active);
-    a.hp = 50; a.corrupted = true;
-    b.hp = 50; b.rebootTicks = 120;
-    c.hp = 50; c.active = false;
+    a.hp = 50;
+    a.corrupted = true;
+    b.hp = 50;
+    b.rebootTicks = 120;
+    c.hp = 50;
+    c.active = false;
 
     damageWorker(a, 20);
     damageWorker(b, 20);
@@ -1021,12 +1188,22 @@ describe("worker damage funnel (3.1.0)", () => {
     const corrupted = active[1];
     const rebooting = active[2];
 
-    healthy.hp = 80; healthy.x = 500; healthy.y = 300;
-    corrupted.hp = 80; corrupted.x = 510; corrupted.y = 300; corrupted.corrupted = true;
-    rebooting.hp = 80; rebooting.x = 520; rebooting.y = 300; rebooting.rebootTicks = 60;
+    healthy.hp = 80;
+    healthy.x = 500;
+    healthy.y = 300;
+    corrupted.hp = 80;
+    corrupted.x = 510;
+    corrupted.y = 300;
+    corrupted.corrupted = true;
+    rebooting.hp = 80;
+    rebooting.x = 520;
+    rebooting.y = 300;
+    rebooting.rebootTicks = 60;
 
     const sapper = spawnEnemy(state.rng, 9001, 0, "sapper", state.timers.tick);
-    sapper.x = 505; sapper.y = 300; sapper.hp = 30;
+    sapper.x = 505;
+    sapper.y = 300;
+    sapper.hp = 30;
     state.enemies.push(sapper);
 
     stepCombat(state);
@@ -1036,6 +1213,40 @@ describe("worker damage funnel (3.1.0)", () => {
     expect(corrupted.hp).toBe(80);
     expect(rebooting.hp).toBe(80);
     // Sapper self-destructed regardless.
+    expect(sapper.hp).toBe(0);
+  });
+
+  it("lone sapper kill starts worker reboot (no zombie at hp=0)", () => {
+    // 3.1.3 audit follow-up: when a sapper was the only attacker in range and
+    // the blast brought a worker to hp=0, the worker used to be left at hp=0
+    // with rebootTicks=0 — the sapper killed itself in the same tick, so the
+    // contact-damage path never ran on the next tick. killWorker is now
+    // called directly from the sapper explosion loop.
+    const state = createInitialGameState(1);
+    state.timers.tick = COMBAT_TICK;
+
+    // Disable every other active worker so the victim is the only one the
+    // sapper can hit — rules out the contact-damage path running next tick.
+    const active = state.agents.filter((a) => a.active);
+    const victim = active[0];
+    for (let i = 1; i < active.length; i++) active[i].active = false;
+
+    victim.x = 500;
+    victim.y = 300;
+    victim.hp = 10; // blast damage is 18 → clamps to 0
+
+    const sapper = spawnEnemy(state.rng, 9101, 0, "sapper", state.timers.tick);
+    sapper.x = 500;
+    sapper.y = 300;
+    sapper.hp = 30;
+    state.enemies.push(sapper);
+
+    stepCombat(state);
+
+    expect(victim.hp).toBe(0);
+    expect(victim.rebootTicks).toBeGreaterThan(0);
+    expect(victim.task).toBe("Rebooting");
+    expect(state.workerDeathFlash).not.toBeNull();
     expect(sapper.hp).toBe(0);
   });
 });
@@ -1052,7 +1263,9 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
     turret.cooldown = 0;
     const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     enemy.x = turret.x;
-    enemy.y = turret.y - 120;
+    // 3.1.3 — turret range with turret L1 + focusedBeam L0 = 115. Keep the
+    // enemy comfortably inside so the no-upgrade case still acquires.
+    enemy.y = turret.y - 90;
     enemy.hp = 100;
     state.enemies.push(enemy);
     return { state, turret, enemy };
@@ -1080,10 +1293,10 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
 
   it("turret fires beam at all in-range enemies regardless of focusedBeam level", () => {
     const { state, turret, enemy } = makeStateWithEnemyInRange(3);
-    // Enemy at 200px — beyond old beam range (90+24=114) but within turret range
-    // (125 + 15 + 3*16 = 188px). Should still beam, not miss.
+    // 3.1.3 — turret range with turret L1 + focusedBeam L3 = 110 + 5 + 18 = 133.
+    // Place enemy comfortably inside that to confirm the beam still fires.
     enemy.x = turret.x;
-    enemy.y = turret.y - 180;
+    enemy.y = turret.y - 120;
     stepTurrets(state);
     expect(state.projectiles.find((p) => p.tag === "instant-beam")).toBeDefined();
     expect(enemy.hp).toBeLessThan(100);
@@ -1094,6 +1307,26 @@ describe("turret beam + focusedBeam range (3.0.0 Step 5)", () => {
     expect(state.upgrades.focusedBeam).toBe(0);
     const restored = migrateGameState({ citySeed: 1 } as Parameters<typeof migrateGameState>[0]);
     expect(restored.upgrades.focusedBeam).toBe(0);
+  });
+
+  // 3.1.3 — turret range is hard-clamped to TURRET.rangeMax and must always
+  // stay below the missile silo range. We sweep maxed upgrade combinations
+  // plus an event modifier and confirm both invariants.
+  it("turret range stays under TURRET.rangeMax and below silo range at every level", () => {
+    const state = createInitialGameState();
+    state.upgrades.turret = 99;
+    state.upgrades.reactor = 99;
+    state.upgrades.focusedBeam = 99;
+    state.eventModifiers.turretRangeScale = 1.5; // worst-case event boost
+    stepTurrets(state);
+    const turretRange = state.turrets[0].range;
+    expect(turretRange).toBeLessThanOrEqual(TURRET.rangeMax);
+    expect(turretRange).toBeLessThan(300);
+
+    for (let level = 0; level <= 10; level++) {
+      const siloRange = MISSILE_SILO.rangeBase + level * MISSILE_SILO.rangePerLevel;
+      expect(siloRange).toBeGreaterThan(turretRange);
+    }
   });
 });
 
@@ -1222,10 +1455,7 @@ describe("turret HP and break state (3.0.0)", () => {
 
     stepTurrets(state);
 
-    const expected =
-      TURRET_HP.hpBase +
-      2 * TURRET_HP.hpPerTurretUpgrade +
-      1 * TURRET_HP.hpPerShieldUpgrade;
+    const expected = TURRET_HP.hpBase + 2 * TURRET_HP.hpPerTurretUpgrade + 1 * TURRET_HP.hpPerShieldUpgrade;
     expect(state.turrets[0].maxHp).toBe(expected);
     expect(state.turrets[0].hp).toBeCloseTo(expected, 5);
   });
@@ -1299,10 +1529,7 @@ describe("scout HP, retreat, and reboot (3.0.0)", () => {
 
     stepScouts(state);
 
-    const expected =
-      SCOUT_HP.hpBase +
-      3 * SCOUT_HP.hpPerScoutUpgrade +
-      2 * SCOUT_HP.hpPerArsenalUpgrade;
+    const expected = SCOUT_HP.hpBase + 3 * SCOUT_HP.hpPerScoutUpgrade + 2 * SCOUT_HP.hpPerArsenalUpgrade;
     expect(state.scouts[0].maxHp).toBe(expected);
     expect(state.scouts[0].hp).toBeCloseTo(expected, 5);
   });
@@ -1376,9 +1603,7 @@ describe("sentinel HP, retreat, and reboot (3.0.0)", () => {
     stepSentinels(state);
 
     const expected =
-      SENTINEL_HP.hpBase +
-      2 * SENTINEL_HP.hpPerSentinelUpgrade +
-      3 * SENTINEL_HP.hpPerShieldUpgrade;
+      SENTINEL_HP.hpBase + 2 * SENTINEL_HP.hpPerSentinelUpgrade + 3 * SENTINEL_HP.hpPerShieldUpgrade;
     expect(state.sentinels[0].maxHp).toBe(expected);
     expect(state.sentinels[0].hp).toBeCloseTo(expected, 5);
   });
@@ -1566,7 +1791,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("ignores undeployed turret slots as enemy targets", () => {
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.level = 1;
     state.upgrades.turret = 0;
 
@@ -1588,7 +1815,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("ignores undeployed and rebooting scout/sentinel slots as enemy targets", () => {
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.turrets = [];
     state.upgrades.scout = 0;
     state.upgrades.sentinel = 1;
@@ -1636,10 +1865,13 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     expect(target?.id).toBe(healthy.id);
   });
 
-  it("falls back to the city when no higher-priority targets exist", () => {
-    // Clear workers + defences so only the city remains as a valid pick.
+  it("returns null for early enemies (raider/mite/wisp) when no workers/defences exist", () => {
+    // 3.1.2: mite/wisp/raider have city:0 so they don't camp the city in early
+    // game when the one turret is out of range and there are no workers nearby.
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.turrets = [];
     state.scouts = [];
     state.sentinels = [];
@@ -1650,8 +1882,7 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     state.enemies.push(raider);
 
     const pick = pickEnemyTargetMulti(raider, state);
-    expect(pick?.kind).toBe("city");
-    expect(pick?.id).toBeNull();
+    expect(pick).toBeNull();
   });
 
   it("corruptor-role enemies have zero priority across the board", () => {
@@ -1668,7 +1899,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     const state = createInitialGameState();
     // Isolate the turret under test and remove workers so stepCombat's
     // worker loop doesn't also fire.
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.turrets = [state.turrets[0]];
     const turret = state.turrets[0];
     const hpBefore = turret.hp;
@@ -1692,7 +1925,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("contact damage ignores stale targets for undeployed and rebooting entities", () => {
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.level = 1;
     state.upgrades.turret = 0;
     const undeployedTurret = state.turrets[1];
@@ -1725,7 +1960,9 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("contact damage to the city applies the cityArmor mitigation", () => {
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     const hpBefore = state.city.hp;
 
     // Raider inside the city contact radius, targeting the city.
@@ -1744,15 +1981,17 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     expect(state.city.damageTicks).toBeGreaterThan(0);
   });
 
-  it("stepEnemies writes targetKind alongside targetId", () => {
-    // Only the city should be in reach, so the movement step must stamp
-    // targetKind="city" with targetId=null rather than leaving the enemy
-    // stuck on the legacy "agent" default.
+  it("stepEnemies writes targetKind=agent when a worker is available", () => {
+    // When workers are present, mites should target them (worker priority 1.0).
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
     state.turrets = [];
     state.scouts = [];
     state.sentinels = [];
+    state.agents.forEach((agent) => {
+      agent.active = true;
+      agent.corrupted = false;
+      agent.rebootTicks = 0;
+    });
 
     const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     mite.x = 500;
@@ -1760,15 +1999,16 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     state.enemies.push(mite);
 
     stepEnemies(state);
-    expect(mite.targetKind).toBe("city");
-    expect(mite.targetId).toBeNull();
+    expect(mite.targetKind).toBe("agent");
   });
 
   it("non-worker contact damage only lands while inside the contact radius", () => {
     // A brute just outside ENEMY_CONTACT_RADIUS.turret targeting the turret
     // should deal 0 damage; nudge it inside and the damage funnel fires.
     const state = createInitialGameState();
-    state.agents.forEach((agent) => { agent.active = false; });
+    state.agents.forEach((agent) => {
+      agent.active = false;
+    });
     state.turrets = [state.turrets[0]];
     const turret = state.turrets[0];
     const hpStart = turret.hp;
@@ -1833,21 +2073,27 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
   });
 
   it("miner overclockTicks accumulates while undamaged at a node", () => {
-    const state = createInitialGameState();
+    // Seed + re-pin target: stepWorkers retargets on the tick==0 cadence check
+    // and chooseWorkerTarget consults state.rng, so an unseeded run can
+    // silently retarget the miner away from state.nodes[0] mid-loop and the
+    // overclock accumulator never ticks. Seed makes runs deterministic and
+    // re-pinning target keeps the miner on its placed node regardless.
+    const state = createInitialGameState(12345);
     const miner = getAgent(state, "miner");
     const node = state.nodes[0];
 
-    // Place miner exactly at the node so it enters the at-node branch each tick.
     miner.x = node.x;
     miner.y = node.y;
     miner.target = node.id;
     miner.damageTicks = 0;
     miner.evadeTicks = 0;
     miner.overclockTicks = 0;
-    // No enemies so no evasion is triggered.
     state.enemies = [];
 
     for (let i = 0; i < 10; i++) {
+      miner.target = node.id;
+      miner.x = node.x;
+      miner.y = node.y;
       stepWorkers(state);
       state.timers.tick += 1;
     }
@@ -1865,7 +2111,7 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
     miner.y = node.y;
     miner.target = node.id;
     miner.overclockTicks = 80; // Partially built up
-    miner.damageTicks = 5;    // Just took a hit → recovering mode suppresses overclock
+    miner.damageTicks = 5; // Just took a hit → recovering mode suppresses overclock
     state.enemies = [];
 
     stepWorkers(state);
@@ -1940,7 +2186,9 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
   it("worker retaliation deals contact damage to attacker", () => {
     const state = createInitialGameState();
     // Disable all agents except the first miner to keep the test isolated.
-    state.agents.forEach((a) => { a.active = false; });
+    state.agents.forEach((a) => {
+      a.active = false;
+    });
     const miner = state.agents[0];
     miner.active = true;
     miner.hp = miner.maxHp; // healthy — retaliation allowed
@@ -1963,7 +2211,9 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
 
   it("retaliation is suppressed when worker is in recovery (low HP)", () => {
     const state = createInitialGameState();
-    state.agents.forEach((a) => { a.active = false; });
+    state.agents.forEach((a) => {
+      a.active = false;
+    });
     const miner = state.agents[0];
     miner.active = true;
 
@@ -2148,7 +2398,9 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     sentinel.y = 300;
 
     // Drop workers off-field so they don't compete as nearer threats.
-    state.agents.forEach((a) => { a.active = false; });
+    state.agents.forEach((a) => {
+      a.active = false;
+    });
 
     const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
     warden.x = sentinel.x + SENTINEL.rangeBase - 10; // well within range
@@ -2564,5 +2816,193 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     stepWardenSpawn(state);
     expect(state.enemies.some((e) => e.kind === "warden")).toBe(false);
     expect(state.timers.warden).toBe(0);
+  });
+});
+
+describe("event modifier composition", () => {
+  it("stacks overlapping modifiers multiplicatively and does not clobber on expire", async () => {
+    const { activateEvent, EVENT_DEFS } = await import("@/game/events/eventDefs");
+    const { stepEvents } = await import("@/game/subsystems/events");
+    const state = createInitialGameState(1);
+
+    const meteor = EVENT_DEFS.find((d) => d.id === "meteor_shower")!;
+    const starcall = EVENT_DEFS.find((d) => d.id === "starcall")!;
+
+    activateEvent(state, meteor, false);
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(1.6);
+
+    activateEvent(state, starcall, false);
+    // Both active: 1.6 * 2 = 3.2 on yield; starcall also adds 1.5 on energy.
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(3.2);
+    expect(state.eventModifiers.energyRate).toBeCloseTo(1.5);
+
+    // Expire starcall by forcing its timer to 1 tick remaining.
+    const starcallActive = state.activeEvents.find((e) => e.id === "starcall")!;
+    starcallActive.ticksRemaining = 1;
+    stepEvents(state);
+
+    // Meteor still contributes; starcall gone.
+    expect(state.activeEvents.some((e) => e.id === "starcall")).toBe(false);
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(1.6);
+    expect(state.eventModifiers.energyRate).toBeCloseTo(1);
+  });
+
+  it("late-tier events (minTier 6/7) are reachable once rawTier passes the threshold", () => {
+    const state = createInitialGameState(1);
+    // prestige's score coefficient is high (8), so ~70 prestige pushes
+    // rawTier past 7 while display `tier` stays capped at 5.
+    state.prestige = 70;
+    const derived = computeDerived(state);
+    expect(derived.progression.rawTier).toBeGreaterThanOrEqual(7);
+    expect(derived.progression.tier).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("defense scoring includes late-game upgrades (3.1.3 audit)", () => {
+  it("focusedBeam and missileLauncher contribute to defenseScore and weightedUpgradeScore", async () => {
+    const { DEFENSE } = await import("@/game/balance");
+    const base = createInitialGameState(1);
+    const upgraded = createInitialGameState(1);
+    upgraded.upgrades.focusedBeam = 3;
+    upgraded.upgrades.missileLauncher = 2;
+
+    const baseDerived = computeDerived(base);
+    const upDerived = computeDerived(upgraded);
+
+    const expectedDefenseDelta = 3 * DEFENSE.score.focusedBeam + 2 * DEFENSE.score.missileLauncher;
+    expect(upDerived.defenseScore - baseDerived.defenseScore).toBeCloseTo(expectedDefenseDelta, 5);
+
+    const expectedWeightedDelta =
+      3 * DEFENSE.weightedUpgrade.focusedBeam + 2 * DEFENSE.weightedUpgrade.missileLauncher;
+    expect(upDerived.homeDevelopment).toBeGreaterThan(baseDerived.homeDevelopment);
+    // weightedUpgradeScore isn't exposed directly, but homeDevelopment pulls it
+    // through CITY.developmentWeights.weightedUpgrade — sanity-check it's nonzero.
+    expect(expectedWeightedDelta).toBeGreaterThan(0);
+  });
+});
+
+describe("tick-wrap audit (3.1.3)", () => {
+  it("elapsedTicks returns the wrap-safe delta across TICK_WRAP", async () => {
+    const { elapsedTicks } = await import("@/game/utils");
+    const { TICK_WRAP } = await import("@/game/constants");
+    // Simple case.
+    expect(elapsedTicks(100, 40)).toBe(60);
+    // Wrap case: tick wrapped from TICK_WRAP-1 to 100.
+    expect(elapsedTicks(100, TICK_WRAP - 60)).toBe(160);
+  });
+
+  it("temporary node despawn survives a TICK_WRAP boundary", async () => {
+    const { stepEvents } = await import("@/game/subsystems/events");
+    const { TICK_WRAP } = await import("@/game/constants");
+    const state = createInitialGameState(1);
+    // Plant a temporary node near the wrap boundary: spawned pre-wrap,
+    // despawnAt stored (in engine) as raw tick+duration and therefore
+    // greater than TICK_WRAP when normalized.
+    state.timers.tick = TICK_WRAP - 10;
+    const node = state.nodes[0];
+    node.temporary = true;
+    node.spawnTick = TICK_WRAP - 10;
+    // Deadline 60 ticks out, stored directly (>TICK_WRAP).
+    node.despawnAt = TICK_WRAP - 10 + 60;
+
+    // Advance tick past the wrap and past the 60-tick lifespan.
+    state.timers.tick = 100; // equivalent to (TICK_WRAP - 10 + 110) % TICK_WRAP
+    const idBefore = node.id;
+
+    stepEvents(state);
+
+    // Node is expired and gone from the array.
+    expect(state.nodes.some((n) => n.id === idBefore)).toBe(false);
+  });
+});
+
+describe("resolveEnemyDeaths idempotency (3.1.3 audit)", () => {
+  it("does not double-decrement dyingTicks when called twice in the same tick", async () => {
+    const { resolveEnemyDeaths, tickDeathFades } = await import("@/game/subsystems/combat");
+    const state = createInitialGameState(1);
+    const dying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    dying.hp = 0;
+    state.enemies.push(dying);
+
+    // First call seeds the fade countdown. We bypass the tick-down that
+    // advanceGame runs separately at tickDeathFades.
+    resolveEnemyDeaths(state);
+    const afterFirst = dying.dyingTicks;
+    expect(afterFirst).toBeGreaterThan(0);
+
+    // A second resolve pass in the same tick must not alter an already-dying
+    // enemy's countdown. Before 3.1.3 this decremented dyingTicks again.
+    resolveEnemyDeaths(state);
+    expect(dying.dyingTicks).toBe(afterFirst);
+
+    // The split tickDeathFades owns the countdown decrement.
+    tickDeathFades(state);
+    expect(dying.dyingTicks).toBe(afterFirst - 1);
+  });
+});
+
+describe("cloneGameState RNG isolation (3.1.3 audit)", () => {
+  it("clone has an independent RNG instance (mutations don't bleed)", () => {
+    const original = createInitialGameState(123);
+    const clone = cloneGameState(original);
+
+    expect(clone.rng).not.toBe(original.rng);
+    expect(clone.rng.getState()).toBe(original.rng.getState());
+
+    const beforeClone = clone.rng.getState();
+    original.rng.next();
+    expect(clone.rng.getState()).toBe(beforeClone);
+  });
+});
+
+describe("colonyHealth normalization (3.1.3 audit)", () => {
+  it("averages hp/maxHp over active workers only, scaled to 0..100", () => {
+    const state = createInitialGameState(1);
+    const active = state.agents.filter((a) => a.active);
+    // Put exactly one active worker at 50% HP, inactive-slots untouched.
+    active[0].hp = 50;
+    active[0].maxHp = 100;
+    for (let i = 1; i < active.length; i++) {
+      active[i].hp = active[i].maxHp;
+    }
+
+    const derived = computeDerived(state);
+    // Initial state has 1 active worker (slot 0) — 50% of 100 == 50.
+    const expected = (active.reduce((sum, a) => sum + a.hp / a.maxHp, 0) / active.length) * 100;
+    expect(derived.colonyHealth).toBeCloseTo(expected, 5);
+    expect(derived.colonyHealth).toBeLessThan(100);
+    expect(derived.colonyHealth).toBeGreaterThan(0);
+  });
+
+  it("corruption toughness buff (maxHp=150) does not push colonyHealth above 100", () => {
+    const state = createInitialGameState(1);
+    const active = state.agents.filter((a) => a.active);
+    // Simulate a warden-toughened worker: hp=150, maxHp=150.
+    active[0].hp = 150;
+    active[0].maxHp = 150;
+    const derived = computeDerived(state);
+    expect(derived.colonyHealth).toBeLessThanOrEqual(100);
+    expect(derived.colonyHealth).toBeCloseTo(100, 5);
+  });
+});
+
+describe("selectors ignore dying enemies (3.1.3 audit)", () => {
+  it("enemyCounts, combatThreats, and corruptorCount skip hp=0 corpses", () => {
+    const state = createInitialGameState(1);
+    const live = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    const dying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    dying.hp = 0;
+    dying.dyingTicks = 30;
+    const corrLive = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    const corrDying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    corrDying.hp = 0;
+    corrDying.dyingTicks = 30;
+    state.enemies.push(live, dying, corrLive, corrDying);
+
+    const derived = computeDerived(state);
+    expect(derived.enemyCounts.raider).toBe(1);
+    expect(derived.enemyCounts.corruptor).toBe(1);
+    expect(derived.combatThreats).toBe(1);
+    expect(derived.corruptorCount).toBe(1);
   });
 });

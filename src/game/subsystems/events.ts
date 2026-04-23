@@ -1,9 +1,9 @@
 import { PROGRESSION } from "@/game/balance";
 import { EVENT_TICK } from "@/game/constants";
-import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import { activateEvent, EVENT_DEFS, recomputeEventModifiers } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
-import { pushLog } from "@/game/utils";
+import { elapsedTicks, pushLog } from "@/game/utils";
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -68,14 +68,26 @@ export function stepEvents(state: GameState) {
     const eventDef = EVENT_DEFS.find((def) => def.id === active.id);
     if (active.revertOnExpire) {
       eventDef?.revert(state);
-      state.log = pushLog(state.log, `${eventDef?.label ?? active.id} has ended.`, "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        `${eventDef?.label ?? active.id} has ended.`,
+        "event",
+        state.timers.tick
+      );
     }
     state.activeEvents = state.activeEvents.filter((event) => event.id !== active.id);
   }
+  if (expiredEvents.length > 0) recomputeEventModifiers(state);
 
   state.nodes = state.nodes.filter((node) => {
-    if (node.temporary && node.despawnAt !== undefined && state.timers.tick >= node.despawnAt) {
-      return false;
+    // 3.1.3 audit follow-up: wrap-safe deadline check. `despawnAt` was set
+    // as `tick + duration` and could exceed TICK_WRAP; a raw `tick >=
+    // despawnAt` compare would then never trigger after the counter wraps
+    // to 0. Anchor on spawnTick to compute wrap-safe elapsed + lifespan.
+    if (node.temporary && node.despawnAt !== undefined) {
+      const elapsed = elapsedTicks(state.timers.tick, node.spawnTick);
+      const lifespan = elapsedTicks(node.despawnAt, node.spawnTick);
+      if (elapsed >= lifespan) return false;
     }
     return true;
   });
@@ -88,7 +100,15 @@ export function stepEvents(state: GameState) {
 
   const derived = computeDerived(state);
   const activeIds = new Set(state.activeEvents.map((event) => event.id));
-  const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.tier && !activeIds.has(def.id));
+  // 3.1.3 audit follow-up: gate eligibility on `rawTier` (uncapped) rather
+  // than the display-capped `tier` (max 5). `starcall` (minTier 6) and
+  // `null_surge` (minTier 7) were unreachable through the natural event
+  // rolls because `tier` capped out before either minTier could be met,
+  // which also silently blocked the `all_events` and `field_report`
+  // achievements. Mirrors the phantom/zapper enemy-weight fix in progression.ts.
+  const eligible = EVENT_DEFS.filter(
+    (def) => def.minTier <= derived.progression.rawTier && !activeIds.has(def.id)
+  );
   if (!eligible.length) return;
 
   const isNight = getNightFactor(state.stats.runtimeMs) < 0.5;
