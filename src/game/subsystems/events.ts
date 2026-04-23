@@ -3,7 +3,7 @@ import { EVENT_TICK } from "@/game/constants";
 import { activateEvent, EVENT_DEFS, recomputeEventModifiers } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
-import { pushLog } from "@/game/utils";
+import { elapsedTicks, pushLog } from "@/game/utils";
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -75,8 +75,14 @@ export function stepEvents(state: GameState) {
   if (expiredEvents.length > 0) recomputeEventModifiers(state);
 
   state.nodes = state.nodes.filter((node) => {
-    if (node.temporary && node.despawnAt !== undefined && state.timers.tick >= node.despawnAt) {
-      return false;
+    // 3.1.3 audit follow-up: wrap-safe deadline check. `despawnAt` was set
+    // as `tick + duration` and could exceed TICK_WRAP; a raw `tick >=
+    // despawnAt` compare would then never trigger after the counter wraps
+    // to 0. Anchor on spawnTick to compute wrap-safe elapsed + lifespan.
+    if (node.temporary && node.despawnAt !== undefined) {
+      const elapsed = elapsedTicks(state.timers.tick, node.spawnTick);
+      const lifespan = elapsedTicks(node.despawnAt, node.spawnTick);
+      if (elapsed >= lifespan) return false;
     }
     return true;
   });

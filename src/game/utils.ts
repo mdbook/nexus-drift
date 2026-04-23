@@ -1,6 +1,14 @@
 import { WORKER_SLOT_UNLOCK_RESOURCE_COSTS } from "@/game/balance";
-import { MAX_LOG } from "@/game/constants";
+import { MAX_LOG, TICK_WRAP } from "@/game/constants";
 import type { LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
+
+/**
+ * Modular elapsed-tick delta. `state.timers.tick` wraps at `TICK_WRAP`,
+ * so `now - then` can go negative once the counter wraps. Use this for
+ * any "how many ticks since X" comparison.
+ */
+export const elapsedTicks = (now: number, then: number) =>
+  (now - then + TICK_WRAP) % TICK_WRAP;
 
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 // TODO(3.2.0): `rand`, `pick`, `chance`, and `pickWeighted` all pull from

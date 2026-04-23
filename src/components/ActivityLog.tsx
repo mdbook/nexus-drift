@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { LogCategory, LogEntry } from "@/game/types";
 import { TICK_MS } from "@/game/constants";
+import { elapsedTicks } from "@/game/utils";
 
 type CategoryMeta = {
   icon: React.ComponentType<{ className?: string }>;
@@ -85,7 +86,10 @@ const FILTER_TABS: Array<{ key: LogCategory | "all"; label: string }> = [
 ];
 
 function formatAge(currentTick: number, entryTick: number): string {
-  const deltaTicks = currentTick - entryTick;
+  // 3.1.3 audit follow-up: wrap-safe delta. state.timers.tick wraps at
+  // TICK_WRAP; raw subtract can go negative for a window after wrap,
+  // showing "now" or a bogus large age on pre-wrap entries.
+  const deltaTicks = elapsedTicks(currentTick, entryTick);
   if (deltaTicks <= 0) return "now";
   const seconds = Math.round((deltaTicks * TICK_MS) / 1000);
   if (seconds < 60) return `${seconds}s ago`;

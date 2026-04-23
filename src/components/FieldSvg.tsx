@@ -5,7 +5,7 @@ import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
 import { useLowFxMode } from "@/hooks/useLowFxMode";
-import { clamp } from "@/game/utils";
+import { clamp, elapsedTicks } from "@/game/utils";
 
 const SPAWN_FADE_TICKS = 20;
 const DEATH_FADE_TICKS = 18;
@@ -14,7 +14,9 @@ const DESPAWN_WARN_TICKS = 60; // start fading out temporary nodes this many tic
 /** 0→1 fade-in alpha based on how long since spawnTick. */
 function spawnAlpha(currentTick: number, spawnTick: number): number {
   if (spawnTick === 0) return 1; // initial game load — no fade
-  return clamp((currentTick - spawnTick) / SPAWN_FADE_TICKS, 0, 1);
+  // 3.1.3 audit follow-up: `currentTick` wraps at TICK_WRAP; raw subtract
+  // goes negative for a brief window after wrap and would invert the fade.
+  return clamp(elapsedTicks(currentTick, spawnTick) / SPAWN_FADE_TICKS, 0, 1);
 }
 
 /** 1→0 fade-out alpha for enemies in their death animation. */
@@ -23,8 +25,12 @@ function deathAlpha(dyingTicks: number): number {
 }
 
 /** 1→0 fade-out alpha for temporary nodes approaching despawn. */
-function despawnAlpha(currentTick: number, despawnAt: number): number {
-  const remaining = despawnAt - currentTick;
+function despawnAlpha(currentTick: number, spawnTick: number, despawnAt: number): number {
+  // 3.1.3 audit follow-up: wrap-safe countdown. Anchor on spawnTick so
+  // both sides of the comparison live in the same [0, TICK_WRAP) window.
+  const elapsed = elapsedTicks(currentTick, spawnTick);
+  const lifespan = elapsedTicks(despawnAt, spawnTick);
+  const remaining = lifespan - elapsed;
   if (remaining > DESPAWN_WARN_TICKS) return 1;
   return clamp(remaining / DESPAWN_WARN_TICKS, 0, 1);
 }
@@ -898,7 +904,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         const corruptionPct = clamp(node.corruption, 0, 100);
         const toxicGlow = node.corruption > 0 ? 0.1 + node.corruption / 200 : 0;
         const nodeAlpha = node.temporary && node.despawnAt !== undefined
-          ? Math.min(spawnAlpha(game.timers.tick, node.spawnTick), despawnAlpha(game.timers.tick, node.despawnAt))
+          ? Math.min(spawnAlpha(game.timers.tick, node.spawnTick), despawnAlpha(game.timers.tick, node.spawnTick, node.despawnAt))
           : spawnAlpha(game.timers.tick, node.spawnTick);
 
         return (

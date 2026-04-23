@@ -2779,6 +2779,41 @@ describe("defense scoring includes late-game upgrades (3.1.3 audit)", () => {
   });
 });
 
+describe("tick-wrap audit (3.1.3)", () => {
+  it("elapsedTicks returns the wrap-safe delta across TICK_WRAP", async () => {
+    const { elapsedTicks } = await import("@/game/utils");
+    const { TICK_WRAP } = await import("@/game/constants");
+    // Simple case.
+    expect(elapsedTicks(100, 40)).toBe(60);
+    // Wrap case: tick wrapped from TICK_WRAP-1 to 100.
+    expect(elapsedTicks(100, TICK_WRAP - 60)).toBe(160);
+  });
+
+  it("temporary node despawn survives a TICK_WRAP boundary", async () => {
+    const { stepEvents } = await import("@/game/subsystems/events");
+    const { TICK_WRAP } = await import("@/game/constants");
+    const state = createInitialGameState(1);
+    // Plant a temporary node near the wrap boundary: spawned pre-wrap,
+    // despawnAt stored (in engine) as raw tick+duration and therefore
+    // greater than TICK_WRAP when normalized.
+    state.timers.tick = TICK_WRAP - 10;
+    const node = state.nodes[0];
+    node.temporary = true;
+    node.spawnTick = TICK_WRAP - 10;
+    // Deadline 60 ticks out, stored directly (>TICK_WRAP).
+    node.despawnAt = TICK_WRAP - 10 + 60;
+
+    // Advance tick past the wrap and past the 60-tick lifespan.
+    state.timers.tick = 100; // equivalent to (TICK_WRAP - 10 + 110) % TICK_WRAP
+    const idBefore = node.id;
+
+    stepEvents(state);
+
+    // Node is expired and gone from the array.
+    expect(state.nodes.some((n) => n.id === idBefore)).toBe(false);
+  });
+});
+
 describe("resolveEnemyDeaths idempotency (3.1.3 audit)", () => {
   it("does not double-decrement dyingTicks when called twice in the same tick", async () => {
     const { resolveEnemyDeaths, tickDeathFades } = await import("@/game/subsystems/combat");
