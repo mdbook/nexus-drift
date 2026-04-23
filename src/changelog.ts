@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "3.1.4",
     badge: "Audit Pass — Simulation & Selectors",
     summary:
-      "Follow-up patch after a multi-agent audit of the 3.1.3 branch. Timed event modifiers now compose cleanly; late-tier events and their achievements are reachable again; lone-sapper kills go through a shared worker-death helper; dying enemies no longer pressure-feed gameplay; zapper bolts revalidate on impact; `colonyHealth` is normalized; `cloneGameState` clones the RNG; death fades tick once per sim tick; late-game upgrades score into defense; and `elapsedTicks` centralizes the tick-wrap invariant for log age, temp-node despawn, and spawn/despawn fade visuals.",
+      "Follow-up patch after a multi-agent audit of the 3.1.3 branch. Timed event modifiers compose cleanly; late-tier events and their achievements are reachable again; lone-sapper kills go through a shared worker-death helper; dying enemies no longer pressure-feed gameplay; zapper bolts revalidate both at target selection and on impact; `colonyHealth` and the field-footer stats strip normalize to `hp / maxHp` over active workers; `cloneGameState` clones the RNG; death fades tick once per sim tick; late-game upgrades score into defense; `elapsedTicks` centralizes the tick-wrap invariant for log age, temp-node despawn, and spawn/despawn fades; the AchievementsModal scroll effect no longer refires every sim tick; mobile sector card sits directly under the header; Foundry / Focused Beam / zapper UI text match the sim again; and CI now gates on `format:check`.",
     sections: [
       {
         title: "Event System",
@@ -64,6 +64,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Achievement counts unstuck in docs and the in-source comment. `ACHIEVEMENT_DEFS.length` is the source of truth (currently 71); README, handoff, and the definitions header no longer hardcode a stale figure.",
           "Handoff test inventory updated: `advanceGame.test.ts` is 138 tests (was 104 in the doc), `aiBehavior.test.ts` is 26 (was 25). Test count now 188 (was 163 at the start of the 3.1.3 branch) — added a zapper-broken-turret target-selection test paired with the fix above.",
           "Mobile sector card now sits directly under the header (`order-1` instead of `order-5`) and its layout tightened — combo, level, and XP read fit on a single row above a slim progress bar, with status badges inline. Previously the Sector Level indicator was the last element on the mobile page, forcing a full scroll to read it.",
+        ],
+      },
+      {
+        title: "Tooling",
+        items: [
+          "GitLab CI `verify` stage now runs `npm run format:check` between `typecheck` and `lint`. Paired with a one-time prettier sweep across 56 files that had drifted from the configured style, so the invariant is enforced going forward and the repo starts clean. Stale prettier state had quietly built up for several releases without any gate.",
         ],
       },
     ],
