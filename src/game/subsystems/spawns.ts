@@ -61,8 +61,7 @@ export function stepSpawns(state: GameState) {
   // 3.1.3: lerp the budget ceiling out of recovery instead of binary flipping.
   // recoveryStrength=0 → ceiling 1.3 (full pressure); strength=1 → 1.05 (eased).
   const budgetCeiling = 1.3 - derived.progression.recoveryStrength * 0.25;
-  let remainingBudget =
-    derived.progression.waveBudget * clamp(openSlots / 3, 0.7, budgetCeiling);
+  let remainingBudget = derived.progression.waveBudget * clamp(openSlots / 3, 0.7, budgetCeiling);
   let remainingSlots = openSlots;
 
   const corruptorChance = getCorruptorSpawnChance(
@@ -82,7 +81,9 @@ export function stepSpawns(state: GameState) {
 
   const combatWeights = getCombatEnemyWeights(derived.progression);
   while (remainingSlots > 0 && remainingBudget >= 0.85) {
-    const candidates = (Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor" | "blight">, number]>)
+    const candidates = (
+      Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor" | "blight">, number]>
+    )
       .filter(([kind, weight]) => weight > 0 && ENEMY_BUDGET_COST[kind] <= remainingBudget + 0.15)
       .map(([kind, weight]) => ({ item: kind, weight }));
 
@@ -98,7 +99,10 @@ export function stepSpawns(state: GameState) {
     let kind: Exclude<EnemyKind, "corruptor" | "blight"> | null = null;
     for (const entry of candidates) {
       threshold -= Math.max(0, entry.weight);
-      if (threshold <= 0) { kind = entry.item; break; }
+      if (threshold <= 0) {
+        kind = entry.item;
+        break;
+      }
     }
     if (!kind) kind = candidates[candidates.length - 1]?.item ?? null;
     if (!kind) break;
@@ -142,9 +146,7 @@ export function stepWardenSpawn(state: GameState) {
   }
 
   const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
-  const healthyWorkers = state.agents.filter(
-    (a) => a.active && !a.corrupted && a.rebootTicks === 0
-  ).length;
+  const healthyWorkers = state.agents.filter((a) => a.active && !a.corrupted && a.rebootTicks === 0).length;
   if (wardenOnField || healthyWorkers <= 1) {
     // The timer is "time since the field was fully clear and eligible", not
     // time spent waiting behind a blocker. Interruptions reset progress rather
@@ -161,5 +163,10 @@ export function stepWardenSpawn(state: GameState) {
   state.timers.warden = 0;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
   state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, "warden", state.timers.tick));
-  state.log = pushLog(state.log, "Void warden detected on perimeter. Infestation risk.", "corruption", state.timers.tick);
+  state.log = pushLog(
+    state.log,
+    "Void warden detected on perimeter. Infestation risk.",
+    "corruption",
+    state.timers.tick
+  );
 }

@@ -214,7 +214,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Accessibility & Render Perf",
         items: [
-          "Achievements modal gained a proper focus trap, Escape-to-close, `role=\"dialog\"` + `aria-modal`, `aria-labelledby`, and explicit `aria-label`s on its category and close buttons.",
+          'Achievements modal gained a proper focus trap, Escape-to-close, `role="dialog"` + `aria-modal`, `aria-labelledby`, and explicit `aria-label`s on its category and close buttons.',
           "Speed buttons now expose `aria-pressed` + `aria-label` so the active speed is announced correctly by assistive tech.",
           "`FieldSvg` is wrapped in `React.memo`, district render data no longer bakes in `game.timers.tick`, and the hexagon geometry helper was hoisted to module scope. Field interaction handlers in `App.tsx` are memoized so identity-stable props reach the memoized field.",
           "`EventChip` collapsed an old duplicated one-shot / timed branch where both arms emitted identical classes.",

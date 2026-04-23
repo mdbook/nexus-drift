@@ -5,11 +5,7 @@ export function stepWorkerSlots(state: GameState) {
   const kinds = ["miner", "runner", "drone"] as const;
   for (const kind of kinds) {
     const upgradeLevel =
-      kind === "miner"
-        ? state.upgrades.miner
-        : kind === "runner"
-          ? state.upgrades.bot
-          : state.upgrades.drill;
+      kind === "miner" ? state.upgrades.miner : kind === "runner" ? state.upgrades.bot : state.upgrades.drill;
     const slots = WORKER_SLOTS_BY_UPGRADE[kind];
     const upgradeActiveCount = slots[Math.min(upgradeLevel, slots.length - 1)];
     const levelActiveCount = WORKER_SLOTS_BY_LEVEL[Math.min(state.level, WORKER_SLOTS_BY_LEVEL.length - 1)];

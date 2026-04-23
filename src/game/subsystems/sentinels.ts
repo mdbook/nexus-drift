@@ -20,7 +20,10 @@ function pickCleanseTarget(sentinel: { x: number; y: number }, state: GameState)
     if (!agent.active || !agent.corrupted) continue;
     const d = dist(sentinel.x, sentinel.y, agent.x, agent.y);
     if (d <= WARDEN.corruptionVisionRadius || agent.spottedTicks > 0) {
-      if (d < bestDist) { bestDist = d; best = agent; }
+      if (d < bestDist) {
+        bestDist = d;
+        best = agent;
+      }
     }
   }
   return best;
@@ -57,19 +60,21 @@ function pickSentinelTarget(sentinel: { x: number; y: number }, state: GameState
     const selfDist = dist(sentinel.x, sentinel.y, enemy.x, enemy.y);
     const priorityBonus = PRIORITY_BONUS[enemy.kind] ?? 0;
     const score = nearestWorkerDist + selfDist * 0.4 - priorityBonus;
-    if (score < bestScore) { bestScore = score; best = enemy; }
+    if (score < bestScore) {
+      bestScore = score;
+      best = enemy;
+    }
   }
   return best;
 }
 
 export function stepSentinels(state: GameState) {
-  const liveCount = Math.min(
-    state.sentinels.length,
-    state.upgrades.sentinel * SENTINEL.capPerUpgrade
-  );
+  const liveCount = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
 
   // Precompute active-worker centroid for patrol placement.
-  let centroidX = 0, centroidY = 0, centroidCount = 0;
+  let centroidX = 0,
+    centroidY = 0,
+    centroidCount = 0;
   for (const agent of state.agents) {
     if (!agent.active) continue;
     centroidX += agent.x;
@@ -210,8 +215,10 @@ export function stepSentinels(state: GameState) {
         );
         addProjectile(
           state,
-          sentinel.x, sentinel.y,
-          cleanseTarget.x, cleanseTarget.y,
+          sentinel.x,
+          sentinel.y,
+          cleanseTarget.x,
+          cleanseTarget.y,
           CLEANSE_PROJECTILE_COLOR,
           SENTINEL.projectileWidth,
           SENTINEL.projectileLife
@@ -294,9 +301,7 @@ export function stepSentinels(state: GameState) {
       if (distTarget <= SENTINEL.rangeBase && sentinel.cooldown <= 0) {
         const damage = SENTINEL.damageBase + state.upgrades.sentinel * SENTINEL.damagePerSentinel;
         const effectiveHpAfter =
-          target.shield !== undefined && target.shield > 0
-            ? target.hp
-            : target.hp - damage;
+          target.shield !== undefined && target.shield > 0 ? target.hp : target.hp - damage;
         if (effectiveHpAfter <= 0) {
           state.stats.sentinelKills += 1;
         }
@@ -328,13 +333,8 @@ export function stepSentinels(state: GameState) {
         ? SENTINEL.patrolY * (1 - SENTINEL_AI.workerCentroidPatrolWeight) +
           centroidY * SENTINEL_AI.workerCentroidPatrolWeight
         : SENTINEL.patrolY;
-    const patrolBaseX =
-      centroidCount > 0
-        ? sentinel.homeX * 0.4 + centroidX * 0.6
-        : sentinel.homeX;
-    sentinel.tx =
-      patrolBaseX +
-      Math.cos((state.timers.tick + sentinel.id * 31) / 28) * SENTINEL.patrolRadius;
+    const patrolBaseX = centroidCount > 0 ? sentinel.homeX * 0.4 + centroidX * 0.6 : sentinel.homeX;
+    sentinel.tx = patrolBaseX + Math.cos((state.timers.tick + sentinel.id * 31) / 28) * SENTINEL.patrolRadius;
     sentinel.ty = patrolBaseY + Math.sin((state.timers.tick + sentinel.id * 23) / 32) * 30;
     const dx = sentinel.tx - sentinel.x;
     const dy = sentinel.ty - sentinel.y;

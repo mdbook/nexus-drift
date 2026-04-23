@@ -86,11 +86,6 @@ export function stepMissileSilos(state: GameState) {
     });
 
     silo.cooldown = MISSILE_SILO.fireIntervalTicks;
-    state.log = pushLog(
-      state.log,
-      "Missile silo: long-range strike on target.",
-      "combat",
-      state.timers.tick
-    );
+    state.log = pushLog(state.log, "Missile silo: long-range strike on target.", "combat", state.timers.tick);
   }
 }

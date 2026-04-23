@@ -351,7 +351,7 @@ export type Projectile = {
   steering?: number;
   /** Damage to apply on impact for turret-missile. */
   damage?: number;
-  };
+};
 
 export type Stats = {
   mined: number;

@@ -51,7 +51,7 @@ function agentVariance(id: number): { speedMod: number; fearMod: number; harvest
   const u3 = (harvestSeed >>> 0) / 0xffffffff;
   return {
     speedMod: 1 + (u1 * 2 - 1) * 0.12,
-    fearMod: 1 + (u2 * 2 - 1) * 0.20,
+    fearMod: 1 + (u2 * 2 - 1) * 0.2,
     harvestBias: (u3 * 2 - 1) * 0.15,
   };
 }
@@ -63,7 +63,14 @@ function rollBigEventInterval(rng: Rng) {
   return Math.floor(BIG_EVENT_TICK_MIN + rng.next() * (BIG_EVENT_TICK_MAX - BIG_EVENT_TICK_MIN));
 }
 
-export function makeNode(rng: Rng, id: number, x: number, y: number, size: number, currentTick = 0): ResourceNode {
+export function makeNode(
+  rng: Rng,
+  id: number,
+  x: number,
+  y: number,
+  size: number,
+  currentTick = 0
+): ResourceNode {
   const hp = rng.range(25, 80);
   return {
     id,
@@ -85,7 +92,10 @@ export function makeNode(rng: Rng, id: number, x: number, y: number, size: numbe
 export function respawnNode(rng: Rng, id: number, existing: ResourceNode[], currentTick = 0): ResourceNode {
   const GAP = 12;
   const MAX_ATTEMPTS = 60;
-  let x = 0, y = 0, size = 0, attempts = 0;
+  let x = 0,
+    y = 0,
+    size = 0,
+    attempts = 0;
 
   do {
     size = rng.range(18, 48);
@@ -106,7 +116,9 @@ export function makeNodes(rng: Rng) {
   const placed: ResourceNode[] = [];
 
   for (let index = 0; index < 14; index++) {
-    let x = 0, y = 0, size = 0;
+    let x = 0,
+      y = 0,
+      size = 0;
     let attempts = 0;
 
     do {
@@ -114,10 +126,7 @@ export function makeNodes(rng: Rng) {
       x = rng.range(80, WORLD_W - 80);
       y = rng.range(100, WORLD_H - 170);
       attempts++;
-    } while (
-      attempts < MAX_ATTEMPTS &&
-      placed.some((n) => dist(x, y, n.x, n.y) < size + n.size + GAP)
-    );
+    } while (attempts < MAX_ATTEMPTS && placed.some((n) => dist(x, y, n.x, n.y) < size + n.size + GAP));
 
     placed.push(makeNode(rng, index, x, y, size));
   }
@@ -191,23 +200,52 @@ const TURRET_HP_DEFAULT = TURRET_HP.hpBase;
 export function makeTurrets(): Turret[] {
   const hp = TURRET_HP_DEFAULT;
   return [
-    { id: 1, x: 220, y: 540, range: 135, cooldown: 0, angle: -1.2, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
-    { id: 2, x: 500, y: 540, range: 135, cooldown: 0, angle: -1.57, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
-    { id: 3, x: 790, y: 540, range: 135, cooldown: 0, angle: -1.9, disabledTicks: 0, hp, maxHp: hp, damageTicks: 0, brokenTicks: 0 },
+    {
+      id: 1,
+      x: 220,
+      y: 540,
+      range: 135,
+      cooldown: 0,
+      angle: -1.2,
+      disabledTicks: 0,
+      hp,
+      maxHp: hp,
+      damageTicks: 0,
+      brokenTicks: 0,
+    },
+    {
+      id: 2,
+      x: 500,
+      y: 540,
+      range: 135,
+      cooldown: 0,
+      angle: -1.57,
+      disabledTicks: 0,
+      hp,
+      maxHp: hp,
+      damageTicks: 0,
+      brokenTicks: 0,
+    },
+    {
+      id: 3,
+      x: 790,
+      y: 540,
+      range: 135,
+      cooldown: 0,
+      angle: -1.9,
+      disabledTicks: 0,
+      hp,
+      maxHp: hp,
+      damageTicks: 0,
+      brokenTicks: 0,
+    },
   ];
 }
 
 /** Initial scout HP — baseline from balance.SCOUT_HP.hpBase. */
 const SCOUT_HP_DEFAULT = SCOUT_HP.hpBase;
 
-function makeScout(
-  id: number,
-  x: number,
-  y: number,
-  speed: number,
-  angle: number,
-  pulse: number,
-): Scout {
+function makeScout(id: number, x: number, y: number, speed: number, angle: number, pulse: number): Scout {
   return {
     id,
     x,
@@ -306,7 +344,13 @@ export function makeCityState(): CityState {
   };
 }
 
-export function spawnEnemy(rng: Rng, id: number, wave = 0, forcedKind: EnemyKind | null = null, currentTick = 0): Enemy {
+export function spawnEnemy(
+  rng: Rng,
+  id: number,
+  wave = 0,
+  forcedKind: EnemyKind | null = null,
+  currentTick = 0
+): Enemy {
   const side = rng.next() < 0.5 ? "left" : "right";
   const x = side === "left" ? -30 : WORLD_W + 30;
   const y = rng.range(120, WORLD_H - 100);
@@ -513,9 +557,7 @@ type SerializedGameState = Partial<GameState> & {
 
 export function migrateGameState(raw: SerializedGameState): GameState {
   // v1 saves have no schemaVersion field; all fields are merged defensively below.
-  const base = createInitialGameState(
-    typeof raw.citySeed === "number" ? raw.citySeed : Date.now()
-  );
+  const base = createInitialGameState(typeof raw.citySeed === "number" ? raw.citySeed : Date.now());
   const rawRngState =
     typeof (raw as { rng?: { state?: number } }).rng?.state === "number"
       ? (raw as { rng?: { state?: number } }).rng?.state
@@ -541,10 +583,18 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       corruptedWorkerOutbreakTicks: raw.stats?.corruptedWorkerOutbreakTicks ?? 0,
       turretsBroken: raw.stats?.turretsBroken ?? 0,
       eventsExperienced: Array.isArray(raw.stats?.eventsExperienced)
-        ? [...new Set(raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string"))]
+        ? [
+            ...new Set(
+              raw.stats.eventsExperienced.filter((value): value is string => typeof value === "string")
+            ),
+          ]
         : base.stats.eventsExperienced,
       eventTagsInspected: Array.isArray(raw.stats?.eventTagsInspected)
-        ? [...new Set(raw.stats.eventTagsInspected.filter((value): value is string => typeof value === "string"))]
+        ? [
+            ...new Set(
+              raw.stats.eventTagsInspected.filter((value): value is string => typeof value === "string")
+            ),
+          ]
         : base.stats.eventTagsInspected,
       touristClicks: raw.stats?.touristClicks ?? 0,
       touristPassesClicked: raw.stats?.touristPassesClicked ?? 0,
@@ -589,7 +639,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       ? raw.log.map((entry) =>
           typeof entry === "string"
             ? ({ tick: 0, category: "system" as const, message: entry } satisfies LogEntry)
-            : ({ tick: entry.tick ?? 0, category: entry.category ?? "ambient", message: entry.message ?? "" } satisfies LogEntry)
+            : ({
+                tick: entry.tick ?? 0,
+                category: entry.category ?? "ambient",
+                message: entry.message ?? "",
+              } satisfies LogEntry)
         )
       : base.log,
     nodes: Array.isArray(raw.nodes)

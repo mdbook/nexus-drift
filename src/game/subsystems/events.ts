@@ -68,7 +68,12 @@ export function stepEvents(state: GameState) {
     const eventDef = EVENT_DEFS.find((def) => def.id === active.id);
     if (active.revertOnExpire) {
       eventDef?.revert(state);
-      state.log = pushLog(state.log, `${eventDef?.label ?? active.id} has ended.`, "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        `${eventDef?.label ?? active.id} has ended.`,
+        "event",
+        state.timers.tick
+      );
     }
     state.activeEvents = state.activeEvents.filter((event) => event.id !== active.id);
   }
@@ -101,7 +106,9 @@ export function stepEvents(state: GameState) {
   // rolls because `tier` capped out before either minTier could be met,
   // which also silently blocked the `all_events` and `field_report`
   // achievements. Mirrors the phantom/zapper enemy-weight fix in progression.ts.
-  const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.rawTier && !activeIds.has(def.id));
+  const eligible = EVENT_DEFS.filter(
+    (def) => def.minTier <= derived.progression.rawTier && !activeIds.has(def.id)
+  );
   if (!eligible.length) return;
 
   const isNight = getNightFactor(state.stats.runtimeMs) < 0.5;

@@ -168,7 +168,12 @@ export const EVENT_DEFS: EventDef[] = [
         enemy.goldRewardBonus = 2;
         state.enemies.push(enemy);
       }
-      state.log = pushLog(state.log, "Pirate caravan inbound - raiders carrying bonus loot.", "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        "Pirate caravan inbound - raiders carrying bonus loot.",
+        "event",
+        state.timers.tick
+      );
     },
     revert: () => {},
   },
@@ -231,14 +236,20 @@ export const EVENT_DEFS: EventDef[] = [
       elite.maxHp = elite.hp;
       elite.coreDropOverride = 5;
       state.enemies.push(elite);
-      state.log = pushLog(state.log, "Echo Signal: elite signature detected on approach.", "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        "Echo Signal: elite signature detected on approach.",
+        "event",
+        state.timers.tick
+      );
     },
     revert: () => {},
   },
   {
     id: "core_breach",
     label: "Core Breach",
-    description: "Reactor containment destabilised — energy output halved, corruption spreads faster for 60s.",
+    description:
+      "Reactor containment destabilised — energy output halved, corruption spreads faster for 60s.",
     flavor: "Reactor containment shivers. The grid drinks deep but the rot follows.",
     tone: "threat",
     effects: [
@@ -317,7 +328,12 @@ export const EVENT_DEFS: EventDef[] = [
     modifierContributions: { yieldMultiplier: 2, energyRate: 1.5 },
     apply: (state) => {
       spawnTemporaryCacheNode(state);
-      state.log = pushLog(state.log, "Starcall: ancient signal detected — yields surging.", "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        "Starcall: ancient signal detected — yields surging.",
+        "event",
+        state.timers.tick
+      );
     },
     revert: () => {},
   },
@@ -341,7 +357,12 @@ export const EVENT_DEFS: EventDef[] = [
     apply: (state) => {
       const activeTurret = state.turrets.find((t) => t.disabledTicks === 0);
       if (activeTurret) activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
-      state.log = pushLog(state.log, "Null Surge: targeting blackout — one turret disabled.", "event", state.timers.tick);
+      state.log = pushLog(
+        state.log,
+        "Null Surge: targeting blackout — one turret disabled.",
+        "event",
+        state.timers.tick
+      );
     },
     revert: () => {},
   },
@@ -361,7 +382,12 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
   eventDef.apply(state);
 
   if (announce) {
-    state.log = pushLog(state.log, `Event: ${eventDef.label} - ${eventDef.description}`, "event", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Event: ${eventDef.label} - ${eventDef.description}`,
+      "event",
+      state.timers.tick
+    );
   }
 
   if (eventDef.hudDurationTicks > 0) {

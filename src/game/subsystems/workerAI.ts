@@ -8,9 +8,11 @@ import { clamp, dist } from "@/game/utils";
 export function wallPenalty(x: number, y: number): number {
   let penalty = 0;
   if (x < AI_THREAT.cornerWallBuffer) penalty += (AI_THREAT.cornerWallBuffer - x) * 0.002;
-  if (x > WORLD_W - AI_THREAT.cornerWallBuffer) penalty += (x - (WORLD_W - AI_THREAT.cornerWallBuffer)) * 0.002;
+  if (x > WORLD_W - AI_THREAT.cornerWallBuffer)
+    penalty += (x - (WORLD_W - AI_THREAT.cornerWallBuffer)) * 0.002;
   if (y < 50 + AI_THREAT.cornerWallBuffer) penalty += (50 + AI_THREAT.cornerWallBuffer - y) * 0.002;
-  if (y > WORLD_H - AI_THREAT.cornerWallBuffer) penalty += (y - (WORLD_H - AI_THREAT.cornerWallBuffer)) * 0.002;
+  if (y > WORLD_H - AI_THREAT.cornerWallBuffer)
+    penalty += (y - (WORLD_H - AI_THREAT.cornerWallBuffer)) * 0.002;
   return penalty;
 }
 
@@ -19,23 +21,26 @@ export function wallPenalty(x: number, y: number): number {
  * regroup target for panicked workers and the patrol anchor for sentinels.
  */
 export function computeRegroupCentroid(agents: Agent[]): { x: number; y: number; count: number } {
-  let x = 0, y = 0, count = 0;
+  let x = 0,
+    y = 0,
+    count = 0;
   for (const agent of agents) {
     if (!agent.active || agent.evadeTicks > 0 || agent.disabledTicks > 0) continue;
     x += agent.x;
     y += agent.y;
     count += 1;
   }
-  if (count > 0) { x /= count; y /= count; }
+  if (count > 0) {
+    x /= count;
+    y /= count;
+  }
   return { x, y, count };
 }
 
 /** EMA update of threat-field sample at the worker's position. */
 export function updateThreatMemory(agent: Agent, enemies: Enemy[]): void {
   const local = threatAt(agent.x, agent.y, enemies);
-  agent.threatMemory =
-    agent.threatMemory * WORKER_AI.threatMemoryDecay +
-    local * WORKER_AI.threatMemoryGain;
+  agent.threatMemory = agent.threatMemory * WORKER_AI.threatMemoryDecay + local * WORKER_AI.threatMemoryGain;
 }
 
 /**
@@ -67,7 +72,10 @@ export function resolveAntiCornerEvasion(
     const cx = agent.x + Math.cos(a) * agent.speed * lookahead;
     const cy = agent.y + Math.sin(a) * agent.speed * lookahead;
     const cost = threatAt(cx, cy, enemies) + wallPenalty(cx, cy);
-    if (cost < bestCost) { bestCost = cost; bestAngle = a; }
+    if (cost < bestCost) {
+      bestCost = cost;
+      bestAngle = a;
+    }
   }
   return { x: Math.cos(bestAngle), y: Math.sin(bestAngle) };
 }
@@ -103,11 +111,17 @@ export function computeAndApplyGroupDispersal(agents: Agent[]): void {
     const agent = agents[i];
     if (!agent.active || agent.evadeTicks > 0) continue;
     const personality = WORKER_PERSONALITY[agent.kind];
-    let pcx = 0, pcy = 0, count = 0;
+    let pcx = 0,
+      pcy = 0,
+      count = 0;
     for (const other of agents) {
       if (!other.active || other.id === agent.id || other.kind !== agent.kind) continue;
       const d = dist(agent.x, agent.y, other.x, other.y);
-      if (d < personality.groupRepelRadius) { pcx += other.x; pcy += other.y; count += 1; }
+      if (d < personality.groupRepelRadius) {
+        pcx += other.x;
+        pcy += other.y;
+        count += 1;
+      }
     }
     if (count >= personality.groupRepelMinCount) {
       pcx /= count;

@@ -12,6 +12,7 @@ verify:
   script:
     - npm ci
     - npm run typecheck
+    - npm run format:check
     - npm run lint
     - npm test
   rules:

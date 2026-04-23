@@ -34,10 +34,7 @@ export default tseslint.config(
 
       // Disable base rule in favour of TS-aware version
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
 
       // Downgrade / disable noisy TS rules
       "@typescript-eslint/no-explicit-any": "error",

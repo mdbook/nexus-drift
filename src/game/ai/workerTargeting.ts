@@ -75,7 +75,10 @@ function scoreWorkerNode(
   // Contested penalty + evading-worker penalty (a node attracting panic is bad).
   // Quadratic contested penalty — a second worker on the same node is fine,
   // but a third is a strong deterrent so workers spread across nodes.
-  const { count: contested, evading: evadingContested } = contestedMap.get(node.id) ?? { count: 0, evading: 0 };
+  const { count: contested, evading: evadingContested } = contestedMap.get(node.id) ?? {
+    count: 0,
+    evading: 0,
+  };
   score += contested * 90 + contested * contested * 55 + evadingContested * WORKER_AI.evadingContestedPenalty;
 
   // Corruption. Miners tolerate; others hard-avoid above threshold.
@@ -92,7 +95,8 @@ function scoreWorkerNode(
   // Per-agent fearMod further multiplies the penalty: >1 = more cautious, <1 = braver.
   if (enemies.length > 0) {
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
-    score += pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale * agent.fearMod;
+    score +=
+      pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale * agent.fearMod;
 
     const nodeThreats = countThreats(node.x, node.y, WORKER_AI.nodeThreatRadius, enemies);
     score +=
@@ -118,7 +122,7 @@ function scoreWorkerNode(
   }
 
   // Deterministic jitter to break ties.
-  score += ((agent.id * 41 + node.id * 17) % 20);
+  score += (agent.id * 41 + node.id * 17) % 20;
   return score;
 }
 
@@ -136,7 +140,14 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   const ranked = state.nodes
     .map((node) => ({
       id: node.id,
-      score: scoreWorkerNode(agent, node, liveEnemies, contestedMap, node.id === agent.target, droneCoveredNodes),
+      score: scoreWorkerNode(
+        agent,
+        node,
+        liveEnemies,
+        contestedMap,
+        node.id === agent.target,
+        droneCoveredNodes
+      ),
     }))
     .sort((a, b) => a.score - b.score);
 
@@ -178,9 +189,8 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
     const lateral = Math.abs(dx * dirY - dy * dirX);
     if (lateral > WORKER_AI.fleeTargetLateralLimit) continue;
 
-    const pathThreat = liveEnemies.length > 0
-      ? threatAlongPath(agent.x, agent.y, node.x, node.y, liveEnemies)
-      : 0;
+    const pathThreat =
+      liveEnemies.length > 0 ? threatAlongPath(agent.x, agent.y, node.x, node.y, liveEnemies) : 0;
     if (pathThreat > WORKER_AI.fleeTargetMaxPathThreat) continue;
 
     const current = node.id === agent.target;

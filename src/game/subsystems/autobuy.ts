@@ -3,7 +3,13 @@ import { ECONOMY, FLUX, PRESTIGE } from "@/game/balance";
 import { getUpgradeDef, upgradeDefs } from "@/game/data";
 import { computeDerived } from "@/game/selectors";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import { canAffordUpgrade, deductUpgradeCost, getUpgradeCostTotal, nextUpgradeCost, pushLog } from "@/game/utils";
+import {
+  canAffordUpgrade,
+  deductUpgradeCost,
+  getUpgradeCostTotal,
+  nextUpgradeCost,
+  pushLog,
+} from "@/game/utils";
 
 type EmergencyUpgradeChoice = { key: UpgradeKey; reason: string };
 
@@ -60,7 +66,10 @@ export function getAutobuyWeight(state: GameState, derived: DerivedState, key: U
   return weight;
 }
 
-export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedState): EmergencyUpgradeChoice | null {
+export function getEmergencyUpgradeChoice(
+  state: GameState,
+  derived: DerivedState
+): EmergencyUpgradeChoice | null {
   const canAfford = (key: UpgradeKey) =>
     canAffordUpgrade(state.resources, nextUpgradeCost(getUpgradeDef(key), state.upgrades[key]));
 
@@ -102,7 +111,7 @@ export function getEmergencyUpgradeChoice(state: GameState, derived: DerivedStat
     state.upgrades.shield < Math.max(1, Math.ceil(derived.progression.tier / 3)) &&
     canAfford("shield")
   ) {
-      return { key: "shield", reason: "worker attrition" };
+    return { key: "shield", reason: "worker attrition" };
   }
 
   if (derived.progression.tier >= 3 && state.upgrades.foundry === 0 && canAfford("foundry")) {
@@ -166,8 +175,14 @@ export function stepAutobuy(state: GameState) {
       const smartGate =
         (def.key !== "bot" || state.upgrades.drill >= 2) &&
         (def.key !== "shield" || state.upgrades.turret >= 1 || derived.progression.tier >= 3) &&
-        (def.key !== "turret" || state.upgrades.reactor >= 1 || state.level >= 3 || derived.progression.tier >= 2) &&
-        (def.key !== "scout" || state.upgrades.reactor >= 1 || state.level >= 4 || derived.progression.tier >= 3) &&
+        (def.key !== "turret" ||
+          state.upgrades.reactor >= 1 ||
+          state.level >= 3 ||
+          derived.progression.tier >= 2) &&
+        (def.key !== "scout" ||
+          state.upgrades.reactor >= 1 ||
+          state.level >= 4 ||
+          derived.progression.tier >= 3) &&
         (def.key !== "arsenal" || state.upgrades.scout >= 1) &&
         (def.key !== "sentinel" || state.stats.brutesKilled > 0) &&
         (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length) &&
@@ -188,7 +203,12 @@ export function stepAutobuy(state: GameState) {
     deductUpgradeCost(state.resources, chosen.cost);
     state.upgrades[chosen.def.key] += 1;
     state.stats.spent += getUpgradeCostTotal(chosen.cost);
-    state.log = pushLog(state.log, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`, "upgrade", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`,
+      "upgrade",
+      state.timers.tick
+    );
     return;
   }
 

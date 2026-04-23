@@ -145,7 +145,7 @@ Enemy variety by tier (from `PROGRESSION.combatWeights` in `balance.ts`): wisps 
 **3.1.3 — Spawn director pacing.** Two structural changes to `computeProgressionDirector` in `progression.ts`:
 
 - **Defensive interval drag eased.** `intervalPerTurret` 4 → 1.5 and `intervalPerScout` 3 → 1.0 — a healthy turret line no longer starves the field. Pressure now lifts as defences come online instead of cratering.
-- **Field-fill feedback on the interval.** A new `fillRatio = liveEnemyCount / enemyCap` drives a 1×–1.85× `fillFactor` that multiplies the *clamped* spawn interval (so a truly full field can stretch cadence past `intervalMax` without erasing the recovery vs nominal delta). Decays smoothly back as kills clear the field.
+- **Field-fill feedback on the interval.** A new `fillRatio = liveEnemyCount / enemyCap` drives a 1×–1.85× `fillFactor` that multiplies the _clamped_ spawn interval (so a truly full field can stretch cadence past `intervalMax` without erasing the recovery vs nominal delta). Decays smoothly back as kills clear the field.
 - **Recovery is now a 0..1 strength, not a binary.** `ProgressionDirector.recoveryStrength` lerps the wave-budget ceiling from 1.3 → 1.05 in `spawns.ts`. Boolean `recoveryMode` is preserved (threshold 0.4) for log prefixes and the early-break gate at `spawns.ts:102`.
 
 **Archetypes** (2.4.0+). Every enemy carries an `archetype` field derived from `ENEMY_ARCHETYPE` in `balance.ts`, plus a `squadId` bucketed by `spawnTick / ENEMY_AI.squadBucketTicks` used for emergent group flanking. Target selection in `targeting.ts` (`pickEnemyTarget`) is archetype-aware:

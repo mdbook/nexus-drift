@@ -29,7 +29,7 @@ function makeParticles(count: number, seed: number): Particle[] {
       y: (r2 - Math.floor(r2)) * 100,
       delay: (r3 - Math.floor(r3)) * 4,
       duration: 3 + (r4 - Math.floor(r4)) * 5,
-      size: 1 + ((r1 - Math.floor(r1)) * 3),
+      size: 1 + (r1 - Math.floor(r1)) * 3,
     });
   }
   return out;
@@ -43,10 +43,7 @@ function makeParticles(count: number, seed: number): Particle[] {
 export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Props) {
   const prefersReducedMotion = useReducedMotion();
   const lowFxMode = useLowFxMode();
-  const activeIds = useMemo(
-    () => new Set(activeEventKey.split("|").filter(Boolean)),
-    [activeEventKey]
-  );
+  const activeIds = useMemo(() => new Set(activeEventKey.split("|").filter(Boolean)), [activeEventKey]);
   const motionEnabled = !prefersReducedMotion && !lowFxMode;
 
   const meteorParticles = useMemo(() => makeParticles(22, 7), []);
@@ -73,7 +70,9 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
         {activeIds.has("pirate_caravan") && (
           <div
             className="absolute inset-0"
-            style={{ background: "radial-gradient(ellipse at center, transparent 45%, rgba(220,38,38,0.18) 100%)" }}
+            style={{
+              background: "radial-gradient(ellipse at center, transparent 45%, rgba(220,38,38,0.18) 100%)",
+            }}
           />
         )}
         {activeIds.has("xeno_bloom") && (
@@ -95,7 +94,9 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
         {activeIds.has("hunter_pack") && (
           <div
             className="absolute inset-0"
-            style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(239,68,68,0.14) 100%)" }}
+            style={{
+              background: "radial-gradient(ellipse at center, transparent 50%, rgba(239,68,68,0.14) 100%)",
+            }}
           />
         )}
         {activeIds.has("signal_drought") && (
@@ -168,16 +169,8 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
           />
           <motion.div
             className="absolute -top-40 left-1/2 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-yellow-300/20 blur-3xl"
-            animate={
-              motionEnabled
-                ? { scale: [1, 1.25, 1], opacity: [0.55, 0.85, 0.55] }
-                : undefined
-            }
-            transition={
-              motionEnabled
-                ? { duration: 4.5, repeat: Infinity, ease: "easeInOut" }
-                : undefined
-            }
+            animate={motionEnabled ? { scale: [1, 1.25, 1], opacity: [0.55, 0.85, 0.55] } : undefined}
+            transition={motionEnabled ? { duration: 4.5, repeat: Infinity, ease: "easeInOut" } : undefined}
           />
           {motionEnabled && (
             <motion.div
@@ -194,15 +187,9 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-emerald-400/[0.06] via-transparent to-transparent"
           initial={{ opacity: 0 }}
-          animate={
-            motionEnabled
-              ? { opacity: [0.25, 0.6, 0.25] }
-              : { opacity: 0.6 }
-          }
+          animate={motionEnabled ? { opacity: [0.25, 0.6, 0.25] } : { opacity: 0.6 }}
           transition={
-            motionEnabled
-              ? { duration: 5, repeat: Infinity, ease: "easeInOut" }
-              : { duration: 0.8 }
+            motionEnabled ? { duration: 5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.8 }
           }
         />
       )}
@@ -213,17 +200,10 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
           <motion.div
             className="absolute inset-0"
             style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 45%, rgba(220,38,38,0.18) 100%)",
+              background: "radial-gradient(ellipse at center, transparent 45%, rgba(220,38,38,0.18) 100%)",
             }}
-            animate={
-              motionEnabled ? { opacity: [0.55, 0.9, 0.55] } : undefined
-            }
-            transition={
-              motionEnabled
-                ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
-                : undefined
-            }
+            animate={motionEnabled ? { opacity: [0.55, 0.9, 0.55] } : undefined}
+            transition={motionEnabled ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : undefined}
           />
           {motionEnabled &&
             pirateStreaks.map((p) => (
@@ -255,29 +235,13 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
           />
           <motion.div
             className="absolute -bottom-32 left-1/4 h-[420px] w-[420px] rounded-full bg-fuchsia-500/15 blur-3xl"
-            animate={
-              motionEnabled
-                ? { x: [0, 60, 0], scale: [1, 1.15, 1] }
-                : undefined
-            }
-            transition={
-              motionEnabled
-                ? { duration: 8, repeat: Infinity, ease: "easeInOut" }
-                : undefined
-            }
+            animate={motionEnabled ? { x: [0, 60, 0], scale: [1, 1.15, 1] } : undefined}
+            transition={motionEnabled ? { duration: 8, repeat: Infinity, ease: "easeInOut" } : undefined}
           />
           <motion.div
             className="absolute -bottom-20 right-1/4 h-[360px] w-[360px] rounded-full bg-purple-500/12 blur-3xl"
-            animate={
-              motionEnabled
-                ? { x: [0, -50, 0], scale: [1, 1.1, 1] }
-                : undefined
-            }
-            transition={
-              motionEnabled
-                ? { duration: 10, repeat: Infinity, ease: "easeInOut" }
-                : undefined
-            }
+            animate={motionEnabled ? { x: [0, -50, 0], scale: [1, 1.1, 1] } : undefined}
+            transition={motionEnabled ? { duration: 10, repeat: Infinity, ease: "easeInOut" } : undefined}
           />
           {motionEnabled &&
             xenoSpores.map((p) => (
@@ -363,7 +327,9 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
           />
           <motion.div
             className="absolute -bottom-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-red-700/20 blur-3xl"
-            animate={motionEnabled ? { scale: [1, 1.18, 0.92, 1], opacity: [0.5, 0.8, 0.45, 0.5] } : undefined}
+            animate={
+              motionEnabled ? { scale: [1, 1.18, 0.92, 1], opacity: [0.5, 0.8, 0.45, 0.5] } : undefined
+            }
             transition={motionEnabled ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" } : undefined}
           />
           {motionEnabled && (
@@ -381,7 +347,9 @@ export const EventBackdrop = memo(function EventBackdrop({ activeEventKey }: Pro
         <div className="absolute inset-0">
           <motion.div
             className="absolute inset-0"
-            style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(239,68,68,0.14) 100%)" }}
+            style={{
+              background: "radial-gradient(ellipse at center, transparent 50%, rgba(239,68,68,0.14) 100%)",
+            }}
             animate={motionEnabled ? { opacity: [0.6, 1, 0.6] } : undefined}
             transition={motionEnabled ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" } : undefined}
           />

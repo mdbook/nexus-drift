@@ -175,7 +175,12 @@ export function killWorker(state: GameState, agent: Agent) {
   agent.disabledTicks = 0;
   agent.target = null;
   agent.task = "Rebooting";
-  state.log = pushLog(state.log, `${agent.kind} drone lost. Rebooting from backup.`, "combat", state.timers.tick);
+  state.log = pushLog(
+    state.log,
+    `${agent.kind} drone lost. Rebooting from backup.`,
+    "combat",
+    state.timers.tick
+  );
 }
 
 /**
@@ -295,11 +300,20 @@ export function resolveEnemyDeaths(state: GameState) {
       state.timers.tick
     );
   } else if (purged > 0) {
-    state.log = pushLog(state.log, `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`, "combat", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`,
+      "combat",
+      state.timers.tick
+    );
   } else {
-    state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`, "combat", state.timers.tick);
+    state.log = pushLog(
+      state.log,
+      `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`,
+      "combat",
+      state.timers.tick
+    );
   }
-
 }
 
 /**
@@ -321,7 +335,10 @@ export function stepZapperFire(state: GameState) {
   for (const enemy of state.enemies) {
     if (enemy.kind !== "zapper" || enemy.hp <= 0) continue;
     if (enemy.fireCooldown === undefined) enemy.fireCooldown = 0;
-    if (enemy.fireCooldown > 0) { enemy.fireCooldown -= 1; continue; }
+    if (enemy.fireCooldown > 0) {
+      enemy.fireCooldown -= 1;
+      continue;
+    }
 
     // Find the nearest eligible target. The zapper is a disruptor — any
     // friendly entity with a disabledTicks field is fair game: workers,
@@ -385,8 +402,10 @@ export function stepZapperFire(state: GameState) {
 
     addProjectile(
       state,
-      enemy.x, enemy.y,
-      bestX, bestY,
+      enemy.x,
+      enemy.y,
+      bestX,
+      bestY,
       ZAPPER.boltColor,
       ZAPPER.boltWidth,
       ZAPPER.boltLifeTicks,
@@ -470,18 +489,24 @@ export function stepCombat(state: GameState) {
 
     const rawIncoming = attackers.reduce((sum, enemy) => sum + ENEMY_CONTACT_DAMAGE[enemy.kind], 0);
     const mitigation = attackers.reduce((sum, enemy) => {
-      const baseline = state.upgrades.shield * COMBAT.mitigation.baselineShield + state.upgrades.turret * COMBAT.mitigation.baselineTurret;
+      const baseline =
+        state.upgrades.shield * COMBAT.mitigation.baselineShield +
+        state.upgrades.turret * COMBAT.mitigation.baselineTurret;
       const counterMitigation =
         enemy.kind === "mite"
           ? state.upgrades.shield * COMBAT.mitigation.miteShield
           : enemy.kind === "wisp"
-            ? state.upgrades.turret * COMBAT.mitigation.wispTurret + state.upgrades.shield * COMBAT.mitigation.wispShield
-            : state.upgrades.reactor * COMBAT.mitigation.raiderReactor + state.upgrades.shield * COMBAT.mitigation.raiderShield;
+            ? state.upgrades.turret * COMBAT.mitigation.wispTurret +
+              state.upgrades.shield * COMBAT.mitigation.wispShield
+            : state.upgrades.reactor * COMBAT.mitigation.raiderReactor +
+              state.upgrades.shield * COMBAT.mitigation.raiderShield;
 
       return sum + baseline + counterMitigation;
     }, 0);
     const surroundBonus = Math.max(0, attackers.length - 1) * COMBAT.surroundBonusPerAttacker;
-    const incoming = Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation) * (1 + surroundBonus);
+    const incoming =
+      Math.max(attackers.length * COMBAT.minPerAttackerDamage, rawIncoming - mitigation) *
+      (1 + surroundBonus);
     const blocked = Math.max(0, rawIncoming - incoming);
     state.stats.blocked += blocked;
 
@@ -507,7 +532,8 @@ export function stepCombat(state: GameState) {
     // corrupted workers cannot defend themselves against anything but sentinels).
     const isRecovering = nextHp < agent.maxHp * WORKER.recoveryHpThreshold;
     if (!isRecovering && agent.disabledTicks === 0 && !agent.corrupted) {
-      const retDamage = WORKER_ABILITIES.retaliateBase + state.upgrades.bot * WORKER_ABILITIES.retaliatePerBot;
+      const retDamage =
+        WORKER_ABILITIES.retaliateBase + state.upgrades.bot * WORKER_ABILITIES.retaliatePerBot;
       for (const attacker of attackers) {
         damageEnemy(attacker, retDamage);
       }

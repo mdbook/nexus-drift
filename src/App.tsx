@@ -683,11 +683,7 @@ export default function App() {
             )}
 
             <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
-              <FieldSvg
-                game={game}
-                derived={derived}
-                interactions={fieldInteractions}
-              />
+              <FieldSvg game={game} derived={derived} interactions={fieldInteractions} />
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
