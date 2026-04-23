@@ -2706,3 +2706,24 @@ describe("event modifier composition", () => {
     expect(derived.progression.tier).toBeLessThanOrEqual(5);
   });
 });
+
+describe("selectors ignore dying enemies (3.1.3 audit)", () => {
+  it("enemyCounts, combatThreats, and corruptorCount skip hp=0 corpses", () => {
+    const state = createInitialGameState(1);
+    const live = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    const dying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider");
+    dying.hp = 0;
+    dying.dyingTicks = 30;
+    const corrLive = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    const corrDying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "corruptor");
+    corrDying.hp = 0;
+    corrDying.dyingTicks = 30;
+    state.enemies.push(live, dying, corrLive, corrDying);
+
+    const derived = computeDerived(state);
+    expect(derived.enemyCounts.raider).toBe(1);
+    expect(derived.enemyCounts.corruptor).toBe(1);
+    expect(derived.combatThreats).toBe(1);
+    expect(derived.corruptorCount).toBe(1);
+  });
+});

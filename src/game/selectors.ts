@@ -29,12 +29,18 @@ export function computeDerived(state: GameState): DerivedState {
   };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 
+  // 3.1.3 audit follow-up: dying enemies (hp<=0 but still in the array during
+  // the death-fade visual window) must not pressure-feed selectors. They're
+  // invisible to combat/targeting/movement already — count/threat selectors
+  // now match that invariant so threat scoring, event backdrop, and economy
+  // penalties don't double-count corpses.
   state.enemies.forEach((enemy) => {
+    if (enemy.hp <= 0) return;
     enemyCounts[enemy.kind] += 1;
   });
 
-  const combatThreats = state.enemies.filter((enemy) => enemy.role === "combat").length;
-  const corruptorCount = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
+  const combatThreats = state.enemies.filter((enemy) => enemy.hp > 0 && enemy.role === "combat").length;
+  const corruptorCount = state.enemies.filter((enemy) => enemy.hp > 0 && enemy.role === "corruptor").length;
 
   state.nodes.forEach((node) => {
     if (node.corrupted && node.kind in corruptedByType) {

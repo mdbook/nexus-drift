@@ -47,10 +47,15 @@ export function stepSpawns(state: GameState) {
   const derived = computeDerived(state);
   if (state.timers.enemy < derived.progression.spawnIntervalTicks) return;
   state.timers.enemy = 0;
-  if (state.enemies.length >= derived.progression.enemyCap) return;
+  // 3.1.3 audit follow-up: cap checks use live enemies only. Dying enemies
+  // still occupy slots in state.enemies for the death-fade window but are
+  // invisible to every other sim path — counting them here briefly stalls
+  // spawns after kills and paces the director off of corpses.
+  const liveEnemyCount = state.enemies.reduce((count, enemy) => count + (enemy.hp > 0 ? 1 : 0), 0);
+  if (liveEnemyCount >= derived.progression.enemyCap) return;
 
   const corruptibleNodes = state.nodes.filter((node) => node.kind !== "gold");
-  const openSlots = derived.progression.enemyCap - state.enemies.length;
+  const openSlots = derived.progression.enemyCap - liveEnemyCount;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
   const spawned: EnemyKind[] = [];
   // 3.1.3: lerp the budget ceiling out of recovery instead of binary flipping.
