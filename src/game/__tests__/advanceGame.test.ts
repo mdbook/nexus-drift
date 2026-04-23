@@ -969,6 +969,26 @@ describe("zapper enemy", () => {
     expect(state.agents[0].disabledTicks).toBe(0);
   });
 
+  it("does not fire at a broken turret during target selection", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    // Place zapper close to the first turret
+    zapper.x = state.turrets[0].x + 60;
+    zapper.y = state.turrets[0].y;
+    // Move all agents out of firing range
+    state.agents.forEach((a) => {
+      a.x = 900;
+      a.y = 50;
+    });
+    // Mark the turret broken — zapper must not select it as a target
+    state.turrets[0].brokenTicks = 60;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    expect(state.projectiles.filter((p) => p.tag === "zapper-bolt").length).toBe(0);
+  });
+
   it("bolt skips broken turret on impact (3.1.3 audit)", () => {
     const state = createInitialGameState();
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");

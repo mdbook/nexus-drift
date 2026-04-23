@@ -364,6 +364,7 @@ export function stepZapperFire(state: GameState) {
     }
 
     for (const turret of state.turrets.slice(0, derived.activeTurrets)) {
+      if (turret.brokenTicks > 0 || turret.hp <= 0) continue;
       const d = dist(turret.x, turret.y, enemy.x, enemy.y);
       if (d < ZAPPER.firingRange && d < bestDist) {
         bestDist = d;

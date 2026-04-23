@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
   Biohazard,
@@ -96,6 +96,14 @@ const CATEGORY_TABS: Array<AchievementCategory | "all"> = [
   "secret",
 ];
 
+// Sort: unlocked first, then by rarity (legendary > rare > uncommon > common), then by label
+const RARITY_ORDER: Record<AchievementRarity, number> = {
+  legendary: 0,
+  rare: 1,
+  uncommon: 2,
+  common: 3,
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type AchievementsModalProps = {
@@ -171,28 +179,26 @@ export function AchievementsModal({
   const unlockedCount = Object.keys(achievements).length;
   const totalCount = ACHIEVEMENT_DEFS.length;
 
-  const filtered = ACHIEVEMENT_DEFS.filter((def) => {
-    if (activeCategory !== "all" && def.category !== activeCategory) return false;
-    // Hidden achievements: always show if unlocked; show placeholder if showHidden is off
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      ACHIEVEMENT_DEFS.filter((def) => {
+        if (activeCategory !== "all" && def.category !== activeCategory) return false;
+        // Hidden achievements: always show if unlocked; show placeholder if showHidden is off
+        return true;
+      }),
+    [activeCategory]
+  );
 
-  // Sort: unlocked first, then by rarity (legendary > rare > uncommon > common), then by label
-  const RARITY_ORDER: Record<AchievementRarity, number> = {
-    legendary: 0,
-    rare: 1,
-    uncommon: 2,
-    common: 3,
-  };
-
-  const sorted = [...filtered].sort((a, b) => {
-    const aUnlocked = !!achievements[a.id];
-    const bUnlocked = !!achievements[b.id];
-    if (aUnlocked !== bUnlocked) return aUnlocked ? -1 : 1;
-    const rarityDiff = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
-    if (rarityDiff !== 0) return rarityDiff;
-    return a.label.localeCompare(b.label);
-  });
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const aUnlocked = !!achievements[a.id];
+      const bUnlocked = !!achievements[b.id];
+      if (aUnlocked !== bUnlocked) return aUnlocked ? -1 : 1;
+      const rarityDiff = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
+      if (rarityDiff !== 0) return rarityDiff;
+      return a.label.localeCompare(b.label);
+    });
+  }, [filtered, achievements]);
 
   // Count by category for tab badges
   const countByCategory = (cat: AchievementCategory | "all") =>

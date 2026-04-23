@@ -89,9 +89,10 @@ function Indicator({ label, value, tone, icon: Icon, detail, pulse = false }: In
 }
 
 function averageHealth(game: GameState) {
-  if (!game.agents.length) return 100;
-  const total = game.agents.reduce((sum, agent) => sum + agent.hp, 0);
-  return Math.round(total / game.agents.length);
+  const active = game.agents.filter((a) => a.active);
+  if (!active.length) return 100;
+  const total = active.reduce((sum, agent) => sum + (agent.maxHp > 0 ? agent.hp / agent.maxHp : 0), 0);
+  return Math.round((total / active.length) * 100);
 }
 
 /**
@@ -101,6 +102,7 @@ function averageHealth(game: GameState) {
  * the icon + value remain to save horizontal space.
  */
 export const FieldStatsStrip = memo(function FieldStatsStrip({ game, derived }: Props) {
+  const activeCrews = game.agents.filter((a) => a.active).length;
   const integrity = averageHealth(game);
   const integrityTone: IndicatorTone = integrity < 45 ? "danger" : integrity < 72 ? "warn" : "ready";
 
@@ -130,10 +132,10 @@ export const FieldStatsStrip = memo(function FieldStatsStrip({ game, derived }: 
       <div className="flex items-center gap-1 overflow-x-auto px-3 pb-2 pt-1.5 md:gap-1.5 md:px-4">
         <Indicator
           label="Crews"
-          value={game.agents.length}
+          value={activeCrews}
           tone="calm"
           icon={Users}
-          detail={`${game.agents.length} autonomous workers deployed across the sector.`}
+          detail={`${activeCrews} autonomous workers deployed across the sector.`}
         />
         <Indicator
           label="Integrity"

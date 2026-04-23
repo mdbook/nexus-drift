@@ -101,7 +101,7 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Foundry",
     baseCost: { ore: 200, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.foundry.growth,
-    effectText: "+5% node yield, +8% node respawn rate per level",
+    effectText: "+5% node yield per level",
     minTier: 3,
   },
   {

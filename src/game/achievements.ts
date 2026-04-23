@@ -106,7 +106,7 @@ export type SecretAchievementTrigger = "drift" | "synthwave";
 
 const EVENT_IDS = EVENT_DEFS.map((def) => def.id);
 
-// ─── Definitions (54 total) ───────────────────────────────────────────────────
+// ─── Definitions ─────────────────────────────────────────────────────────────
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // ── Progression ─────────────────────────────────────────────────────────────

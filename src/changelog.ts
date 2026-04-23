@@ -33,6 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "A lone sapper that brought a worker to 0 HP no longer leaves a zombie drone frozen on the field. Death bookkeeping is now funneled through a shared `killWorker` helper, called directly from the sapper explosion loop for any worker reduced to ≤0 HP. Before, reboot only kicked off when a live attacker stayed in contact the next tick — but the sapper self-destructs in the same tick, so a single-sapper kill left the worker at `hp=0` with `rebootTicks=0` indefinitely.",
           "Zapper bolts revalidate their target at impact. Mid-flight the target can enter reboot (worker/scout/sentinel destroyed, turret broken) — previously the bolt would still stamp `disabledTicks` + a `Disabled` task onto the rebooting slot, extending the disable into the next active window. The impact path now requires the target to be on-field and operational.",
+          "Zapper bolts now skip broken turrets at target selection, not just at impact. The impact-side revalidation added earlier in 3.1.4 already discarded the disable on a broken hull, but the zapper still spent its firing cooldown on the shot; the target-selection pass now filters `brokenTicks > 0` alongside the existing scout/sentinel reboot guards, so broken turrets fully disengage the zapper's attention.",
           "Enemy death fade-outs tick down exactly once per sim tick. `resolveEnemyDeaths` (called twice per tick in `advanceGame` — once after defences, once after worker melee) used to decrement `dyingTicks` on every call, halving the death-fade visual window and the `clickDyingEnemy` achievement window. The per-tick decrement + corpse filter lives in a new `tickDeathFades` that runs exactly once near the bottom of the tick.",
         ],
       },
@@ -56,7 +57,13 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Focused Beam upgrade description now reads +6px/level (was +16px/level). The text lagged the 3.1.3 turret-range rebalance that lowered the per-level bonus to 6 and clamped total turret range to `TURRET.rangeMax` — the sim was correct, only the label was stale.",
           "Deflaked the miner-overclock accumulation test by seeding `createInitialGameState` and re-pinning the miner's target each loop iteration. `stepWorkers` retargets on the tick==0 cadence check and `chooseWorkerTarget` draws from `state.rng`, so an unseeded run could silently retarget the miner off its placed node mid-loop.",
-          "Test count now 187 (was 163 at the start of the 3.1.3 branch).",
+          "Field-footer stats strip now reads active workers only and averages `hp / maxHp` scaled to 0..100. Before, the Crews pill showed all 9 slot-backed agents regardless of activation, and Integrity averaged raw `hp` across every slot — warden-corrupted workers (`maxHp = 150`) could push the reading above 100%, and locked slots dragged it down.",
+          "Achievements modal's target-scroll effect no longer refires every sim tick. `filtered` and `sorted` are `useMemo`-stable now, so the scroll/focus/flash runs once per genuine change of category, unlock set, or scroll target instead of once per `uiGame` snapshot.",
+          "Foundry upgrade description corrected to advertise only the yield bonus — the respawn-rate claim was never wired into the sim. Matching handoff line updated.",
+          "README zapper copy extended to mention scouts and sentinels alongside workers and turrets — all four target classes take `disabledTicks` on impact.",
+          "Achievement counts unstuck in docs and the in-source comment. `ACHIEVEMENT_DEFS.length` is the source of truth (currently 71); README, handoff, and the definitions header no longer hardcode a stale figure.",
+          "Handoff test inventory updated: `advanceGame.test.ts` is 138 tests (was 104 in the doc), `aiBehavior.test.ts` is 26 (was 25). Test count now 188 (was 163 at the start of the 3.1.3 branch) — added a zapper-broken-turret target-selection test paired with the fix above.",
+          "Mobile sector card now sits directly under the header (`order-1` instead of `order-5`) and its layout tightened — combo, level, and XP read fit on a single row above a slim progress bar, with status badges inline. Previously the Sector Level indicator was the last element on the mobile page, forcing a full scroll to read it.",
         ],
       },
     ],
