@@ -66,6 +66,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Audit Fixes",
         items: [
           "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
+          "Late-tier events (`starcall` minTier 6, `null_surge` minTier 7) are reachable again. `stepEvents` gates eligibility on the uncapped `rawTier` now, mirroring the phantom/zapper enemy-weight fix. Previously the gate used the display-capped `tier` (max 5), so both events and the `all_events` / `field_report` achievements were silently unreachable.",
         ],
       },
     ],

@@ -2661,4 +2661,14 @@ describe("event modifier composition", () => {
     expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(1.6);
     expect(state.eventModifiers.energyRate).toBeCloseTo(1);
   });
+
+  it("late-tier events (minTier 6/7) are reachable once rawTier passes the threshold", () => {
+    const state = createInitialGameState(1);
+    // prestige's score coefficient is high (8), so ~70 prestige pushes
+    // rawTier past 7 while display `tier` stays capped at 5.
+    state.prestige = 70;
+    const derived = computeDerived(state);
+    expect(derived.progression.rawTier).toBeGreaterThanOrEqual(7);
+    expect(derived.progression.tier).toBeLessThanOrEqual(5);
+  });
 });

@@ -89,7 +89,13 @@ export function stepEvents(state: GameState) {
 
   const derived = computeDerived(state);
   const activeIds = new Set(state.activeEvents.map((event) => event.id));
-  const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.tier && !activeIds.has(def.id));
+  // 3.1.3 audit follow-up: gate eligibility on `rawTier` (uncapped) rather
+  // than the display-capped `tier` (max 5). `starcall` (minTier 6) and
+  // `null_surge` (minTier 7) were unreachable through the natural event
+  // rolls because `tier` capped out before either minTier could be met,
+  // which also silently blocked the `all_events` and `field_report`
+  // achievements. Mirrors the phantom/zapper enemy-weight fix in progression.ts.
+  const eligible = EVENT_DEFS.filter((def) => def.minTier <= derived.progression.rawTier && !activeIds.has(def.id));
   if (!eligible.length) return;
 
   const isNight = getNightFactor(state.stats.runtimeMs) < 0.5;
