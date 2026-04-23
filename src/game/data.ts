@@ -84,7 +84,7 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Focused Beam",
     baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.focusedBeam.growth,
-    effectText: "Extends turret beam range (+16px/level). All turret shots are now instant-hit.",
+    effectText: "Extends turret beam range (+6px/level, capped by TURRET.rangeMax). All turret shots are now instant-hit.",
     minTier: 4,
   },
   {
