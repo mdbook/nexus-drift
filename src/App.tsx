@@ -55,6 +55,7 @@ import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, pushLog } from "@/game/utils";
+import { isBetaBuild } from "@/lib/isBetaBuild";
 import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { INITIAL_MANUAL_OVERRIDE_SEQUENCE, recordManualOverrideClick } from "@/lib/manualOverride";
@@ -505,7 +506,7 @@ export default function App() {
             >
               v{CURRENT_VERSION}
             </button>
-            {import.meta.env.DEV && (
+            {isBetaBuild() && (
               <span
                 className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-[9px] font-bold tracking-[0.3em] text-amber-100"
                 aria-label="Development build"

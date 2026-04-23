@@ -80,7 +80,7 @@ npm run preview
 npm run format:check
 ```
 
-`npm run dev` boots with a `BETA` pill next to the version button, an amber-tinted favicon, and a `[DEV]` document-title prefix so the development tab is unmistakable next to a production tab. Production builds are unaffected.
+Beta builds — `npm run dev` locally or any deploy at `nexus-drift-beta.mdbook.me` / `nexus-drift-beta.*.mdbook.one` — show an amber `BETA` pill next to the version button, a tinted favicon, and a `[BETA]` document-title prefix. Detection lives in `src/lib/isBetaBuild.ts`. Production hosts (`nexus-drift.mdbook.me` / `nexus-drift.*.mdbook.one`) are unaffected.
 
 ---
 

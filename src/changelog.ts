@@ -94,6 +94,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Dev builds (`npm run dev`) now render an amber `BETA` pill next to the version button so the development tab is unmistakable next to a production tab.",
           "Dev builds also swap the favicon to a tinted variant (`public/nexus-drift-dev.svg`, brand purple → amber) and prefix the document title with `[DEV]`. Production builds are unchanged.",
+          "3.1.4 follow-up: `BETA` pill, tinted favicon, and `[BETA]` title prefix now also activate on any `nexus-drift-beta.*` deploy host (e.g. `nexus-drift-beta.mdbook.me`, `nexus-drift-beta.*.mdbook.one`). Previously the indicator used `import.meta.env.DEV` which is only true under `vite dev` — CI-built beta deploys never showed it. Detection is now in `src/lib/isBetaBuild.ts`.",
         ],
       },
       {
