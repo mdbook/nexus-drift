@@ -16,6 +16,52 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.4",
+    badge: "Audit Pass — Simulation & Selectors",
+    summary:
+      "Follow-up patch after a multi-agent audit of the 3.1.3 branch. Timed event modifiers now compose cleanly; late-tier events and their achievements are reachable again; lone-sapper kills go through a shared worker-death helper; dying enemies no longer pressure-feed gameplay; zapper bolts revalidate on impact; `colonyHealth` is normalized; `cloneGameState` clones the RNG; death fades tick once per sim tick; late-game upgrades score into defense; and `elapsedTicks` centralizes the tick-wrap invariant for log age, temp-node despawn, and spawn/despawn fade visuals.",
+    sections: [
+      {
+        title: "Event System",
+        items: [
+          "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
+          "Late-tier events (`starcall` minTier 6, `null_surge` minTier 7) are reachable again. `stepEvents` gates eligibility on the uncapped `rawTier` now, mirroring the phantom/zapper enemy-weight fix. Previously the gate used the display-capped `tier` (max 5), so both events and the `all_events` / `field_report` achievements were silently unreachable.",
+        ],
+      },
+      {
+        title: "Combat & Death",
+        items: [
+          "A lone sapper that brought a worker to 0 HP no longer leaves a zombie drone frozen on the field. Death bookkeeping is now funneled through a shared `killWorker` helper, called directly from the sapper explosion loop for any worker reduced to ≤0 HP. Before, reboot only kicked off when a live attacker stayed in contact the next tick — but the sapper self-destructs in the same tick, so a single-sapper kill left the worker at `hp=0` with `rebootTicks=0` indefinitely.",
+          "Zapper bolts revalidate their target at impact. Mid-flight the target can enter reboot (worker/scout/sentinel destroyed, turret broken) — previously the bolt would still stamp `disabledTicks` + a `Disabled` task onto the rebooting slot, extending the disable into the next active window. The impact path now requires the target to be on-field and operational.",
+          "Enemy death fade-outs tick down exactly once per sim tick. `resolveEnemyDeaths` (called twice per tick in `advanceGame` — once after defences, once after worker melee) used to decrement `dyingTicks` on every call, halving the death-fade visual window and the `clickDyingEnemy` achievement window. The per-tick decrement + corpse filter lives in a new `tickDeathFades` that runs exactly once near the bottom of the tick.",
+        ],
+      },
+      {
+        title: "Selectors & Scoring",
+        items: [
+          "Dying enemies (corpses still fading out on-field) no longer pressure-feed gameplay. `enemyCounts`, `combatThreats`, and `corruptorCount` now filter `hp > 0`, and `stepSpawns` counts live enemies against the director's cap. Before, a brief stack of fading corpses inflated threat scoring and stalled spawns just after a clear.",
+          "`colonyHealth` is now averaged as `hp/maxHp` over *active* workers and scaled to 0..100. Before, it averaged raw `hp` across every slot — locked slots dragged the reading, and a warden-toughened worker (`maxHp=150`) pushed it above the 0..100 ceiling that every consumer (`hostilePressure`, autobuy triggers, `stable_colony`, director recovery reference) compares against.",
+          "`defenseScore` and `weightedUpgradeScore` now include `focusedBeam` and `missileLauncher`. Before, late-game turret/silo investment was silently invisible to the HUD defense/threat ratio and to `homeDevelopment` / city build progression, even as the player poured cores and flux into that tier of the tree.",
+        ],
+      },
+      {
+        title: "Invariants & Determinism",
+        items: [
+          "`cloneGameState` now builds a fresh `Rng` instance from the previous state's seed instead of aliasing the class instance. In the normal advance loop the clone replaces prev each tick so aliasing self-healed, but snapshot tests, replay tooling, and admin preview paths that held a pre-advance clone would see RNG mutations bleed through.",
+          "Tick-wrap audit: activity-log age, temp-node despawn, and spawn/despawn fade-in visuals now use a shared `elapsedTicks(now, then)` helper in `utils.ts` that applies the `(now - then + TICK_WRAP) % TICK_WRAP` invariant. Before, after the sim tick counter wrapped at `TICK_WRAP`, old log entries briefly showed `0s ago`, recently-spawned temp nodes could vanish instantly or linger, and spawn/despawn alphas snapped instead of easing across the wrap.",
+        ],
+      },
+      {
+        title: "UI Text & Tests",
+        items: [
+          "Focused Beam upgrade description now reads +6px/level (was +16px/level). The text lagged the 3.1.3 turret-range rebalance that lowered the per-level bonus to 6 and clamped total turret range to `TURRET.rangeMax` — the sim was correct, only the label was stale.",
+          "Deflaked the miner-overclock accumulation test by seeding `createInitialGameState` and re-pinning the miner's target each loop iteration. `stepWorkers` retargets on the tick==0 cadence check and `chooseWorkerTarget` draws from `state.rng`, so an unseeded run could silently retarget the miner off its placed node mid-loop.",
+          "Test count now 187 (was 163 at the start of the 3.1.3 branch).",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.3",
     badge: "Balance Pass — Range, Pressure, Pacing",
     summary:
@@ -60,22 +106,6 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Phantom and zapper enemy unlocks now actually fire at the documented score. The `minTier` gate in `getCombatEnemyWeights` now keys off an uncapped `rawTier` (score / `tiersPerScore`) instead of the display-capped `tier`, which was clamped at 5 and silently excluded every enemy with `minTier ≥ 6`.",
           "Dev build favicon swap narrowed to the SVG variant only. Production raster icons were being rewritten to `-dev` paths that don't exist on disk; narrowing the regex to `link[rel*='icon'][type='image/svg+xml']` keeps the tinted icon working in SVG-capable browsers without the devtools 404s.",
           "`package-lock.json` refreshed to `3.1.3` (was stuck at `3.0.2`) and stale test-count / release references in `README.md`, `AGENTS.md`, and `handoff.md` updated to match 174 tests. New guidance in `AGENTS.md` Release Work Checklist + Test Count References to keep these in sync going forward.",
-        ],
-      },
-      {
-        title: "Audit Fixes",
-        items: [
-          "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
-          "Late-tier events (`starcall` minTier 6, `null_surge` minTier 7) are reachable again. `stepEvents` gates eligibility on the uncapped `rawTier` now, mirroring the phantom/zapper enemy-weight fix. Previously the gate used the display-capped `tier` (max 5), so both events and the `all_events` / `field_report` achievements were silently unreachable.",
-          "A lone sapper that brought a worker to 0 HP no longer leaves a zombie drone frozen on the field. Death bookkeeping is now funneled through a shared `killWorker` helper, called directly from the sapper explosion loop for any worker reduced to ≤0 HP. Before, reboot only kicked off when a live attacker stayed in contact the next tick — but the sapper self-destructs in the same tick, so a single-sapper kill left the worker at `hp=0` with `rebootTicks=0` indefinitely.",
-          "Dying enemies (corpses still fading out on-field) no longer pressure-feed gameplay. `enemyCounts`, `combatThreats`, and `corruptorCount` now filter `hp > 0`, and `stepSpawns` counts live enemies against the director's cap. Before, a brief stack of fading corpses inflated threat scoring and stalled spawns just after a clear.",
-          "Zapper bolts revalidate their target at impact. Mid-flight the target can enter reboot (worker/scout/sentinel destroyed, turret broken) — previously the bolt would still stamp `disabledTicks` + a `Disabled` task onto the rebooting slot, extending the disable into the next active window. The impact path now requires the target to be on-field and operational.",
-          "`colonyHealth` is now averaged as `hp/maxHp` over *active* workers and scaled to 0..100. Before, it averaged raw `hp` across every slot — locked slots dragged the reading, and a warden-toughened worker (`maxHp=150`) pushed it above the 0..100 ceiling that every consumer (`hostilePressure`, autobuy triggers, `stable_colony`, director recovery reference) compares against.",
-          "`cloneGameState` now builds a fresh `Rng` instance from the previous state's seed instead of aliasing the class instance. In the normal advance loop the clone replaces prev each tick so aliasing self-healed, but snapshot tests, replay tooling, and admin preview paths that held a pre-advance clone would see RNG mutations bleed through.",
-          "Enemy death fade-outs tick down exactly once per sim tick. `resolveEnemyDeaths` (called twice per tick in `advanceGame` — once after defences, once after worker melee) used to decrement `dyingTicks` on every call, halving the death-fade visual window and the `clickDyingEnemy` achievement window. The per-tick decrement + corpse filter lives in a new `tickDeathFades` that runs exactly once near the bottom of the tick.",
-          "Focused Beam upgrade description now reads +6px/level (was +16px/level). The text lagged the 3.1.3 turret-range rebalance that lowered the per-level bonus to 6 and clamped total turret range to `TURRET.rangeMax` — the sim was correct, only the label was stale.",
-          "`defenseScore` and `weightedUpgradeScore` now include `focusedBeam` and `missileLauncher`. Before, late-game turret/silo investment was silently invisible to the HUD defense/threat ratio and to `homeDevelopment` / city build progression, even as the player poured cores and flux into that tier of the tree.",
-          "Tick-wrap audit: activity-log age, temp-node despawn, and spawn/despawn fade-in visuals now use a shared `elapsedTicks(now, then)` helper in `utils.ts` that applies the `(now - then + TICK_WRAP) % TICK_WRAP` invariant. Before, after the sim tick counter wrapped at `TICK_WRAP`, old log entries briefly showed `0s ago`, recently-spawned temp nodes could vanish instantly or linger, and spawn/despawn alphas snapped instead of easing across the wrap.",
         ],
       },
     ],
