@@ -74,6 +74,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "`cloneGameState` now builds a fresh `Rng` instance from the previous state's seed instead of aliasing the class instance. In the normal advance loop the clone replaces prev each tick so aliasing self-healed, but snapshot tests, replay tooling, and admin preview paths that held a pre-advance clone would see RNG mutations bleed through.",
           "Enemy death fade-outs tick down exactly once per sim tick. `resolveEnemyDeaths` (called twice per tick in `advanceGame` — once after defences, once after worker melee) used to decrement `dyingTicks` on every call, halving the death-fade visual window and the `clickDyingEnemy` achievement window. The per-tick decrement + corpse filter lives in a new `tickDeathFades` that runs exactly once near the bottom of the tick.",
           "Focused Beam upgrade description now reads +6px/level (was +16px/level). The text lagged the 3.1.3 turret-range rebalance that lowered the per-level bonus to 6 and clamped total turret range to `TURRET.rangeMax` — the sim was correct, only the label was stale.",
+          "`defenseScore` and `weightedUpgradeScore` now include `focusedBeam` and `missileLauncher`. Before, late-game turret/silo investment was silently invisible to the HUD defense/threat ratio and to `homeDevelopment` / city build progression, even as the player poured cores and flux into that tier of the tree.",
         ],
       },
     ],

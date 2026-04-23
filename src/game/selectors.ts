@@ -96,7 +96,9 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.shield * DEFENSE.score.shield +
     state.upgrades.scout * DEFENSE.score.scout +
     state.upgrades.arsenal * DEFENSE.score.arsenal +
-    state.upgrades.sentinel * DEFENSE.score.sentinel;
+    state.upgrades.sentinel * DEFENSE.score.sentinel +
+    state.upgrades.focusedBeam * DEFENSE.score.focusedBeam +
+    state.upgrades.missileLauncher * DEFENSE.score.missileLauncher;
   const threatScore =
     combatThreats + corruptorCount * DEFENSE.threat.corruptorMultiplier + corruptedByType.ore + corruptedByType.gems + corruptedByType.energy;
   // 3.1.3 audit follow-up: colonyHealth is a 0..100 reading averaged over
@@ -136,7 +138,9 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.arsenal * DEFENSE.weightedUpgrade.arsenal +
     state.upgrades.foundry * DEFENSE.weightedUpgrade.foundry +
     state.upgrades.sentinel * DEFENSE.weightedUpgrade.sentinel +
-    state.upgrades.archive * DEFENSE.weightedUpgrade.archive;
+    state.upgrades.archive * DEFENSE.weightedUpgrade.archive +
+    state.upgrades.focusedBeam * DEFENSE.weightedUpgrade.focusedBeam +
+    state.upgrades.missileLauncher * DEFENSE.weightedUpgrade.missileLauncher;
   const homeDevelopment =
     state.level * CITY.developmentWeights.level +
     totalUpgrades * CITY.developmentWeights.totalUpgrades +

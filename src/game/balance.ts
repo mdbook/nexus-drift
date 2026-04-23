@@ -784,6 +784,12 @@ export const DEFENSE = {
     scout: 1.6,
     arsenal: 1.2,
     sentinel: 2.1,
+    // 3.1.3 audit follow-up: late-game turret/silo investments were invisible
+    // to `defenseScore`. focusedBeam extends turret beam range; missileLauncher
+    // adds standalone silos. Without these the defense/threat ratio HUD stalls
+    // mid-game even as the player pours cores/flux into the late-game kit.
+    focusedBeam: 1.3,
+    missileLauncher: 2.2,
   },
   threat: {
     corruptorMultiplier: 1.3,
@@ -800,6 +806,11 @@ export const DEFENSE = {
     foundry: 1.15,
     sentinel: 1.9,
     archive: 1.2,
+    // 3.1.3 audit follow-up: keep `weightedUpgradeScore` in sync with the
+    // defense-score additions above. Drives director pressure and city
+    // build progression; omitting these understated player investment.
+    focusedBeam: 1.35,
+    missileLauncher: 2.0,
   },
   hostilePressureEnemyThreshold: 4,
   hostilePressureColonyHealth: 72,

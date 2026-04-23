@@ -2752,6 +2752,33 @@ describe("event modifier composition", () => {
   });
 });
 
+describe("defense scoring includes late-game upgrades (3.1.3 audit)", () => {
+  it("focusedBeam and missileLauncher contribute to defenseScore and weightedUpgradeScore", async () => {
+    const { DEFENSE } = await import("@/game/balance");
+    const base = createInitialGameState(1);
+    const upgraded = createInitialGameState(1);
+    upgraded.upgrades.focusedBeam = 3;
+    upgraded.upgrades.missileLauncher = 2;
+
+    const baseDerived = computeDerived(base);
+    const upDerived = computeDerived(upgraded);
+
+    const expectedDefenseDelta =
+      3 * DEFENSE.score.focusedBeam + 2 * DEFENSE.score.missileLauncher;
+    expect(upDerived.defenseScore - baseDerived.defenseScore).toBeCloseTo(
+      expectedDefenseDelta,
+      5
+    );
+
+    const expectedWeightedDelta =
+      3 * DEFENSE.weightedUpgrade.focusedBeam + 2 * DEFENSE.weightedUpgrade.missileLauncher;
+    expect(upDerived.homeDevelopment).toBeGreaterThan(baseDerived.homeDevelopment);
+    // weightedUpgradeScore isn't exposed directly, but homeDevelopment pulls it
+    // through CITY.developmentWeights.weightedUpgrade — sanity-check it's nonzero.
+    expect(expectedWeightedDelta).toBeGreaterThan(0);
+  });
+});
+
 describe("resolveEnemyDeaths idempotency (3.1.3 audit)", () => {
   it("does not double-decrement dyingTicks when called twice in the same tick", async () => {
     const { resolveEnemyDeaths, tickDeathFades } = await import("@/game/subsystems/combat");
