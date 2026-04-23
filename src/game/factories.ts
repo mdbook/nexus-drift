@@ -32,7 +32,9 @@ import { dist } from "@/game/utils";
 // Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
 // defensively by field presence, so v5 and branch-local v6 saves both load
 // through the same fallback paths below.
-export const SCHEMA_VERSION = 9;
+// v10 adds `Enemy.latchedWorkerId?` for the 3.1.5 warden parasite latch —
+// mid-latch saves resume their latch; older saves default to null (roaming).
+export const SCHEMA_VERSION = 10;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -385,9 +387,10 @@ export function spawnEnemy(
   }
 
   if (kind === "warden") {
-    // 3.1.0 — wardens are permanently cloaked infiltrators; only worker
-    // retaliation during attach can damage them.
+    // 3.1.0 — wardens are permanently cloaked infiltrators while roaming;
+    // 3.1.5 — they uncloak once latched onto a worker (see isCloaked).
     enemy.permanentCloak = true;
+    enemy.latchedWorkerId = null;
   }
 
   if (kind === "zapper") {
@@ -745,7 +748,12 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             ...(kind === "sapper" && { dashTicks: enemy.dashTicks ?? 0 }),
             // 3.1.0 — wardens carry permanentCloak; pre-3.1.0 saves default
             // the field to true so old-save wardens gain the cloak.
-            ...(kind === "warden" && { permanentCloak: enemy.permanentCloak ?? true }),
+            // 3.1.5 — latchedWorkerId persists mid-latch saves; older saves
+            // with no latch default to null so the warden resumes roaming.
+            ...(kind === "warden" && {
+              permanentCloak: enemy.permanentCloak ?? true,
+              latchedWorkerId: (enemy as { latchedWorkerId?: number | null }).latchedWorkerId ?? null,
+            }),
             // Shield fields: fall back to full shield for enemies that have one,
             // so mid-combat saves from before shields existed don't start at 0.
             ...(shieldMax !== undefined && {

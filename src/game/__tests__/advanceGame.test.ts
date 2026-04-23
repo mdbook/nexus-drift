@@ -2376,6 +2376,183 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.achievements.warden_killed).toBe(true);
   });
 
+  // ── Warden parasite latch (3.1.5) ───────────────────────────────────────────
+
+  it("warden latches onto a worker on contact and records latchedWorkerId", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x + WARDEN.attachRadius - 2;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+
+    expect(warden.latchedWorkerId).toBe(worker.id);
+    // Pinned to the worker's position.
+    expect(warden.x).toBe(worker.x);
+    expect(warden.y).toBe(worker.y);
+  });
+
+  it("a latched warden is no longer cloaked", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    expect(isCloaked(warden)).toBe(true); // cloaked while roaming
+
+    stepWorkerCorruption(state);
+
+    expect(warden.latchedWorkerId).toBe(worker.id);
+    expect(isCloaked(warden)).toBe(false); // uncloaked while feeding
+  });
+
+  it("a latched warden keeps corrupting even when the worker flees out of attachRadius", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    // Tick once to latch.
+    stepWorkerCorruption(state);
+    expect(warden.latchedWorkerId).toBe(worker.id);
+    expect(worker.corruptingTicks).toBe(1);
+
+    // Simulate the worker running far away. A roaming warden would lose its
+    // attach progress here; a latched parasite must keep ticking.
+    worker.x = 900;
+    worker.y = 500;
+
+    stepWorkerCorruption(state);
+
+    expect(warden.latchedWorkerId).toBe(worker.id);
+    expect(worker.corruptingTicks).toBe(2);
+    // Warden snapped to the worker's new position.
+    expect(warden.x).toBe(worker.x);
+    expect(warden.y).toBe(worker.y);
+  });
+
+  it("a latched warden releases its latch if the worker dies mid-attach", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corruptingTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+    expect(warden.latchedWorkerId).toBe(worker.id);
+
+    // Worker dies (combat elsewhere would set hp to 0 and rebootTicks > 0).
+    worker.hp = 0;
+    worker.rebootTicks = 180;
+    const corruptingBefore = worker.corruptingTicks;
+
+    stepWorkerCorruption(state);
+
+    expect(warden.latchedWorkerId).toBeNull();
+    // No further corruption ticked on the ex-target.
+    expect(worker.corruptingTicks).toBeLessThanOrEqual(corruptingBefore);
+  });
+
+  it("a latched warden is killable while uncloaked and leaves the worker uncorrupted on death", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.corrupted = false;
+    worker.corruptingTicks = 0;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x;
+    warden.y = worker.y;
+    warden.hp = 500;
+    state.enemies.push(warden);
+
+    // Latch onto the worker.
+    stepWorkerCorruption(state);
+    expect(warden.latchedWorkerId).toBe(worker.id);
+
+    // Simulate a sentinel finishing the warden off while it's visible.
+    warden.hp = 0;
+    resolveEnemyDeaths(state);
+
+    // Warden is now in its death fade — corruption must not complete on a
+    // later tick, and the worker must retain its pre-corruption maxHp.
+    const prevCorrupting = worker.corruptingTicks;
+    stepWorkerCorruption(state);
+
+    expect(worker.corrupted).toBe(false);
+    expect(worker.corruptingTicks).toBeLessThan(prevCorrupting + 1);
+  });
+
+  it("migration defaults latchedWorkerId to null on pre-3.1.5 warden saves", () => {
+    const state = createInitialGameState();
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    state.enemies.push(warden);
+
+    const serialized = JSON.parse(JSON.stringify(state));
+    for (const e of serialized.enemies) delete e.latchedWorkerId;
+    serialized.schemaVersion = SCHEMA_VERSION - 1;
+
+    const restored = migrateGameState(serialized);
+    const restoredWarden = restored.enemies.find((e) => e.kind === "warden");
+    expect(restoredWarden?.latchedWorkerId).toBeNull();
+  });
+
+  it("a mid-latch warden save round-trips its latchedWorkerId", () => {
+    const state = createInitialGameState();
+    const worker = state.agents[0];
+    worker.active = true;
+    worker.x = 400;
+    worker.y = 300;
+
+    const warden = spawnEnemy(state.rng, state.nextEnemyId++, 1, "warden");
+    warden.x = worker.x;
+    warden.y = worker.y;
+    warden.hp = 50;
+    state.enemies.push(warden);
+
+    stepWorkerCorruption(state);
+    expect(warden.latchedWorkerId).toBe(worker.id);
+
+    const serialized = JSON.parse(JSON.stringify(state));
+    const restored = migrateGameState(serialized);
+    const restoredWarden = restored.enemies.find((e) => e.kind === "warden");
+    expect(restoredWarden?.latchedWorkerId).toBe(worker.id);
+  });
+
   // ── Warden permanent cloak (3.1.0) ──────────────────────────────────────────
 
   it("wardens spawn with permanentCloak and are isCloaked", () => {

@@ -537,6 +537,16 @@ export function stepEnemies(state: GameState) {
     enemy.flash = Math.max(0, enemy.flash - 1);
     const speedScale = state.eventModifiers.enemySpeedScale;
 
+    // 3.1.5 — a latched warden is a parasite pinned to its host worker.
+    // Its position is overwritten by stepWardenAttach each tick; skipping
+    // movement here avoids the ghost-archetype reposition fighting the pin
+    // and makes the stationary "feeding" window feel deliberate.
+    if (enemy.kind === "warden" && enemy.latchedWorkerId != null) {
+      enemy.targetId = null;
+      enemy.targetKind = "agent";
+      return;
+    }
+
     if (enemy.role === "corruptor") {
       const targetableNodes = state.nodes.filter((node) => node.kind !== "gold");
       const currentNode = targetableNodes.find((node) => node.id === enemy.targetNodeId);

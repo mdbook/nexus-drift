@@ -1,10 +1,13 @@
 /**
- * Worker corruption subsystem — 3.0.0 Step 7.
+ * Worker corruption subsystem — 3.0.0 Step 7, parasite latch in 3.1.5.
  *
  * Handles three related processes each tick:
- *  1. Warden attach — live wardens increment corruptingTicks on the nearest
- *     accessible worker; on reaching attachTicks, the worker converts and the
- *     warden despawns without going through the normal death/reward path.
+ *  1. Warden attach — once a warden reaches attachRadius of a worker it
+ *     latches on as a parasite (records latchedWorkerId), pins its position
+ *     to the worker, and uncloaks. The latch holds regardless of distance
+ *     until either the worker is corrupted (warden despawns, no rewards),
+ *     the worker dies/reboots/becomes corrupted by something else, or the
+ *     warden is shot off (damaged down during its visible window).
  *  2. Corrupted worker tick — corrupted workers drain nearby resource nodes,
  *     accumulate corruptionTicks (for visual/drain ramp), and decay spottedTicks.
  *  3. Worker reporting — any healthy worker within workerReportRadius of a
@@ -26,40 +29,80 @@ function stepWardenAttach(state: GameState) {
     const enemy = state.enemies[ei];
     if (enemy.kind !== "warden" || enemy.hp <= 0) continue;
 
-    // Find the closest non-corrupted, non-rebooting active worker.
-    let closest = null as (typeof state.agents)[0] | null;
-    let closestDist = Infinity;
-    for (const agent of state.agents) {
-      if (!agent.active || agent.corrupted || agent.rebootTicks > 0) continue;
-      const d = dist(enemy.x, enemy.y, agent.x, agent.y);
-      if (d < closestDist) {
-        closestDist = d;
-        closest = agent;
+    // 3.1.5 — parasite latch. Once attached, the warden stays locked onto
+    // its target worker regardless of distance. It will only release if the
+    // worker dies, reboots, becomes corrupted (by this or another source),
+    // or the warden itself is killed by defenses during the visible window.
+    let latchedWorker: (typeof state.agents)[0] | null = null;
+    if (enemy.latchedWorkerId != null) {
+      latchedWorker = state.agents.find((a) => a.id === enemy.latchedWorkerId) ?? null;
+      const stillLatchable =
+        latchedWorker &&
+        latchedWorker.active &&
+        !latchedWorker.corrupted &&
+        latchedWorker.rebootTicks <= 0 &&
+        latchedWorker.hp > 0;
+      if (!stillLatchable) {
+        // Worker died / rebooted / was corrupted elsewhere — release latch.
+        // corruptingTicks on the ex-target will decay through the stale
+        // progress loop below.
+        enemy.latchedWorkerId = null;
+        latchedWorker = null;
       }
     }
 
-    if (!closest) continue;
+    // No existing latch: look for a worker inside attachRadius to grab onto.
+    if (!latchedWorker) {
+      let closest = null as (typeof state.agents)[0] | null;
+      let closestDist = Infinity;
+      for (const agent of state.agents) {
+        if (!agent.active || agent.corrupted || agent.rebootTicks > 0 || agent.hp <= 0) continue;
+        const d = dist(enemy.x, enemy.y, agent.x, agent.y);
+        if (d < closestDist) {
+          closestDist = d;
+          closest = agent;
+        }
+      }
 
-    if (closestDist <= WARDEN.attachRadius) {
-      activelyAttachedWorkerIds.add(closest.id);
-      closest.corruptingTicks += 1;
-      if (closest.corruptingTicks >= WARDEN.attachTicks) {
-        // Successful corruption. Worker converts; warden depletes itself.
-        closest.corrupted = true;
-        closest.corruptionTicks = 0;
-        closest.corruptingTicks = 0;
-        // Boost maxHp so the corrupted worker is harder to cleanse. Base off
-        // workerBaseHp (not closest.maxHp) to prevent stacking on re-corruption.
-        closest.maxHp = Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult);
-        closest.hp = Math.min(closest.hp, closest.maxHp);
-        attachedWardenIndices.push(ei);
+      if (closest && closestDist <= WARDEN.attachRadius) {
+        enemy.latchedWorkerId = closest.id;
+        latchedWorker = closest;
         state.log = pushLog(
           state.log,
-          `A void warden has corrupted a ${closest.kind} worker.`,
+          `A void warden has latched onto a ${closest.kind} worker.`,
           "corruption",
           state.timers.tick
         );
       }
+    }
+
+    if (!latchedWorker) continue;
+
+    // Pin the warden to the worker's position. Movement.ts already skips
+    // latched wardens, but this makes the pin authoritative — the warden
+    // rides the worker even if the worker teleports (home-district respawn)
+    // or gets shoved around.
+    enemy.x = latchedWorker.x;
+    enemy.y = latchedWorker.y;
+
+    activelyAttachedWorkerIds.add(latchedWorker.id);
+    latchedWorker.corruptingTicks += 1;
+    if (latchedWorker.corruptingTicks >= WARDEN.attachTicks) {
+      // Successful corruption. Worker converts; warden depletes itself.
+      latchedWorker.corrupted = true;
+      latchedWorker.corruptionTicks = 0;
+      latchedWorker.corruptingTicks = 0;
+      // Boost maxHp so the corrupted worker is harder to cleanse. Base off
+      // workerBaseHp (not latchedWorker.maxHp) to prevent stacking on re-corruption.
+      latchedWorker.maxHp = Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult);
+      latchedWorker.hp = Math.min(latchedWorker.hp, latchedWorker.maxHp);
+      attachedWardenIndices.push(ei);
+      state.log = pushLog(
+        state.log,
+        `A void warden has corrupted a ${latchedWorker.kind} worker.`,
+        "corruption",
+        state.timers.tick
+      );
     }
   }
 

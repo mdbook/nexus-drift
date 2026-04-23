@@ -292,6 +292,14 @@ export type Enemy = {
    * during attach, which is the intended counter-play.
    */
   permanentCloak?: boolean;
+  /**
+   * 3.1.5 — id of the worker this warden has latched onto as a parasite.
+   * While set, the warden is pinned to the worker's position, its movement
+   * logic is skipped, and `isCloaked` treats it as visible so defenses can
+   * shoot it off before corruption completes. Cleared when the worker dies,
+   * reboots, becomes corrupted, or the warden itself dies.
+   */
+  latchedWorkerId?: number | null;
   goldRewardBonus?: number;
   coreDropOverride?: number;
   /** Fire cooldown for zapper enemies. 0 = ready to fire. */

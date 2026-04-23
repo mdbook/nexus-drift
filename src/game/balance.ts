@@ -154,8 +154,13 @@ export const ENEMY_STATS: Record<
   phantom: { hpBase: 55, hpWave: 5, speedBase: 1.3, speedWave: 0.018 },
   // Zapper: 10 HP replaced by 20-HP shield; remaining 35 base HP.
   zapper: { hpBase: 35, hpWave: 4, speedBase: 0.75, speedWave: 0.01 },
-  // Warden: late-game void infester. Tanky so it survives to attach, but slow.
-  warden: { hpBase: 140, hpWave: 6, speedBase: 0.82, speedWave: 0.012 },
+  // Warden: late-game void infester. Parasite that latches onto workers and
+  // must uncloak to feed (3.1.5). HP is huge because the cloaked roaming
+  // phase is invulnerable — the only real damage window is the latch, where
+  // the warden is pinned and visible to turrets/sentinels/scouts for
+  // WARDEN.attachTicks. Speed stays slow so isolated workers still feel
+  // threatened but a tight defense can reclaim a latched worker.
+  warden: { hpBase: 500, hpWave: 25, speedBase: 0.82, speedWave: 0.012 },
 };
 
 export const ENEMY_BUDGET_COST: Record<EnemyKind, number> = {

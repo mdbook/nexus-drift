@@ -16,6 +16,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.5",
+    badge: "Warden Parasite Latch",
+    summary:
+      "Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves.",
+    sections: [
+      {
+        title: "Warden Parasite Latch",
+        items: [
+          "Wardens now latch onto workers like a parasite. Once a warden reaches `WARDEN.attachRadius` of a live worker it records `latchedWorkerId`, pins its position to the host each tick, and holds the latch regardless of distance until either corruption completes, the host dies / reboots / is otherwise corrupted, or the warden itself is killed. Previously a warden had to maintain proximity for 210 ticks to finish corruption — at 0.82 base speed it almost never got the chance because the host could walk away faster than the warden could close.",
+          "A latched warden uncloaks for the duration of the attach. `isCloaked()` now returns `false` for wardens with a non-null `latchedWorkerId`, so turrets, sentinels, scouts, and missile silos get a real window to shoot the parasite off before the 210-tick corruption timer expires. Roaming (unlatched) wardens stay cloaked exactly as before.",
+          "Warden HP bumped to `500 + 25×wave` (from `140 + 6×wave`) to match the new threat profile. The cloaked roaming phase is effectively invulnerable, so the HP number only matters during the brief visible latch window — a tight defensive line can still reclaim a latched worker, but it now takes real firepower.",
+          "`stepEnemies` early-returns for latched wardens so the ghost-archetype reposition logic doesn't fight the pin. Save schema bumped to v10 to persist `latchedWorkerId` across mid-latch saves; pre-v10 saves default the field to null (roaming).",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.4",
     badge: "Audit Pass — Simulation & Selectors",
     summary:
