@@ -139,8 +139,8 @@ export function damageCorruptedWorker(worker: Agent, amount: number) {
  * helper. Guards on active/corrupted/rebootTicks so a caller that forgets the
  * invariant (corrupted workers are immune to non-sentinel damage, inactive or
  * rebooting workers are off-field) cannot accidentally deal damage. HP is
- * clamped at 0 — respawn-on-death is handled by the main stepCombat loop
- * which picks up zombie workers the next tick when an attacker is in range.
+ * clamped at 0 — respawn-on-death is handled by `killWorker`, called from
+ * the same stepCombat path that owns reboot bookkeeping.
  */
 export function damageWorker(agent: Agent, amount: number) {
   if (amount <= 0) return;
@@ -150,12 +150,32 @@ export function damageWorker(agent: Agent, amount: number) {
   agent.hp = Math.max(0, agent.hp - amount);
   agent.damageTicks = WORKER.combatDamageTicks;
   agent.panic = clamp(agent.panic + WORKER.panicDelta.damagedBurst, 0, 100);
-  // Note: we intentionally do not trigger respawn here. The main stepCombat
-  // worker-damage loop already handles `nextHp <= 0 -> respawn` whenever an
-  // attacker is in contact, which resolves sapper-killed workers within one
-  // tick. Keeping respawn out of this funnel avoids duplicating the panic /
-  // evade / home-teleport bookkeeping. Signature matches damageCorruptedWorker
-  // (no state param) since no stats/log writes are needed here.
+}
+
+/**
+ * 3.1.3 audit follow-up — single death-bookkeeping funnel for workers.
+ *
+ * Used by the contact-damage path AND the sapper explosion sweep. Before,
+ * only contact damage ran this block; a lone sapper blast that killed the
+ * sole worker in range left the worker at hp=0 with rebootTicks=0 (a
+ * "zombie") because the sapper died in the same tick, so no attacker was
+ * in contact on the next tick to trip the death check. Now the sapper
+ * path explicitly kills workers whose hp reached 0 from the blast.
+ *
+ * Pre-conditions: agent must be healthy (not corrupted, not already
+ * rebooting). Callers guard these invariants before invoking.
+ */
+export function killWorker(state: GameState, agent: Agent) {
+  state.workerDeathFlash = { x: agent.x, y: agent.y, ticks: 25, maxTicks: 25 };
+  agent.hp = 0;
+  agent.rebootTicks = WORKER.respawn.rebootDuration;
+  agent.panic = 0;
+  agent.evadeTicks = 0;
+  agent.damageTicks = 0;
+  agent.disabledTicks = 0;
+  agent.target = null;
+  agent.task = "Rebooting";
+  state.log = pushLog(state.log, `${agent.kind} drone lost. Rebooting from backup.`, "combat", state.timers.tick);
 }
 
 export function resolveEnemyDeaths(state: GameState) {
@@ -384,6 +404,16 @@ export function stepCombat(state: GameState) {
         // clamp/flash/panic bookkeeping lives in one place and the
         // corrupted/reboot guard cannot be forgotten at the callsite.
         damageWorker(agent, ENEMY_SPECIAL.sapper.explosionDamage);
+        // 3.1.3 audit follow-up: if the blast dropped the worker to 0 HP,
+        // kick off reboot here. Previously this relied on the contact-damage
+        // path to run next tick, but the sapper kills itself below — so if
+        // it was the only attacker in range, the worker stayed at hp=0 with
+        // rebootTicks=0 forever (zombie). damageWorker already rejected
+        // corrupted / rebooting agents, so reaching hp<=0 here implies a
+        // healthy worker.
+        if (agent.active && agent.hp <= 0 && agent.rebootTicks === 0 && !agent.corrupted) {
+          killWorker(state, agent);
+        }
       }
     }
 
@@ -439,16 +469,7 @@ export function stepCombat(state: GameState) {
     }
 
     if (nextHp <= 0) {
-      state.workerDeathFlash = { x: agent.x, y: agent.y, ticks: 25, maxTicks: 25 };
-      agent.hp = 0;
-      agent.rebootTicks = WORKER.respawn.rebootDuration;
-      agent.panic = 0;
-      agent.evadeTicks = 0;
-      agent.damageTicks = 0;
-      agent.disabledTicks = 0;
-      agent.target = null;
-      agent.task = "Rebooting";
-      state.log = pushLog(state.log, `${agent.kind} drone lost. Rebooting from backup.`, "combat", state.timers.tick);
+      killWorker(state, agent);
       return;
     }
 

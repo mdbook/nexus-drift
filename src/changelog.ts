@@ -67,6 +67,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
           "Late-tier events (`starcall` minTier 6, `null_surge` minTier 7) are reachable again. `stepEvents` gates eligibility on the uncapped `rawTier` now, mirroring the phantom/zapper enemy-weight fix. Previously the gate used the display-capped `tier` (max 5), so both events and the `all_events` / `field_report` achievements were silently unreachable.",
+          "A lone sapper that brought a worker to 0 HP no longer leaves a zombie drone frozen on the field. Death bookkeeping is now funneled through a shared `killWorker` helper, called directly from the sapper explosion loop for any worker reduced to ≤0 HP. Before, reboot only kicked off when a live attacker stayed in contact the next tick — but the sapper self-destructs in the same tick, so a single-sapper kill left the worker at `hp=0` with `rebootTicks=0` indefinitely.",
         ],
       },
     ],

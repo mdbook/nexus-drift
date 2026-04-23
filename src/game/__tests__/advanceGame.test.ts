@@ -1082,6 +1082,40 @@ describe("worker damage funnel (3.1.0)", () => {
     // Sapper self-destructed regardless.
     expect(sapper.hp).toBe(0);
   });
+
+  it("lone sapper kill starts worker reboot (no zombie at hp=0)", () => {
+    // 3.1.3 audit follow-up: when a sapper was the only attacker in range and
+    // the blast brought a worker to hp=0, the worker used to be left at hp=0
+    // with rebootTicks=0 — the sapper killed itself in the same tick, so the
+    // contact-damage path never ran on the next tick. killWorker is now
+    // called directly from the sapper explosion loop.
+    const state = createInitialGameState(1);
+    state.timers.tick = COMBAT_TICK;
+
+    // Disable every other active worker so the victim is the only one the
+    // sapper can hit — rules out the contact-damage path running next tick.
+    const active = state.agents.filter((a) => a.active);
+    const victim = active[0];
+    for (let i = 1; i < active.length; i++) active[i].active = false;
+
+    victim.x = 500;
+    victim.y = 300;
+    victim.hp = 10; // blast damage is 18 → clamps to 0
+
+    const sapper = spawnEnemy(state.rng, 9101, 0, "sapper", state.timers.tick);
+    sapper.x = 500;
+    sapper.y = 300;
+    sapper.hp = 30;
+    state.enemies.push(sapper);
+
+    stepCombat(state);
+
+    expect(victim.hp).toBe(0);
+    expect(victim.rebootTicks).toBeGreaterThan(0);
+    expect(victim.task).toBe("Rebooting");
+    expect(state.workerDeathFlash).not.toBeNull();
+    expect(sapper.hp).toBe(0);
+  });
 });
 
 // 3.0.0 Step 5: Turrets always fire instant-hit beams; missiles are silo-only.
