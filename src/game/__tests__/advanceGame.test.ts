@@ -1,3 +1,14 @@
+// RNG-determinism convention:
+// Most tests in this file call `createInitialGameState()` without a seed,
+// which falls back to `Date.now()`. Tests that force a specific worker
+// position, target, or RNG-driven branch (retargeting, `chooseWorkerTarget`,
+// event eligibility, enemy weights, etc.) MUST pass an explicit seed to
+// `createInitialGameState(seed)` — an unseeded run can silently retarget
+// a worker off its placed node or roll a different branch and the
+// assertion becomes flaky. See the "miner overclockTicks accumulates"
+// test for the canonical pattern (seed + re-pin target/x/y each loop
+// iteration). Audit-pass triage tracked the broader pattern-level risk
+// under README → "Audit-pass polish (3.1.4)".
 import { describe, expect, it } from "vitest";
 import { advanceGame } from "@/game/advanceGame";
 import { AUTO_TICK, COMBAT_TICK, EVADE_ENTER_RADIUS, MINING_TICK } from "@/game/constants";

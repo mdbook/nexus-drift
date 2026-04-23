@@ -186,6 +186,45 @@ item has an in-source `TODO(3.2.0)` comment anchoring it.
   `useFormStatus` ergonomics and the compiler, but `framer-motion` and
   `lucide-react` peer ranges need revalidation first.
 
+### Audit-pass polish (3.1.4)
+
+Smaller follow-ups surfaced by the 3.1.4 audit that were consciously
+scoped out. Not structural — mostly a11y, tooling, and migration
+tightening. Each of these can be its own tiny PR.
+
+- **TODO: `AchievementsModal` target-scroll effect re-runs per sim
+  render.** The sorted list re-creates each sim render at
+  `src/components/AchievementsModal.tsx:207`. Memoize the sort or
+  narrow the scroll effect to fire only on target-id change.
+- **TODO: `WikiOverlay` focus trap / restore weaker than
+  `AchievementsModal`.** A11y consistency pass, not a regression.
+- **TODO: Tourist drone keyboard focus ring.** `src/components/FieldSvg.tsx:1537`
+  removes the outline without a `:focus-visible` fallback — keyboard
+  users lose the focus ring on that target.
+- **TODO: Mobile `ResourceBar` order check.** `order-4` on the resource
+  bar may push resources below the sidebar on mobile. Verify on a real
+  mobile viewport before treating it as a bug — the current order may
+  be intentional.
+- **TODO: Pin CI notification script.** `.gitlab-ci.yml:53,63` `wget`s
+  a mutable `master` URL from self-hosted GitLab. Pin to a commit SHA
+  or vendor the script into the repo.
+- **TODO: Run `npm audit` locally.** Not part of the 3.1.4 triage;
+  worth one pass to baseline dependency advisories.
+- **TODO: Add `npm run build` to the CI verify stage.** Currently only
+  exercised by the Docker build on `main` and `dev`, so branch
+  pipelines can miss Vite compile regressions until deploy.
+- **TODO: Tighten `migrateGameState` unknown-key handling.**
+  `src/game/factories.ts:523` spreads `raw.achievements` unfiltered;
+  the stats migration accepts unknown event-stat keys the same way.
+  Inert because the UI renders from `ACHIEVEMENT_DEFS`, but the
+  tightening is cheap.
+- **TODO: Seed pattern for `createInitialGameState()`-based tests.**
+  Audit-caught a flaky test (see commit 12) rooted in
+  `createInitialGameState()` without a fixed seed; fixed that specific
+  case and added a header comment in `src/game/__tests__/advanceGame.test.ts`,
+  but the broader pattern-level refactor (either default-seed the
+  helper in test contexts or audit every call site) is deferred.
+
 ---
 
 ## Notes For Contributors
