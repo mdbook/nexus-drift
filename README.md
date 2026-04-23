@@ -73,7 +73,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (183 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (184 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview

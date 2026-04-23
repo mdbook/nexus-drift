@@ -2,7 +2,7 @@ import { TICK_WRAP } from "@/game/constants";
 import { cloneGameState } from "@/game/factories";
 import { stepAutobuy } from "@/game/subsystems/autobuy";
 import { stepAchievements } from "@/game/subsystems/achievements";
-import { stepCombat, stepZapperFire, resolveEnemyDeaths } from "@/game/subsystems/combat";
+import { stepCombat, stepZapperFire, resolveEnemyDeaths, tickDeathFades } from "@/game/subsystems/combat";
 import { stepCorruption } from "@/game/subsystems/corruption";
 import { stepCity, stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
@@ -52,6 +52,9 @@ export function advanceGame(prev: GameState): GameState {
   //    yield resources.
   // 9. Autobuy — reads final resource totals after income + combat rewards.
   // 10. Projectiles — zapper-bolt disables resolve here after all game logic runs.
+  // 10b. tickDeathFades — runs exactly once per tick after resolveEnemyDeaths
+  //      may have started new fade countdowns. Split from resolveEnemyDeaths
+  //      so the two resolve-calls above don't double-decrement dyingTicks.
   // 11. Events / Achievements — read final state so unlock conditions are accurate.
 
   stepEconomy(state);
@@ -80,6 +83,7 @@ export function advanceGame(prev: GameState): GameState {
   stepMining(state);
   stepAutobuy(state);
   stepProjectiles(state);
+  tickDeathFades(state);
   stepEvents(state);
   stepAchievements(state);
 

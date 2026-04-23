@@ -178,6 +178,20 @@ export function killWorker(state: GameState, agent: Agent) {
   state.log = pushLog(state.log, `${agent.kind} drone lost. Rebooting from backup.`, "combat", state.timers.tick);
 }
 
+/**
+ * 3.1.3 audit follow-up — this function used to tick down existing death
+ * fades on every call, and advanceGame called it twice per tick (before + after
+ * stepCombat). Fades were decremented twice, halving corpse visual windows
+ * and the click window for `clickDyingEnemy`. The work is now split:
+ *
+ * - `resolveEnemyDeaths` (kept name for API compat) is idempotent per tick:
+ *   it starts fade countdowns for newly-killed enemies and awards rewards.
+ * - `tickDeathFades` runs exactly once per tick, decrementing existing
+ *   dyingTicks and removing fully-faded corpses.
+ *
+ * advanceGame calls resolveEnemyDeaths twice (after defences + after stepCombat)
+ * and tickDeathFades once at the bottom.
+ */
 export function resolveEnemyDeaths(state: GameState) {
   // Find newly killed enemies (hp ≤ 0 but not yet started dying).
   const killed = state.enemies.filter((enemy) => enemy.hp <= 0 && enemy.dyingTicks === 0);
@@ -188,12 +202,6 @@ export function resolveEnemyDeaths(state: GameState) {
   for (const enemy of killed) {
     enemy.dyingTicks = DEATH_FADE_TICKS;
   }
-
-  // Tick down already-dying enemies and remove fully faded ones.
-  for (const enemy of state.enemies) {
-    if (enemy.dyingTicks > 0) enemy.dyingTicks -= 1;
-  }
-  state.enemies = state.enemies.filter((enemy) => !(enemy.hp <= 0 && enemy.dyingTicks <= 0));
 
   if (!killed.length) return;
 
@@ -292,6 +300,20 @@ export function resolveEnemyDeaths(state: GameState) {
     state.log = pushLog(state.log, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`, "combat", state.timers.tick);
   }
 
+}
+
+/**
+ * 3.1.3 audit follow-up — runs once per tick to advance existing death
+ * fade-outs and remove fully-faded corpses. Kept separate from
+ * `resolveEnemyDeaths` so starting a fade is idempotent per tick
+ * (the latter can be called multiple times in advanceGame without
+ * double-decrementing `dyingTicks`).
+ */
+export function tickDeathFades(state: GameState) {
+  for (const enemy of state.enemies) {
+    if (enemy.dyingTicks > 0) enemy.dyingTicks -= 1;
+  }
+  state.enemies = state.enemies.filter((enemy) => !(enemy.hp <= 0 && enemy.dyingTicks <= 0));
 }
 
 export function stepZapperFire(state: GameState) {

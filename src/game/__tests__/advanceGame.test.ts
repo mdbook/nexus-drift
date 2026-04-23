@@ -2752,6 +2752,31 @@ describe("event modifier composition", () => {
   });
 });
 
+describe("resolveEnemyDeaths idempotency (3.1.3 audit)", () => {
+  it("does not double-decrement dyingTicks when called twice in the same tick", async () => {
+    const { resolveEnemyDeaths, tickDeathFades } = await import("@/game/subsystems/combat");
+    const state = createInitialGameState(1);
+    const dying = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
+    dying.hp = 0;
+    state.enemies.push(dying);
+
+    // First call seeds the fade countdown. We bypass the tick-down that
+    // advanceGame runs separately at tickDeathFades.
+    resolveEnemyDeaths(state);
+    const afterFirst = dying.dyingTicks;
+    expect(afterFirst).toBeGreaterThan(0);
+
+    // A second resolve pass in the same tick must not alter an already-dying
+    // enemy's countdown. Before 3.1.3 this decremented dyingTicks again.
+    resolveEnemyDeaths(state);
+    expect(dying.dyingTicks).toBe(afterFirst);
+
+    // The split tickDeathFades owns the countdown decrement.
+    tickDeathFades(state);
+    expect(dying.dyingTicks).toBe(afterFirst - 1);
+  });
+});
+
 describe("cloneGameState RNG isolation (3.1.3 audit)", () => {
   it("clone has an independent RNG instance (mutations don't bleed)", () => {
     const original = createInitialGameState(123);
