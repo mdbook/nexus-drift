@@ -2752,6 +2752,37 @@ describe("event modifier composition", () => {
   });
 });
 
+describe("colonyHealth normalization (3.1.3 audit)", () => {
+  it("averages hp/maxHp over active workers only, scaled to 0..100", () => {
+    const state = createInitialGameState(1);
+    const active = state.agents.filter((a) => a.active);
+    // Put exactly one active worker at 50% HP, inactive-slots untouched.
+    active[0].hp = 50;
+    active[0].maxHp = 100;
+    for (let i = 1; i < active.length; i++) {
+      active[i].hp = active[i].maxHp;
+    }
+
+    const derived = computeDerived(state);
+    // Initial state has 1 active worker (slot 0) — 50% of 100 == 50.
+    const expected = active.reduce((sum, a) => sum + a.hp / a.maxHp, 0) / active.length * 100;
+    expect(derived.colonyHealth).toBeCloseTo(expected, 5);
+    expect(derived.colonyHealth).toBeLessThan(100);
+    expect(derived.colonyHealth).toBeGreaterThan(0);
+  });
+
+  it("corruption toughness buff (maxHp=150) does not push colonyHealth above 100", () => {
+    const state = createInitialGameState(1);
+    const active = state.agents.filter((a) => a.active);
+    // Simulate a warden-toughened worker: hp=150, maxHp=150.
+    active[0].hp = 150;
+    active[0].maxHp = 150;
+    const derived = computeDerived(state);
+    expect(derived.colonyHealth).toBeLessThanOrEqual(100);
+    expect(derived.colonyHealth).toBeCloseTo(100, 5);
+  });
+});
+
 describe("selectors ignore dying enemies (3.1.3 audit)", () => {
   it("enemyCounts, combatThreats, and corruptorCount skip hp=0 corpses", () => {
     const state = createInitialGameState(1);

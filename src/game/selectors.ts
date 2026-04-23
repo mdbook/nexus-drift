@@ -99,8 +99,15 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.sentinel * DEFENSE.score.sentinel;
   const threatScore =
     combatThreats + corruptorCount * DEFENSE.threat.corruptorMultiplier + corruptedByType.ore + corruptedByType.gems + corruptedByType.energy;
-  const colonyHealth = state.agents.length
-    ? state.agents.reduce((sum, agent) => sum + agent.hp, 0) / state.agents.length
+  // 3.1.3 audit follow-up: colonyHealth is a 0..100 reading averaged over
+  // *active* workers' hp/maxHp, not raw hp across all slots. Inactive slots
+  // are not on-field, so they should not drag the reading; and once maxHp
+  // drifts from the default 100 (warden toughness buff, future upgrades)
+  // raw-hp averaging breaks every downstream 0..100 comparison
+  // (hostilePressure, autobuy, `stable_colony`, director recovery ref).
+  const activeAgents = state.agents.filter((agent) => agent.active);
+  const colonyHealth = activeAgents.length
+    ? (activeAgents.reduce((sum, agent) => sum + (agent.maxHp > 0 ? agent.hp / agent.maxHp : 0), 0) / activeAgents.length) * 100
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
   // 3.0.0: turret slot count is gated by both upgrade level AND sector level
