@@ -1979,21 +1979,27 @@ describe("worker class abilities (3.0.0 Step 6)", () => {
   });
 
   it("miner overclockTicks accumulates while undamaged at a node", () => {
-    const state = createInitialGameState();
+    // Seed + re-pin target: stepWorkers retargets on the tick==0 cadence check
+    // and chooseWorkerTarget consults state.rng, so an unseeded run can
+    // silently retarget the miner away from state.nodes[0] mid-loop and the
+    // overclock accumulator never ticks. Seed makes runs deterministic and
+    // re-pinning target keeps the miner on its placed node regardless.
+    const state = createInitialGameState(12345);
     const miner = getAgent(state, "miner");
     const node = state.nodes[0];
 
-    // Place miner exactly at the node so it enters the at-node branch each tick.
     miner.x = node.x;
     miner.y = node.y;
     miner.target = node.id;
     miner.damageTicks = 0;
     miner.evadeTicks = 0;
     miner.overclockTicks = 0;
-    // No enemies so no evasion is triggered.
     state.enemies = [];
 
     for (let i = 0; i < 10; i++) {
+      miner.target = node.id;
+      miner.x = node.x;
+      miner.y = node.y;
       stepWorkers(state);
       state.timers.tick += 1;
     }
