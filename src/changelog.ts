@@ -62,6 +62,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "`package-lock.json` refreshed to `3.1.3` (was stuck at `3.0.2`) and stale test-count / release references in `README.md`, `AGENTS.md`, and `handoff.md` updated to match 174 tests. New guidance in `AGENTS.md` Release Work Checklist + Test Count References to keep these in sync going forward.",
         ],
       },
+      {
+        title: "Audit Fixes",
+        items: [
+          "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
+        ],
+      },
     ],
   },
   {

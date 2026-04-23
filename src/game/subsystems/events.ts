@@ -1,6 +1,6 @@
 import { PROGRESSION } from "@/game/balance";
 import { EVENT_TICK } from "@/game/constants";
-import { activateEvent, EVENT_DEFS } from "@/game/events/eventDefs";
+import { activateEvent, EVENT_DEFS, recomputeEventModifiers } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 import { pushLog } from "@/game/utils";
@@ -72,6 +72,7 @@ export function stepEvents(state: GameState) {
     }
     state.activeEvents = state.activeEvents.filter((event) => event.id !== active.id);
   }
+  if (expiredEvents.length > 0) recomputeEventModifiers(state);
 
   state.nodes = state.nodes.filter((node) => {
     if (node.temporary && node.despawnAt !== undefined && state.timers.tick >= node.despawnAt) {

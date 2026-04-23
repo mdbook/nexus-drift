@@ -2633,3 +2633,32 @@ describe("worker corruption system (3.0.0 Step 7)", () => {
     expect(state.timers.warden).toBe(0);
   });
 });
+
+describe("event modifier composition", () => {
+  it("stacks overlapping modifiers multiplicatively and does not clobber on expire", async () => {
+    const { activateEvent, EVENT_DEFS } = await import("@/game/events/eventDefs");
+    const { stepEvents } = await import("@/game/subsystems/events");
+    const state = createInitialGameState(1);
+
+    const meteor = EVENT_DEFS.find((d) => d.id === "meteor_shower")!;
+    const starcall = EVENT_DEFS.find((d) => d.id === "starcall")!;
+
+    activateEvent(state, meteor, false);
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(1.6);
+
+    activateEvent(state, starcall, false);
+    // Both active: 1.6 * 2 = 3.2 on yield; starcall also adds 1.5 on energy.
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(3.2);
+    expect(state.eventModifiers.energyRate).toBeCloseTo(1.5);
+
+    // Expire starcall by forcing its timer to 1 tick remaining.
+    const starcallActive = state.activeEvents.find((e) => e.id === "starcall")!;
+    starcallActive.ticksRemaining = 1;
+    stepEvents(state);
+
+    // Meteor still contributes; starcall gone.
+    expect(state.activeEvents.some((e) => e.id === "starcall")).toBe(false);
+    expect(state.eventModifiers.yieldMultiplier).toBeCloseTo(1.6);
+    expect(state.eventModifiers.energyRate).toBeCloseTo(1);
+  });
+});

@@ -1,6 +1,6 @@
 import { WARDEN } from "@/game/balance";
 import { upgradeDefs } from "@/game/data";
-import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
+import { activateEvent, EVENT_DEFS, getEventDef, recomputeEventModifiers } from "@/game/events/eventDefs";
 import { spawnEnemy } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { EnemyKind, GameState, ResourceKey, UpgradeKey } from "@/game/types";
@@ -133,6 +133,7 @@ function resetActiveEvents(state: GameState) {
     def?.revert(state);
   }
   state.activeEvents = [];
+  recomputeEventModifiers(state);
 }
 
 function clearCorruption(state: GameState) {

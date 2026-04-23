@@ -9,6 +9,8 @@ export type EventEffect = {
   tone: EventEffectTone;
 };
 
+export type EventModifierContribution = Partial<GameState["eventModifiers"]>;
+
 export type EventDef = {
   id: EventId;
   label: string;
@@ -20,9 +22,37 @@ export type EventDef = {
   hudDurationTicks: number;
   weight: number;
   minTier: number;
+  // Multiplicative contributions to state.eventModifiers while this event is
+  // active. Composed across all active events via recomputeEventModifiers.
+  // Side-effect-free — apply/revert handle spawns, logs, one-shot state.
+  modifierContributions?: EventModifierContribution;
   apply: (state: GameState) => void;
   revert: (state: GameState) => void;
 };
+
+const EVENT_MODIFIER_DEFAULTS: GameState["eventModifiers"] = {
+  yieldMultiplier: 1,
+  energyRate: 1,
+  turretCooldownScale: 1,
+  turretRangeScale: 1,
+  enemySpeedScale: 1,
+  corruptionRate: 1,
+  fluxPurgeMultiplier: 1,
+};
+
+export function recomputeEventModifiers(state: GameState) {
+  const next = { ...EVENT_MODIFIER_DEFAULTS };
+  for (const active of state.activeEvents) {
+    const def = EVENT_DEFS.find((d) => d.id === active.id);
+    const contrib = def?.modifierContributions;
+    if (!contrib) continue;
+    for (const key of Object.keys(contrib) as Array<keyof GameState["eventModifiers"]>) {
+      const factor = contrib[key];
+      if (typeof factor === "number") next[key] *= factor;
+    }
+  }
+  state.eventModifiers = next;
+}
 
 const TICKS_PER_SEC = 30;
 const ONE_SHOT_CARD_TICKS = 10 * TICKS_PER_SEC;
@@ -74,12 +104,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 1,
     minTier: 0,
-    apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1.6 };
-    },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1 };
-    },
+    modifierContributions: { yieldMultiplier: 1.6 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "solar_flare",
@@ -96,20 +123,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 45 * TICKS_PER_SEC,
     weight: 0.9,
     minTier: 1,
-    apply: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        energyRate: 2,
-        turretCooldownScale: 1.2,
-      };
-    },
-    revert: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        energyRate: 1,
-        turretCooldownScale: 1,
-      };
-    },
+    modifierContributions: { energyRate: 2, turretCooldownScale: 1.2 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "cache_discovery",
@@ -171,20 +187,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 90 * TICKS_PER_SEC,
     weight: 0.6,
     minTier: 3,
-    apply: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        corruptionRate: 1.5,
-        fluxPurgeMultiplier: 3,
-      };
-    },
-    revert: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        corruptionRate: 1,
-        fluxPurgeMultiplier: 1,
-      };
-    },
+    modifierContributions: { corruptionRate: 1.5, fluxPurgeMultiplier: 3 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "dust_storm",
@@ -201,20 +206,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 0.7,
     minTier: 2,
-    apply: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        turretRangeScale: 0.75,
-        enemySpeedScale: 0.8,
-      };
-    },
-    revert: (state) => {
-      state.eventModifiers = {
-        ...state.eventModifiers,
-        turretRangeScale: 1,
-        enemySpeedScale: 1,
-      };
-    },
+    modifierContributions: { turretRangeScale: 0.75, enemySpeedScale: 0.8 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "echo_signal",
@@ -256,12 +250,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 60 * TICKS_PER_SEC,
     weight: 0.55,
     minTier: 2,
-    apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, energyRate: 0.5, corruptionRate: 1.4 };
-    },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, energyRate: 1, corruptionRate: 1 };
-    },
+    modifierContributions: { energyRate: 0.5, corruptionRate: 1.4 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "hunter_pack",
@@ -279,16 +270,14 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 40 * TICKS_PER_SEC,
     weight: 0.45,
     minTier: 3,
+    modifierContributions: { enemySpeedScale: 1.3, turretCooldownScale: 1.15 },
     apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, enemySpeedScale: 1.3, turretCooldownScale: 1.15 };
       for (let i = 0; i < 2; i++) {
         state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, 0, "rusher", state.timers.tick));
       }
       state.log = pushLog(state.log, "Hunter Pack: coordinated strike inbound.", "event", state.timers.tick);
     },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, enemySpeedScale: 1, turretCooldownScale: 1 };
-    },
+    revert: () => {},
   },
   {
     id: "signal_drought",
@@ -305,12 +294,9 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 50 * TICKS_PER_SEC,
     weight: 0.4,
     minTier: 2,
-    apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 0.6, fluxPurgeMultiplier: 0.5 };
-    },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1, fluxPurgeMultiplier: 1 };
-    },
+    modifierContributions: { yieldMultiplier: 0.6, fluxPurgeMultiplier: 0.5 },
+    apply: () => {},
+    revert: () => {},
   },
   {
     id: "starcall",
@@ -328,14 +314,12 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 30 * TICKS_PER_SEC,
     weight: 0.12,
     minTier: 6,
+    modifierContributions: { yieldMultiplier: 2, energyRate: 1.5 },
     apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 2, energyRate: 1.5 };
       spawnTemporaryCacheNode(state);
       state.log = pushLog(state.log, "Starcall: ancient signal detected — yields surging.", "event", state.timers.tick);
     },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, yieldMultiplier: 1, energyRate: 1 };
-    },
+    revert: () => {},
   },
   {
     id: "null_surge",
@@ -353,15 +337,13 @@ export const EVENT_DEFS: EventDef[] = [
     hudDurationTicks: 45 * TICKS_PER_SEC,
     weight: 0.1,
     minTier: 7,
+    modifierContributions: { turretRangeScale: 0.5, enemySpeedScale: 1.2 },
     apply: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, turretRangeScale: 0.5, enemySpeedScale: 1.2 };
       const activeTurret = state.turrets.find((t) => t.disabledTicks === 0);
       if (activeTurret) activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
       state.log = pushLog(state.log, "Null Surge: targeting blackout — one turret disabled.", "event", state.timers.tick);
     },
-    revert: (state) => {
-      state.eventModifiers = { ...state.eventModifiers, turretRangeScale: 1, enemySpeedScale: 1 };
-    },
+    revert: () => {},
   },
 ];
 
@@ -373,9 +355,6 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
   const activeIndex = state.activeEvents.findIndex((event) => event.id === eventDef.id);
 
   if (activeIndex >= 0) {
-    if (state.activeEvents[activeIndex]?.revertOnExpire) {
-      eventDef.revert(state);
-    }
     state.activeEvents.splice(activeIndex, 1);
   }
 
@@ -393,4 +372,6 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
       revertOnExpire: eventDef.durationTicks > 0,
     });
   }
+
+  recomputeEventModifiers(state);
 }
