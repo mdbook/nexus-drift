@@ -64,6 +64,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Achievement counts unstuck in docs and the in-source comment. `ACHIEVEMENT_DEFS.length` is the source of truth (currently 71); README, handoff, and the definitions header no longer hardcode a stale figure.",
           "Handoff test inventory updated: `advanceGame.test.ts` is 138 tests (was 104 in the doc), `aiBehavior.test.ts` is 26 (was 25). Test count now 188 (was 163 at the start of the 3.1.3 branch) — added a zapper-broken-turret target-selection test paired with the fix above.",
           "Mobile sector card now sits directly under the header (`order-1` instead of `order-5`) and its layout tightened — combo, level, and XP read fit on a single row above a slim progress bar, with status badges inline. Previously the Sector Level indicator was the last element on the mobile page, forcing a full scroll to read it.",
+          "City skyline no longer clips on short desktop viewports. `FieldSvg` had a `min-h-[380px]` floor that mobile needed but was forcing the SVG taller than its `lg:h-full overflow-hidden` card on short (<~720px tall) laptop / stage-mirror displays, so the bottom of the viewBox (where the district renders) was being chopped off by the card's overflow clip. Added `lg:min-h-0` so desktop lets the SVG shrink to its grid cell while mobile keeps the 380px floor.",
         ],
       },
       {

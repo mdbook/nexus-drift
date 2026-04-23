@@ -685,7 +685,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   return (
     <svg
       viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
-      className="h-full min-h-[380px] w-full bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))]"
+      className="h-full min-h-[380px] w-full bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] lg:min-h-0"
     >
       <defs>
         <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
