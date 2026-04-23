@@ -903,6 +903,51 @@ describe("zapper enemy", () => {
     expect(state.scouts[0].disabledTicks).toBeGreaterThan(0);
   });
 
+  it("bolt skips rebooting worker on impact (3.1.3 audit)", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.agents[0].x + 80;
+    zapper.y = state.agents[0].y;
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("agent");
+
+    // Target enters reboot mid-flight (e.g. killed by something else).
+    state.agents[0].rebootTicks = 120;
+    state.agents[0].hp = 0;
+    state.agents[0].disabledTicks = 0;
+
+    bolt.life = 1;
+    stepProjectiles(state);
+
+    // Must not stick a Disabled task/ticks on a rebooting slot — it'd
+    // extend into the next active window after reboot completes.
+    expect(state.agents[0].disabledTicks).toBe(0);
+  });
+
+  it("bolt skips broken turret on impact (3.1.3 audit)", () => {
+    const state = createInitialGameState();
+    const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
+    zapper.x = state.turrets[0].x + 60;
+    zapper.y = state.turrets[0].y - 80;
+    state.agents.forEach((a) => { a.x = 900; a.y = 50; });
+    zapper.fireCooldown = 0;
+    state.enemies.push(zapper);
+
+    stepZapperFire(state);
+    const bolt = state.projectiles[state.projectiles.length - 1];
+    expect(bolt.targetKind).toBe("turret");
+
+    state.turrets[0].brokenTicks = 200;
+
+    bolt.life = 1;
+    stepProjectiles(state);
+    expect(state.turrets[0].disabledTicks).toBe(0);
+  });
+
   it("bolt applies disabledTicks to a sentinel when it is the nearest target", () => {
     const state = createInitialGameState();
     state.upgrades.sentinel = 2;
