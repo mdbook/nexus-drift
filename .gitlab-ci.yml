@@ -15,6 +15,29 @@ verify:
     - npm run format:check
     - npm run lint
     - npm test
+    # Check that the version tag doesn't already exist in the container registry.
+    # Done here (alpine + curl) rather than in the kaniko job because the kaniko
+    # debug image's busybox wget cannot complete a TLS handshake with the GitLab API.
+    - |
+      IMAGE_VERSION_TAG="$(node -p "require('./package.json').version")"
+      apk add --no-cache curl >/dev/null 2>&1
+      repos_json="$(curl -sf --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories" 2>/dev/null || true)"
+      registry_repository_id="$(printf '%s' "$repos_json" | grep -o '"id":[0-9]*' | head -n1 | grep -o '[0-9]*')"
+      if [ -n "$registry_repository_id" ]; then
+        tag_status="$(curl -o /dev/null -w '%{http_code}' -sf \
+          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/$registry_repository_id/tags/$IMAGE_VERSION_TAG" \
+          2>/dev/null || echo 000)"
+        if [ "$tag_status" = "200" ]; then
+          echo "Container release tag '$IMAGE_VERSION_TAG' already exists. Bump package.json before publishing another release image."
+          exit 1
+        else
+          echo "Container release tag '$IMAGE_VERSION_TAG' is available (HTTP $tag_status)."
+        fi
+      else
+        echo "No existing container registry repository found; release tag '$IMAGE_VERSION_TAG' is available."
+      fi
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
@@ -25,26 +48,23 @@ build:
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
-  variables:
-    IMAGE_CHANNEL_TAG: "$CI_COMMIT_REF_SLUG"
   script:
+    - export IMAGE_VERSION_TAG="$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -n 1)"
+    - test -n "$IMAGE_VERSION_TAG"
+    - export IMAGE_DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:latest --destination $CI_REGISTRY_IMAGE:$IMAGE_VERSION_TAG"
+    - if [ "$CI_COMMIT_BRANCH" = "dev" ]; then export IMAGE_DESTINATIONS="$IMAGE_DESTINATIONS --destination $CI_REGISTRY_IMAGE:dev"; fi
     - mkdir -p /kaniko/.docker
     - printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > /kaniko/.docker/config.json
     - >
       /kaniko/executor
       --context "$CI_PROJECT_DIR"
       --dockerfile "$CI_PROJECT_DIR/Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
-      --destination "$CI_REGISTRY_IMAGE:$IMAGE_CHANNEL_TAG"
+      $IMAGE_DESTINATIONS
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
     - if: '$CI_COMMIT_BRANCH == "main"'
-      variables:
-        IMAGE_CHANNEL_TAG: "latest"
     - if: '$CI_COMMIT_BRANCH == "dev"'
-      variables:
-        IMAGE_CHANNEL_TAG: "dev"
 
 success_notification:
   stage: notification

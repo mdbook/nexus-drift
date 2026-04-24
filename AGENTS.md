@@ -74,6 +74,16 @@ If the user asks for a release or version bump, update these together:
 
 If the user does not ask for release work, keep the suggestion advisory only.
 
+## CI Release Image Tags
+
+Container release builds run only from `main` and `dev`. The build job derives
+the release image tag from `package.json` and publishes the commit SHA,
+`:latest`, and the exact version tag; `dev` also retains the `:dev` channel tag.
+Before Kaniko builds, CI queries the GitLab container registry and fails if the
+version tag already exists. Do not remove that preflight unless replacing it with
+an equivalent duplicate-version guard; otherwise a second push with the same
+version would silently move the release tag.
+
 ## Test Count References
 
 Several docs quote the total test count (`README.md` `## Testing`, `AGENTS.md` `## Test Coverage`, `handoff.md` near the end of Operational Notes). When you add or remove tests, update all three in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.

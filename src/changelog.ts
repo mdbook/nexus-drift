@@ -590,7 +590,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Code Quality",
         items: [
-          "GitLab container release builds now only run automatically on main and dev. Main publishes the commit SHA plus :latest, while dev publishes the commit SHA plus :dev.",
+          "GitLab container release builds now only run automatically on main and dev. Each release build publishes the commit SHA, :latest, and the package.json version tag, dev builds retain :dev, and a preflight registry check fails duplicate version tags before they can be overwritten.",
           "Worker target scoring moved from factories.ts into src/game/ai/workerTargeting.ts, removing the inverted factories → subsystems import dependency.",
           "Worker AI helpers (threat memory, anti-corner evasion, region pull, group dispersal) consolidated into src/game/subsystems/workerAI.ts.",
           "Contested-node map and nearby-ally counts are now precomputed once per call rather than recomputed per candidate, reducing O(n²) work per enemy tick.",
