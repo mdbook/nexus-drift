@@ -6,13 +6,7 @@ import { pushLog } from "@/game/utils";
 // ─── Rarity & Category ────────────────────────────────────────────────────────
 
 export type AchievementRarity = "common" | "uncommon" | "rare" | "legendary";
-export type AchievementCategory =
-  | "combat"
-  | "corruption"
-  | "mining"
-  | "progression"
-  | "survival"
-  | "secret";
+export type AchievementCategory = "combat" | "corruption" | "mining" | "progression" | "survival" | "secret";
 
 // ─── IDs ──────────────────────────────────────────────────────────────────────
 
@@ -24,6 +18,8 @@ export type AchievementId =
   | "level_10"
   | "level_20"
   | "level_30"
+  | "level_50"
+  | "level_75"
   | "tier_5"
   | "tier_8"
   | "tier_10"
@@ -53,6 +49,11 @@ export type AchievementId =
   | "no_corruption"
   | "triple_rot"
   | "all_rot_types"
+  // Warden / worker corruption (3.0.0 Step 7)
+  | "purify_first"
+  | "warden_killed"
+  | "quarantine"
+  | "void_outbreak"
   // Mining
   | "first_crit"
   | "crits_25"
@@ -66,6 +67,9 @@ export type AchievementId =
   | "survived_30m"
   | "long_watch"
   | "long_watch_2h"
+  | "survived_4h"
+  | "survived_8h"
+  | "survived_24h"
   | "stable_colony"
   | "full_health"
   // Secret
@@ -102,7 +106,7 @@ export type SecretAchievementTrigger = "drift" | "synthwave";
 
 const EVENT_IDS = EVENT_DEFS.map((def) => def.id);
 
-// ─── Definitions (54 total) ───────────────────────────────────────────────────
+// ─── Definitions ─────────────────────────────────────────────────────────────
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // ── Progression ─────────────────────────────────────────────────────────────
@@ -146,6 +150,20 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     label: "Ancient Protocol",
     description: "Reach sector level 30.",
     rarity: "rare",
+    category: "progression",
+  },
+  {
+    id: "level_50",
+    label: "Sector Custodian",
+    description: "Reach sector level 50.",
+    rarity: "rare",
+    category: "progression",
+  },
+  {
+    id: "level_75",
+    label: "Grid Legend",
+    description: "Reach sector level 75.",
+    rarity: "legendary",
     category: "progression",
   },
   {
@@ -341,6 +359,34 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     rarity: "rare",
     category: "corruption",
   },
+  {
+    id: "purify_first",
+    label: "First Light",
+    description: "A sentinel cleanses its first corrupted worker.",
+    rarity: "uncommon",
+    category: "corruption",
+  },
+  {
+    id: "warden_killed",
+    label: "Cut the Thread",
+    description: "Destroy a void warden before it finishes attaching.",
+    rarity: "rare",
+    category: "corruption",
+  },
+  {
+    id: "quarantine",
+    label: "Quarantine Protocol",
+    description: "Cleanse 5 corrupted workers in a single run.",
+    rarity: "rare",
+    category: "corruption",
+  },
+  {
+    id: "void_outbreak",
+    label: "Void Outbreak",
+    description: "Survive with 3 or more workers simultaneously corrupted for over 30 seconds.",
+    rarity: "legendary",
+    category: "corruption",
+  },
 
   // ── Mining ────────────────────────────────────────────────────────────────────
   {
@@ -420,6 +466,27 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     label: "Vigil",
     description: "Keep the colony alive for 2 hours.",
     rarity: "rare",
+    category: "survival",
+  },
+  {
+    id: "survived_4h",
+    label: "Deep Watch",
+    description: "Keep the colony alive for 4 hours.",
+    rarity: "rare",
+    category: "survival",
+  },
+  {
+    id: "survived_8h",
+    label: "All-Night Drift",
+    description: "Keep the colony alive for 8 hours.",
+    rarity: "legendary",
+    category: "survival",
+  },
+  {
+    id: "survived_24h",
+    label: "Sector Eternal",
+    description: "Keep the colony alive for 24 hours.",
+    rarity: "legendary",
     category: "survival",
   },
   {
@@ -573,12 +640,7 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   state.achievements[id] = true;
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
-    state.log = pushLog(
-      state.log,
-      `Achievement unlocked: ${def.label}`,
-      "achievement",
-      state.timers.tick
-    );
+    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`, "achievement", state.timers.tick);
   }
   return true;
 }
@@ -638,7 +700,12 @@ export function recoverLostDrone(state: GameState) {
   state.agents.push(recovered);
   state.lostDrone = null;
   state.lostWorkerFound = true;
-  state.log = pushLog(state.log, "Recovered the damaged drone and folded it into the roster.", "event", state.timers.tick);
+  state.log = pushLog(
+    state.log,
+    "Recovered the damaged drone and folded it into the roster.",
+    "event",
+    state.timers.tick
+  );
   return unlockAchievement(state, "lost_drone");
 }
 

@@ -13,7 +13,10 @@ export function stepCorruption(state: GameState) {
     );
 
     if (!corruptorAttached && node.corruption > 0) {
-      const purgeRate = CORRUPTION.purgeBase + state.upgrades.arsenal * CORRUPTION.purgePerArsenal + state.upgrades.shield * CORRUPTION.purgePerShield;
+      const purgeRate =
+        CORRUPTION.purgeBase +
+        state.upgrades.arsenal * CORRUPTION.purgePerArsenal +
+        state.upgrades.shield * CORRUPTION.purgePerShield;
       node.corruption = clamp(node.corruption - purgeRate, 0, 100);
       node.corruptedBy = null;
       if (node.corruption <= CORRUPTION.purgeThreshold) {

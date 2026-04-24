@@ -1,5 +1,14 @@
 import { UPGRADES } from "@/game/balance";
-import type { EnemyKind, EnemyVisual, NodeVisual, ResourceDef, ResourceKey, UpgradeDef, VisibleResourceKey, WorkerKind } from "@/game/types";
+import type {
+  EnemyKind,
+  EnemyVisual,
+  NodeVisual,
+  ResourceDef,
+  ResourceKey,
+  UpgradeDef,
+  VisibleResourceKey,
+  WorkerKind,
+} from "@/game/types";
 
 export const resourceDefs: ResourceDef[] = [
   {
@@ -34,33 +43,65 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Auto Miner",
     baseCost: UPGRADES.miner.baseCost,
     growth: UPGRADES.miner.growth,
-    effectText: "+ Gold + Ore flow, extra crews at sector 12 / 24; unlock steps use flux + cores",
+    effectText: "+ Gold + Ore flow, extra crews at sector 22 / 42; unlock steps use flux + cores",
   },
   {
     key: "drill",
     label: "Deep Drill",
     baseCost: UPGRADES.drill.baseCost,
     growth: UPGRADES.drill.growth,
-    effectText: "+ Ore + Gems extraction, extra drones at sector 12 / 24; unlock steps use flux + cores",
+    effectText: "+ Ore + Gems extraction, extra drones at sector 22 / 42; unlock steps use flux + cores",
   },
-  { key: "reactor", label: "Reactor", baseCost: UPGRADES.reactor.baseCost, growth: UPGRADES.reactor.growth, effectText: "+ Energy + anti-raider gun power" },
+  {
+    key: "reactor",
+    label: "Reactor",
+    baseCost: UPGRADES.reactor.baseCost,
+    growth: UPGRADES.reactor.growth,
+    effectText: "+ Energy + anti-raider gun power",
+  },
   {
     key: "bot",
     label: "Ops Bot",
     baseCost: UPGRADES.bot.baseCost,
     growth: UPGRADES.bot.growth,
-    effectText: "Adaptive counter-build logic, extra runners at sector 12 / 24; unlock steps use flux + cores",
+    effectText:
+      "Adaptive counter-build logic, extra runners at sector 22 / 42; unlock steps use flux + cores",
   },
-  { key: "turret", label: "Defense Turret", baseCost: UPGRADES.turret.baseCost, growth: UPGRADES.turret.growth, effectText: "+ Range + fire rate, anti-wisp" },
-  { key: "shield", label: "Shield Grid", baseCost: UPGRADES.shield.baseCost, growth: UPGRADES.shield.growth, effectText: "Swarm mitigation + recovery" },
-  { key: "scout", label: "Assault Scout", baseCost: UPGRADES.scout.baseCost, growth: UPGRADES.scout.growth, effectText: "Intercepts corrupters" },
-  { key: "arsenal", label: "Scout Arsenal", baseCost: UPGRADES.arsenal.baseCost, growth: UPGRADES.arsenal.growth, effectText: "Purge burst + field cleanse" },
+  {
+    key: "turret",
+    label: "Defense Turret",
+    baseCost: UPGRADES.turret.baseCost,
+    growth: UPGRADES.turret.growth,
+    effectText: "+ Range + fire rate, anti-wisp",
+  },
+  {
+    key: "shield",
+    label: "Shield Grid",
+    baseCost: UPGRADES.shield.baseCost,
+    growth: UPGRADES.shield.growth,
+    effectText: "Swarm mitigation + recovery",
+  },
+  {
+    key: "scout",
+    label: "Assault Scout",
+    baseCost: UPGRADES.scout.baseCost,
+    growth: UPGRADES.scout.growth,
+    effectText: "Intercepts corrupters",
+    minTier: 1,
+  },
+  {
+    key: "arsenal",
+    label: "Scout Arsenal",
+    baseCost: UPGRADES.arsenal.baseCost,
+    growth: UPGRADES.arsenal.growth,
+    effectText: "Purge burst + field cleanse",
+  },
   {
     key: "foundry",
     label: "Foundry",
     baseCost: { ore: 200, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.foundry.growth,
-    effectText: "+12% node yield, +8% node respawn rate per level",
+    effectText: "+5% node yield per level",
     minTier: 3,
   },
   {
@@ -84,8 +125,17 @@ export const upgradeDefs: UpgradeDef[] = [
     label: "Focused Beam",
     baseCost: { gold: 600, cores: 2 } satisfies Partial<Record<ResourceKey, number>>,
     growth: UPGRADES.focusedBeam.growth,
-    effectText: "Turrets use instant-hit beam for close targets; missiles handle longer range",
+    effectText:
+      "Extends turret beam range (+6px/level, capped by TURRET.rangeMax). All turret shots are now instant-hit.",
     minTier: 4,
+  },
+  {
+    key: "missileLauncher",
+    label: "Missile Launcher",
+    baseCost: { gold: 2200, cores: 6, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
+    growth: UPGRADES.missileLauncher.growth,
+    effectText: "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level.",
+    minTier: 2,
   },
 ];
 
@@ -184,6 +234,12 @@ export const ENEMY_STYLE: Record<Exclude<EnemyKind, "corruptor">, EnemyVisual> =
     glow: "rgba(160, 60, 240, 0.28)",
     stroke: "rgba(230, 200, 255, 0.80)",
     radius: 10,
+  },
+  warden: {
+    fill: "rgba(96, 40, 150, 0.78)",
+    glow: "rgba(150, 70, 220, 0.34)",
+    stroke: "rgba(210, 170, 255, 0.82)",
+    radius: 16,
   },
 };
 

@@ -39,7 +39,11 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <StatTile label="Total Income" value={`${fmt(derived.totalIncome)}/s`} tint="rgba(130,255,210,0.95)" />
+          <StatTile
+            label="Total Income"
+            value={`${fmt(derived.totalIncome)}/s`}
+            tint="rgba(130,255,210,0.95)"
+          />
           <StatTile
             label="Colony Health"
             value={`${Math.round(derived.colonyHealth)}%`}
@@ -121,7 +125,11 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
           <StatTile label="Combat Contacts" value={derived.combatThreats} tint="rgba(255,170,170,0.95)" />
           <StatTile label="Corrupters" value={derived.corruptorCount} tint="rgba(220,170,255,0.95)" />
           <StatTile label="Corrupted Nodes" value={derived.corruptedNodes} tint="rgba(220,170,255,0.95)" />
-          <StatTile label="Blocked Damage" value={fmt(stateSafe(game.stats.blocked))} tint="rgba(170,220,255,0.95)" />
+          <StatTile
+            label="Blocked Damage"
+            value={fmt(stateSafe(game.stats.blocked))}
+            tint="rgba(170,220,255,0.95)"
+          />
           <StatTile label="Hostiles Cleared" value={game.stats.hostileKills} tint="rgba(255,220,180,0.95)" />
           <StatTile label="Purges" value={game.stats.purges} tint="rgba(220,190,255,0.95)" />
         </div>
@@ -137,7 +145,11 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
             value={`${spawnCadenceSeconds.toFixed(1)}s`}
             tint={derived.progression.recoveryMode ? "rgba(255,205,205,0.95)" : "rgba(180,235,255,0.95)"}
           />
-          <StatTile label="Wave Budget" value={derived.progression.waveBudget.toFixed(1)} tint="rgba(255,190,150,0.95)" />
+          <StatTile
+            label="Wave Budget"
+            value={derived.progression.waveBudget.toFixed(1)}
+            tint="rgba(255,190,150,0.95)"
+          />
           <StatTile label="Enemy Cap" value={derived.progression.enemyCap} tint="rgba(210,220,255,0.95)" />
         </div>
 

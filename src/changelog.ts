@@ -16,6 +16,461 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.1.5",
+    badge: "Warden Parasite Latch",
+    summary:
+      "Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves.",
+    sections: [
+      {
+        title: "Warden Parasite Latch",
+        items: [
+          "Wardens now latch onto workers like a parasite. Once a warden reaches `WARDEN.attachRadius` of a live worker it records `latchedWorkerId`, pins its position to the host each tick, and holds the latch regardless of distance until either corruption completes, the host dies / reboots / is otherwise corrupted, or the warden itself is killed. Previously a warden had to maintain proximity for 210 ticks to finish corruption — at 0.82 base speed it almost never got the chance because the host could walk away faster than the warden could close.",
+          "A latched warden uncloaks for the duration of the attach. `isCloaked()` now returns `false` for wardens with a non-null `latchedWorkerId`, so turrets, sentinels, scouts, and missile silos get a real window to shoot the parasite off before the 210-tick corruption timer expires. Roaming (unlatched) wardens stay cloaked exactly as before.",
+          "Warden HP bumped to `500 + 25×wave` (from `140 + 6×wave`) to match the new threat profile. The cloaked roaming phase is effectively invulnerable, so the HP number only matters during the brief visible latch window — a tight defensive line can still reclaim a latched worker, but it now takes real firepower.",
+          "`stepEnemies` early-returns for latched wardens so the ghost-archetype reposition logic doesn't fight the pin. Save schema bumped to v10 to persist `latchedWorkerId` across mid-latch saves; pre-v10 saves default the field to null (roaming).",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.1.4",
+    badge: "Audit Pass — Simulation & Selectors",
+    summary:
+      "Follow-up patch after a multi-agent audit of the 3.1.3 branch. Timed event modifiers compose cleanly; late-tier events and their achievements are reachable again; lone-sapper kills go through a shared worker-death helper; dying enemies no longer pressure-feed gameplay; zapper bolts revalidate both at target selection and on impact; `colonyHealth` and the field-footer stats strip normalize to `hp / maxHp` over active workers; `cloneGameState` clones the RNG; death fades tick once per sim tick; late-game upgrades score into defense; `elapsedTicks` centralizes the tick-wrap invariant for log age, temp-node despawn, and spawn/despawn fades; the AchievementsModal scroll effect no longer refires every sim tick; mobile sector card sits directly under the header; Foundry / Focused Beam / zapper UI text match the sim again; and CI now gates on `format:check`.",
+    sections: [
+      {
+        title: "Event System",
+        items: [
+          "Timed event modifiers now compose cleanly. Each event declares multiplicative `modifierContributions` and `state.eventModifiers` is recomputed from the set of active events on activate / expire / admin clear. Before, one event expiring hard-reset every shared key to 1 and silently erased any other active event's contribution.",
+          "Late-tier events (`starcall` minTier 6, `null_surge` minTier 7) are reachable again. `stepEvents` gates eligibility on the uncapped `rawTier` now, mirroring the phantom/zapper enemy-weight fix. Previously the gate used the display-capped `tier` (max 5), so both events and the `all_events` / `field_report` achievements were silently unreachable.",
+        ],
+      },
+      {
+        title: "Combat & Death",
+        items: [
+          "A lone sapper that brought a worker to 0 HP no longer leaves a zombie drone frozen on the field. Death bookkeeping is now funneled through a shared `killWorker` helper, called directly from the sapper explosion loop for any worker reduced to ≤0 HP. Before, reboot only kicked off when a live attacker stayed in contact the next tick — but the sapper self-destructs in the same tick, so a single-sapper kill left the worker at `hp=0` with `rebootTicks=0` indefinitely.",
+          "Zapper bolts revalidate their target at impact. Mid-flight the target can enter reboot (worker/scout/sentinel destroyed, turret broken) — previously the bolt would still stamp `disabledTicks` + a `Disabled` task onto the rebooting slot, extending the disable into the next active window. The impact path now requires the target to be on-field and operational.",
+          "Zapper bolts now skip broken turrets at target selection, not just at impact. The impact-side revalidation added earlier in 3.1.4 already discarded the disable on a broken hull, but the zapper still spent its firing cooldown on the shot; the target-selection pass now filters `brokenTicks > 0` alongside the existing scout/sentinel reboot guards, so broken turrets fully disengage the zapper's attention.",
+          "Enemy death fade-outs tick down exactly once per sim tick. `resolveEnemyDeaths` (called twice per tick in `advanceGame` — once after defences, once after worker melee) used to decrement `dyingTicks` on every call, halving the death-fade visual window and the `clickDyingEnemy` achievement window. The per-tick decrement + corpse filter lives in a new `tickDeathFades` that runs exactly once near the bottom of the tick.",
+        ],
+      },
+      {
+        title: "Selectors & Scoring",
+        items: [
+          "Dying enemies (corpses still fading out on-field) no longer pressure-feed gameplay. `enemyCounts`, `combatThreats`, and `corruptorCount` now filter `hp > 0`, and `stepSpawns` counts live enemies against the director's cap. Before, a brief stack of fading corpses inflated threat scoring and stalled spawns just after a clear.",
+          "`colonyHealth` is now averaged as `hp/maxHp` over *active* workers and scaled to 0..100. Before, it averaged raw `hp` across every slot — locked slots dragged the reading, and a warden-toughened worker (`maxHp=150`) pushed it above the 0..100 ceiling that every consumer (`hostilePressure`, autobuy triggers, `stable_colony`, director recovery reference) compares against.",
+          "`defenseScore` and `weightedUpgradeScore` now include `focusedBeam` and `missileLauncher`. Before, late-game turret/silo investment was silently invisible to the HUD defense/threat ratio and to `homeDevelopment` / city build progression, even as the player poured cores and flux into that tier of the tree.",
+        ],
+      },
+      {
+        title: "Invariants & Determinism",
+        items: [
+          "`cloneGameState` now builds a fresh `Rng` instance from the previous state's seed instead of aliasing the class instance. In the normal advance loop the clone replaces prev each tick so aliasing self-healed, but snapshot tests, replay tooling, and admin preview paths that held a pre-advance clone would see RNG mutations bleed through.",
+          "Tick-wrap audit: activity-log age, temp-node despawn, and spawn/despawn fade-in visuals now use a shared `elapsedTicks(now, then)` helper in `utils.ts` that applies the `(now - then + TICK_WRAP) % TICK_WRAP` invariant. Before, after the sim tick counter wrapped at `TICK_WRAP`, old log entries briefly showed `0s ago`, recently-spawned temp nodes could vanish instantly or linger, and spawn/despawn alphas snapped instead of easing across the wrap.",
+        ],
+      },
+      {
+        title: "UI Text & Tests",
+        items: [
+          "Focused Beam upgrade description now reads +6px/level (was +16px/level). The text lagged the 3.1.3 turret-range rebalance that lowered the per-level bonus to 6 and clamped total turret range to `TURRET.rangeMax` — the sim was correct, only the label was stale.",
+          "Deflaked the miner-overclock accumulation test by seeding `createInitialGameState` and re-pinning the miner's target each loop iteration. `stepWorkers` retargets on the tick==0 cadence check and `chooseWorkerTarget` draws from `state.rng`, so an unseeded run could silently retarget the miner off its placed node mid-loop.",
+          "Field-footer stats strip now reads active workers only and averages `hp / maxHp` scaled to 0..100. Before, the Crews pill showed all 9 slot-backed agents regardless of activation, and Integrity averaged raw `hp` across every slot — warden-corrupted workers (`maxHp = 150`) could push the reading above 100%, and locked slots dragged it down.",
+          "Achievements modal's target-scroll effect no longer refires every sim tick. `filtered` and `sorted` are `useMemo`-stable now, so the scroll/focus/flash runs once per genuine change of category, unlock set, or scroll target instead of once per `uiGame` snapshot.",
+          "Foundry upgrade description corrected to advertise only the yield bonus — the respawn-rate claim was never wired into the sim. Matching handoff line updated.",
+          "README zapper copy extended to mention scouts and sentinels alongside workers and turrets — all four target classes take `disabledTicks` on impact.",
+          "Achievement counts unstuck in docs and the in-source comment. `ACHIEVEMENT_DEFS.length` is the source of truth (currently 71); README, handoff, and the definitions header no longer hardcode a stale figure.",
+          "Handoff test inventory updated: `advanceGame.test.ts` is 138 tests (was 104 in the doc), `aiBehavior.test.ts` is 26 (was 25). Test count now 188 (was 163 at the start of the 3.1.3 branch) — added a zapper-broken-turret target-selection test paired with the fix above.",
+          "Mobile sector card now sits directly under the header (`order-1` instead of `order-5`) and its layout tightened — combo, level, and XP read fit on a single row above a slim progress bar, with status badges inline. Previously the Sector Level indicator was the last element on the mobile page, forcing a full scroll to read it.",
+          "City skyline no longer clips on short desktop viewports. `FieldSvg` had a `min-h-[380px]` floor that mobile needed but was forcing the SVG taller than its `lg:h-full overflow-hidden` card on short (<~720px tall) laptop / stage-mirror displays, so the bottom of the viewBox (where the district renders) was being chopped off by the card's overflow clip. Added `lg:min-h-0` so desktop lets the SVG shrink to its grid cell while mobile keeps the 380px floor.",
+        ],
+      },
+      {
+        title: "Tooling",
+        items: [
+          "GitLab CI `verify` stage now runs `npm run format:check` between `typecheck` and `lint`. Paired with a one-time prettier sweep across 56 files that had drifted from the configured style, so the invariant is enforced going forward and the repo starts clean. Stale prettier state had quietly built up for several releases without any gate.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.1.3",
+    badge: "Balance Pass — Range, Pressure, Pacing",
+    summary:
+      "Mid-game rebalance: turret range hard-clamped well below missile silos so silos own long range while turrets defend a tight perimeter; spawn director softened around defensive investment and field-fill; worker speed transitions tightened so flee speed sits within ~10% of work speed (sprint ability untouched); dev builds now show a BETA pill next to the version and a tinted favicon variant.",
+    sections: [
+      {
+        title: "Turret Range Clamp & Silo Gap",
+        items: [
+          "TURRET range constants slashed and a hard `TURRET.rangeMax` ceiling added (rangeBase 125 → 110, rangePerUpgrade 15 → 5, rangePerReactor 6 → 2, FOCUSED_BEAM.rangePerLevel 16 → 6, new rangeMax 270). At late game a fully-invested turret tops out at 270 px on a 1000 px field instead of the previous ~460 px.",
+          "Damage and cooldown nudged up to compensate for the smaller footprint (`damagePerTurret` 4 → 5, `cooldownPerTurret` 1.4 → 1.7).",
+          "Missile silos now scale with `missileLauncher` upgrade level via the new `MISSILE_SILO.rangePerLevel = 6`. Even at L1 the silo (406 px) out-ranges any turret; investment widens the gap further.",
+          "FieldSvg silo range ring now reflects the dynamic per-upgrade silo range instead of the static base.",
+        ],
+      },
+      {
+        title: "Dev Build Indicator",
+        items: [
+          "Dev builds (`npm run dev`) now render an amber `BETA` pill next to the version button so the development tab is unmistakable next to a production tab.",
+          "Dev builds also swap the favicon to a tinted variant (`public/nexus-drift-dev.svg`, brand purple → amber) and prefix the document title with `[DEV]`. Production builds are unchanged.",
+          "3.1.4 follow-up: `BETA` pill, tinted favicon, and `[BETA]` title prefix now also activate on any `nexus-drift-beta.*` deploy host (e.g. `nexus-drift-beta.mdbook.me`, `nexus-drift-beta.*.mdbook.one`). Previously the indicator used `import.meta.env.DEV` which is only true under `vite dev` — CI-built beta deploys never showed it. Detection is now in `src/lib/isBetaBuild.ts`.",
+        ],
+      },
+      {
+        title: "Worker Speed Smoothing",
+        items: [
+          "Tightened the spread between baseline worker movement states so transitions don't feel like gear shifts. Maxed-panic flee multiplier now caps at 1.06× the base (was 1.28×) — flee speed lives within ~12% of work speed (`evadeSpeedBase` 1.1 → 1.0, `evadeSpeedPanicCap` 0.18 → 0.06, `evadePanicDivisor` 180 → 400).",
+          "`recoverySpeed` 0.66 → 0.78, `damagedSpeed` 0.66 → 0.82, `traversingSpeed` 0.74 → 0.88 — all three multipliers cluster closer to 1.0.",
+          "Sprint cooldown ability and per-worker `speedMod` variance left untouched — those are intentional bursts / spawn-time flavour and remain.",
+        ],
+      },
+      {
+        title: "Spawn Director Pacing",
+        items: [
+          "Defensive interval drag eased so a healthy turret line no longer starves the field (`intervalPerTurret` 4 → 1.5, `intervalPerScout` 3 → 1.0). Pressure now lifts as defences come online instead of cratering.",
+          "New field-fill feedback: when live enemies approach the dynamic `enemyCap`, spawn cadence stretches up to 1.85× and decays smoothly back as the field clears (applied AFTER the interval clamp so it can exceed `intervalMax` when truly full).",
+          "Recovery mode replaced by a 0..1 `recoveryStrength` scalar; the wave-budget ceiling now lerps from 1.3 → 1.05 instead of binary-flipping. The boolean `recoveryMode` is preserved (threshold 0.4) for log prefixes and the early-break gate.",
+          "Combat enemy `minTier` gates lowered so unlocked variety lines up with the slowed-down score curve (rusher 3→2, brute 4→3, sapper 5→4, leech 6→5, phantom & zapper 7→6). Mid-game players see the right roster instead of being stuck on the early lineup.",
+        ],
+      },
+      {
+        title: "Follow-ups",
+        items: [
+          "Phantom and zapper enemy unlocks now actually fire at the documented score. The `minTier` gate in `getCombatEnemyWeights` now keys off an uncapped `rawTier` (score / `tiersPerScore`) instead of the display-capped `tier`, which was clamped at 5 and silently excluded every enemy with `minTier ≥ 6`.",
+          "Dev build favicon swap narrowed to the SVG variant only. Production raster icons were being rewritten to `-dev` paths that don't exist on disk; narrowing the regex to `link[rel*='icon'][type='image/svg+xml']` keeps the tinted icon working in SVG-capable browsers without the devtools 404s.",
+          "`package-lock.json` refreshed to `3.1.3` (was stuck at `3.0.2`) and stale test-count / release references in `README.md`, `AGENTS.md`, and `handoff.md` updated to match 174 tests. New guidance in `AGENTS.md` Release Work Checklist + Test Count References to keep these in sync going forward.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.1.2",
+    badge: "Worker Death & Early Pacing",
+    summary:
+      "Addresses early-game pacing and visual clarity. Early enemies (mite/wisp/raider) no longer camp the city; worker deaths now show a distinct flash and a slow regen reboot instead of instant respawn; scouts and corruption unlock at tier 1. Fixes iPad admin panel safe-area overflow.",
+    sections: [
+      {
+        title: "Early-Game Pacing",
+        items: [
+          "Mite, wisp, and raider `city` targeting priority set to 0 — early enemies now idle when no workers or defences are nearby instead of camping the home district.",
+          "Assault Scout upgrade and corruptor spawning now unlock at tier 1 instead of tier 2, giving players an intercept tool before the corruption wave hits.",
+        ],
+      },
+      {
+        title: "Worker Death & Regen",
+        items: [
+          "Worker deaths now trigger a 6-second regen reboot (`rebootDuration: 180` ticks) using the existing `rebootTicks` infrastructure. HP regenerates linearly from 0 to max over the reboot window; a charging ring in FieldSvg shows progress.",
+          "A blue expanding ring (`workerDeathFlash`) is emitted at the death position so it is visually clear when a drone is lost.",
+          "Workers no longer teleport home with 55% HP on death — they park at home pad and animate back online.",
+        ],
+      },
+      {
+        title: "iPad Admin Panel",
+        items: [
+          "Admin panel bottom padding now accounts for iOS safe-area-inset-bottom so the panel no longer extends past the screen edge on iPad.",
+          "Expanded body max-height reduced from 82dvh to 76dvh for extra clearance when Safari toolbar is visible.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.1.1",
+    badge: "Warden Polish & Zapper Reach",
+    summary:
+      "Follow-up patch addressing a post-3.1.0 audit. Relaxes the warden spawn gate so the void_outbreak path stays reachable while still preserving at least one healthy worker, lands the long-documented corrupted-worker toughness buff, fixes healthy-reporter bookkeeping, and extends zapper disruptor bolts to disable scouts and sentinels. Stamps save schema v9 with additive fallbacks.",
+    sections: [
+      {
+        title: "Warden System",
+        items: [
+          "Warden spawn gate now blocks only when the fleet has ≤ 1 healthy worker remaining (active, not corrupted, not rebooting) instead of the old any-corrupted short-circuit. A 3-worker fleet allows 2 simultaneous corruptions; a 9-worker fleet allows up to 8. Makes void_outbreak (3+ simultaneously corrupted) reachable in practice.",
+          "Corrupted workers now take the documented toughness buff on attach: `maxHp = round(workerBaseHp * corruptToughnessMult)` = 150. Baseline is restored on sentinel cleanse and on admin `clearCorruption`.",
+          "`clearCorruption` admin path now clamps hp after restoring maxHp so a previously-buffed worker cannot be left with hp > maxHp.",
+          "Healthy-reporter exclusion for worker corruption visibility now also excludes rebooting workers (`rebootTicks > 0`), matching the original design note.",
+        ],
+      },
+      {
+        title: "Zapper Disruptor Reach",
+        items: [
+          "Zapper ranged bolts now consider scouts and sentinels as eligible targets via the existing nearest-in-range pick, matching `ENEMY_TARGET_PRIORITY.scout = 0.80` and `sentinel = 0.15`. Bolts apply `disabledTicks` instead of damage — scouts and sentinels idle under the `Disabled` task state until the timer expires, mirroring the worker/turret behavior already in place.",
+          "Scouts and sentinels gain a `disabledTicks` field; their per-tick update short-circuits while the timer is positive.",
+        ],
+      },
+      {
+        title: "Text & Doc Drift",
+        items: [
+          "Miner, drill, and bot upgrade effectText entries updated from `sector 12 / 24` to `sector 22 / 42` to match the actual sector gates.",
+          "Foundry upgrade effectText updated from `+12% node yield` to `+5% node yield` to match `stepMining`.",
+          "handoff.md schemaVersion reference on the example state block updated from 7 → 9, and the warden paragraph now describes the healthy-worker spawn gate.",
+        ],
+      },
+      {
+        title: "Save Schema",
+        items: [
+          "`SCHEMA_VERSION` bumped to 9. `makeScout` and `makeSentinel` stamp `disabledTicks: 0`; `migrateGameState` backfills the field with `?? 0` so older saves load cleanly.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.1.0",
+    badge: "Field Archive & Correctness",
+    summary:
+      "Correctness-and-polish release. Adds the in-game Field Archive overlay, closes a batch of sim invariants (sapper damage funnel, worker reporting, TICK_WRAP city regen, kill-stat double-count), and reworks void wardens into permanently cloaked ghosts. Ships accessibility, render-perf, and CI hardening alongside a documented deferred-work list.",
+    sections: [
+      {
+        title: "Field Archive Overlay",
+        items: [
+          "New lore-first archive overlay covering 42 entries across Field Entities, Resources, Defenses, Sector Operations, and Field Events. Opens from the header ARCHIVE button; purely presentational and never touches sim state.",
+          "Left sidebar index + right content pane on desktop; mobile collapses to an index-first view with entry navigation.",
+          "Written as atmospheric field dossiers with Field Notes bullets for key behaviors — no stat tables so player discovery through play is preserved.",
+        ],
+      },
+      {
+        title: "Simulation Correctness",
+        items: [
+          "Sapper detonations now route contact damage through the `damageWorker` funnel and skip corrupted or rebooting targets, matching every other worker-damage path.",
+          "Worker reporting no longer early-exits after the first tick — reporters now pin `spottedTicks` at max for any corrupted worker they can see every tick, so sentinels keep uninterrupted vision through long cleanse approaches.",
+          "City regen gate now uses a modulo-safe `(tick - lastHostileTick + TICK_WRAP) % TICK_WRAP` delta, so the home district does not incorrectly unlock regen after the 10M-tick counter wraps.",
+          "Enemy kill statistics now separate `hostileKills` (combat enemies only) from `totalEnemiesKilled`, so corruptor purges and cleanse removals stop inflating the Hostiles Cleared counter.",
+          "Turret, scout, sentinel, and city HP defaults are now sourced from `balance.ts` instead of duplicated literals in `factories.ts`, preventing balance drift between initial-state and migration paths.",
+          "Save schema stamps `schemaVersion: 8` with a `?? default` migration fallback for every new field.",
+        ],
+      },
+      {
+        title: "Void Warden Rework",
+        items: [
+          "Wardens are now permanently cloaked ghosts. They add a `permanentCloak` flag, reposition continuously like the ghost archetype, and stay invisible to sentinel and scout targeting at all times.",
+          "Worker retaliation still reaches wardens during attach attempts, so `warden_killed` remains achievable without exposing wardens to normal combat targeting.",
+          "Migration backfills `permanentCloak = true` for wardens in older saves so mid-run saves carry over without regression.",
+        ],
+      },
+      {
+        title: "Accessibility & Render Perf",
+        items: [
+          'Achievements modal gained a proper focus trap, Escape-to-close, `role="dialog"` + `aria-modal`, `aria-labelledby`, and explicit `aria-label`s on its category and close buttons.',
+          "Speed buttons now expose `aria-pressed` + `aria-label` so the active speed is announced correctly by assistive tech.",
+          "`FieldSvg` is wrapped in `React.memo`, district render data no longer bakes in `game.timers.tick`, and the hexagon geometry helper was hoisted to module scope. Field interaction handlers in `App.tsx` are memoized so identity-stable props reach the memoized field.",
+          "`EventChip` collapsed an old duplicated one-shot / timed branch where both arms emitted identical classes.",
+        ],
+      },
+      {
+        title: "Stability & Types",
+        items: [
+          "Agent / Scout / Sentinel `task` fields tighten from `string` to a new `TaskState` union covering every in-sim assignment site. Balance's `WORKERS_AT_HOME` uses the same type.",
+          "Worker retarget cadence in `stepWorkers` hashes off `agent.id` instead of the array index, so a worker's retarget window does not silently shift when peers die or reboot.",
+          "Added `damageEnemy` tests for shield regen cooldown arming and zero-amount no-ops.",
+        ],
+      },
+      {
+        title: "CI & Docs",
+        items: [
+          "GitLab CI `verify` stage now runs `npm run lint` alongside `typecheck` and `test`, so lint regressions can no longer sneak through on green pipelines.",
+          "README gains a Known Deferred Work section anchoring each deliberately-deferred follow-up (computeDerived lift, spatial index, movement split, unseeded Math.random helpers, React 19 upgrade) with matching in-source TODO comments.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.0.2",
+    badge: "Admin Console",
+    summary:
+      "Admin tooling release. The hidden panel is now a proper console with shared high-speed presets, scenario buttons, event triggers, shell settings, live diagnostics, and a command terminal for setting up balance and QA scenarios without touching save schema.",
+    sections: [
+      {
+        title: "Admin Console",
+        items: [
+          "Pressing Space five times now opens a full admin console instead of the old compact speed/event popup.",
+          "The console shows live diagnostics for speed, director tier/score, enemy counts, active events, and city integrity.",
+          "Quick actions now cover midgame and late-game presets, siege drills, bankroll grants, healing, corruption cleanup, threat clearing, and update-banner preview.",
+          "The console can collapse into a tiny quick-send panel with only the admin title, close button, command input, and a top-center expand arrow.",
+          "Collapsing and expanding the panel now animates — the card grows up and shrinks down smoothly, and the chevron rotates 180° on toggle.",
+          "The collapse/expand chevron now uses the same neutral glass treatment as the close button instead of a contrasting cyan glow.",
+          "Event triggers now wrap into multiple rows instead of scrolling horizontally, so all events are visible at once.",
+          "On mobile, tapping the version badge five times within two seconds opens the admin console without needing a keyboard.",
+          "Event trigger buttons now live in their own left-column section under Shell Settings instead of being attached to the command terminal.",
+          "The synthwave visual mode can now be toggled from the console without needing the Konami-code path.",
+        ],
+      },
+      {
+        title: "Speed Controls",
+        items: [
+          "Admin mode extends the existing header speed selector with 10x, 20x, and 100x options, so there is no separate admin-only speed row.",
+          "100x mode now runs behind a per-frame catch-up cap so a stalled frame cannot try to process an unbounded simulation backlog.",
+          "The public 1x, 2x, and 4x selector remains unchanged until admin mode is opened or an admin-only speed is active.",
+        ],
+      },
+      {
+        title: "Command Terminal",
+        items: [
+          "New admin commands include status, speed, grant, upgrade, level, xp, event, spawn, heal, clear, preset, and banner.",
+          "Commands route through the existing mutation and helper paths: events use `activateEvent`, enemy spawns use `spawnEnemy` with the seeded RNG, and log entries use `pushLog`.",
+          "Terminal history is session-local React state only; no command state was added to saved games.",
+        ],
+      },
+      {
+        title: "Tests",
+        items: [
+          "Added admin command coverage for resource grants, upgrades, timed-event trigger/revert, seeded enemy spawning, corruption cleanup, speed requests, and banner requests.",
+        ],
+      },
+      {
+        title: "Balance",
+        items: [
+          "Wisps now appear from the very start of a run (tier 0) instead of being gated to tier 1, so early waves include more than just mites.",
+          "Raiders start appearing at tier 1 instead of tier 2, adding a third enemy variant well before corruptors arrive.",
+          "Scout upgrade is now hidden until tier 2 (the same point corruptors first spawn), so it only shows up when it is actually needed.",
+          "Autobuy's emergency scout trigger now aligns with tier 2 to match the new visibility gate.",
+          "The third scout slot now requires upgrade level 10 instead of 8, adding a longer ramp between the second and third active scouts.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.0.1",
+    badge: "Targeting & Warden Hotfix",
+    summary:
+      "Patch release for the 3.0.0 Balancing & Behavior branch. Enemy target selection now respects deployed/live entity gates, void wardens no longer bank cooldown while blocked, and warden kill credit now reaches the matching achievement.",
+    sections: [
+      {
+        title: "Enemy Targeting",
+        items: [
+          "Combat enemies now ignore undeployed turret, scout, and sentinel slots when choosing targets.",
+          "Corrupted and rebooting workers are no longer valid enemy targets, preventing enemies from stalling on immune or off-field workers.",
+          "Stale contact targets are rechecked before damage lands, so rebooting scouts/sentinels and undeployed structures cannot be damaged by old target ids.",
+          "City targeting now updates its comparison score correctly, keeping the multi-class picker stable if target evaluation order changes later.",
+        ],
+      },
+      {
+        title: "Void Warden Fixes",
+        items: [
+          "Killing a void warden before it attaches now increments `wardensKilled` and unlocks the matching achievement.",
+          "The warden spawn timer now resets while a live warden or corrupted worker blocks the spawn gate, so cooldown cannot bank during an active infestation.",
+          "Partial warden attach progress now decays on the worker that actually has stale progress, even if another worker becomes the nearest candidate.",
+          "Sentinel cleanse damage now uses a dedicated corrupted-worker damage funnel with clamp and hit-flash handling.",
+        ],
+      },
+      {
+        title: "Performance & Coverage",
+        items: [
+          "Missile silo target selection now uses a single-pass best scan instead of allocating and sorting every tick.",
+          "Regression coverage now includes deployed-only enemy target eligibility, corrupted/rebooting worker exclusion, warden cooldown reset semantics, stale attach decay, cleanse damage routing, missile silo activation, city energy modulation, and warden kill credit.",
+          "146 tests across four files: 104 in the main simulation suite, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.0.0",
+    badge: "Balancing & Behavior",
+    summary:
+      "Major update stretching Nexus Drift into a true multi-session wallpaper. The economy is 5–8× slower, turrets and scouts can be broken or driven back, sentinels tank real hits and cleanse void-corrupted workers, void wardens stalk isolated miners in late game, and every worker now has a personality — a speed quirk, a fear profile, and a class ability.",
+    sections: [
+      {
+        title: "Progression & Economy",
+        items: [
+          "Upgrade costs and growth rates have been substantially increased across the board — the second turret is now a ~25-35 minute milestone rather than a sub-10-minute purchase, and late-game slots take multiple real-time hours to reach.",
+          "Worker extra-slot unlocks now require both an upgrade-track level and a sector level (level 22 for the second slot, level 42 for the third), and their Flux+Cores surcharges have roughly quadrupled.",
+          "XP gain, income rates, enemy wave budget, and mining yields were all scaled to match the stretched timeline — a session that previously peaked in one hour now rewards hours-long and overnight play equally.",
+          "Foundry yield was retuned from +12% per level to +5% per level so late-game stacking stays inside the slower economy curve.",
+          "Prestige now requires substantially more gold and gems, keeping late-game players invested in defending what they've built rather than refreshing immediately.",
+          "New runtime achievement tiers: 4 h, 8 h, and 24 h (legendary). New level gates at 50 and 75.",
+        ],
+      },
+      {
+        title: "Turret & Defense Structure HP",
+        items: [
+          "Turrets now have a structural HP pool. Enemies that reach and hammer a turret can crack it: when HP hits zero the turret breaks for ~80 seconds and respawns at half HP.",
+          "Turret HP scales with the turret upgrade track and the shield upgrade. All incoming turret damage flows through a single funnel so future threat types are automatically covered.",
+          "Active turret count is now dual-gated by upgrade level and sector level — the second slot opens at sector 2, the third at sector 8 — matching the worker-slot pattern.",
+          "Turret targeting now gives a priority bonus to enemies actively chasing workers near the home district, so sentinels don't ignore a brute marching on a miner while picking off stragglers at max range.",
+        ],
+      },
+      {
+        title: "Scout HP, Retreat & Speed",
+        items: [
+          "Scouts now have structural HP and a retreat state: below 50% HP the scout sprints home, heals at the pad, and redeploys once recovered to 90%.",
+          "A dead scout reboots for ~20 seconds then respawns at full HP — losing both scouts simultaneously creates a real cleanse vulnerability window.",
+          "Scout movement speed increased from 0.60 to 0.78 to offset the awareness overhead of routing around hostile lanes.",
+          "Scout pair-up now triggers with two active scouts instead of three, making the multi-scout synergy useful from the moment you buy the second scout upgrade.",
+        ],
+      },
+      {
+        title: "Sentinel HP & Cleanse",
+        items: [
+          "Sentinels now have a much larger HP pool than scouts and don't retreat until 35% HP, reflecting their heavier tank role. They heal faster at the home pad and reboot for ~40 seconds on death.",
+          "Sentinels gained a new cleanse priority that overrides normal combat: when a corrupted worker is visible, the sentinel moves toward it and fires a purple beam until the corruption is purged.",
+          "Cleansing a worker rewards flux and cores and initiates a worker reboot; the worker returns uncorrupted after a 60-second cooldown.",
+          "Sentinel kill credit only registers when the sentinel lands the lethal hit — cleansing a corrupted worker does not count toward sentinel kills.",
+        ],
+      },
+      {
+        title: "City HP & Energy Modulation",
+        items: [
+          "The home district now has a real HP pool. Brutes, leeches, and other enemies can deal structural damage when they reach it.",
+          "City integrity directly modulates energy production: full HP gives 100% energy; a fully destroyed district floors at 25%, compounding economic pressure during active sieges.",
+          "The district slowly regenerates when no combat enemies are nearby, giving players an incentive to break sieges rather than letting them drag.",
+        ],
+      },
+      {
+        title: "Enemies Targeting Structures",
+        items: [
+          "Combat enemies can now pivot between workers, turrets, scouts, sentinels, and the city based on per-kind priority weights.",
+          "Brutes are siege units — they weight turrets and the city higher than before. Sappers prefer turrets. Rushers hunt scouts. Raiders and wisps chip at the city. Phantoms assassinate sentinels.",
+          "Contact damage against non-worker targets is filtered by per-class armor: turrets are moderately armored, sentinels very heavily armored, the city lightly armored.",
+          "Enemy archetypes (flanker lead, ghost reposition, squad bearing spread) still activate only when targeting workers; structure pursuit uses direct chase.",
+        ],
+      },
+      {
+        title: "Missile Silos",
+        items: [
+          "Missiles have been separated from the turret loop into a dedicated Missile Silo upgrade track.",
+          "Silos fire long-range, slow-cadence shots: 400 px range (roughly 3× turret range), ~16-second reload, and high base damage that scales with the silo upgrade level.",
+          "Silo missile physics differ from the old turret missiles — more speed, less steering, longer flight time — so they feel like long-range artillery rather than guided turret shots.",
+          "Base turrets now always fire instant-hit beams. The Focused Beam upgrade extends turret acquisition range instead of switching fire modes.",
+          "Autobuy includes the missile silo track and fast-tracks the first level when brutes or leeches are active.",
+        ],
+      },
+      {
+        title: "Worker Abilities & Variance",
+        items: [
+          "Each worker now has a seeded personality: speed variance (±12%), fear variance (±20%), and a harvest bias (±15%) that tilts the individual toward or away from their preferred node tier.",
+          "Miners accumulate an overclock bonus while continuously mining without taking damage — after 120 ticks the crit chance for the next mining hit increases by 10%.",
+          "Runners gain a sprint burst when evading with high panic: 1.5× speed for 90 ticks once every 600 ticks.",
+          "Drones passively discount the corruption avoidance penalty for resource nodes they're within scan range of, slightly broadening safe harvesting options near moderate corruption.",
+          "All workers deal light retaliation damage to attackers when not in recovery. Damage scales with the bot upgrade track.",
+          "Worker evasion persistence now cascades super-linearly with enemy count — a single pursuer barely extends the evade timer, but a real surround compounds hard.",
+        ],
+      },
+      {
+        title: "Void Warden Corruption",
+        items: [
+          "A new late-game threat arrives at tier 4+: the Void Warden — a slow, tanky infester that bypasses normal combat and seeks isolated workers.",
+          "If a warden reaches a worker and stays adjacent for ~7 seconds, the worker becomes void-corrupted: it freezes in place, drains nearby resource nodes, and can only be destroyed by sentinel cleanse beams.",
+          "Corrupted workers are immune to enemy contact damage and turret/scout fire. They render with a purple body, a pulsing void ring, and a position shake that intensifies over time.",
+          "Healthy workers within reporting range of a corrupted ally flag the infestation, making it visible to sentinels across the full map even beyond the sentinel's vision radius.",
+          "Wardens spawn on their own 2-minute timer, not through the normal wave budget, and at most one warden and one corrupted worker are active at a time.",
+          "Killing a warden before it attaches counts toward combat stats. Successful attachment removes the warden without rewards — so letting it attach is always the worse outcome.",
+        ],
+      },
+      {
+        title: "Achievements",
+        items: [
+          "Four new corruption-category achievements: First Light (first cleanse), Cut the Thread (kill a warden before it attaches), Quarantine Protocol (5 cleanses in one run), and Void Outbreak (legendary — survive with 3+ simultaneously corrupted workers for 30 continuous seconds).",
+          "Four new long-session survival achievements: 4 h, 8 h, and 24 h runtime milestones plus sector level 50 and level 75 progression gates.",
+          "58 achievements total.",
+        ],
+      },
+      {
+        title: "Tests & Architecture",
+        items: [
+          "138 tests across four files: 96 in the main simulation suite covering all new subsystems, 25 AI behavior tests, 10 interaction-achievement tests, and 7 version-check tests.",
+          "New subsystem: workerCorruption.ts (warden attach, node drain, worker reporting).",
+          "New subsystem: missileSilos.ts (silo targeting, fire cadence, damage).",
+          "advanceGame step order extended with stepWardenSpawn (after stepSpawns) and stepWorkerCorruption (after stepCorruption).",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.4.5",
     badge: "Surround Pressure",
     summary:

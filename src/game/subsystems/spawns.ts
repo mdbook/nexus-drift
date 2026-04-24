@@ -1,4 +1,4 @@
-import { ENEMY_BUDGET_COST } from "@/game/balance";
+import { ENEMY_BUDGET_COST, WARDEN } from "@/game/balance";
 import { spawnEnemy } from "@/game/factories";
 import { getCombatEnemyWeights, getCorruptorSpawnChance, getEnemyWavePower } from "@/game/progression";
 import { computeDerived } from "@/game/selectors";
@@ -22,6 +22,7 @@ function describeSpawnWave(spawned: EnemyKind[], derived: DerivedState) {
     leech: 0,
     phantom: 0,
     zapper: 0,
+    warden: 0,
   };
   spawned.forEach((kind) => {
     counts[kind] += 1;
@@ -46,14 +47,21 @@ export function stepSpawns(state: GameState) {
   const derived = computeDerived(state);
   if (state.timers.enemy < derived.progression.spawnIntervalTicks) return;
   state.timers.enemy = 0;
-  if (state.enemies.length >= derived.progression.enemyCap) return;
+  // 3.1.3 audit follow-up: cap checks use live enemies only. Dying enemies
+  // still occupy slots in state.enemies for the death-fade window but are
+  // invisible to every other sim path — counting them here briefly stalls
+  // spawns after kills and paces the director off of corpses.
+  const liveEnemyCount = state.enemies.reduce((count, enemy) => count + (enemy.hp > 0 ? 1 : 0), 0);
+  if (liveEnemyCount >= derived.progression.enemyCap) return;
 
   const corruptibleNodes = state.nodes.filter((node) => node.kind !== "gold");
-  const openSlots = derived.progression.enemyCap - state.enemies.length;
+  const openSlots = derived.progression.enemyCap - liveEnemyCount;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
   const spawned: EnemyKind[] = [];
-  let remainingBudget =
-    derived.progression.waveBudget * clamp(openSlots / 3, 0.7, derived.progression.recoveryMode ? 1.05 : 1.3);
+  // 3.1.3: lerp the budget ceiling out of recovery instead of binary flipping.
+  // recoveryStrength=0 → ceiling 1.3 (full pressure); strength=1 → 1.05 (eased).
+  const budgetCeiling = 1.3 - derived.progression.recoveryStrength * 0.25;
+  let remainingBudget = derived.progression.waveBudget * clamp(openSlots / 3, 0.7, budgetCeiling);
   let remainingSlots = openSlots;
 
   const corruptorChance = getCorruptorSpawnChance(
@@ -73,7 +81,9 @@ export function stepSpawns(state: GameState) {
 
   const combatWeights = getCombatEnemyWeights(derived.progression);
   while (remainingSlots > 0 && remainingBudget >= 0.85) {
-    const candidates = (Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor" | "blight">, number]>)
+    const candidates = (
+      Object.entries(combatWeights) as Array<[Exclude<EnemyKind, "corruptor" | "blight">, number]>
+    )
       .filter(([kind, weight]) => weight > 0 && ENEMY_BUDGET_COST[kind] <= remainingBudget + 0.15)
       .map(([kind, weight]) => ({ item: kind, weight }));
 
@@ -89,7 +99,10 @@ export function stepSpawns(state: GameState) {
     let kind: Exclude<EnemyKind, "corruptor" | "blight"> | null = null;
     for (const entry of candidates) {
       threshold -= Math.max(0, entry.weight);
-      if (threshold <= 0) { kind = entry.item; break; }
+      if (threshold <= 0) {
+        kind = entry.item;
+        break;
+      }
     }
     if (!kind) kind = candidates[candidates.length - 1]?.item ?? null;
     if (!kind) break;
@@ -112,4 +125,48 @@ export function stepSpawns(state: GameState) {
   if (message) {
     state.log = pushLog(state.log, message, "combat", state.timers.tick);
   }
+}
+
+/**
+ * 3.0.0 Step 7 — Warden spawn gate.
+ *
+ * Wardens bypass the regular wave budget. They have their own long cooldown
+ * (wardenSpawnIntervalTicks) and are gated behind tier threshold. At most one
+ * warden is ever on the field at a time. A new warden is blocked only when
+ * spawning it could reduce the player to zero healthy workers — specifically,
+ * when fewer than 2 healthy workers remain (healthy = active, not corrupted,
+ * not rebooting). This lets 2 simultaneous corruptions occur in a larger
+ * fleet while always preserving at least 1 uncorrupted worker.
+ */
+export function stepWardenSpawn(state: GameState) {
+  const derived = computeDerived(state);
+  if (derived.progression.tier < WARDEN.wardenSpawnTierThreshold) {
+    state.timers.warden = 0;
+    return;
+  }
+
+  const wardenOnField = state.enemies.some((e) => e.kind === "warden" && e.hp > 0);
+  const healthyWorkers = state.agents.filter((a) => a.active && !a.corrupted && a.rebootTicks === 0).length;
+  if (wardenOnField || healthyWorkers <= 1) {
+    // The timer is "time since the field was fully clear and eligible", not
+    // time spent waiting behind a blocker. Interruptions reset progress rather
+    // than pausing it, which prevents cooldown banking after an infestation.
+    // Repeatedly triggering and clearing wardens can therefore delay respawns
+    // indefinitely; switch this block to pause if that pacing model changes.
+    state.timers.warden = 0;
+    return;
+  }
+
+  state.timers.warden += 1;
+  if (state.timers.warden < WARDEN.wardenSpawnIntervalTicks) return;
+
+  state.timers.warden = 0;
+  const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
+  state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, "warden", state.timers.tick));
+  state.log = pushLog(
+    state.log,
+    "Void warden detected on perimeter. Infestation risk.",
+    "corruption",
+    state.timers.tick
+  );
 }

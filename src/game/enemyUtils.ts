@@ -2,6 +2,17 @@ import { ENEMY_SHIELD, ENEMY_SPECIAL } from "@/game/balance";
 import type { Enemy } from "@/game/types";
 
 export function isCloaked(enemy: Enemy) {
+  // 3.1.0 — wardens carry permanentCloak and are invisible to
+  // turret/sentinel/missile/scout targeting while roaming.
+  //
+  // 3.1.5 — once a warden latches onto a worker (parasite attach), it
+  // uncloaks for the duration of the attach so defenses get a real window
+  // to shoot it off before corruption completes. Worker retaliation during
+  // attach still bypasses cloak regardless (see combat.ts).
+  if (enemy.permanentCloak) {
+    if (enemy.kind === "warden" && enemy.latchedWorkerId != null) return false;
+    return true;
+  }
   return (
     enemy.kind === "phantom" &&
     enemy.cloakTicks !== undefined &&

@@ -1,6 +1,4 @@
-export type ManualOverrideSequence =
-  | { stage: "idle" }
-  | { stage: "await_reset"; startedAtMs: number };
+export type ManualOverrideSequence = { stage: "idle" } | { stage: "await_reset"; startedAtMs: number };
 
 export const INITIAL_MANUAL_OVERRIDE_SEQUENCE: ManualOverrideSequence = { stage: "idle" };
 

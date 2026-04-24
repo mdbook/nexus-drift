@@ -1,10 +1,30 @@
-import { CITY, CORRUPTION, DEFENSE, ECONOMY, FLUX, PRESTIGE, SCOUT, SENTINEL } from "@/game/balance";
+import {
+  CITY,
+  CITY_HP,
+  CORRUPTION,
+  DEFENSE,
+  ECONOMY,
+  FLUX,
+  PRESTIGE,
+  SCOUT,
+  SENTINEL,
+  TURRET_SLOTS_BY_LEVEL,
+} from "@/game/balance";
 import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
 import type { DerivedState, GameState } from "@/game/types";
 
+// TODO(3.2.0): `computeDerived` runs ~15 times per tick because subsystems call
+// it independently. A naive memoization keyed on `state` identity is unsafe —
+// subsystems mutate state between calls (spawns/combat/movement), so cached
+// values would go stale. The correct fix is to compute `derived` once at the
+// top of `advanceGame`, thread it through subsystem signatures, and recompute
+// (or patch) after phases that mutate tracked fields. Deferred from 3.1.0
+// because the subsystem-signature churn is too large for release polish.
 export function computeDerived(state: GameState): DerivedState {
-  const activeCorruptionNodes = state.nodes.filter((node) => node.kind !== "gold" && node.corruption > CORRUPTION.nodeActiveThreshold).length;
+  const activeCorruptionNodes = state.nodes.filter(
+    (node) => node.kind !== "gold" && node.corruption > CORRUPTION.nodeActiveThreshold
+  ).length;
   const p = 1 + state.prestige * ECONOMY.prestigeMultiplier;
   const enemyCounts = {
     mite: 0,
@@ -18,15 +38,22 @@ export function computeDerived(state: GameState): DerivedState {
     leech: 0,
     phantom: 0,
     zapper: 0,
+    warden: 0,
   };
   const corruptedByType = { ore: 0, gems: 0, energy: 0 };
 
+  // 3.1.3 audit follow-up: dying enemies (hp<=0 but still in the array during
+  // the death-fade visual window) must not pressure-feed selectors. They're
+  // invisible to combat/targeting/movement already — count/threat selectors
+  // now match that invariant so threat scoring, event backdrop, and economy
+  // penalties don't double-count corpses.
   state.enemies.forEach((enemy) => {
+    if (enemy.hp <= 0) return;
     enemyCounts[enemy.kind] += 1;
   });
 
-  const combatThreats = state.enemies.filter((enemy) => enemy.role === "combat").length;
-  const corruptorCount = state.enemies.filter((enemy) => enemy.role === "corruptor").length;
+  const combatThreats = state.enemies.filter((enemy) => enemy.hp > 0 && enemy.role === "combat").length;
+  const corruptorCount = state.enemies.filter((enemy) => enemy.hp > 0 && enemy.role === "corruptor").length;
 
   state.nodes.forEach((node) => {
     if (node.corrupted && node.kind in corruptedByType) {
@@ -34,29 +61,51 @@ export function computeDerived(state: GameState): DerivedState {
     }
   });
 
-  const threatPenalty = Math.max(ECONOMY.threatPenaltyFloor, 1 - combatThreats * ECONOMY.threatPenaltyPerEnemy + state.upgrades.shield * ECONOMY.threatPenaltyPerShield);
+  const threatPenalty = Math.max(
+    ECONOMY.threatPenaltyFloor,
+    1 - combatThreats * ECONOMY.threatPenaltyPerEnemy + state.upgrades.shield * ECONOMY.threatPenaltyPerShield
+  );
   const corruptionPenalty = {
     ore: Math.max(0.25, 1 - corruptedByType.ore * CORRUPTION.corruptibleKindsBiasWeight.ore),
     gems: Math.max(0.2, 1 - corruptedByType.gems * CORRUPTION.corruptibleKindsBiasWeight.gems),
     energy: Math.max(0.2, 1 - corruptedByType.energy * CORRUPTION.corruptibleKindsBiasWeight.energy),
   };
 
+  // 3.0.0: city HP modulates energy production. At full HP the energy rate
+  // runs at 100%; at 0 HP it floors at CITY_HP.energyMinRatio. Linear
+  // interpolation between the two keeps the feedback visible without
+  // creating a discontinuous cliff.
+  const cityIntegrityValue = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
+  const energyCityScale = CITY_HP.energyMinRatio + (1 - CITY_HP.energyMinRatio) * cityIntegrityValue;
+
   const rates = {
-    gold: (ECONOMY.rates.goldBase + state.upgrades.miner * ECONOMY.rates.goldPerMiner + state.upgrades.drill * ECONOMY.rates.goldPerDrill) * p * threatPenalty,
+    gold:
+      (ECONOMY.rates.goldBase +
+        state.upgrades.miner * ECONOMY.rates.goldPerMiner +
+        state.upgrades.drill * ECONOMY.rates.goldPerDrill) *
+      p *
+      threatPenalty,
     ore:
-      (ECONOMY.rates.oreBase + state.upgrades.miner * ECONOMY.rates.orePerMiner + state.upgrades.drill * ECONOMY.rates.orePerDrill) *
+      (ECONOMY.rates.oreBase +
+        state.upgrades.miner * ECONOMY.rates.orePerMiner +
+        state.upgrades.drill * ECONOMY.rates.orePerDrill) *
       p *
       threatPenalty *
       corruptionPenalty.ore,
     gems:
-      (ECONOMY.rates.gemsBase + state.upgrades.drill * ECONOMY.rates.gemsPerDrill + state.upgrades.reactor * ECONOMY.rates.gemsPerReactor) *
+      (ECONOMY.rates.gemsBase +
+        state.upgrades.drill * ECONOMY.rates.gemsPerDrill +
+        state.upgrades.reactor * ECONOMY.rates.gemsPerReactor) *
       p *
       corruptionPenalty.gems,
     energy:
-      (ECONOMY.rates.energyBase + state.upgrades.reactor * ECONOMY.rates.energyPerReactor + state.upgrades.shield * ECONOMY.rates.energyPerShield) *
+      (ECONOMY.rates.energyBase +
+        state.upgrades.reactor * ECONOMY.rates.energyPerReactor +
+        state.upgrades.shield * ECONOMY.rates.energyPerShield) *
       p *
       corruptionPenalty.energy *
-      state.eventModifiers.energyRate,
+      state.eventModifiers.energyRate *
+      energyCityScale,
     cores: 0,
     flux: 0,
   };
@@ -73,17 +122,47 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.shield * DEFENSE.score.shield +
     state.upgrades.scout * DEFENSE.score.scout +
     state.upgrades.arsenal * DEFENSE.score.arsenal +
-    state.upgrades.sentinel * DEFENSE.score.sentinel;
+    state.upgrades.sentinel * DEFENSE.score.sentinel +
+    state.upgrades.focusedBeam * DEFENSE.score.focusedBeam +
+    state.upgrades.missileLauncher * DEFENSE.score.missileLauncher;
   const threatScore =
-    combatThreats + corruptorCount * DEFENSE.threat.corruptorMultiplier + corruptedByType.ore + corruptedByType.gems + corruptedByType.energy;
-  const colonyHealth = state.agents.length
-    ? state.agents.reduce((sum, agent) => sum + agent.hp, 0) / state.agents.length
+    combatThreats +
+    corruptorCount * DEFENSE.threat.corruptorMultiplier +
+    corruptedByType.ore +
+    corruptedByType.gems +
+    corruptedByType.energy;
+  // 3.1.3 audit follow-up: colonyHealth is a 0..100 reading averaged over
+  // *active* workers' hp/maxHp, not raw hp across all slots. Inactive slots
+  // are not on-field, so they should not drag the reading; and once maxHp
+  // drifts from the default 100 (warden toughness buff, future upgrades)
+  // raw-hp averaging breaks every downstream 0..100 comparison
+  // (hostilePressure, autobuy, `stable_colony`, director recovery ref).
+  const activeAgents = state.agents.filter((agent) => agent.active);
+  const colonyHealth = activeAgents.length
+    ? (activeAgents.reduce((sum, agent) => sum + (agent.maxHp > 0 ? agent.hp / agent.maxHp : 0), 0) /
+        activeAgents.length) *
+      100
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
-  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + state.upgrades.turret));
-  const activeScouts = Math.min(state.scouts.length, state.upgrades.scout, SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0));
+  // 3.0.0: turret slot count is gated by both upgrade level AND sector level
+  // (mirrors WORKER_SLOTS_BY_LEVEL). The always-on first turret keeps its
+  // floor; additional turrets need both upgrade + level to line up.
+  const turretLevelSlots = TURRET_SLOTS_BY_LEVEL[Math.min(state.level, TURRET_SLOTS_BY_LEVEL.length - 1)];
+  const additionalTurretSlots = Math.min(state.upgrades.turret, turretLevelSlots);
+  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + additionalTurretSlots));
+  const activeScouts = Math.min(
+    state.scouts.length,
+    state.upgrades.scout,
+    SCOUT.capBase + (state.upgrades.scout >= SCOUT.capBoostThreshold ? SCOUT.capBoostAmount : 0)
+  );
   const activeSentinels = Math.min(state.sentinels.length, state.upgrades.sentinel * SENTINEL.capPerUpgrade);
-  const hostilePressure = combatThreats >= DEFENSE.hostilePressureEnemyThreshold || colonyHealth < DEFENSE.hostilePressureColonyHealth;
+  const activeMissileSilos = state.missileSilos.filter((silo) => silo.active).length;
+  const brokenTurrets = state.turrets.filter((turret) => turret.brokenTicks > 0).length;
+  const corruptedWorkers = state.agents.filter((agent) => agent.corrupted).length;
+  const cityIntegrity = state.city.maxHp > 0 ? state.city.hp / state.city.maxHp : 1;
+  const hostilePressure =
+    combatThreats >= DEFENSE.hostilePressureEnemyThreshold ||
+    colonyHealth < DEFENSE.hostilePressureColonyHealth;
   const corruptionPressure = corruptorCount > 0 || activeCorruptionNodes > 0;
   const totalUpgrades = Object.values(state.upgrades).reduce((sum, value) => sum + value, 0);
   const weightedUpgradeScore =
@@ -97,7 +176,9 @@ export function computeDerived(state: GameState): DerivedState {
     state.upgrades.arsenal * DEFENSE.weightedUpgrade.arsenal +
     state.upgrades.foundry * DEFENSE.weightedUpgrade.foundry +
     state.upgrades.sentinel * DEFENSE.weightedUpgrade.sentinel +
-    state.upgrades.archive * DEFENSE.weightedUpgrade.archive;
+    state.upgrades.archive * DEFENSE.weightedUpgrade.archive +
+    state.upgrades.focusedBeam * DEFENSE.weightedUpgrade.focusedBeam +
+    state.upgrades.missileLauncher * DEFENSE.weightedUpgrade.missileLauncher;
   const homeDevelopment =
     state.level * CITY.developmentWeights.level +
     totalUpgrades * CITY.developmentWeights.totalUpgrades +
@@ -112,10 +193,7 @@ export function computeDerived(state: GameState): DerivedState {
   const cityBuildProgress = Math.max(0, Math.min(1, (homeDevelopment - CITY.growthStart) / CITY.growthSpan));
 
   let cityStage = 0;
-  while (
-    cityStage < CITY.stageThresholds.length &&
-    cityBuildProgress >= CITY.stageThresholds[cityStage]
-  ) {
+  while (cityStage < CITY.stageThresholds.length && cityBuildProgress >= CITY.stageThresholds[cityStage]) {
     cityStage += 1;
   }
 
@@ -140,6 +218,7 @@ export function computeDerived(state: GameState): DerivedState {
     activeTurrets,
     activeScouts,
     cityStage,
+    liveEnemyCount: state.enemies.filter((enemy) => enemy.hp > 0).length,
   });
 
   return {
@@ -169,5 +248,9 @@ export function computeDerived(state: GameState): DerivedState {
     cityBuildProgress,
     prestigeComboBonus,
     progression,
+    activeMissileSilos,
+    brokenTurrets,
+    corruptedWorkers,
+    cityIntegrity,
   };
 }

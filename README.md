@@ -2,7 +2,7 @@
 
 Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `2.4.5` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.1.5` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -14,19 +14,23 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
-- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, but extra crews are now a true late-game unlock: the relevant track still has to reach its slot levels, the colony must also hit sector levels 12 and 24, and those key unlock upgrades now charge both Flux and Cores
-- Workers now commit harder to partially mined resources: distant threats have less proactive pull, current nodes get a stronger finish bias, one or two nearby enemies no longer dislodge an undamaged harvesting worker, live enemy bodies now physically block and slow workers instead of letting them slip through, fleeing workers can opportunistically retarget to safe nodes ahead, and recently worked health bars leave a fading mined-progress cue without regenerating node HP
-- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
-- Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns; the 3 one-shot events now surface as short-lived inspectable cards instead of disappearing immediately, then fade away without a visible countdown
+- **3.0.0**: Economy stretched 5–8× for multi-session play — the second turret is a 25-35 min milestone, the third worker of any kind takes hours, and overnight runs are now first-class
+- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, dual-gated by upgrade level and sector level (level 22 / 42), with Flux+Cores surcharges
+- **3.0.0**: Workers now have per-individual variance (speed ±12%, fear ±20%, harvest bias ±15%) plus class abilities: miner overclock, runner sprint burst, drone corruption scan
+- Workers commit hard to partially mined resources; one or two nearby enemies no longer dislodge an undamaged harvesting worker; live enemy bodies slow movement; fleeing workers can retarget ahead
+- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs, Missile Silos)
+- Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns
 
 ### Combat & Enemies
 
-- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, and zappers — each kind now maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking when multiple hostiles share a target
-- Zappers are a late-game (tier 7+) ranged threat — holds at firing distance, fires slow energy bolts that disable a worker or turret for ~7 seconds
-- Enemies apply soft repulsion when crowding the same target — they orbit at staggered angles rather than piling on top of each other
-- Turrets fire homing missiles that travel visibly and steer toward their original target; launched missiles now have a small terminal grace window, but still never rehome or splash if that target dies first. The Focused Beam upgrade (tier 4+) adds instant-hit fire for close-range targets
-- Shielded enemies now show a separate cyan shield layer above their HP, and shield damage is consumed before HP without spilling excess damage through to the health underneath in the same hit
-- 54 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including click-driven secrets for event inspection, anomaly witnessing, corpse/projectile interactions, UI opens, and a timed speed-sequence
+- Mid-game enemy roster: rushers, brutes, sappers, blights, leeches, phantoms, zappers — each kind maps to an AI archetype (direct line, flanker, ambusher, ghost, skirmisher) with emergent squad-level flanking
+- **3.0.0**: Enemies now target deployed turrets, scouts, sentinels, and the city — brutes siege structures, sappers aim for turrets, phantoms assassinate sentinels. Per-class armor values tune contact damage separately from enemy stats
+- **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
+- Zappers hold at firing distance and fire bolts that disable workers, turrets, scouts, or sentinels for ~7 seconds; late-game Void Wardens stalk isolated workers and, once within range, latch on as parasites — pinning to the host, uncloaking for the 3.5-second corruption window, and giving defenses a real shot to burn them off before the worker converts
+- **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
+- **3.0.0**: Missile Silos are a separate upgrade track — long-range, slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams. **3.1.3 invariant**: turret range is hard-clamped to 270 px regardless of upgrades, and missile silos always out-range turrets (silo base 400 px + 6 px per missileLauncher level)
+- Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
+- 71 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
 
 ### HUD & UI
 
@@ -42,8 +46,9 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 ### Controls & Persistence
 
-- Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin speed panel behind `Space` × 5
-- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live; the hidden admin panel can also force that banner open for testing
+- Speed presets: `1x`, `2x`, `4x` stay in the top chrome on every breakpoint; hidden admin mode behind `Space` × 5 extends that same selector with `10x`, `20x`, and `100x`
+- The hidden admin console now includes live diagnostics, scenario/preset buttons, shell toggles, a dedicated event-trigger section, and a command terminal (`status`, `grant`, `upgrade`, `spawn`, `event`, `heal`, `clear`, `preset`, and more) for QA and balance setup; it can collapse into a tiny quick-send command panel when you need the field visible
+- The shell now polls `/version` roughly every 5 minutes (and when the tab regains focus), extracts a flat semver from the response, and shows a live-update banner with `Refresh`, `Close`, and session-only `Don't Show Again` actions when a newer build is live; the admin console can also force that banner open for testing
 - Long runs autosave every 30 seconds, restore on reload, and pause cleanly while the tab is hidden
 - Save files carry a schema version for explicit forward-compatible migration
 - In-game release history: click the version badge next to `Autonomous Colony Sim`; the version badge itself now also participates in a hidden secret achievement
@@ -68,12 +73,14 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (92 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (195 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
 npm run format:check
 ```
+
+Beta builds — `npm run dev` locally or any deploy at `nexus-drift-beta.mdbook.me` / `nexus-drift-beta.*.mdbook.one` — show an amber `BETA` pill next to the version button, a tinted favicon, and a `[BETA]` document-title prefix. Detection lives in `src/lib/isBetaBuild.ts`. Production hosts (`nexus-drift.mdbook.me` / `nexus-drift.*.mdbook.one`) are unaffected.
 
 ---
 
@@ -81,7 +88,7 @@ npm run format:check
 
 | Path                                      | Role                                                                                                                                                                                                                                                 |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/App.tsx`                             | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin panel, event test triggers, release-history modal                                                                                                            |
+| `src/App.tsx`                             | Top-level shell: save bootstrap, speed presets, interaction-achievement triggers, admin-console mount, release-history modal                                                                                                                         |
 | `src/changelog.ts`                        | In-game release notes sourced from repo milestones                                                                                                                                                                                                   |
 | `index.html`                              | App metadata, multi-format favicon links, web manifest link, and Open Graph / Twitter embed tags                                                                                                                                                     |
 | `src/hooks/useLowFxMode.ts`               | Detects coarse-pointer desktop layouts (notably iPadOS landscape) so presentation layers can use cheaper FX variants without touching sim logic                                                                                                      |
@@ -89,6 +96,7 @@ npm run format:check
 | `src/hooks/useGameLoop.ts`                | `requestAnimationFrame` loop, pause-on-hidden, autosave cadence, live field snapshots, throttled UI snapshot                                                                                                                                         |
 | `src/game/advanceGame.ts`                 | Thin orchestrator that runs the simulation step order                                                                                                                                                                                                |
 | `src/game/achievements.ts`                | Achievement definitions plus the UI/field interaction helpers for tourist, event cards, projectiles, corpses, modal opens, and lost-drone recovery                                                                                                   |
+| `src/game/adminCommands.ts`               | Pure admin command executor for console actions such as resource grants, event triggers, enemy spawns, healing, cleanup, presets, speed requests, and update-banner requests                                                                         |
 | `src/game/persistence.ts`                 | localStorage save/load bootstrap and migration entry point                                                                                                                                                                                           |
 | `src/game/balance.ts`                     | Central tuning constants                                                                                                                                                                                                                             |
 | `src/game/events/eventDefs.ts`            | Seeded mechanical event definitions, HUD linger metadata, and activation helpers                                                                                                                                                                     |
@@ -96,6 +104,7 @@ npm run format:check
 | `src/game/targeting.ts`                   | Shared targeting helpers                                                                                                                                                                                                                             |
 | `src/game/subsystems/`                    | Focused simulation modules: economy, spawns, movement, combat, scouts, sentinels, turrets, corruption, mining, autobuy, projectiles, events                                                                                                          |
 | `src/components/FieldSvg.tsx`             | Battlefield SVG rendering; static district geometry memoized by seed/turret layout, with the expensive label blur disabled in low-FX mode and interactive targets for the tourist, lost drone, anomaly artifact, projectiles, and death-fade corpses |
+| `src/components/AdminPanel.tsx`           | Hidden admin console opened by Space × 5: diagnostics, quick actions, shell toggles, a dedicated event-trigger section, command-terminal UI, and a collapsed quick-send command panel                                                                |
 | `src/components/EventBackdrop.tsx`        | Full-screen ambient effect layer keyed off active event ids (purely presentational, respects `prefers-reduced-motion` and coarse-pointer low-FX mode)                                                                                                |
 | `src/components/EventChip.tsx`            | Active-event HUD pill/card with hover/focus tooltip and click-to-inspect behavior                                                                                                                                                                    |
 | `src/components/UpgradeIndicatorRail.tsx` | Horizontal rail of upgrade dots — glow on level, pulse when affordable, tooltip on hover/focus                                                                                                                                                       |
@@ -135,7 +144,7 @@ The production image serves the static Vite build with Nginx on port `80`.
 
 GitLab CI runs:
 
-- **verify** — `npm ci`, `npm run typecheck`, `npm test`
+- **verify** — `npm ci`, `npm run typecheck`, `npm run format:check`, `npm run lint`, `npm test`
 - **image build** — Kaniko-based build that publishes the container image
 - **notifications** — success and failure alerts after the pipeline completes
 
@@ -145,6 +154,109 @@ release build publishes the commit SHA, `:latest`, and the exact
 building, CI checks the GitLab container registry and fails if that version tag
 already exists, so repeated pushes with the same release version cannot silently
 retarget the published version image.
+
+---
+
+## Known Deferred Work
+
+Follow-up work for `3.2.0+` that was deliberately scoped out of `3.1.0`
+because the touch surface was too large for a release polish pass. Each
+item has an in-source `TODO(3.2.0)` comment anchoring it.
+
+- **`computeDerived` lift** — `computeDerived` runs ~15× per tick because
+  every subsystem recomputes it independently. Naïve WeakMap memoization is
+  unsafe (state identity is stable but contents mutate mid-tick). The
+  correct fix threads `derived` through subsystem signatures and patches
+  specific fields after mutating phases. See
+  `src/game/selectors.ts:computeDerived`.
+- **Spatial index for enemy / worker scans** — movement, targeting, and
+  combat all walk the full live-enemy list every tick. At admin speeds
+  (`20×`, `100×`) with 100+ enemies this is measurable. Add a coarse grid
+  (~64 px buckets) built once per tick at the top of `advanceGame` and
+  reuse it across all nearest-neighbor scans. See top of
+  `src/game/subsystems/movement.ts`.
+- **Split `movement.ts`** — ~800 LOC housing three concerns (worker
+  movement, enemy movement, ghost reposition). Break into
+  `workerMovement.ts`, `enemyMovement.ts`, and a `ghostReposition.ts`
+  helper. See top of `src/game/subsystems/movement.ts`.
+- **Retire unseeded `Math.random` helpers in `src/game/utils.ts`** — the
+  sim is deterministic and seeded via `src/game/rng.ts`; `rand`, `pick`,
+  `chance`, and `pickWeighted` all fall back to `Math.random` and are only
+  safe for cosmetic paths (starfield). Split them into a clearly-labeled
+  cosmetic module or lean on the seeded `Rng` everywhere.
+- **React `18 → 19` upgrade** — the app pins to React `18.3.1` plus
+  matching type packages. Upgrading unlocks the newer `useOptimistic` /
+  `useFormStatus` ergonomics and the compiler, but `framer-motion` and
+  `lucide-react` peer ranges need revalidation first.
+
+### Audit-pass polish (3.1.4)
+
+Smaller follow-ups surfaced by the 3.1.4 audit that were consciously
+scoped out. Not structural — mostly a11y, tooling, and migration
+tightening. Each of these can be its own tiny PR.
+
+- **TODO: `AchievementsModal` target-scroll effect re-runs per sim
+  render.** The sorted list re-creates each sim render at
+  `src/components/AchievementsModal.tsx:207`. Memoize the sort or
+  narrow the scroll effect to fire only on target-id change.
+- **TODO: `WikiOverlay` focus trap / restore weaker than
+  `AchievementsModal`.** A11y consistency pass, not a regression.
+- **TODO: Tourist drone keyboard focus ring.** `src/components/FieldSvg.tsx:1537`
+  removes the outline without a `:focus-visible` fallback — keyboard
+  users lose the focus ring on that target.
+- **TODO: Mobile `ResourceBar` order check.** `order-4` on the resource
+  bar may push resources below the sidebar on mobile. Verify on a real
+  mobile viewport before treating it as a bug — the current order may
+  be intentional.
+- **TODO: Pin CI notification script.** `.gitlab-ci.yml:53,63` `wget`s
+  a mutable `master` URL from self-hosted GitLab. Pin to a commit SHA
+  or vendor the script into the repo.
+- **TODO: Run `npm audit` locally.** Not part of the 3.1.4 triage;
+  worth one pass to baseline dependency advisories.
+- **TODO: Add `npm run build` to the CI verify stage.** Currently only
+  exercised by the Docker build on `main` and `dev`, so branch
+  pipelines can miss Vite compile regressions until deploy.
+- **TODO: Tighten `migrateGameState` unknown-key handling.**
+  `src/game/factories.ts:523` spreads `raw.achievements` unfiltered;
+  the stats migration accepts unknown event-stat keys the same way.
+  Inert because the UI renders from `ACHIEVEMENT_DEFS`, but the
+  tightening is cheap.
+- **TODO: Seed pattern for `createInitialGameState()`-based tests.**
+  Audit-caught a flaky test (see commit 12) rooted in
+  `createInitialGameState()` without a fixed seed; fixed that specific
+  case and added a header comment in `src/game/__tests__/advanceGame.test.ts`,
+  but the broader pattern-level refactor (either default-seed the
+  helper in test contexts or audit every call site) is deferred.
+
+### Balance / progression follow-ups
+
+- **TODO: Speed up early-game progression so variety arrives sooner.**
+  New players currently sit on the tier 0 roster (mite + wisp) until
+  the director `score` crosses 75, and the full roster doesn't open
+  until tier 6 (score 450) — see the score coeffs and `combatWeights`
+  `minTier` gates in `src/game/balance.ts:686`. The goal is for players
+  to see rushers / brutes / sappers noticeably faster without
+  collapsing the long-haul curve that 3.0.0 established. Candidate
+  levers: raise `PROGRESSION.scoreCoeffs.level` / `totalUpgrades`,
+  lower `tiersPerScore`, or pull the `minTier` gates for the early
+  variety enemies (rusher/brute/sapper) down a tier. Needs a balance
+  pass, not a one-line tweak — pick after deciding whether tier pacing
+  or unlock gates is the right knob.
+- **TODO: Scale enemy HP to keep pace with turret upgrade investment.**
+  Turret damage grows with both `upgrades.turret` and `upgrades.reactor`
+  (see `TURRET` in `src/game/balance.ts:356`) but enemy `hpBase` and
+  `hpWave` (`ENEMY_STATS`, `src/game/balance.ts:139`) are flat values
+  with no upgrade-linked scaling — late-game turrets can one- or
+  two-shot mid-tier enemies regardless of how far into the run you are.
+  Two candidate approaches: (a) apply a multiplicative scaling factor
+  to `hpBase` driven by `director.score` or `director.tier` on enemy
+  spawn (keeps balance.ts values as baselines), or (b) directly buff
+  `hpBase` / `hpWave` per problem enemy and nudge turret
+  `damagePerTurret` / `damagePerReactor` down proportionally. Approach
+  (a) is more self-correcting; (b) gives finer per-archetype control.
+  Either way, cross-check against sapper explosion, missile silo
+  `damageBase`, and sentinel `damageBase` so one-shot outliers don't
+  just shift to a different weapon.
 
 ---
 

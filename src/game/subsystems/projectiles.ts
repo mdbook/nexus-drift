@@ -46,7 +46,7 @@ export function stepProjectiles(state: GameState) {
         const dx = originalTarget.x - p.x1;
         const dy = originalTarget.y - p.y1;
         const d = Math.max(1, Math.hypot(dx, dy));
-        const steer = TURRET.missileSteering;
+        const steer = p.steering ?? TURRET.missileSteering;
         let vx = p.vx * (1 - steer) + (dx / d) * steer;
         let vy = p.vy * (1 - steer) + (dy / d) * steer;
         const vl = Math.max(0.001, Math.hypot(vx, vy));
@@ -91,15 +91,35 @@ export function stepProjectiles(state: GameState) {
     }
 
     if (p.life === 0 && p.tag === "zapper-bolt" && p.targetId !== undefined) {
+      // 3.1.3 audit follow-up: revalidate the target at impact. The bolt
+      // can be mid-flight long enough for its target to go off-field
+      // (worker rebooting, turret broken, scout/sentinel destroyed and
+      // pending redeploy). Applying disabledTicks to a rebooting entity
+      // left the wrong `task` sticking around after reboot and extended
+      // disable into the next active window.
       if (p.targetKind === "agent") {
         const agent = state.agents.find((a) => a.id === p.targetId);
-        if (agent) {
+        if (agent && agent.active && !agent.corrupted && agent.rebootTicks === 0 && agent.hp > 0) {
           agent.disabledTicks = ZAPPER.disableDurationTicks;
           agent.task = "Disabled";
         }
       } else if (p.targetKind === "turret") {
         const turret = state.turrets.find((t) => t.id === p.targetId);
-        if (turret) turret.disabledTicks = ZAPPER.disableDurationTicks;
+        if (turret && turret.brokenTicks === 0 && turret.hp > 0) {
+          turret.disabledTicks = ZAPPER.disableDurationTicks;
+        }
+      } else if (p.targetKind === "scout") {
+        const scout = state.scouts.find((s) => s.id === p.targetId);
+        if (scout && scout.rebootTicks === 0 && scout.hp > 0) {
+          scout.disabledTicks = ZAPPER.disableDurationTicks;
+          scout.task = "Disabled";
+        }
+      } else if (p.targetKind === "sentinel") {
+        const sentinel = state.sentinels.find((s) => s.id === p.targetId);
+        if (sentinel && sentinel.rebootTicks === 0 && sentinel.hp > 0) {
+          sentinel.disabledTicks = ZAPPER.disableDurationTicks;
+          sentinel.task = "Disabled";
+        }
       }
     }
   }

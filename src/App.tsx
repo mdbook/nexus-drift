@@ -1,6 +1,7 @@
 import { memo, type ComponentType, type CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BookOpen,
   Bot,
   Coins,
   Cpu,
@@ -12,6 +13,7 @@ import {
   Hexagon,
   Pickaxe,
   Radar,
+  Rocket,
   Shield,
   Swords,
   Zap,
@@ -24,10 +26,12 @@ import { EventBackdrop } from "@/components/EventBackdrop";
 import { EventChip } from "@/components/EventChip";
 import { FieldStatsStrip } from "@/components/FieldStatsStrip";
 import { FieldSvg } from "@/components/FieldSvg";
+import { AdminPanel } from "@/components/AdminPanel";
 import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
+import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CHANGELOG, CURRENT_VERSION } from "@/changelog";
@@ -47,10 +51,12 @@ import {
 } from "@/game/achievements";
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
-import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
+import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, pushLog } from "@/game/utils";
+import { isBetaBuild } from "@/lib/isBetaBuild";
+import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { INITIAL_MANUAL_OVERRIDE_SEQUENCE, recordManualOverrideClick } from "@/lib/manualOverride";
 
@@ -100,15 +106,23 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
   sentinel: Crosshair,
   archive: Bot,
   focusedBeam: Zap,
+  missileLauncher: Rocket,
 };
 
-const PUBLIC_SPEEDS = [1, 2, 4];
+const PUBLIC_SPEEDS = [1, 2, 4] as const;
 const SOURCE_URL = "https://gitlab.mdbook.me/mikayla/nexus-drift";
 const SPEED_TOOLTIP: Record<number, string> = {
   1: "Normal speed — standard simulation rate.",
   2: "2× speed — double tick rate, useful for mid-game grinding.",
   4: "4× speed — fast-forward through long upgrade waits.",
+  10: "10× speed — admin fast-forward for setup checks.",
+  20: "20× speed — admin stress speed; watch active wave pressure.",
+  100: "100× speed — admin burst mode with catch-up capped to protect frame time.",
 };
+
+function isPublicSpeed(value: number): value is (typeof PUBLIC_SPEEDS)[number] {
+  return PUBLIC_SPEEDS.includes(value as (typeof PUBLIC_SPEEDS)[number]);
+}
 
 function SpeedButton({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
   const id = `speed-btn-${value}`;
@@ -119,6 +133,8 @@ function SpeedButton({ value, active, onClick }: { value: number; active: boolea
         ref={triggerRef}
         type="button"
         onClick={onClick}
+        aria-pressed={active}
+        aria-label={`${value}× game speed`}
         className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
           active
             ? "border-cyan-200/30 bg-white/12 text-white"
@@ -159,16 +175,18 @@ function NewGameButton({ onClick }: { onClick: () => void }) {
 function HeaderControls({
   speed,
   setSpeed,
+  speedOptions,
   onNewGame,
 }: {
   speed: number;
   setSpeed: (value: number) => void;
+  speedOptions: readonly number[];
   onNewGame: () => void;
 }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-black/25 px-2 py-1 backdrop-blur-sm">
-        {PUBLIC_SPEEDS.map((value) => (
+        {speedOptions.map((value) => (
           <SpeedButton key={value} value={value} active={speed === value} onClick={() => setSpeed(value)} />
         ))}
       </div>
@@ -188,7 +206,7 @@ const SectorStatusCard = memo(function SectorStatusCard({
 }) {
   return (
     <Card
-      className={`order-5 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:min-w-[380px]`}
+      className={`order-1 mb-3 ${PANEL_CLASS} p-3 lg:absolute lg:top-4 lg:right-6 lg:order-none lg:mb-0 lg:min-w-[380px]`}
     >
       <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
         <div className="flex items-baseline gap-2">
@@ -206,18 +224,19 @@ const SectorStatusCard = memo(function SectorStatusCard({
         </div>
       </div>
       <div className="lg:hidden">
-        <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/45">
-          <span>Sector Level</span>
-          <span>{game.level}</span>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-semibold text-white">x{game.combo.toFixed(1)}</span>
+            <span className="text-[10px] uppercase tracking-[0.24em] text-white/45">
+              combo · lv {game.level}
+            </span>
+          </div>
+          <span className="text-[10px] text-white/40">
+            XP {fmt(game.xp)} / {fmt(derived.targetXp)}
+          </span>
         </div>
-        <div className="mt-3 text-4xl font-semibold text-white">x{game.combo.toFixed(1)}</div>
-        <div className="mt-1 text-sm text-white/55">combo multiplier</div>
-        <Progress value={xpPct} className="mt-4 h-2 bg-white/10" />
-        <div className="mt-2 flex items-center justify-between text-xs text-white/45">
-          <span>XP {fmt(game.xp)}</span>
-          <span>{fmt(derived.targetXp)}</span>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <Progress value={xpPct} className="mt-2 h-1.5 bg-white/10" />
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <StatusBadge tone={derived.hostilePressure ? "danger" : "calm"}>
             {derived.hostilePressure ? "Perimeter Hot" : "Perimeter Stable"}
           </StatusBadge>
@@ -293,14 +312,23 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
-  const { liveVersion, updateAvailable, dismissForSession, ignoreVersion, showPreviewBanner, refreshForUpdate } = useVersionCheck(CURRENT_VERSION);
+  const {
+    liveVersion,
+    updateAvailable,
+    dismissForSession,
+    ignoreVersion,
+    showPreviewBanner,
+    refreshForUpdate,
+  } = useVersionCheck(CURRENT_VERSION);
   const konamiRef = useRef<string[]>([]);
   const driftRef = useRef("");
+  const versionTapTimestamps = useRef<number[]>([]);
   const manualOverrideRef = useRef(INITIAL_MANUAL_OVERRIDE_SEQUENCE);
   const synthwaveRef = useRef(synthwave);
   useEffect(() => {
@@ -316,6 +344,7 @@ export default function App() {
   const hasActiveEvents = derived.activeEvents.length > 0;
   const unlockedAchievementIds = (Object.keys(game.achievements) as AchievementId[]).reverse();
   const fieldFooterInsetClass = "mb-[124px] lg:mb-[83px]";
+  const speedOptions = adminOpen || !isPublicSpeed(speed) ? ADMIN_SPEED_PRESETS : PUBLIC_SPEEDS;
 
   useEffect(() => {
     if (!changelogOpen && !achievementsOpen) return;
@@ -395,6 +424,52 @@ export default function App() {
     setAchievementsOpen(true);
   };
 
+  // 3.1.0 — stable FieldSvg interactions prop so the memoized FieldSvg doesn't
+  // re-render on unrelated App-level state changes. mutateGame identity is
+  // stable from useGameLoop, so the only real dep here is mutateGame itself.
+  const fieldInteractions = useMemo(
+    () => ({
+      onTouristClick: () => {
+        mutateGame((next) => {
+          spotTourist(next);
+        });
+      },
+      onLostDroneClick: () => {
+        mutateGame((next) => {
+          recoverLostDrone(next);
+        });
+      },
+      onAnomalyClick: () => {
+        mutateGame((next) => {
+          witnessAnomaly(next);
+        });
+      },
+      onProjectileClick: (projectileId: number) => {
+        mutateGame((next) => {
+          clickProjectile(next, projectileId);
+        });
+      },
+      onEnemyClick: (enemyId: number) => {
+        mutateGame((next) => {
+          clickDyingEnemy(next, enemyId);
+        });
+      },
+    }),
+    [mutateGame]
+  );
+
+  const handleSynthwaveChange = (enabled: boolean) => {
+    setSynthwave(enabled);
+    mutateGame((next) => {
+      next.log = pushLog(
+        next.log,
+        enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.",
+        "system",
+        next.timers.tick
+      );
+    });
+  };
+
   return (
     <div
       className={`relative min-h-[100dvh] bg-[#050814] text-white lg:h-[100dvh] lg:overflow-hidden ${
@@ -411,7 +486,19 @@ export default function App() {
             <span>Autonomous Colony Sim</span>
             <button
               type="button"
-              onClick={openChangelog}
+              onClick={() => {
+                const now = Date.now();
+                versionTapTimestamps.current = [
+                  ...versionTapTimestamps.current.filter((ts) => now - ts < 2000),
+                  now,
+                ];
+                if (versionTapTimestamps.current.length >= 5) {
+                  versionTapTimestamps.current = [];
+                  setAdminOpen((v) => !v);
+                  return;
+                }
+                openChangelog();
+              }}
               className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-medium tracking-[0.28em] text-cyan-100/85 transition hover:border-cyan-200/45 hover:bg-cyan-200/15 hover:text-cyan-50"
               aria-expanded={changelogOpen}
               aria-haspopup="dialog"
@@ -419,6 +506,14 @@ export default function App() {
             >
               v{CURRENT_VERSION}
             </button>
+            {isBetaBuild() && (
+              <span
+                className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-[9px] font-bold tracking-[0.3em] text-amber-100"
+                aria-label="Development build"
+              >
+                BETA
+              </span>
+            )}
             <a
               href={SOURCE_URL}
               target="_blank"
@@ -430,11 +525,24 @@ export default function App() {
               <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
-            NEXUS DRIFT
-            <span className="mx-2 font-thin text-white/40"> //</span>
-            <span className="relative top-[0.35em] ml-1 text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
-              purge wing online
+          <h1 className="flex flex-wrap items-end gap-x-2 text-3xl font-semibold tracking-tight md:text-5xl lg:max-w-[calc(100%-420px)]">
+            <span>NEXUS DRIFT</span>
+            <span className="font-thin text-white/40"> //</span>
+            <span className="ml-1 inline-flex flex-col items-start leading-none">
+              <button
+                type="button"
+                onClick={() => setWikiOpen(true)}
+                className="mb-1 inline-flex items-center gap-1 rounded-md border border-cyan-300/25 bg-cyan-300/5 px-1.5 py-0.5 text-[9px] font-medium tracking-[0.28em] text-cyan-200/75 uppercase transition hover:border-cyan-200/50 hover:bg-cyan-300/10 hover:text-cyan-100"
+                aria-label="Open field archive"
+                aria-haspopup="dialog"
+                aria-expanded={wikiOpen}
+              >
+                <BookOpen className="h-3 w-3" />
+                <span>archive</span>
+              </button>
+              <span className="text-sm font-medium tracking-widest text-white/60 uppercase md:text-base">
+                purge wing online
+              </span>
             </span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-white/55 md:text-base lg:hidden">
@@ -444,6 +552,7 @@ export default function App() {
           <HeaderControls
             speed={speed}
             setSpeed={handleSpeedSelect}
+            speedOptions={speedOptions}
             onNewGame={() => {
               localStorage.removeItem(SAVE_KEY);
               window.location.reload();
@@ -455,7 +564,9 @@ export default function App() {
           <Card className="mb-3 border-emerald-300/20 bg-emerald-300/10 px-4 py-3 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-100/60">Live Update Available</div>
+                <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-100/60">
+                  Live Update Available
+                </div>
                 <div className="mt-1 text-sm text-emerald-50/95 md:text-base">
                   Version {liveVersion} is live. You&apos;re currently on {CURRENT_VERSION}.
                 </div>
@@ -487,7 +598,7 @@ export default function App() {
           </Card>
         )}
 
-        {/* sector card — order-5 on mobile (below game+hud), absolute top-right on lg+ */}
+        {/* sector card — order-1 on mobile (directly under header), absolute top-right on lg+ */}
         <SectorStatusCard game={uiGame} derived={uiDerived} xpPct={uiXpPct} />
 
         <div className="hidden lg:absolute lg:right-6 lg:top-[84px] lg:z-20 lg:block lg:w-full lg:max-w-[420px]">
@@ -574,37 +685,7 @@ export default function App() {
             )}
 
             <div className={`min-h-0 flex-1 overflow-hidden rounded-[20px] ${fieldFooterInsetClass}`}>
-              <FieldSvg
-                game={game}
-                derived={derived}
-                interactions={{
-                  onTouristClick: () => {
-                    mutateGame((next) => {
-                      spotTourist(next);
-                    });
-                  },
-                  onLostDroneClick: () => {
-                    mutateGame((next) => {
-                      recoverLostDrone(next);
-                    });
-                  },
-                  onAnomalyClick: () => {
-                    mutateGame((next) => {
-                      witnessAnomaly(next);
-                    });
-                  },
-                  onProjectileClick: (projectileId) => {
-                    mutateGame((next) => {
-                      clickProjectile(next, projectileId);
-                    });
-                  },
-                  onEnemyClick: (enemyId) => {
-                    mutateGame((next) => {
-                      clickDyingEnemy(next, enemyId);
-                    });
-                  },
-                }}
-              />
+              <FieldSvg game={game} derived={derived} interactions={fieldInteractions} />
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 rounded-b-[28px] border-t border-white/5 bg-slate-950/80 backdrop-blur-sm">
@@ -646,59 +727,17 @@ export default function App() {
       </div>
 
       {adminOpen && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-          <div className={`${PANEL_CLASS} flex flex-col gap-3 px-4 py-3`}>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Admin // Speed</span>
-              {[1, 2, 5, 10].map((value) => (
-                <button
-                  key={value}
-                  onClick={() => handleSpeedSelect(value)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
-                    speed === value
-                      ? "bg-white/20 text-white"
-                      : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80"
-                  }`}
-                >
-                  {value}x
-                </button>
-              ))}
-              <button
-                onClick={() => setAdminOpen(false)}
-                className="ml-1 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/40 hover:text-white/70"
-              >
-                x
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Trigger Event</span>
-              {EVENT_DEFS.map((eventDef) => (
-                <button
-                  key={eventDef.id}
-                  className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
-                  onClick={() =>
-                    mutateGame((next) => {
-                      activateEvent(next, eventDef);
-                    })
-                  }
-                >
-                  {eventDef.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">Shell</span>
-              <button
-                className="rounded-xl bg-white/5 px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/10 hover:text-white"
-                onClick={showPreviewBanner}
-              >
-                Show Update Banner
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminPanel
+          game={game}
+          derived={derived}
+          speed={speed}
+          synthwave={synthwave}
+          mutateGame={mutateGame}
+          onSpeedSelect={handleSpeedSelect}
+          onShowPreviewBanner={showPreviewBanner}
+          onSynthwaveChange={handleSynthwaveChange}
+          onClose={() => setAdminOpen(false)}
+        />
       )}
 
       {changelogOpen && (
@@ -783,6 +822,8 @@ export default function App() {
           }}
         />
       )}
+
+      <WikiOverlay open={wikiOpen} onClose={() => setWikiOpen(false)} />
     </div>
   );
 }

@@ -1,14 +1,18 @@
-import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI } from "@/game/balance";
+import { ENEMY_SPECIAL, FLUX, SCOUT, SCOUT_AI, SCOUT_HP } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { addProjectile } from "@/game/factories";
-import { damageEnemy } from "@/game/enemyUtils";
+import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
 import { clamp, dist, pushLog } from "@/game/utils";
 
 function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number; ay: number } {
-  let ax = 0, ay = 0;
+  let ax = 0,
+    ay = 0;
   for (const enemy of state.enemies) {
     if (enemy.role === "corruptor") continue;
+    // 3.1.0 — scouts don't get psychic avoidance of cloaked threats
+    // (phantoms mid-cycle, wardens always). Keeps the stealth theme honest.
+    if (isCloaked(enemy)) continue;
     const dx = sx - enemy.x;
     const dy = sy - enemy.y;
     const d = Math.hypot(dx, dy);
@@ -23,8 +27,9 @@ function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number;
 
 export function stepScouts(state: GameState) {
   const corruptors = state.enemies.filter((enemy) => enemy.role === "corruptor");
-  const corruptedNodes = [...state.nodes]
-    .filter((node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3));
+  const corruptedNodes = [...state.nodes].filter(
+    (node) => node.kind !== "gold" && (node.corrupted || node.corruption > 3)
+  );
   const liveScouts = Math.min(
     state.scouts.length,
     state.upgrades.scout,
@@ -37,9 +42,7 @@ export function stepScouts(state: GameState) {
   const activelyCorrupting = corruptedNodes.filter(
     (node) => node.corruptedBy != null && node.corruption < 100
   ).length;
-  const finishable = corruptedNodes.filter(
-    (node) => node.corruption <= SCOUT_AI.finishNodeThreshold
-  ).length;
+  const finishable = corruptedNodes.filter((node) => node.corruption <= SCOUT_AI.finishNodeThreshold).length;
   const preferFinish = finishable >= activelyCorrupting;
   const rankedNodes = [...corruptedNodes].sort((a, b) => {
     const aFinish = a.corruption <= SCOUT_AI.finishNodeThreshold ? SCOUT_AI.finishNodeBias : 0;
@@ -50,13 +53,9 @@ export function stepScouts(state: GameState) {
     // otherwise bleed gets the double. Raw corruption is a small tiebreaker
     // so ties between equally-biased nodes favour the dirtier one.
     const aScore =
-      (preferFinish ? aFinish * 2 : aFinish) +
-      (preferFinish ? aBleed : aBleed * 2) +
-      a.corruption * 0.05;
+      (preferFinish ? aFinish * 2 : aFinish) + (preferFinish ? aBleed : aBleed * 2) + a.corruption * 0.05;
     const bScore =
-      (preferFinish ? bFinish * 2 : bFinish) +
-      (preferFinish ? bBleed : bBleed * 2) +
-      b.corruption * 0.05;
+      (preferFinish ? bFinish * 2 : bFinish) + (preferFinish ? bBleed : bBleed * 2) + b.corruption * 0.05;
     return bScore - aScore || a.id - b.id;
   });
 
@@ -64,7 +63,7 @@ export function stepScouts(state: GameState) {
   // let the second scout stack there instead of moving on.
   const pairUpEnabled = liveScouts >= SCOUT_AI.pairUpScoutCount;
   const pairUpNodeId = pairUpEnabled
-    ? rankedNodes.find((node) => node.corruption >= SCOUT_AI.pairUpCorruptionThreshold)?.id ?? null
+    ? (rankedNodes.find((node) => node.corruption >= SCOUT_AI.pairUpCorruptionThreshold)?.id ?? null)
     : null;
 
   // Pre-pass: determine which corrupted node each active scout without a corruptor target would sweep.
@@ -81,9 +80,101 @@ export function stepScouts(state: GameState) {
   }
 
   state.scouts.forEach((scout, index) => {
+    // 3.0.0: live maxHp recomputation so scout/arsenal upgrades buff HP while
+    // the scout is in the field. Scale current hp proportionally so mid-fight
+    // upgrades don't reset damage progress.
+    const nextMaxHp =
+      SCOUT_HP.hpBase +
+      state.upgrades.scout * SCOUT_HP.hpPerScoutUpgrade +
+      state.upgrades.arsenal * SCOUT_HP.hpPerArsenalUpgrade;
+    if (scout.maxHp !== nextMaxHp && scout.maxHp > 0) {
+      const ratio = scout.hp / scout.maxHp;
+      scout.hp = nextMaxHp * ratio;
+    }
+    scout.maxHp = nextMaxHp;
+    scout.hp = Math.min(scout.hp, scout.maxHp);
+
+    if (scout.damageTicks > 0) scout.damageTicks -= 1;
+
     const live = index < liveScouts;
     scout.pulse = (scout.pulse + 0.08) % (Math.PI * 2);
     scout.cooldown = Math.max(0, scout.cooldown - 1);
+
+    // 3.2.0: zapper disruptor gate. A scout hit by a zapper bolt freezes in
+    // place for ZAPPER.disableDurationTicks — no movement, targeting, or
+    // firing. Decrement the timer and skip the rest of the tick.
+    if (scout.disabledTicks > 0) {
+      scout.disabledTicks -= 1;
+      scout.task = "Disabled";
+      return;
+    }
+
+    // 3.0.0: reboot lifecycle. While rebootTicks > 0 the scout is fully
+    // offline and parked at home. On the tick rebootTicks reaches 0 the
+    // scout respawns at full HP.
+    if (scout.rebootTicks > 0) {
+      scout.rebootTicks -= 1;
+      scout.x = scout.homeX;
+      scout.y = scout.homeY;
+      scout.tx = scout.homeX;
+      scout.ty = scout.homeY;
+      scout.targetId = null;
+      scout.task = "Rebooting";
+      if (scout.rebootTicks === 0) {
+        scout.hp = scout.maxHp;
+        scout.retreating = false;
+        state.log = pushLog(state.log, "Scout redeployed from home pad.", "combat", state.timers.tick);
+      }
+      return;
+    }
+
+    // 3.0.0: retreat state machine. Enter retreat at half HP, exit at 90%.
+    if (!scout.retreating && scout.hp < scout.maxHp * SCOUT_HP.retreatHpRatio) {
+      scout.retreating = true;
+      scout.targetId = null;
+    } else if (scout.retreating && scout.hp >= scout.maxHp * SCOUT_HP.exitRetreatHpRatio) {
+      scout.retreating = false;
+    }
+
+    // While retreating: sprint back to home pad, skip targeting and firing.
+    // Heal happens here (and only here) while near home pad.
+    if (scout.retreating) {
+      const dxHome = scout.homeX - scout.x;
+      const dyHome = scout.homeY - scout.y;
+      const dHome = Math.hypot(dxHome, dyHome);
+      if (dHome > 1) {
+        const { ax, ay } = scoutAvoidance(state, scout.x, scout.y);
+        const mx = dxHome / dHome + ax * 1.2;
+        const my = dyHome / dHome + ay * 1.2;
+        const ml = Math.max(1, Math.hypot(mx, my));
+        const spd = Math.min(dHome, scout.speed * SCOUT_HP.retreatSpeedScale);
+        scout.x += (mx / ml) * spd;
+        scout.y += (my / ml) * spd;
+        scout.angle = Math.atan2(my, mx);
+        const wb = SCOUT_AI.cornerWallBuffer;
+        if (scout.x < wb) scout.x += (wb - scout.x) * 0.04;
+        if (scout.x > WORLD_W - wb) scout.x -= (scout.x - (WORLD_W - wb)) * 0.04;
+        if (scout.y < 50 + wb) scout.y += (50 + wb - scout.y) * 0.04;
+        if (scout.y > WORLD_H - wb) scout.y -= (scout.y - (WORLD_H - wb)) * 0.04;
+      }
+      if (dist(scout.x, scout.y, scout.homeX, scout.homeY) <= SCOUT_HP.homeHealRadius) {
+        scout.hp = Math.min(scout.maxHp, scout.hp + SCOUT_HP.healRatePerTick);
+      }
+      scout.task = "Retreating";
+      scout.tx = scout.homeX;
+      scout.ty = scout.homeY;
+      return;
+    }
+
+    // Passive heal while near home pad even when not in retreat (applies to
+    // standby / patrol). Gives lightly dinged scouts a chance to top up
+    // between sweeps without needing to cross the retreat threshold.
+    if (
+      scout.hp < scout.maxHp &&
+      dist(scout.x, scout.y, scout.homeX, scout.homeY) <= SCOUT_HP.homeHealRadius
+    ) {
+      scout.hp = Math.min(scout.maxHp, scout.hp + SCOUT_HP.healRatePerTick * 0.5);
+    }
 
     if (!live) {
       scout.targetId = null;
@@ -121,9 +212,8 @@ export function stepScouts(state: GameState) {
           enemy.kind === "blight"
             ? ENEMY_SPECIAL.blight.corruptionRatePerTick
             : ENEMY_SPECIAL.corruptor.corruptionRatePerTick;
-        const attachedNode = enemy.targetNodeId != null
-          ? state.nodes.find((node) => node.id === enemy.targetNodeId)
-          : undefined;
+        const attachedNode =
+          enemy.targetNodeId != null ? state.nodes.find((node) => node.id === enemy.targetNodeId) : undefined;
         const urgency = attachedNode ? 1 + attachedNode.corruption / 100 : 1;
         const d = dist(scout.x, scout.y, enemy.x, enemy.y);
         const score = d * SCOUT_AI.distanceScoreWeight - rate * urgency * SCOUT_AI.rateScoreWeight;
@@ -131,8 +221,7 @@ export function stepScouts(state: GameState) {
       })
       .sort((a, b) => a.score - b.score);
     const interceptTarget =
-      currentTarget ??
-      scoredCorruptors[Math.min(index, Math.max(0, scoredCorruptors.length - 1))]?.enemy;
+      currentTarget ?? scoredCorruptors[Math.min(index, Math.max(0, scoredCorruptors.length - 1))]?.enemy;
 
     if (interceptTarget) {
       scout.targetId = interceptTarget.id;
@@ -149,7 +238,10 @@ export function stepScouts(state: GameState) {
         state.upgrades.arsenal * SCOUT.preferredRangePerArsenal;
 
       if (d > preferredRange) {
-        const spd = scout.speed + state.upgrades.scout * SCOUT.speedPerScout + state.upgrades.arsenal * SCOUT.speedPerArsenal;
+        const spd =
+          scout.speed +
+          state.upgrades.scout * SCOUT.speedPerScout +
+          state.upgrades.arsenal * SCOUT.speedPerArsenal;
         scout.x += (dx / d) * spd;
         scout.y += (dy / d) * spd;
         scout.task = "Intercepting";
@@ -169,11 +261,20 @@ export function stepScouts(state: GameState) {
           SCOUT.cooldownFloor,
           Math.round(
             SCOUT.cooldownBase -
-            state.upgrades.scout * SCOUT.cooldownPerScout -
-            state.upgrades.arsenal * SCOUT.cooldownPerArsenal
+              state.upgrades.scout * SCOUT.cooldownPerScout -
+              state.upgrades.arsenal * SCOUT.cooldownPerArsenal
           )
         );
-        addProjectile(state, scout.x, scout.y, interceptTarget.x, interceptTarget.y, "rgba(220, 170, 255, 0.95)", 2.4, 8);
+        addProjectile(
+          state,
+          scout.x,
+          scout.y,
+          interceptTarget.x,
+          interceptTarget.y,
+          "rgba(220, 170, 255, 0.95)",
+          2.4,
+          8
+        );
         let effectiveDamage = damage;
         if (
           interceptTarget.kind === "blight" &&
@@ -222,10 +323,7 @@ export function stepScouts(state: GameState) {
           FLUX.cleanseTickReward *
           (state.eventModifiers.fluxPurgeMultiplier ?? 1) *
           (1 + state.upgrades.arsenal * FLUX.arsenalTickBonus);
-        state.resources.flux = Math.min(
-          FLUX.softCap + FLUX.overCapBuffer,
-          state.resources.flux + tickFlux
-        );
+        state.resources.flux = Math.min(FLUX.softCap + FLUX.overCapBuffer, state.resources.flux + tickFlux);
 
         const baseCleanseRate = SCOUT.cleanseRateBase + state.upgrades.arsenal * SCOUT.cleanseRatePerArsenal;
         // Synergy: each additional scout on the same node adds 60% of base cleanse rate.
@@ -240,7 +338,8 @@ export function stepScouts(state: GameState) {
           state.stats.purges += 1;
           state.resources.flux = Math.min(
             FLUX.softCap,
-            state.resources.flux + FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
+            state.resources.flux +
+              FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
           );
           state.log = pushLog(state.log, "Node cleansed. Flux recovered.", "corruption", state.timers.tick);
         }

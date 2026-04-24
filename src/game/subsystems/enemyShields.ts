@@ -12,7 +12,12 @@ import type { GameState } from "@/game/types";
 export function stepEnemyShields(state: GameState) {
   for (const enemy of state.enemies) {
     if (enemy.hp <= 0) continue;
-    if (enemy.shield === undefined || enemy.shieldMax === undefined || enemy.shieldRegenCooldown === undefined) continue;
+    if (
+      enemy.shield === undefined ||
+      enemy.shieldMax === undefined ||
+      enemy.shieldRegenCooldown === undefined
+    )
+      continue;
 
     if (enemy.shieldRegenCooldown > 0) {
       enemy.shieldRegenCooldown -= 1;

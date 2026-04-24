@@ -12,6 +12,8 @@ verify:
   script:
     - npm ci
     - npm run typecheck
+    - npm run format:check
+    - npm run lint
     - npm test
     # Check that the version tag doesn't already exist in the container registry.
     # Done here (alpine + curl) rather than in the kaniko job because the kaniko

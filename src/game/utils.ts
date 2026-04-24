@@ -1,10 +1,24 @@
 import { WORKER_SLOT_UNLOCK_RESOURCE_COSTS } from "@/game/balance";
-import { MAX_LOG } from "@/game/constants";
+import { MAX_LOG, TICK_WRAP } from "@/game/constants";
 import type { LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
 
+/**
+ * Modular elapsed-tick delta. `state.timers.tick` wraps at `TICK_WRAP`,
+ * so `now - then` can go negative once the counter wraps. Use this for
+ * any "how many ticks since X" comparison.
+ */
+export const elapsedTicks = (now: number, then: number) => (now - then + TICK_WRAP) % TICK_WRAP;
+
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+// TODO(3.2.0): `rand`, `pick`, `chance`, and `pickWeighted` all pull from
+// `Math.random` and therefore MUST NOT be used from any simulation path — the
+// sim layer is deterministic and reproducible only when every decision flows
+// through the seeded `Rng` in `src/game/rng.ts`. These helpers are retained
+// for cosmetic / non-sim code (starfield, background chrome); sweep them out
+// or fork a "cosmeticRand" / "seededRand" split so a future contributor
+// can't accidentally reach for them inside a subsystem.
 export const rand = (min: number, max: number) => min + Math.random() * (max - min);
-export const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
+export const pick = <T>(items: T[]) => items[Math.floor(Math.random() * items.length)];
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 export const chance = (value: number) => Math.random() < value;
 
@@ -12,6 +26,7 @@ export function pickWeighted<T>(items: Array<{ item: T; weight: number }>) {
   const total = items.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
   if (total <= 0) return null;
 
+  // TODO(3.2.0): unseeded — see note at top of file; do not call from sim.
   let threshold = Math.random() * total;
   for (const entry of items) {
     threshold -= Math.max(0, entry.weight);
@@ -48,12 +63,7 @@ export function fmt(n: number) {
   return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)}${units[index]}`;
 }
 
-export function pushLog(
-  log: LogEntry[],
-  message: string,
-  category: LogCategory,
-  tick: number
-): LogEntry[] {
+export function pushLog(log: LogEntry[], message: string, category: LogCategory, tick: number): LogEntry[] {
   return [{ tick, category, message }, ...log].slice(0, MAX_LOG);
 }
 

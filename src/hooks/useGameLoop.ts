@@ -26,6 +26,7 @@ function snapshotFrom(game: GameState): Snapshot {
 
 const SAVE_INTERVAL_MS = 30_000;
 const UI_REFRESH_MS = 125;
+const MAX_TICKS_PER_FRAME = 180;
 
 export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): Snapshot {
   const [snapshot, setSnapshot] = useState<Snapshot>(() => snapshotFrom(cloneGameState(initialGameState)));
@@ -38,7 +39,9 @@ export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): S
   const lastSaveRef = useRef(0);
   const lastUiRefreshRef = useRef(0);
   const runtimeCarryRef = useRef(0);
-  useEffect(() => { speedRef.current = speedMultiplier; }, [speedMultiplier]);
+  useEffect(() => {
+    speedRef.current = speedMultiplier;
+  }, [speedMultiplier]);
 
   const mutateGame = useCallback((updater: (draft: GameState) => void) => {
     const next = cloneGameState(gameRef.current);
@@ -68,7 +71,7 @@ export function useGameLoop(initialGameState: GameState, speedMultiplier = 1): S
       const elapsed = now - lastTimeRef.current;
       lastTimeRef.current = now;
       runtimeCarryRef.current += elapsed;
-      const maxCatchUp = TICK_MS * 6 * speedRef.current;
+      const maxCatchUp = TICK_MS * Math.min(6 * speedRef.current, MAX_TICKS_PER_FRAME);
       accumulatorRef.current = Math.min(accumulatorRef.current + elapsed * speedRef.current, maxCatchUp);
 
       let current = gameRef.current;

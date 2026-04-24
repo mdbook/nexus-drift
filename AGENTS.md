@@ -67,6 +67,7 @@ Raise a version suggestion when one or more of these land:
 If the user asks for a release or version bump, update these together:
 
 - `package.json`
+- `package-lock.json` — run `npm install` after bumping `package.json`. The lockfile embeds the version at both `"version"` and `"packages.\"\""` and will otherwise sit stale (happened in 3.1.3 — a later review caught a lockfile still on `3.0.2`). Confirm the diff is limited to the version fields unless you also intentionally changed deps.
 - `src/changelog.ts`
 - `README.md`
 - `handoff.md`
@@ -82,6 +83,10 @@ Before Kaniko builds, CI queries the GitLab container registry and fails if the
 version tag already exists. Do not remove that preflight unless replacing it with
 an equivalent duplicate-version guard; otherwise a second push with the same
 version would silently move the release tag.
+
+## Test Count References
+
+Several docs quote the total test count (`README.md` `## Testing`, `AGENTS.md` `## Test Coverage`, `handoff.md` near the end of Operational Notes). When you add or remove tests, update all three in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
 
 ## Entity Spawn / Death Animation Fields
 
@@ -135,6 +140,7 @@ Rules for adding achievements:
 - One-shot events (`cache_discovery`, `pirate_caravan`, `echo_signal`) keep `durationTicks = 0` but set `hudDurationTicks` so they still surface as inspectable cards and backdrops for roughly 10 seconds.
 - `stepEvents()` must only call `eventDef.revert()` when `activeEvent.revertOnExpire` is true.
 - Event inspection is click-only. Hover/focus tooltip behaviour in `EventChip.tsx` must never count as inspection progress.
+- Timed modifier values live on `EventDef.modifierContributions` (multiplicative factors — e.g. `{ yieldMultiplier: 1.6 }`). `state.eventModifiers` is recomputed from the active event list via `recomputeEventModifiers()` on activate, expire, and admin clear — never written directly from an event's `apply`/`revert`. This lets overlapping events stack (e.g. Meteor Shower + Starcall both touching yield) without one expiring clobbering the other's contribution.
 
 ## Activity Log Invariants
 
@@ -146,9 +152,22 @@ Rules for adding achievements:
 - `cloneGameState()` maps `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
 - `MAX_LOG` is 40. Do not lower it without checking the `ActivityLog` component's `max-h-72` scroll container.
 
+## Admin Command Terminal Invariants
+
+The hidden admin console opens with `Space` five times. Admin mode extends the existing header speed selector with 10×/20×/100×; do not reintroduce a separate admin-only speed row.
+
+`src/game/adminCommands.ts` is the command executor for the console. Keep command effects centralized there so UI buttons and typed commands share behavior.
+
+- Route terminal state changes through `mutateGame()` in React so cloning and derived recomputation stay consistent.
+- Keep command history/session transcript and collapsed/expanded UI state in React state only. Do not persist them unless you update `GameState`, factory defaults, migration, and `cloneGameState()`.
+- The collapsed admin panel is intentionally a tiny quick-send terminal surface with title, close, command input, and top-center expand arrow. Keep it small enough not to obscure the field.
+- Use existing helpers for mutations: `spawnEnemy()` with `state.rng` and `state.timers.tick`, `activateEvent()` for event cards, `pushLog()` for activity entries, and structural damage funnels if damage commands are added later.
+- Commands that clear or bypass normal rewards should be explicit and documented in the terminal help text. Silent debug cleanup should not pretend to be a gameplay kill/purge.
+- `useGameLoop()` caps catch-up work for 100× admin speed. Preserve the cap if you tune high-speed presets so a stalled frame cannot process an unbounded backlog.
+
 ## Worker Slot Invariants
 
-`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active. Extra slots are intentionally late-game: the relevant upgrade track must reach its normal threshold (level 3 for the second slot, level 6 for the third), the colony must also reach sector level 12 / 24 before those units deploy, and those two worker-track purchases now add `flux` + `cores` on top of the normal gold cost. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
+`state.agents` starts with exactly 9 slot-backed agents (3 per kind: miner/runner/drone, slots 0–2). Only slot 0 of each kind starts active. Extra slots are intentionally late-game: the relevant upgrade track must reach its normal threshold (level 3 for the second slot, level 6 for the third), the colony must also reach sector level 22 / 42 before those units deploy, and those two worker-track purchases now add `flux` + `cores` on top of the normal gold cost. A recovered lost drone is the one explicit exception: it appends a permanent extra active drone beyond the slot system.
 
 - `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` is the slot count allowed by that worker track's upgrade level.
 - `WORKER_SLOTS_BY_LEVEL[level]` is the slot count allowed by colony progression; `stepWorkerSlots()` uses the lower of the upgrade-based and level-based gates.
@@ -174,6 +193,14 @@ Harvesting workers are intentionally stubborn under light pressure. While at a n
 - Keep those blocking radii aligned with the rendered body sizes in `FieldSvg.tsx` if you tune worker or enemy visuals.
 - Use live enemies only. Dying enemies (`hp <= 0`) still fade out visually, but they must not block movement.
 
+## Enemy Target Eligibility
+
+Enemy target selection must only consider deployed/live targets. `pickEnemyTargetMulti()` uses `derived.activeTurrets`, `derived.activeScouts`, and `derived.activeSentinels`; do not iterate raw turret/scout/sentinel arrays for target eligibility. Broken-but-deployed turrets remain valid targets because the hull is visible in the field.
+
+Workers are valid enemy targets only when `active`, `hp > 0`, not `corrupted`, and `rebootTicks <= 0`. Keep cached target reuse and contact-damage paths aligned with those same rules so enemies do not chase or damage immune/off-field workers.
+
+**3.1.2 early-game city targeting**: mite, wisp, and raider have `city: 0` in `ENEMY_TARGET_PRIORITY`. Do not raise this back above 0 without intentional design — city: 0 is the correct default for enemies that appear before the player has defenses up, to prevent early-game city camping when no workers are nearby.
+
 ## Enemy Shield Layer
 
 Shielded enemies still have normal HP underneath their shield. `damageEnemy()` in `enemyUtils.ts` must drain the shield first and must not spill overflow into HP in the same hit. If a shielded enemy takes a hit larger than its remaining shield, the excess is discarded until a later hit lands.
@@ -185,18 +212,28 @@ Shielded enemies still have normal HP underneath their shield. `damageEnemy()` i
 
 Close-combat damage scales up when multiple attackers are already in contact with a worker, and `COMBAT.detectionRadius` is intentionally a bit wider to reduce slip-through cases. If you touch worker combat, keep the multi-attacker pressure behavior intact so surrounded workers do not escape trivially.
 
+## Worker Death And Reboot (3.1.2)
+
+When a worker's HP reaches 0 in `stepCombat`, the combat-death path sets `rebootTicks = WORKER.respawn.rebootDuration` (180 ticks), emits `state.workerDeathFlash`, and returns without teleporting. Movement.ts parks the worker at home, regen HP linearly, and on expiry sets `spawnTick` and logs "worker redeployed". **Do not write the old instant-teleport-and-55%-HP path back.**
+
+`workerDeathFlash` is a transient `GameState` field (`{ x, y, ticks, maxTicks } | null`). It is always `null` in `createInitialGameState` and `migrateGameState`. Its tick-down lives inside `stepCombat` before the cadence guard so it runs every frame, not just on combat ticks.
+
 ## Key Invariants (Do Not Break)
 
 - `advanceGame()` is the single simulation orchestrator. Subsystem execution order is documented in that file — read the comments before touching it.
-- All simulation randomness must use the seeded `Rng` instance on `GameState`, never `Math.random()`.
+- All simulation randomness must use the seeded `Rng` instance on `GameState`, never `Math.random()`. The utility helpers `rand`, `pick`, `chance`, and `pickWeighted` in `src/game/utils.ts` still rely on `Math.random` and are only safe for cosmetic layers (starfield); keep them out of every subsystem.
 - `cloneGameState()` is shallow-spread only. State must stay single-level. Deeper nesting silently breaks cloning.
 - Save migration lives in `migrateGameState()` in `factories.ts`. Always stamp `schemaVersion` (the `SCHEMA_VERSION` constant) on the returned state.
 - Derived/presentation calculations belong in `selectors.ts`, never inside subsystems.
 - ESLint `no-explicit-any` is `error` — any `any` usage will fail the build and CI.
+- Elapsed-tick comparisons against `state.timers.tick` must be `(tick - last + TICK_WRAP) % TICK_WRAP`. The tick counter wraps at `TICK_WRAP = 10_000_000`; naive subtraction goes negative after a wrap and silently breaks the gate it is driving.
+- `TaskState` in `types.ts` enumerates every HUD task label. Any new `agent.task = "…"` / `scout.task = "…"` / `sentinel.task = "…"` assignment must add its label to that union.
+- Cloak checks go through `isCloaked(enemy)` in `enemyUtils.ts`. Wardens carry `permanentCloak: true` and are cloaked while roaming; as of 3.1.5 a warden with a non-null `latchedWorkerId` uncloaks for the duration of the parasite attach so defenses can shoot it off. Unit target-selection paths must keep calling `isCloaked(enemy)` (do not reimplement the check against `permanentCloak` directly, or latched wardens will stay invisible). Retaliation paths (worker contact during warden attach) intentionally do not consult cloak — do not add a cloak filter there or warden kill credit regresses.
+- Worker identity in cadence math uses `agent.id`, not the array index. Array positions shift when peers die or reboot; `agent.id` is stable for the worker's lifetime.
 
 ## Test Coverage
 
-92 tests across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, and save/load round-trips. When adding new subsystems or schema changes, add tests in the same commit.
+195 tests (3.1.5 warden parasite latch: latch-on-contact sets `latchedWorkerId`, latched warden is not cloaked, corruption keeps ticking when the host flees out of `attachRadius`, host death releases the latch, warden-killed-mid-latch leaves the worker uncorrupted, pre-v10 save defaults `latchedWorkerId` to null, mid-latch save round-trips the latch; plus 3.1.4 audit follow-ups: event modifier composition, late-tier rawTier reachability, lone-sapper worker reboot, dying-enemy selector filter, zapper bolt target revalidation, colonyHealth hp/maxHp normalization, cloneGameState RNG isolation, resolveEnemyDeaths split idempotency, late-game defense scoring contributions, tick-wrap-safe elapsed delta + temp node expiry across wrap) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak / parasite-latch behavior, save migration for the permanent-cloak and latch fields, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 
@@ -213,6 +250,8 @@ The desktop two-column layout triggers at **`lg` (1024px)**, not `xl`. All struc
 Viewport sizing uses `100dvh` (dynamic viewport height), not `100svh` or `100vh`. iPadOS Safari misreports `svh` when the URL bar is visible, returning roughly the full-screen height and causing absolute-positioned footers inside `overflow-hidden` containers to clip below the visible viewport. `dvh` adjusts as browser chrome shows/hides and is supported on Safari 15.4+ (all shipping iPadOS today). Do not reintroduce `100svh` or `100vh` for the app shell without testing on iPadOS landscape with the URL bar visible.
 
 The field card (left column of the `lg` grid) must have `lg:h-full overflow-hidden`. Without `lg:h-full` the card can grow taller than its grid cell, pushing its `absolute bottom-0` footer off-screen where it is clipped by the grid's `overflow-hidden`. Without `overflow-hidden` on the card itself, content inside can visually escape the card's bounds. The sidebar already carries `lg:h-full`; keep both columns in sync.
+
+`FieldSvg` uses `h-full min-h-[380px] w-full lg:min-h-0`. The `min-h-[380px]` floor keeps the mobile stacked layout readable when the field card collapses against a crowded mobile column, but on `lg` it must be released (`lg:min-h-0`) so the SVG can shrink to fit its grid cell on short desktop viewports (laptops and stage mirrors under ~720px tall). Without `lg:min-h-0`, a 380px SVG inside a shorter `lg:h-full overflow-hidden` card clips the bottom of the viewBox — which is where the city skyline renders.
 
 Do not add new layout behaviour gated on `xl:` — use `lg:` instead. The `xl` breakpoint (1280px) is available for fine-tuning within the already-active desktop layout (e.g. wider max-width, larger typography) but must not be used to unlock layout features that should appear on iPad.
 
