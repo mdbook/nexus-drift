@@ -12,8 +12,8 @@ import type {
 // each, and full-doctrine runs land in the multi-session wallpaper range
 // (see plan file "let-s-get-ready-for-playful-snowflake.md" Section A).
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
-  miner: { baseCost: 28, growth: 1.24 },
-  drill: { baseCost: 220, growth: 1.27 },
+  miner: { baseCost: 22, growth: 1.24 },
+  drill: { baseCost: 170, growth: 1.27 },
   reactor: { baseCost: 520, growth: 1.3 },
   bot: { baseCost: 1100, growth: 1.32 },
   turret: { baseCost: 520, growth: 1.3 },
