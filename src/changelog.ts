@@ -54,6 +54,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Locked-in invariants by tests: `pushNotification` is idempotent by id; `dismissNotification` is a no-op when missing; only the first `NOTIFICATION_VISIBLE_LIMIT` entries decrement; queued entries promote on expiry.",
         ],
       },
+      {
+        title: "Admin Console Polish",
+        items: [
+          "Admin panel is now vertically resizeable. A grip handle at the top of the expanded body drags between 200 px and 85 % of viewport height, defaulting to 460 px. The body height applies only when the console is expanded; collapse keeps the existing grid-template-rows transition.",
+          "The two-column body decoupled — terminal column always stays at full panel height. Previously the entire grid scrolled together inside a single `overflow-y-auto`, which let the right-hand command terminal slide off when the left column ran long. The grid is now a fixed-height container, the left column scrolls on its own (`min-h-0` + `overflow-y-auto`), and the terminal column fills the panel and scrolls only its own entries internally.",
+          "Terminal command input always visible at any panel height. Removed the `min-h-[220px]` floor on the entries scrollbox so it compresses freely; the input form stays anchored at the bottom even at the 200 px minimum.",
+          "Collapse / expand toggle now reads as a tab that bulges out of the panel's top edge instead of a floating circle that the panel border ran through. The button uses `rounded-t-full` with top + side borders only, sits flush above the card with `-translate-y-full`, and a 2 px opaque cover strip beneath it hides the card's top border line across the bulge width so the two read as a single continuous shape.",
+        ],
+      },
     ],
   },
   {
