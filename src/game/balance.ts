@@ -708,7 +708,7 @@ export const PROGRESSION = {
     cityStage: 3.5,
     totalIncome: 0.035,
   },
-  tiersPerScore: 75,
+  tiersPerScore: 60,
   powerBalance: {
     threatWeight: 1.08,
     corruptionNodeWeight: 0.75,
