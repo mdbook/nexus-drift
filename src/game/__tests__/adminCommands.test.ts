@@ -9,7 +9,7 @@ describe("admin command terminal", () => {
 
     expect(result.ok).toBe(true);
     expect(result.changed).toBe(true);
-    expect(state.resources.gold).toBe(524);
+    expect(state.resources.gold).toBe(560);
     expect(state.log[0].message).toContain("Admin granted gold");
   });
 

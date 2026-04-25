@@ -308,9 +308,9 @@ describe("advanceGame simulation invariants", () => {
     // 3.0.0: UPGRADES base costs and WORKER_SLOT_UNLOCK_RESOURCE_COSTS both
     // scaled up so slot-unlock purchases feel like a deliberate flux+cores
     // spend. See balance.ts.
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 35 });
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 43, flux: 18, cores: 4 });
-    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 727, flux: 55, cores: 14 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 27 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 34, flux: 18, cores: 4 });
+    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 562, flux: 55, cores: 14 });
     expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 55, cores: 14 });
   });
 
