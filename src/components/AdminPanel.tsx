@@ -48,8 +48,15 @@ const TONE_CLASS: Record<(typeof QUICK_ACTIONS)[number]["tone"], string> = {
   rose: "border-rose-300/20 bg-rose-300/10 text-rose-100 hover:bg-rose-300/15",
   violet: "border-violet-300/20 bg-violet-300/10 text-violet-100 hover:bg-violet-300/15",
 };
+// Toggle renders as a tab that bulges out of the panel's top edge. The button
+// sits entirely above the card (-translate-y-full puts its bottom edge flush
+// with the card top); a small opaque strip beneath it covers the card's 1px
+// top border line across the bulge width, so the bulge and the panel edge
+// read as a single continuous shape.
 const COLLAPSE_TOGGLE_CLASS =
-  "absolute left-1/2 top-0 flex h-7 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/45 shadow-[0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white";
+  "absolute left-1/2 top-0 flex h-7 w-12 -translate-x-1/2 -translate-y-full items-center justify-center rounded-t-full border border-b-0 border-cyan-300/15 bg-slate-950 text-white/45 transition hover:bg-slate-900 hover:text-white";
+const COLLAPSE_TOGGLE_COVER_CLASS =
+  "pointer-events-none absolute left-1/2 top-0 h-[2px] w-12 -translate-x-1/2 bg-slate-950";
 
 function resultTone(result: AdminCommandResult): TerminalEntry["tone"] {
   return result.ok ? "success" : "error";
@@ -261,11 +268,12 @@ export function AdminPanel({
       <Card
         className={`${PANEL_CLASS} relative overflow-visible border-cyan-300/15 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.55)]`}
       >
-        {/* Toggle button */}
+        {/* Toggle bulge — tab on top of the panel that visually merges with the card edge */}
+        <div className={`${COLLAPSE_TOGGLE_COVER_CLASS} z-10`} aria-hidden />
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          className={`${COLLAPSE_TOGGLE_CLASS} z-10`}
+          className={`${COLLAPSE_TOGGLE_CLASS} z-20`}
           aria-label={collapsed ? "Expand admin console" : "Collapse admin console"}
         >
           <motion.div
