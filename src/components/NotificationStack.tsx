@@ -281,18 +281,22 @@ function EnemyDiscoveredBody({
           New enemy spotted
         </div>
         <div className={`mt-0.5 truncate text-sm font-semibold ${tone.accent}`}>{info.title}</div>
-        <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">{info.tagline}</div>
-        <button
-          type="button"
-          onClick={() => {
-            onAction({ kind: "open-wiki", entryId: notification.enemyKind });
-            onDismiss();
-          }}
-          className={`mt-1.5 inline-flex items-center gap-1 rounded-full border ${tone.border} bg-white/5 px-2 py-0.5 text-[10px] font-medium ${tone.accent} transition-colors hover:bg-white/10`}
-        >
-          <BookOpen className="h-3 w-3" />
-          View archive
-        </button>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[11px] leading-snug text-white/55">
+            {info.tagline}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onAction({ kind: "open-wiki", entryId: notification.enemyKind });
+              onDismiss();
+            }}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border ${tone.border} bg-white/5 px-2 py-0.5 text-[10px] font-medium ${tone.accent} transition-colors hover:bg-white/10`}
+          >
+            <BookOpen className="h-3 w-3" />
+            View archive
+          </button>
+        </div>
       </div>
       <DismissButton onClick={onDismiss} accent="text-white/70" />
     </NotificationFrame>
