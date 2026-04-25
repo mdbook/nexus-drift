@@ -16,6 +16,47 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.2",
+    badge: "Unified Notifications",
+    summary:
+      "All player-facing toasts now flow through a single notification system. The 3.2.1 patch shipped two parallel queues — achievement toasts (top-right, with a separate legendary full-screen flourish) and a standalone enemy-discovered card pinned to the top of the field. Both have been collapsed into one `state.notifications` queue rendered by a single `NotificationStack` mounted in the bottom-right. At most three notifications are visible at once; additional pushes sit in an invisible queue with their timers paused, and the next entry promotes automatically when an active slot expires or is dismissed. Each notification holds for ~15 s (legendary holds ~18 s) and carries a stable id, so a re-push from the same achievement or enemy kind is idempotent. Adding a new toast kind is now a three-step process — extend the discriminated union, add a builder, add a render branch — instead of standing up a parallel queue. Save schema bumps to v12; the migration translates legacy v11 `achievementToastQueue` + `enemyDiscoveryQueue` arrays into the unified `notifications` queue with full type safety.",
+    sections: [
+      {
+        title: "One Stack, One Queue",
+        items: [
+          "`AchievementToast` (top-right rarity toasts + legendary centered flourish) and `EnemyDiscoveryCard` (top-of-field enemy alert with View archive button) are gone. Both are replaced by `NotificationStack` mounted in the bottom-right corner with a `flex-col-reverse` ordering so newest entries enter at the bottom, with framer-motion `AnimatePresence` + `layout` for spring entry/exit and reflow when the stack changes. The 3.2.1 legendary full-screen wash is dropped — legendary unlocks now share the same stack frame as everything else but get an amber tone, a stronger glow, and a longer dwell.",
+          "`Notification` is a discriminated union (`achievement` | `enemy-discovered`); per-kind body components route off `notification.kind` inside `NotificationStack`. Tone is decoupled from kind via a 7-color palette (`common` / `uncommon` / `rare` / `legendary` / `combat` / `void` / `info`) so a future `milestone` or `warning` variant can pick any tone without editing the stack.",
+        ],
+      },
+      {
+        title: "3-Visible Cap with Invisible Queue",
+        items: [
+          "`NOTIFICATION_VISIBLE_LIMIT = 3`. The stack only renders the head three; anything pushed beyond that holds in `state.notifications` with its full timer paused, so a long burst of unlocks doesn't silently expire while waiting in line. `tickNotifications` only decrements entries inside the visible window — when one expires (or the player dismisses one with the X button), the next queued entry slides into its slot with a fresh full-duration hold.",
+          "Default dwell is 450 ticks (~15 s); legendary unlocks dwell 540 ticks (~18 s). The fade is sim-driven, not wall-clock, so paused / 1×-2×-4× speed scales the toast duration with the rest of the simulation.",
+        ],
+      },
+      {
+        title: "Idempotent Push by Stable ID",
+        items: [
+          "Every notification carries a stable string id (`ach:<achievementId>` / `enemy:<enemyKind>`). `pushNotification` rejects an entry whose id is already in the queue, so re-unlocking the same achievement on the same tick or re-discovering an enemy kind never stacks duplicates in the queue. `dismissNotification(state, id)` is the single source of truth for clearing — wired to the X button on every card.",
+        ],
+      },
+      {
+        title: "Schema v12 Migration",
+        items: [
+          "`SCHEMA_VERSION` 11 → 12. The migration reads the new `notifications` array directly when present; otherwise it reconstructs the unified queue from the legacy v11 `achievementToastQueue` (translated via `buildAchievementNotification` with each entry's stored rarity) and `enemyDiscoveryQueue` (translated via `buildEnemyDiscoveredNotification`, which reapplies the void / combat tone routing for `corruptor` / `blight` / `warden`). Old saves load with their pending toasts intact and dwelling on the new clock; brand-new saves skip the legacy fields entirely.",
+        ],
+      },
+      {
+        title: "Future-Proofing",
+        items: [
+          "Adding a new toast kind is now a three-step contract documented at the top of `src/game/notifications.ts`: (1) add a variant to the `Notification` union; (2) add a builder helper; (3) add a render branch in `NotificationStack`. Action callbacks flow through a typed `NotificationAction` discriminated union (currently `{ kind: \"open-wiki\"; entryId }`) so a future variant can request a modal open, a panel scroll, or any host-side effect without coupling the stack to specific UI surfaces.",
+          "Locked-in invariants by tests: `pushNotification` is idempotent by id; `dismissNotification` is a no-op when missing; only the first `NOTIFICATION_VISIBLE_LIMIT` entries decrement; queued entries promote on expiry.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.1",
     badge: "Player-Facing Polish",
     summary:
