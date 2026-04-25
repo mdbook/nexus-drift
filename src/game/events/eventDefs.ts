@@ -360,9 +360,7 @@ export const EVENT_DEFS: EventDef[] = [
       // first slot was always live; post-flip a tier-7 player who skipped
       // the turret track has no live turret to target.
       const derived = computeDerived(state);
-      const activeTurret = state.turrets
-        .slice(0, derived.activeTurrets)
-        .find((t) => t.disabledTicks === 0);
+      const activeTurret = state.turrets.slice(0, derived.activeTurrets).find((t) => t.disabledTicks === 0);
       if (activeTurret) {
         activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
         state.log = pushLog(

@@ -327,8 +327,7 @@ export function makeMissileSilos(): MissileSilo[] {
   // 3.1.5 defense flip: prime active flags off silosByLevel so fresh games
   // (and freshly-migrated old saves) render slot 0 armed from frame 0
   // instead of waiting one tick for stepMissileSilos to flip the flag.
-  const initialActiveCount =
-    MISSILE_SILO.silosByLevel[Math.min(0, MISSILE_SILO.silosByLevel.length - 1)];
+  const initialActiveCount = MISSILE_SILO.silosByLevel[Math.min(0, MISSILE_SILO.silosByLevel.length - 1)];
   return MISSILE_SILO_LAYOUT.map((pos, index) => ({
     id: index + 1,
     x: pos.x,
