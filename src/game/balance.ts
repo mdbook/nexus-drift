@@ -650,8 +650,14 @@ export const ECONOMY = {
 // Sector-level XP threshold curve. Single source of truth — both the
 // economy step (which actually advances the level) and the HUD selector
 // (which renders the progress bar) must call this so they cannot drift.
+//
+// 3.2.3 — re-shaped from the old `80 + L*25` linear curve. The linear
+// coefficient was lowered (it dominated early thresholds and made the
+// first few level-ups slow) and the exponent term picks up so late-game
+// thresholds converge with the old curve around L=21. Result: levels
+// 0–5 are ~40–60% cheaper, parity returns by slot-2 unlock.
 export function xpForLevel(level: number): number {
-  return Math.floor(80 + level * 25);
+  return Math.floor(30 + level * 15 + level ** 1.7 * 1.4);
 }
 
 export const REWARDS = {
