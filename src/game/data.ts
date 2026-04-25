@@ -73,6 +73,7 @@ export const upgradeDefs: UpgradeDef[] = [
     baseCost: UPGRADES.turret.baseCost,
     growth: UPGRADES.turret.growth,
     effectText: "+ Range + fire rate, anti-wisp",
+    minTier: 3,
   },
   {
     key: "shield",
@@ -132,10 +133,9 @@ export const upgradeDefs: UpgradeDef[] = [
   {
     key: "missileLauncher",
     label: "Missile Launcher",
-    baseCost: { gold: 2200, cores: 6, flux: 4 } satisfies Partial<Record<ResourceKey, number>>,
+    baseCost: UPGRADES.missileLauncher.baseCost,
     growth: UPGRADES.missileLauncher.growth,
     effectText: "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level.",
-    minTier: 2,
   },
 ];
 

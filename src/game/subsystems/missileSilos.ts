@@ -35,8 +35,6 @@ export function stepMissileSilos(state: GameState) {
     state.missileSilos[i].active = i < activeSiloCount;
   }
 
-  if (activeSiloCount === 0) return;
-
   // 3.1.3: silo range scales with missileLauncher level so investment widens
   // the silo-vs-turret gap (turret range is hard-capped at TURRET.rangeMax).
   const range = MISSILE_SILO.rangeBase + level * MISSILE_SILO.rangePerLevel;

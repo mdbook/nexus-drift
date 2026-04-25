@@ -894,6 +894,8 @@ describe("zapper enemy", () => {
 
   it("bolt applies disabledTicks to a turret when it is the nearest target", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     // Place zapper close to turret 1 (within firingRange=170)
     zapper.x = state.turrets[0].x + 60;
@@ -971,6 +973,8 @@ describe("zapper enemy", () => {
 
   it("does not fire at a broken turret during target selection", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     // Place zapper close to the first turret
     zapper.x = state.turrets[0].x + 60;
@@ -991,6 +995,8 @@ describe("zapper enemy", () => {
 
   it("bolt skips broken turret on impact (3.1.3 audit)", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     zapper.x = state.turrets[0].x + 60;
     zapper.y = state.turrets[0].y - 80;
@@ -1057,6 +1063,8 @@ describe("zapper enemy", () => {
 
   it("disabled turret skips firing", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     // Place enemy in turret range
     const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     mite.x = state.turrets[0].x;
@@ -1429,11 +1437,16 @@ describe("missile silo subsystem (3.0.0 Step 5)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missileLauncher=0 deactivates all silos", () => {
+  it("missileLauncher=0 leaves only slot 0 active (tier-0 first-contact silo)", () => {
+    // Post-flip: silos are now the early-game stand-off defense. silosByLevel[0] = 1
+    // so a fresh game starts with the first silo armed even without buying the upgrade.
+    // Subsequent slots still require investment.
     const state = createInitialGameState();
     state.upgrades.missileLauncher = 0;
+    state.enemies = [];
     stepMissileSilos(state);
-    expect(state.missileSilos.every((s) => !s.active)).toBe(true);
+    expect(state.missileSilos[0].active).toBe(true);
+    expect(state.missileSilos.slice(1).every((s) => !s.active)).toBe(true);
     expect(state.projectiles.length).toBe(0);
   });
 
@@ -1463,6 +1476,8 @@ describe("turret HP and break state (3.0.0)", () => {
   it("enters broken state at 0 hp, skips firing, and recovers at half maxHp", () => {
     const state = createInitialGameState();
     state.level = 3;
+    // Turrets are tier-3 gated post-flip; deploy slot 0 so stepTurrets ticks the broken counter.
+    state.upgrades.turret = 1;
     const turret = state.turrets[0];
     const originalBrokenCount = state.stats.turretsBroken;
 
@@ -1770,6 +1785,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     // the brute chases the worker. Move the turret much closer and the
     // weighted distance score should flip to turret.
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 so it's a valid target.
+    state.upgrades.turret = 1;
     state.agents.forEach((agent, idx) => {
       agent.active = idx === 0;
     });
@@ -1897,6 +1914,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("contact damage to a turret applies the turretArmor mitigation", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     // Isolate the turret under test and remove workers so stepCombat's
     // worker loop doesn't also fire.
     state.agents.forEach((agent) => {
@@ -2006,6 +2025,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     // A brute just outside ENEMY_CONTACT_RADIUS.turret targeting the turret
     // should deal 0 damage; nudge it inside and the damage funnel fires.
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     state.agents.forEach((agent) => {
       agent.active = false;
     });

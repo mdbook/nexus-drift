@@ -144,12 +144,15 @@ export function computeDerived(state: GameState): DerivedState {
       100
     : 100;
   const corruptedNodes = state.nodes.filter((node) => node.corrupted).length;
-  // 3.0.0: turret slot count is gated by both upgrade level AND sector level
-  // (mirrors WORKER_SLOTS_BY_LEVEL). The always-on first turret keeps its
-  // floor; additional turrets need both upgrade + level to line up.
+  // 3.x: turret deployment is now gated behind the missileLauncher → turret
+  // progression flip (silos handle first contact; turrets unlock at tier 3
+  // alongside the brute). No turret deploys until `upgrades.turret >= 1`,
+  // and additional turret slots beyond the first still need both upgrade
+  // level AND sector level (TURRET_SLOTS_BY_LEVEL) to line up.
   const turretLevelSlots = TURRET_SLOTS_BY_LEVEL[Math.min(state.level, TURRET_SLOTS_BY_LEVEL.length - 1)];
-  const additionalTurretSlots = Math.min(state.upgrades.turret, turretLevelSlots);
-  const activeTurrets = Math.max(1, Math.min(state.turrets.length, 1 + additionalTurretSlots));
+  const additionalTurretSlots = Math.min(Math.max(0, state.upgrades.turret - 1), turretLevelSlots);
+  const activeTurrets =
+    state.upgrades.turret >= 1 ? Math.min(state.turrets.length, 1 + additionalTurretSlots) : 0;
   const activeScouts = Math.min(
     state.scouts.length,
     state.upgrades.scout,
@@ -186,6 +189,7 @@ export function computeDerived(state: GameState): DerivedState {
     activeTurrets * CITY.developmentWeights.activeTurrets +
     activeScouts * CITY.developmentWeights.activeScouts +
     activeSentinels * CITY.developmentWeights.activeTurrets +
+    activeMissileSilos * CITY.developmentWeights.activeTurrets +
     state.prestige * CITY.developmentWeights.prestige +
     totalIncome * CITY.developmentWeights.totalIncome;
   const prestigeComboBonus = PRESTIGE.comboBonus + state.upgrades.archive * 0.05;

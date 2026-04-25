@@ -24,7 +24,7 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
   sentinel: { baseCost: 800, growth: 1.35 },
   archive: { baseCost: 0, growth: 1.3 },
   focusedBeam: { baseCost: 600, growth: 1.35 },
-  missileLauncher: { baseCost: 2200, growth: 1.32 },
+  missileLauncher: { baseCost: 600, growth: 1.3 },
 };
 
 export const WORKER = {
@@ -419,7 +419,7 @@ export const MISSILE_SILO = {
   missileGraceRadius: 30,
   missileCorpseGraceRadius: 26,
   /** Active silo count indexed by missileLauncher upgrade level. */
-  silosByLevel: [0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4] as const,
+  silosByLevel: [1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4] as const,
 } as const;
 
 /**
@@ -857,13 +857,15 @@ export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<
 };
 
 /**
- * 3.0.0: new turret slot gate.
+ * Turret slot gate.
  *
- * Turret slot count is now `min(upgrades.turret, TURRET_SLOTS_BY_LEVEL[level])`,
- * mirroring the worker-slot pattern. Index = sector level (clamped to last
- * entry). Values = number of additional turret slots on top of the always-on
- * first turret. Early levels keep 1 turret even if the upgrade has been
- * purchased; the 2nd turret unlocks at level 2, the 3rd at level 8.
+ * 3.1.5 defense flip: the always-on first turret is gone — turrets are tier-3
+ * gated and `selectors.ts` returns `activeTurrets = 0` until
+ * `state.upgrades.turret >= 1`. This array still gates additional slots
+ * beyond the first: index = sector level (clamped to last entry); values =
+ * number of additional turret slots on top of slot 0. The 2nd turret unlocks
+ * at sector level 2, the 3rd at level 8 — both still requiring the upgrade
+ * level to match.
  */
 export const TURRET_SLOTS_BY_LEVEL = [0, 0, 1, 1, 1, 1, 1, 1, 2] as const;
 

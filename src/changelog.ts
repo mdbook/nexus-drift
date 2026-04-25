@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "3.1.5",
     badge: "Warden Parasite Latch",
     summary:
-      "Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves.",
+      "Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves. Defense progression also flips: missile silos are now the Tier-0 first-contact weapon (one armed at game start, gold-only cost) and turrets gate to Tier 3 \"Raid\" so the perimeter line shows up alongside brute and sapper.",
     sections: [
       {
         title: "Warden Parasite Latch",
@@ -28,6 +28,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A latched warden uncloaks for the duration of the attach. `isCloaked()` now returns `false` for wardens with a non-null `latchedWorkerId`, so turrets, sentinels, scouts, and missile silos get a real window to shoot the parasite off before the 210-tick corruption timer expires. Roaming (unlatched) wardens stay cloaked exactly as before.",
           "Warden HP bumped to `500 + 25×wave` (from `140 + 6×wave`) to match the new threat profile. The cloaked roaming phase is effectively invulnerable, so the HP number only matters during the brief visible latch window — a tight defensive line can still reclaim a latched worker, but it now takes real firepower.",
           "`stepEnemies` early-returns for latched wardens so the ghost-archetype reposition logic doesn't fight the pin. Save schema bumped to v10 to persist `latchedWorkerId` across mid-latch saves; pre-v10 saves default the field to null (roaming).",
+        ],
+      },
+      {
+        title: "Defense Progression Flip — Silos First, Turrets Late",
+        items: [
+          "Missile silos are now the colony's first defense line. The `missileLauncher` upgrade is unlocked from Tier 0 (was Tier 2 \"Skirmish\"), its cost drops from `{ gold: 2200, cores: 6, flux: 4 }` to a flat `600` gold, and growth eases from `1.32` to `1.30`. `silosByLevel[0]` is now `1` (was `0`), so a fresh game lands with one silo armed and watching the rim — long-range stand-off fire from the very first tick.",
+          "Defense turrets are now Tier 3 \"Raid\" gated. The `turret` upgrade carries `minTier: 3` and the always-on first-turret floor in `selectors.ts` is gone — `activeTurrets` returns `0` until `state.upgrades.turret >= 1`. Turrets arrive alongside the brute (the first enemy with `turret: 0.85` priority) and the sapper, which is when a perimeter close-range layer actually pulls its weight.",
+          "City growth scoring now treats active silos like active turrets. `homeDevelopment` adds `activeMissileSilos * CITY.developmentWeights.activeTurrets` so pushing the turret upgrade out of the early game does not silently stall the cityStage curve — the player's silo investment fills the same role.",
+          "Wiki Defense entries rewritten: Missile Silo is the \"first watcher of the rim\" available from day one, and the Defense Turret entry advertises its tier-3 unlock and brute / sapper design target.",
         ],
       },
     ],
