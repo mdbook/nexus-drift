@@ -455,7 +455,7 @@ export function createInitialGameState(seed?: number): GameState {
     schemaVersion: SCHEMA_VERSION,
     citySeed,
     rng,
-    resources: { gold: 24, ore: 8, gems: 0, energy: 0, cores: 0, flux: 0 },
+    resources: { gold: 60, ore: 20, gems: 0, energy: 0, cores: 0, flux: 0 },
     upgrades: {
       miner: 0,
       drill: 0,
