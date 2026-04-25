@@ -16,10 +16,37 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.0",
+    badge: "Defense Flip",
+    summary:
+      'Defense progression flips. Missile silos are now the Tier-0 first-contact weapon — one armed from the very first tick on a gold-only `missileLauncher` track — and Defense Turrets gate to Tier 3 "Raid" so the close-range perimeter line shows up alongside the brute (the first enemy that genuinely targets turrets) and the sapper. The always-on first-turret floor in `selectors.ts` is gone; `activeMissileSilos` now contributes to city-stage progression so investing in the silo line does not silently stall the cityStage curve. Sidebar / UpgradeIndicatorRail keep already-purchased upgrades visible across tier shifts, the FieldStatsStrip gains a Missile Silos pill, and `null_surge` no longer claims to disable a phantom turret slot when the colony has no turret track.',
+    sections: [
+      {
+        title: "Progression Flip — Silos First, Turrets Late",
+        items: [
+          'Missile silos are now the colony\'s first defense line. The `missileLauncher` upgrade is unlocked from Tier 0 (was Tier 2 "Skirmish"), its cost drops from `{ gold: 2200, cores: 6, flux: 4 }` to a flat `600` gold, and growth eases from `1.32` to `1.30`. `silosByLevel[0]` is now `1` (was `0`), so a fresh game lands with one silo armed and watching the rim — long-range stand-off fire from the very first tick.',
+          'Defense turrets are now Tier 3 "Raid" gated. The `turret` upgrade carries `minTier: 3` and the always-on first-turret floor in `selectors.ts` is gone — `activeTurrets` returns `0` until `state.upgrades.turret >= 1`. Turrets arrive alongside the brute (the first enemy with `turret: 0.85` priority) and the sapper, which is when a perimeter close-range layer actually pulls its weight.',
+          "City growth scoring now treats active silos like active turrets. `homeDevelopment` adds `activeMissileSilos * CITY.developmentWeights.activeTurrets` so pushing the turret upgrade out of the early game does not silently stall the cityStage curve — the player's silo investment fills the same role.",
+          "Autobuy gates that required `state.upgrades.turret >= 2` before buying silos are gone. The missileLauncher weight bump now keys off brute / leech presence directly, and the turret weight bump moved from `tier >= 2` to `tier >= 3` to track the new unlock.",
+          'Wiki Defense entries rewritten: Missile Silo is the "first watcher of the rim" available from day one, and the Defense Turret entry advertises its tier-3 unlock and brute / sapper design target.',
+        ],
+      },
+      {
+        title: "Polish & Audit Follow-ups",
+        items: [
+          "`makeMissileSilos()` and `migrateGameState` now prime the silo `active` flags from `silosByLevel` so fresh games and freshly-migrated saves render slot 0 armed from frame 0 instead of waiting one tick for `stepMissileSilos` to flip the flag.",
+          '`null_surge` event filters by `derived.activeTurrets` before picking a turret to disable — a tier-7 player who skipped the turret track no longer sees the log claim a phantom slot was suppressed; the event surfaces a "no perimeter turret to suppress" line instead.',
+          '`Sidebar` and `UpgradeIndicatorRail` keep an upgrade tile visible if the player has already invested in it, even when the tier later drops below the gate or an admin preset jumps past it. Mirrors the existing sentinel "already-killed-a-brute" softening.',
+          "`FieldStatsStrip` now shows a Missile Silos pill alongside the Turrets pill, and the Turrets tooltip surfaces the tier-3 unlock when no turrets are deployed instead of pointing at an upgrade tile that's currently hidden.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.5",
     badge: "Warden Parasite Latch",
     summary:
-      'Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves. Defense progression also flips: missile silos are now the Tier-0 first-contact weapon (one armed at game start, gold-only cost) and turrets gate to Tier 3 "Raid" so the perimeter line shows up alongside brute and sapper.',
+      "Wardens now latch onto workers like a parasite instead of needing to maintain proximity. Once a warden reaches `WARDEN.attachRadius` it locks onto the worker, pins its position to the host, and uncloaks for the full 210-tick corruption window so turrets, sentinels, scouts, and missile silos get a real chance to shoot it off. Warden HP is bumped to `500 + 25×wave` (from `140 + 6×wave`) to offset the new vulnerability — the cloaked roaming phase is effectively invulnerable, so the HP number only matters during the visible latch window. Save schema bumps to v10 to persist `latchedWorkerId` across mid-latch saves.",
     sections: [
       {
         title: "Warden Parasite Latch",
@@ -28,19 +55,6 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A latched warden uncloaks for the duration of the attach. `isCloaked()` now returns `false` for wardens with a non-null `latchedWorkerId`, so turrets, sentinels, scouts, and missile silos get a real window to shoot the parasite off before the 210-tick corruption timer expires. Roaming (unlatched) wardens stay cloaked exactly as before.",
           "Warden HP bumped to `500 + 25×wave` (from `140 + 6×wave`) to match the new threat profile. The cloaked roaming phase is effectively invulnerable, so the HP number only matters during the brief visible latch window — a tight defensive line can still reclaim a latched worker, but it now takes real firepower.",
           "`stepEnemies` early-returns for latched wardens so the ghost-archetype reposition logic doesn't fight the pin. Save schema bumped to v10 to persist `latchedWorkerId` across mid-latch saves; pre-v10 saves default the field to null (roaming).",
-        ],
-      },
-      {
-        title: "Defense Progression Flip — Silos First, Turrets Late",
-        items: [
-          'Missile silos are now the colony\'s first defense line. The `missileLauncher` upgrade is unlocked from Tier 0 (was Tier 2 "Skirmish"), its cost drops from `{ gold: 2200, cores: 6, flux: 4 }` to a flat `600` gold, and growth eases from `1.32` to `1.30`. `silosByLevel[0]` is now `1` (was `0`), so a fresh game lands with one silo armed and watching the rim — long-range stand-off fire from the very first tick.',
-          'Defense turrets are now Tier 3 "Raid" gated. The `turret` upgrade carries `minTier: 3` and the always-on first-turret floor in `selectors.ts` is gone — `activeTurrets` returns `0` until `state.upgrades.turret >= 1`. Turrets arrive alongside the brute (the first enemy with `turret: 0.85` priority) and the sapper, which is when a perimeter close-range layer actually pulls its weight.',
-          "City growth scoring now treats active silos like active turrets. `homeDevelopment` adds `activeMissileSilos * CITY.developmentWeights.activeTurrets` so pushing the turret upgrade out of the early game does not silently stall the cityStage curve — the player's silo investment fills the same role.",
-          'Wiki Defense entries rewritten: Missile Silo is the "first watcher of the rim" available from day one, and the Defense Turret entry advertises its tier-3 unlock and brute / sapper design target.',
-          "`makeMissileSilos()` and `migrateGameState` now prime the silo `active` flags from `silosByLevel` so fresh games and freshly-migrated saves render slot 0 armed from frame 0 instead of waiting one tick for `stepMissileSilos` to flip the flag.",
-          '`null_surge` event filters by `derived.activeTurrets` before picking a turret to disable — a tier-7 player who skipped the turret track no longer sees the log claim a phantom slot was suppressed; the event surfaces a "no perimeter turret to suppress" line instead.',
-          '`Sidebar` and `UpgradeIndicatorRail` keep an upgrade tile visible if the player has already invested in it, even when the tier later drops below the gate or an admin preset jumps past it. Mirrors the existing sentinel "already-killed-a-brute" softening.',
-          "`FieldStatsStrip` now shows a Missile Silos pill alongside the Turrets pill, and the Turrets tooltip surfaces the tier-3 unlock when no turrets are deployed instead of pointing at an upgrade tile that's currently hidden.",
         ],
       },
     ],
