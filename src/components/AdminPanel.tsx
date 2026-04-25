@@ -471,7 +471,7 @@ export function AdminPanel({
 
                 <div
                   ref={terminalRef}
-                  className="min-h-[220px] flex-1 overflow-y-auto px-3 py-3 font-mono text-xs leading-5"
+                  className="min-h-0 flex-1 overflow-y-auto px-3 py-3 font-mono text-xs leading-5"
                 >
                   {entries.map((entry) => (
                     <pre
