@@ -9,6 +9,7 @@ import {
   SCOUT,
   SENTINEL,
   TURRET_SLOTS_BY_LEVEL,
+  xpForLevel,
 } from "@/game/balance";
 import { TICK_MS } from "@/game/constants";
 import { computeProgressionDirector } from "@/game/progression";
@@ -116,7 +117,7 @@ export function computeDerived(state: GameState): DerivedState {
       : 0;
 
   const totalIncome = rates.gold + rates.ore * 2 + rates.gems * 18 + rates.energy * 12;
-  const targetXp = 80 + state.level * 25;
+  const targetXp = xpForLevel(state.level);
   const defenseScore =
     state.upgrades.turret * DEFENSE.score.turret +
     state.upgrades.shield * DEFENSE.score.shield +

@@ -645,9 +645,14 @@ export const ECONOMY = {
   },
   levelComboBonus: 0.15,
   comboMax: 9.9,
-  levelXpBase: 80,
-  levelXpPerLevel: 25,
 } as const;
+
+// Sector-level XP threshold curve. Single source of truth — both the
+// economy step (which actually advances the level) and the HUD selector
+// (which renders the progress bar) must call this so they cannot drift.
+export function xpForLevel(level: number): number {
+  return Math.floor(80 + level * 25);
+}
 
 export const REWARDS = {
   goldPerKillBase: 10,
