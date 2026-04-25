@@ -192,7 +192,7 @@ function NotificationFrame({
 }) {
   return (
     <div
-      className={`flex w-full items-start gap-3 rounded-2xl border ${tone.border} ${tone.bg} ${tone.glow} px-3 py-2.5 backdrop-blur`}
+      className={`flex h-[5.5rem] w-full items-start gap-3 rounded-2xl border ${tone.border} ${tone.bg} ${tone.glow} px-3 py-2.5 backdrop-blur`}
       role="status"
       aria-live="polite"
       aria-label={ariaLabel}
