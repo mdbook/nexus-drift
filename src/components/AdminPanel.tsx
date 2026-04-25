@@ -1,6 +1,6 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, ChevronUp, Sparkles, Terminal, Wrench, X } from "lucide-react";
+import { Activity, ChevronUp, GripHorizontal, Sparkles, Terminal, Wrench, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PANEL_CLASS } from "@/theme";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
@@ -81,6 +81,9 @@ export function AdminPanel({
 }: AdminPanelProps) {
   const [input, setInput] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const [bodyHeight, setBodyHeight] = useState(460);
+  const [resizing, setResizing] = useState(false);
+  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const [entries, setEntries] = useState<TerminalEntry[]>([
     {
       id: 1,
@@ -117,6 +120,47 @@ export function AdminPanel({
     if (!node) return;
     node.scrollTop = node.scrollHeight;
   }, [entries]);
+
+  const clampHeight = useCallback((h: number) => {
+    const max = Math.max(360, Math.round(window.innerHeight * 0.85));
+    return Math.min(Math.max(h, 320), max);
+  }, []);
+
+  useEffect(() => {
+    if (!resizing) return;
+    const handleMove = (event: PointerEvent) => {
+      const start = resizeStateRef.current;
+      if (!start) return;
+      // Panel is anchored bottom — drag up grows it.
+      const delta = start.startY - event.clientY;
+      setBodyHeight(clampHeight(start.startHeight + delta));
+    };
+    const handleUp = () => {
+      resizeStateRef.current = null;
+      setResizing(false);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    const prevUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "ns-resize";
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      document.body.style.userSelect = prevUserSelect;
+      document.body.style.cursor = prevCursor;
+    };
+  }, [clampHeight, resizing]);
+
+  const onResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (collapsed) return;
+    event.preventDefault();
+    resizeStateRef.current = { startY: event.clientY, startHeight: bodyHeight };
+    setResizing(true);
+  };
 
   const appendEntries = (...nextEntries: Omit<TerminalEntry, "id">[]) => {
     setEntries((prev) =>
@@ -298,8 +342,27 @@ export function AdminPanel({
               </p>
             </div>
 
-            <div className="grid max-h-[calc(76dvh-104px)] min-h-0 gap-3 overflow-y-auto rounded-b-3xl p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]">
-              <div className="min-w-0 space-y-3">
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize admin console"
+              onPointerDown={onResizePointerDown}
+              className={`group flex h-3 cursor-ns-resize items-center justify-center border-y border-white/5 transition-colors ${
+                resizing ? "bg-cyan-300/15" : "hover:bg-white/5"
+              }`}
+            >
+              <GripHorizontal
+                className={`h-3 w-6 transition-colors ${
+                  resizing ? "text-cyan-100" : "text-white/30 group-hover:text-white/55"
+                }`}
+              />
+            </div>
+
+            <div
+              className="grid min-h-0 gap-3 overflow-hidden rounded-b-3xl p-3 md:p-4 lg:grid-cols-[0.92fr_1.08fr]"
+              style={{ height: bodyHeight }}
+            >
+              <div className="min-h-0 min-w-0 space-y-3 overflow-y-auto pr-1">
                 <section className="rounded-3xl border border-white/10 bg-black/20 p-3">
                   <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-white/40">
                     <Activity className="h-3.5 w-3.5" />
