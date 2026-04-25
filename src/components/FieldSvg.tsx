@@ -2218,6 +2218,23 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                   // `sin(πt)²` raised to 0.55) lands smoothly with zero
                   // derivative at both t=0 and t=1, so the arm rests cleanly
                   // through the wraparound. Apex stays at t=0.5 (swing=12).
+                  // Gate on active-mining task (not on swing>0) — the wrap
+                  // hits swing=0 every cycle, so a swing-based gate strobes
+                  // the arm. Task changes only at state boundaries.
+                  const isMining = agent.task === "Mining" || agent.task === "Purging residue";
+                  if (!isMining) {
+                    return (
+                      <>
+                        <polygon
+                          points={hex(agent.x, agent.y + bob, 13)}
+                          fill={bodyFill}
+                          stroke={bodyStroke}
+                          strokeWidth="2"
+                        />
+                        <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+                      </>
+                    );
+                  }
                   const swingT = agent.swing / 24;
                   const swingProgress = Math.pow(0.5 * (1 - Math.cos(swingT * 2 * Math.PI)), 0.55);
                   // arm pivots from right shoulder, sweeps from raised (-2.0 rad) to strike (-0.35 rad)

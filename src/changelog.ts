@@ -44,7 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Miner Hammer Wraparound",
         items: [
-          'The miner swing animation no longer blinks at the apex / wrap. The previous curve `sin(πt)^0.55` left a non-zero residual at `swing=23` and snapped to 0 at `swing=0`, producing a one-tick visual gap. The new curve `(½(1−cos(2πt)))^0.55` has zero derivative at both endpoints, so the arm rests cleanly through the wraparound with the apex still at `swing=12`. The conditional `agent.swing > 0` gate that hid the arm entirely on tick 0 is gone — the arm always renders, sitting at the natural raised "wound up" pose at swing=0.',
+          "The miner swing animation no longer blinks at the apex / wrap. The previous curve `sin(πt)^0.55` left a non-zero residual at `swing=23` and snapped to 0 at `swing=0`, producing a one-tick visual gap. The new curve `(½(1−cos(2πt)))^0.55` has zero derivative at both endpoints, so the arm rests cleanly through the wraparound with the apex still at `swing=12`. The render gate also moves off `agent.swing > 0` (which strobed because swing wraps to 0 every cycle) onto the active-mining task — the pickaxe arm only shows while the worker is at a node mining or purging residue, and hides cleanly while traversing, evading, or recovering.",
         ],
       },
       {
