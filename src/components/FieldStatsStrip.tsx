@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useTooltip } from "@/hooks/useTooltip";
 import { TooltipPanel } from "@/components/Tooltip";
-import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Users } from "lucide-react";
+import { Activity, Crosshair, HeartPulse, Radar, Shield, Swords, Target, Users } from "lucide-react";
 import type { DerivedState, GameState } from "@/game/types";
 import { cn } from "@/lib/cn";
 
@@ -156,8 +156,20 @@ export const FieldStatsStrip = memo(function FieldStatsStrip({ game, derived }: 
           value={derived.activeTurrets}
           tone="calm"
           icon={Crosshair}
-          detail={`${derived.activeTurrets} static turrets online. Upgrade Defense Turret to unlock more.`}
+          detail={
+            derived.activeTurrets > 0
+              ? `${derived.activeTurrets} static turrets online. Upgrade Defense Turret to unlock more.`
+              : "No perimeter turrets deployed — Defense Turret unlocks at threat tier 3 (Raid)."
+          }
         />
+        <Indicator
+          label="Silos"
+          value={derived.activeMissileSilos}
+          tone="warn"
+          icon={Target}
+          detail={`${derived.activeMissileSilos} missile silo${derived.activeMissileSilos === 1 ? "" : "s"} armed. Long-range stand-off strikes; upgrade Missile Launcher for more silos and range.`}
+        />
+
         {derived.activeScouts > 0 && (
           <Indicator
             label="Scouts"

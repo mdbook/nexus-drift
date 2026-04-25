@@ -4,6 +4,7 @@ import {
   ENEMY_ARCHETYPE,
   ENEMY_SHIELD,
   ENEMY_STATS,
+  MISSILE_SILO,
   SCOUT_HP,
   SENTINEL,
   SENTINEL_HP,
@@ -323,6 +324,11 @@ const MISSILE_SILO_LAYOUT: Array<{ x: number; y: number }> = [
 ];
 
 export function makeMissileSilos(): MissileSilo[] {
+  // 3.1.5 defense flip: prime active flags off silosByLevel so fresh games
+  // (and freshly-migrated old saves) render slot 0 armed from frame 0
+  // instead of waiting one tick for stepMissileSilos to flip the flag.
+  const initialActiveCount =
+    MISSILE_SILO.silosByLevel[Math.min(0, MISSILE_SILO.silosByLevel.length - 1)];
   return MISSILE_SILO_LAYOUT.map((pos, index) => ({
     id: index + 1,
     x: pos.x,
@@ -330,8 +336,14 @@ export function makeMissileSilos(): MissileSilo[] {
     cooldown: 0,
     angle: -Math.PI / 2,
     targetId: null,
-    active: false,
+    active: index < initialActiveCount,
   }));
+}
+
+/** Recompute silo active flags from the missileLauncher upgrade level. */
+export function siloActiveCount(missileLauncherLevel: number): number {
+  const max = MISSILE_SILO.silosByLevel.length - 1;
+  return MISSILE_SILO.silosByLevel[Math.min(Math.max(0, missileLauncherLevel), max)];
 }
 
 /** Initial city HP — baseline from balance.CITY_HP.hpBase. */
@@ -715,13 +727,21 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         }))
       : base.sentinels,
     missileSilos: Array.isArray(raw.missileSilos)
-      ? raw.missileSilos.map((silo) => ({
-          ...silo,
-          active: silo.active ?? false,
-          cooldown: silo.cooldown ?? 0,
-          angle: silo.angle ?? -Math.PI / 2,
-          targetId: silo.targetId ?? null,
-        }))
+      ? (() => {
+          // 3.1.5 defense flip: silosByLevel[0] = 1, so legacy saves where
+          // every silo.active was false need slot 0 primed up front.
+          // Recompute from the migrated upgrade level instead of trusting
+          // the saved flag.
+          const launcherLevel = (raw.upgrades?.missileLauncher as number | undefined) ?? 0;
+          const activeCount = siloActiveCount(launcherLevel);
+          return raw.missileSilos.map((silo, index) => ({
+            ...silo,
+            cooldown: silo.cooldown ?? 0,
+            angle: silo.angle ?? -Math.PI / 2,
+            targetId: silo.targetId ?? null,
+            active: index < activeCount,
+          }));
+        })()
       : base.missileSilos,
     city: raw.city
       ? {

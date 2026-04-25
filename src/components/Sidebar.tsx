@@ -20,8 +20,12 @@ type SidebarProps = {
 export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
   const spawnCadenceSeconds = (derived.progression.spawnIntervalTicks * TICK_MS) / 1000;
   const visibleUpgrades = upgradeDefs.filter((def) => {
-    if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
-    if (def.key === "sentinel" && game.stats.brutesKilled === 0) return false;
+    // Always show upgrades the player has already invested in, even if their
+    // tier later drops below the gate (or an admin preset jumped them past it).
+    const alreadyPurchased = (game.upgrades[def.key] ?? 0) > 0;
+    if (!alreadyPurchased && def.minTier !== undefined && derived.progression.tier < def.minTier)
+      return false;
+    if (def.key === "sentinel" && !alreadyPurchased && game.stats.brutesKilled === 0) return false;
     return true;
   });
 

@@ -1,4 +1,5 @@
 import { spawnEnemy } from "@/game/factories";
+import { computeDerived } from "@/game/selectors";
 import type { EventId, GameState } from "@/game/types";
 import { dist, pushLog } from "@/game/utils";
 
@@ -355,14 +356,29 @@ export const EVENT_DEFS: EventDef[] = [
     minTier: 7,
     modifierContributions: { turretRangeScale: 0.5, enemySpeedScale: 1.2 },
     apply: (state) => {
-      const activeTurret = state.turrets.find((t) => t.disabledTicks === 0);
-      if (activeTurret) activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
-      state.log = pushLog(
-        state.log,
-        "Null Surge: targeting blackout — one turret disabled.",
-        "event",
-        state.timers.tick
-      );
+      // 3.1.5 defense flip: only disable a deployed turret. Pre-flip the
+      // first slot was always live; post-flip a tier-7 player who skipped
+      // the turret track has no live turret to target.
+      const derived = computeDerived(state);
+      const activeTurret = state.turrets
+        .slice(0, derived.activeTurrets)
+        .find((t) => t.disabledTicks === 0);
+      if (activeTurret) {
+        activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
+        state.log = pushLog(
+          state.log,
+          "Null Surge: targeting blackout — one turret disabled.",
+          "event",
+          state.timers.tick
+        );
+      } else {
+        state.log = pushLog(
+          state.log,
+          "Null Surge: targeting blackout — no perimeter turret to suppress.",
+          "event",
+          state.timers.tick
+        );
+      }
     },
     revert: () => {},
   },
