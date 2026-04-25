@@ -48,15 +48,18 @@ const TONE_CLASS: Record<(typeof QUICK_ACTIONS)[number]["tone"], string> = {
   rose: "border-rose-300/20 bg-rose-300/10 text-rose-100 hover:bg-rose-300/15",
   violet: "border-violet-300/20 bg-violet-300/10 text-violet-100 hover:bg-violet-300/15",
 };
-// Toggle renders as a tab that bulges out of the panel's top edge. The button
-// sits entirely above the card (-translate-y-full puts its bottom edge flush
-// with the card top); a small opaque strip beneath it covers the card's 1px
-// top border line across the bulge width, so the bulge and the panel edge
-// read as a single continuous shape.
+// Toggle renders as a frosted pill straddling the panel's top edge. The panel
+// itself uses `bg-slate-950/60` + blur, but it sits over the colourful game
+// field so the blur averages in lighter pixels and the perceived colour is a
+// medium slate. The bulge sits above the panel over a mostly-dark sky area —
+// blurring slate-950 there just gives more dark slate. So the bulge uses a
+// lighter slate (`slate-700/35`) that lands close to the panel's perceived
+// midtone regardless of what's behind it. The Card's top edge has a clip-path
+// notch where the pill straddles, so the pill's bottom half meets the page bg
+// directly (matching what the panel's blur reads) instead of stacking slate
+// over the panel's slate.
 const COLLAPSE_TOGGLE_CLASS =
-  "absolute left-1/2 top-0 flex h-7 w-12 -translate-x-1/2 -translate-y-full items-center justify-center rounded-t-full border border-b-0 border-cyan-300/15 bg-slate-950 text-white/45 transition hover:bg-slate-900 hover:text-white";
-const COLLAPSE_TOGGLE_COVER_CLASS =
-  "pointer-events-none absolute left-1/2 top-0 h-[2px] w-12 -translate-x-1/2 bg-slate-950";
+  "absolute left-1/2 top-0 flex h-7 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/15 bg-slate-700/35 backdrop-blur-xl text-white/45 transition hover:bg-slate-700/50 hover:text-white";
 
 function resultTone(result: AdminCommandResult): TerminalEntry["tone"] {
   return result.ok ? "success" : "error";
@@ -267,23 +270,16 @@ export function AdminPanel({
     >
       <Card
         className={`${PANEL_CLASS} relative overflow-visible border-cyan-300/15 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.55)]`}
+        style={{
+          // Cut a 56×16 notch from the panel's top-center so the toggle pill
+          // (rendered as a sibling AFTER the Card) sits directly on the page bg
+          // and its `backdrop-blur` reads the same backdrop the panel does —
+          // without that cut, the pill's bottom half would stack slate over the
+          // panel's slate and read darker than the rest of the admin UI.
+          clipPath:
+            "path('M 28 0 L calc(50% - 28px) 0 A 28 16 0 0 0 calc(50% + 28px) 0 L calc(100% - 28px) 0 A 28 28 0 0 1 100% 28 L 100% calc(100% - 28px) A 28 28 0 0 1 calc(100% - 28px) 100% L 28 100% A 28 28 0 0 1 0 calc(100% - 28px) L 0 28 A 28 28 0 0 1 28 0 Z')",
+        }}
       >
-        {/* Toggle bulge — tab on top of the panel that visually merges with the card edge */}
-        <div className={`${COLLAPSE_TOGGLE_COVER_CLASS} z-10`} aria-hidden />
-        <button
-          type="button"
-          onClick={() => setCollapsed((v) => !v)}
-          className={`${COLLAPSE_TOGGLE_CLASS} z-20`}
-          aria-label={collapsed ? "Expand admin console" : "Collapse admin console"}
-        >
-          <motion.div
-            animate={{ rotate: collapsed ? 0 : 180 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <ChevronUp className="h-4 w-4" />
-          </motion.div>
-        </button>
-
         {/* Always-visible header */}
         <div className="flex items-center justify-between gap-3 px-3 pt-4">
           <div className="flex min-w-0 items-center gap-2 text-[10px] uppercase tracking-[0.26em] text-cyan-100/60">
@@ -507,6 +503,26 @@ export function AdminPanel({
           </div>
         </div>
       </Card>
+
+      {/* Toggle bulge — frosted pill that straddles the panel's top edge.
+          Sibling AFTER the Card so it paints on top, OUTSIDE the Card's
+          backdrop-filter stacking context so its blur reads the page bg
+          directly (matching the panel). The Card's clip-path cuts a notch in
+          its top edge so the pill's bottom half meets the page bg, not the
+          panel's already-tinted bg. */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className={COLLAPSE_TOGGLE_CLASS}
+        aria-label={collapsed ? "Expand admin console" : "Collapse admin console"}
+      >
+        <motion.div
+          animate={{ rotate: collapsed ? 0 : 180 }}
+          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <ChevronUp className="h-4 w-4" />
+        </motion.div>
+      </button>
     </div>
   );
 }
