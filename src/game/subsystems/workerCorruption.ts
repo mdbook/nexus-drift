@@ -18,7 +18,7 @@
 import { WARDEN } from "@/game/balance";
 import { respawnNode } from "@/game/factories";
 import type { GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 function stepWardenAttach(state: GameState) {
   // Collect wardens that successfully attach this tick (to remove after the loop).
@@ -67,12 +67,7 @@ function stepWardenAttach(state: GameState) {
       if (closest && closestDist <= WARDEN.attachRadius) {
         enemy.latchedWorkerId = closest.id;
         latchedWorker = closest;
-        state.log = pushLog(
-          state.log,
-          `A void warden has latched onto a ${closest.kind} worker.`,
-          "corruption",
-          state.timers.tick
-        );
+        appendLog(state, `A void warden has latched onto a ${closest.kind} worker.`, "corruption");
       }
     }
 
@@ -97,12 +92,7 @@ function stepWardenAttach(state: GameState) {
       latchedWorker.maxHp = Math.round(WARDEN.workerBaseHp * WARDEN.corruptToughnessMult);
       latchedWorker.hp = Math.min(latchedWorker.hp, latchedWorker.maxHp);
       attachedWardenIndices.push(ei);
-      state.log = pushLog(
-        state.log,
-        `A void warden has corrupted a ${latchedWorker.kind} worker.`,
-        "corruption",
-        state.timers.tick
-      );
+      appendLog(state, `A void warden has corrupted a ${latchedWorker.kind} worker.`, "corruption");
     }
   }
 
@@ -149,12 +139,7 @@ function stepCorruptedWorkers(state: GameState) {
         } else {
           // Respawn the node without awarding resources.
           Object.assign(node, respawnNode(state.rng, node.id, state.nodes, state.timers.tick));
-          state.log = pushLog(
-            state.log,
-            "Corruption consumed a resource node.",
-            "corruption",
-            state.timers.tick
-          );
+          appendLog(state, "Corruption consumed a resource node.", "corruption");
         }
       }
     }

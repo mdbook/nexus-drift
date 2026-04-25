@@ -1,7 +1,12 @@
 export const TICK_MS = 33;
 export const WORLD_W = 1000;
 export const WORLD_H = 620;
-export const MAX_LOG = 40;
+// 3.2.1: tightened from 40 → 20 so the live HUD shows only the recent moments.
+// Archival categories (upgrade / event / achievement) are mirrored into
+// state.archiveLog (capped at MAX_ARCHIVE_LOG) for long-form scroll-back.
+export const MAX_LOG = 20;
+export const MAX_ARCHIVE_LOG = 200;
+export const ARCHIVE_LOG_CATEGORIES = ["upgrade", "event", "achievement"] as const;
 
 export const EVADE_ENTER_RADIUS = 62;
 export const EVADE_EXIT_RADIUS = 104;

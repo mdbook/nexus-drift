@@ -35,7 +35,10 @@ import { dist } from "@/game/utils";
 // through the same fallback paths below.
 // v10 adds `Enemy.latchedWorkerId?` for the 3.1.5 warden parasite latch —
 // mid-latch saves resume their latch; older saves default to null (roaming).
-export const SCHEMA_VERSION = 10;
+// v11 (3.2.1) adds: GameState.achievementToastQueue, GameState.archiveLog,
+// GameState.discoveredEnemies, GameState.enemyDiscoveryQueue, and
+// Agent.spookedTicks. All default to empty/0 for older saves.
+export const SCHEMA_VERSION = 11;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -194,6 +197,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
     corruptingTicks: 0,
     spottedTicks: 0,
     rebootTicks: 0,
+    spookedTicks: 0,
   };
 }
 
@@ -422,6 +426,20 @@ export function spawnEnemy(
   return enemy;
 }
 
+/**
+ * 3.2.1 — record an enemy kind as "discovered" the first time it appears in a
+ * run. The first sighting is queued onto `enemyDiscoveryQueue` so the
+ * EnemyDiscoveryCard can surface a one-time "New enemy spotted" prompt linked
+ * to the wiki. Subsequent sightings are no-ops (idempotent).
+ */
+export function recordEnemyDiscovery(state: GameState, kind: EnemyKind) {
+  if (state.discoveredEnemies[kind]) return;
+  state.discoveredEnemies[kind] = state.timers.tick || 1;
+  if (!state.enemyDiscoveryQueue.includes(kind)) {
+    state.enemyDiscoveryQueue = [...state.enemyDiscoveryQueue, kind];
+  }
+}
+
 export function createInitialGameState(seed?: number): GameState {
   const citySeed = seed ?? Date.now();
   const rng = new Rng(citySeed);
@@ -518,6 +536,10 @@ export function createInitialGameState(seed?: number): GameState {
     goldExplosion: null,
     workerDeathFlash: null,
     missileClickCooldown: 0,
+    achievementToastQueue: [],
+    archiveLog: [],
+    discoveredEnemies: {},
+    enemyDiscoveryQueue: [],
   };
 }
 
@@ -561,6 +583,10 @@ export function cloneGameState(prev: GameState): GameState {
     })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
     city: { ...prev.city },
+    achievementToastQueue: prev.achievementToastQueue.map((toast) => ({ ...toast })),
+    archiveLog: prev.archiveLog.map((entry) => ({ ...entry })),
+    discoveredEnemies: { ...prev.discoveredEnemies },
+    enemyDiscoveryQueue: [...prev.enemyDiscoveryQueue],
   };
 }
 
@@ -690,6 +716,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             corruptingTicks: agent.corruptingTicks ?? 0,
             spottedTicks: agent.spottedTicks ?? 0,
             rebootTicks: agent.rebootTicks ?? 0,
+            spookedTicks: agent.spookedTicks ?? 0,
           };
         })
       : base.agents,
@@ -786,6 +813,23 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     projectiles: Array.isArray(raw.projectiles)
       ? raw.projectiles.map((projectile) => ({ ...projectile }))
       : base.projectiles,
+    achievementToastQueue: Array.isArray(raw.achievementToastQueue)
+      ? raw.achievementToastQueue.map((toast) => ({ ...toast }))
+      : [],
+    archiveLog: Array.isArray(raw.archiveLog)
+      ? raw.archiveLog.map((entry) =>
+          typeof entry === "string"
+            ? ({ tick: 0, category: "system" as const, message: entry } satisfies LogEntry)
+            : ({
+                tick: entry.tick ?? 0,
+                category: entry.category ?? "ambient",
+                message: entry.message ?? "",
+              } satisfies LogEntry)
+        )
+      : [],
+    discoveredEnemies:
+      raw.discoveredEnemies && typeof raw.discoveredEnemies === "object" ? { ...raw.discoveredEnemies } : {},
+    enemyDiscoveryQueue: Array.isArray(raw.enemyDiscoveryQueue) ? [...raw.enemyDiscoveryQueue] : [],
   };
 }
 

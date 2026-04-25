@@ -1,6 +1,6 @@
 import { WORKER_SLOT_UNLOCK_RESOURCE_COSTS } from "@/game/balance";
-import { MAX_LOG, TICK_WRAP } from "@/game/constants";
-import type { LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
+import { ARCHIVE_LOG_CATEGORIES, MAX_ARCHIVE_LOG, MAX_LOG, TICK_WRAP } from "@/game/constants";
+import type { GameState, LogCategory, LogEntry, ResourceKey, ResourceMap, UpgradeDef } from "@/game/types";
 
 /**
  * Modular elapsed-tick delta. `state.timers.tick` wraps at `TICK_WRAP`,
@@ -65,6 +65,21 @@ export function fmt(n: number) {
 
 export function pushLog(log: LogEntry[], message: string, category: LogCategory, tick: number): LogEntry[] {
   return [{ tick, category, message }, ...log].slice(0, MAX_LOG);
+}
+
+const ARCHIVE_CATEGORY_SET = new Set<LogCategory>(ARCHIVE_LOG_CATEGORIES);
+
+/**
+ * 3.2.1 — append a log entry to the recent feed and, when the category is
+ * archival (upgrade / event / achievement), also mirror it into the
+ * archive feed for long-form scroll-back.
+ */
+export function appendLog(state: GameState, message: string, category: LogCategory) {
+  const tick = state.timers.tick;
+  state.log = [{ tick, category, message }, ...state.log].slice(0, MAX_LOG);
+  if (ARCHIVE_CATEGORY_SET.has(category)) {
+    state.archiveLog = [{ tick, category, message }, ...state.archiveLog].slice(0, MAX_ARCHIVE_LOG);
+  }
 }
 
 export function nextUpgradeCost(def: UpgradeDef, level: number): Partial<Record<ResourceKey, number>> {

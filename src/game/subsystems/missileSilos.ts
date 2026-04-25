@@ -2,7 +2,7 @@ import { MISSILE_SILO } from "@/game/balance";
 import { addMissile } from "@/game/factories";
 import { isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 function siloTargetTier(kind: GameState["enemies"][number]["kind"]): number {
   if (kind === "brute") return 2;
@@ -84,6 +84,6 @@ export function stepMissileSilos(state: GameState) {
     });
 
     silo.cooldown = MISSILE_SILO.fireIntervalTicks;
-    state.log = pushLog(state.log, "Missile silo: long-range strike on target.", "combat", state.timers.tick);
+    appendLog(state, "Missile silo: long-range strike on target.", "combat");
   }
 }

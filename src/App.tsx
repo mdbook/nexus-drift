@@ -31,6 +31,8 @@ import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
+import { AchievementToast } from "@/components/AchievementToast";
+import { EnemyDiscoveryCard } from "@/components/EnemyDiscoveryCard";
 import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -54,7 +56,7 @@ import { resourceDefs } from "@/game/data";
 import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
-import { clamp, fmt, pushLog } from "@/game/utils";
+import { clamp, fmt, appendLog } from "@/game/utils";
 import { isBetaBuild } from "@/lib/isBetaBuild";
 import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
 import { useGameLoop } from "@/hooks/useGameLoop";
@@ -313,6 +315,7 @@ export default function App() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
+  const [wikiInitialEntryId, setWikiInitialEntryId] = useState<string | undefined>(undefined);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
@@ -366,7 +369,7 @@ export default function App() {
 
       if (driftRef.current === "drift") {
         mutateGame((next) => {
-          next.log = pushLog(next.log, "The drift remembers.", "system", next.timers.tick);
+          appendLog(next, "The drift remembers.", "system");
           unlockSecretAchievement(next, "drift");
         });
         driftRef.current = "";
@@ -376,11 +379,10 @@ export default function App() {
         const nextSynthwave = !synthwaveRef.current;
         setSynthwave(nextSynthwave);
         mutateGame((next) => {
-          next.log = pushLog(
-            next.log,
+          appendLog(
+            next,
             nextSynthwave ? "Synthwave protocol engaged." : "Synthwave protocol disengaged.",
-            "system",
-            next.timers.tick
+            "system"
           );
           unlockSecretAchievement(next, "synthwave");
         });
@@ -461,12 +463,7 @@ export default function App() {
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
     mutateGame((next) => {
-      next.log = pushLog(
-        next.log,
-        enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.",
-        "system",
-        next.timers.tick
-      );
+      appendLog(next, enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.", "system");
     });
   };
 
@@ -823,7 +820,32 @@ export default function App() {
         />
       )}
 
-      <WikiOverlay open={wikiOpen} onClose={() => setWikiOpen(false)} />
+      <WikiOverlay
+        open={wikiOpen}
+        onClose={() => {
+          setWikiOpen(false);
+          setWikiInitialEntryId(undefined);
+        }}
+        initialEntryId={wikiInitialEntryId}
+      />
+
+      <AchievementToast toast={uiGame.achievementToastQueue[0]} />
+
+      <EnemyDiscoveryCard
+        kind={uiGame.enemyDiscoveryQueue[0]}
+        onDismiss={() =>
+          mutateGame((next) => {
+            next.enemyDiscoveryQueue = next.enemyDiscoveryQueue.slice(1);
+          })
+        }
+        onOpenWiki={(entryId) => {
+          setWikiInitialEntryId(entryId);
+          setWikiOpen(true);
+          mutateGame((next) => {
+            next.enemyDiscoveryQueue = next.enemyDiscoveryQueue.slice(1);
+          });
+        }}
+      />
     </div>
   );
 }

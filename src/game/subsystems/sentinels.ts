@@ -3,7 +3,7 @@ import { addProjectile } from "@/game/factories";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import { damageCorruptedWorker } from "@/game/subsystems/combat";
 import type { Agent, Enemy, EnemyKind, GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 /** Purple cleanse-beam colour — distinct from the yellow combat projectile. */
 const CLEANSE_PROJECTILE_COLOR = "rgba(192, 132, 252, 0.9)";
@@ -127,7 +127,7 @@ export function stepSentinels(state: GameState) {
       if (sentinel.rebootTicks === 0) {
         sentinel.hp = sentinel.maxHp;
         sentinel.retreating = false;
-        state.log = pushLog(state.log, "Sentinel redeployed from home pad.", "combat", state.timers.tick);
+        appendLog(state, "Sentinel redeployed from home pad.", "combat");
       }
       return;
     }
@@ -238,11 +238,10 @@ export function stepSentinels(state: GameState) {
           );
           state.resources.cores += WARDEN.cleanseCoreReward;
           state.stats.corruptedPurified += 1;
-          state.log = pushLog(
-            state.log,
+          appendLog(
+            state,
             `Sentinel cleanses a corrupted ${cleanseTarget.kind} worker. Reboot initiated.`,
-            "corruption",
-            state.timers.tick
+            "corruption"
           );
         }
       }

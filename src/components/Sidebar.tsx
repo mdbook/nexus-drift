@@ -178,7 +178,7 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
           </div>
         </div>
 
-        <ActivityLog log={game.log} currentTick={game.timers.tick} />
+        <ActivityLog log={game.log} archiveLog={game.archiveLog} currentTick={game.timers.tick} />
       </Card>
     </div>
   );

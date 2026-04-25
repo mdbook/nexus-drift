@@ -30,7 +30,7 @@ import {
   updateThreatMemory,
 } from "@/game/subsystems/workerAI";
 import type { Agent, Enemy, GameState } from "@/game/types";
-import { clamp, dist, normalize, pushLog } from "@/game/utils";
+import { clamp, dist, normalize, appendLog } from "@/game/utils";
 
 // TODO(3.2.0): `movement.ts` is ~800 lines and houses three distinct concerns:
 //   - worker movement + evasion (`stepWorkers`)
@@ -201,7 +201,7 @@ export function stepWorkers(state: GameState) {
       if (agent.rebootTicks === 0) {
         agent.hp = agent.maxHp;
         agent.spawnTick = state.timers.tick;
-        state.log = pushLog(state.log, `${agent.kind} worker redeployed.`, "combat", state.timers.tick);
+        appendLog(state, `${agent.kind} worker redeployed.`, "combat");
       }
       return;
     }
@@ -315,6 +315,20 @@ export function stepWorkers(state: GameState) {
       }
     } else if (agent.evadeTicks > 0) {
       agent.evadeTicks -= 1;
+      // 3.2.1 — at the moment evasion ends, mint a "spook" memory window and
+      // force an immediate retarget. Sticky retargeting (stickyThreshold)
+      // otherwise locked the worker right back onto whatever drew it into
+      // the threat lane — see WORKER_AI.spookedDuration.
+      if (agent.evadeTicks === 0) {
+        agent.spookedTicks = WORKER_AI.spookedDuration;
+        agent.target = chooseWorkerTarget(state, agent);
+      }
+    }
+
+    // 3.2.1 — decay the spook window separately so it persists past the
+    // evade-end tick (and across re-evasion cycles, capped at duration).
+    if (agent.spookedTicks > 0 && agent.evadeTicks === 0) {
+      agent.spookedTicks -= 1;
     }
 
     if (agent.evadeTicks > 0) {
@@ -588,12 +602,7 @@ export function stepEnemies(state: GameState) {
         if (preferredNode.corruption >= 100 && !preferredNode.corrupted) {
           preferredNode.corrupted = true;
           state.stats.corruptions += 1;
-          state.log = pushLog(
-            state.log,
-            `${preferredNode.kind} node fully corrupted. Gross.`,
-            "corruption",
-            state.timers.tick
-          );
+          appendLog(state, `${preferredNode.kind} node fully corrupted. Gross.`, "corruption");
         }
         return;
       }

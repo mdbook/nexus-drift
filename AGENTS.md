@@ -144,13 +144,13 @@ Rules for adding achievements:
 
 ## Activity Log Invariants
 
-`state.log` is a `LogEntry[]` (max 40, newest first). Each entry has `tick`, `category`, and `message`.
+As of 3.2.1 the activity log lives in two parallel arrays. `state.log` is the live HUD feed (`MAX_LOG = 20`, newest first). `state.archiveLog` is the long-form scroll-back mirror (`MAX_ARCHIVE_LOG = 200`, newest first) that retains only the archival categories — `upgrade`, `event`, `achievement` (exposed as `ARCHIVE_LOG_CATEGORIES` in `constants.ts`). Both arrays hold `LogEntry` objects with `tick`, `category`, and `message`.
 
-- Always call `pushLog(log, message, category, state.timers.tick)` — never push raw objects directly.
+- Always call `appendLog(state, message, category)` — never push raw objects directly. The helper writes to `state.log` and, when the category is archival, mirrors the entry into `state.archiveLog`. The lower-level `pushLog` slicer is retained for `MAX_LOG` enforcement but should not be invoked directly from sim code.
 - `LogCategory` is one of: `system` | `combat` | `mining` | `corruption` | `event` | `upgrade` | `achievement` | `ambient`. Pick the tightest fit; default to `ambient` for flavor.
-- `migrateGameState()` maps legacy `string[]` saves to `{ tick: 0, category: "system", message }` — do not remove that branch.
-- `cloneGameState()` maps `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
-- `MAX_LOG` is 40. Do not lower it without checking the `ActivityLog` component's `max-h-72` scroll container.
+- `migrateGameState()` maps legacy `string[]` saves to `{ tick: 0, category: "system", message }` — do not remove that branch. v10-and-earlier saves default `archiveLog` to `[]`.
+- `cloneGameState()` deep-copies both arrays via `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
+- `MAX_LOG` is 20 and `MAX_ARCHIVE_LOG` is 200. Do not raise `MAX_LOG` without checking the `ActivityLog` `max-h-72` scroll container; do not lower `MAX_ARCHIVE_LOG` without checking that long sessions still retain enough progression history.
 
 ## Admin Command Terminal Invariants
 
@@ -181,6 +181,8 @@ The hidden admin console opens with `Space` five times. Admin mode extends the e
 ## Worker Flee-Retarget Invariant
 
 Workers in persistent evasion may retarget to nodes ahead of their flee direction via `chooseFleeDirectionTarget()`, but only when no immediate `evadeThreats` are present. Keep this opportunistic: reject nodes behind the worker, outside the flee lane, too far ahead, or behind a high-threat path. Do not let flee retargeting override active panic survival or recovery behavior.
+
+3.2.1 adds a post-flee "spook" memory window. The moment `agent.evadeTicks` decays to 0 in `stepMovement`, set `agent.spookedTicks = WORKER_AI.spookedDuration` (240) and force an immediate `chooseWorkerTarget(state, agent)` call rather than letting sticky retarget keep the worker on its old target. While `spookedTicks > 0`, `scoreWorkerNode` multiplies both `pathSafetyPenalty` and `nodeThreatCrowdPenalty` by `WORKER_AI.spookedThreatMultiplier` (×2.5) so a recently-fled worker treats threat as much costlier when scoring nodes. The spook window decays one tick per frame outside of evasion, and is re-armed every time evasion ends (so a worker yo-yoing between threat and safety stays cautious throughout). Reset `spookedTicks` to 0 when the worker dies or reboots.
 
 ## Worker Harvesting Stubbornness
 

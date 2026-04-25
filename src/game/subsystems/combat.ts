@@ -19,7 +19,7 @@ import { addProjectile } from "@/game/factories";
 import { damageEnemy } from "@/game/enemyUtils";
 import { computeDerived } from "@/game/selectors";
 import type { Agent, GameState, Scout, Sentinel, Turret } from "@/game/types";
-import { clamp, dist, pushLog } from "@/game/utils";
+import { clamp, dist, appendLog } from "@/game/utils";
 
 const HOME_X = 500;
 const HOME_Y = 540;
@@ -47,7 +47,7 @@ export function damageTurret(state: GameState, turret: Turret, amount: number) {
     turret.brokenTicks = TURRET_HP.brokenDurationTicks;
     turret.cooldown = 0;
     state.stats.turretsBroken += 1;
-    state.log = pushLog(state.log, "Turret structure failed. Recalibrating.", "combat", state.timers.tick);
+    appendLog(state, "Turret structure failed. Recalibrating.", "combat");
   }
 }
 
@@ -72,7 +72,7 @@ export function damageScout(state: GameState, scout: Scout, amount: number) {
     scout.rebootTicks = SCOUT_HP.rebootDurationTicks;
     scout.retreating = false;
     scout.targetId = null;
-    state.log = pushLog(state.log, "Scout destroyed. Rebuilding at home pad.", "combat", state.timers.tick);
+    appendLog(state, "Scout destroyed. Rebuilding at home pad.", "combat");
   }
 }
 
@@ -95,7 +95,7 @@ export function damageSentinel(state: GameState, sentinel: Sentinel, amount: num
     sentinel.rebootTicks = SENTINEL_HP.rebootDurationTicks;
     sentinel.retreating = false;
     sentinel.targetId = null;
-    state.log = pushLog(state.log, "Sentinel downed. Rebuilding chassis.", "combat", state.timers.tick);
+    appendLog(state, "Sentinel downed. Rebuilding chassis.", "combat");
   }
 }
 
@@ -173,14 +173,12 @@ export function killWorker(state: GameState, agent: Agent) {
   agent.evadeTicks = 0;
   agent.damageTicks = 0;
   agent.disabledTicks = 0;
+  // 3.2.1 — clear post-flee spook memory on death/reboot so the resurrected
+  // worker doesn't carry the previous body's caution into its first frame.
+  agent.spookedTicks = 0;
   agent.target = null;
   agent.task = "Rebooting";
-  state.log = pushLog(
-    state.log,
-    `${agent.kind} drone lost. Rebooting from backup.`,
-    "combat",
-    state.timers.tick
-  );
+  appendLog(state, `${agent.kind} drone lost. Rebooting from backup.`, "combat");
 }
 
 /**
@@ -271,13 +269,12 @@ export function resolveEnemyDeaths(state: GameState) {
       (enemy.kind === "brute" || enemy.kind === "phantom" ? ENEMY_SPECIAL.brute.coreDropAmount : 0);
     if (coreDrop > 0) {
       state.resources.cores += coreDrop;
-      state.log = pushLog(
-        state.log,
+      appendLog(
+        state,
         enemy.kind === "brute"
           ? "Brute destroyed. Core fragment recovered."
           : "Phantom dispersed. Core fragment stabilized.",
-        "combat",
-        state.timers.tick
+        "combat"
       );
     }
   });
@@ -293,26 +290,15 @@ export function resolveEnemyDeaths(state: GameState) {
   });
 
   if (regular > 0 && purged > 0) {
-    state.log = pushLog(
-      state.log,
+    appendLog(
+      state,
       `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}; scouts purged ${purged} corrupter${purged > 1 ? "s" : ""}.`,
-      "combat",
-      state.timers.tick
+      "combat"
     );
   } else if (purged > 0) {
-    state.log = pushLog(
-      state.log,
-      `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`,
-      "combat",
-      state.timers.tick
-    );
+    appendLog(state, `Assault scouts purged ${purged} toxic corrupter${purged > 1 ? "s" : ""}.`, "combat");
   } else {
-    state.log = pushLog(
-      state.log,
-      `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`,
-      "combat",
-      state.timers.tick
-    );
+    appendLog(state, `Defense grid cleared ${regular} hostile${regular > 1 ? "s" : ""}.`, "combat");
   }
 }
 
@@ -416,7 +402,7 @@ export function stepZapperFire(state: GameState) {
     );
 
     enemy.fireCooldown = ZAPPER.fireIntervalTicks;
-    state.log = pushLog(state.log, "Zapper fired a disruptor bolt.", "combat", state.timers.tick);
+    appendLog(state, "Zapper fired a disruptor bolt.", "combat");
   }
 }
 
@@ -460,7 +446,7 @@ export function stepCombat(state: GameState) {
     }
 
     enemy.hp = 0;
-    state.log = pushLog(state.log, "Sapper detonated near workers.", "combat", state.timers.tick);
+    appendLog(state, "Sapper detonated near workers.", "combat");
   }
 
   for (const enemy of state.enemies) {
@@ -513,7 +499,7 @@ export function stepCombat(state: GameState) {
 
     const nextHp = clamp(agent.hp - incoming, 0, agent.maxHp);
     if (nextHp <= WORKER.heavyFireThreshold && agent.hp > WORKER.heavyFireThreshold) {
-      state.log = pushLog(state.log, `${agent.kind} drone taking heavy fire.`, "combat", state.timers.tick);
+      appendLog(state, `${agent.kind} drone taking heavy fire.`, "combat");
     }
 
     if (nextHp <= 0) {

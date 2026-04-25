@@ -1,7 +1,7 @@
-import { spawnEnemy } from "@/game/factories";
+import { recordEnemyDiscovery, spawnEnemy } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { EventId, GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 export type EventEffectTone = "boon" | "threat" | "mixed" | "neutral";
 
@@ -168,13 +168,9 @@ export const EVENT_DEFS: EventDef[] = [
         const enemy = spawnEnemy(state.rng, state.nextEnemyId++, 0, "raider", state.timers.tick);
         enemy.goldRewardBonus = 2;
         state.enemies.push(enemy);
+        recordEnemyDiscovery(state, "raider");
       }
-      state.log = pushLog(
-        state.log,
-        "Pirate caravan inbound - raiders carrying bonus loot.",
-        "event",
-        state.timers.tick
-      );
+      appendLog(state, "Pirate caravan inbound - raiders carrying bonus loot.", "event");
     },
     revert: () => {},
   },
@@ -237,12 +233,8 @@ export const EVENT_DEFS: EventDef[] = [
       elite.maxHp = elite.hp;
       elite.coreDropOverride = 5;
       state.enemies.push(elite);
-      state.log = pushLog(
-        state.log,
-        "Echo Signal: elite signature detected on approach.",
-        "event",
-        state.timers.tick
-      );
+      recordEnemyDiscovery(state, "brute");
+      appendLog(state, "Echo Signal: elite signature detected on approach.", "event");
     },
     revert: () => {},
   },
@@ -286,8 +278,9 @@ export const EVENT_DEFS: EventDef[] = [
     apply: (state) => {
       for (let i = 0; i < 2; i++) {
         state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, 0, "rusher", state.timers.tick));
+        recordEnemyDiscovery(state, "rusher");
       }
-      state.log = pushLog(state.log, "Hunter Pack: coordinated strike inbound.", "event", state.timers.tick);
+      appendLog(state, "Hunter Pack: coordinated strike inbound.", "event");
     },
     revert: () => {},
   },
@@ -329,12 +322,7 @@ export const EVENT_DEFS: EventDef[] = [
     modifierContributions: { yieldMultiplier: 2, energyRate: 1.5 },
     apply: (state) => {
       spawnTemporaryCacheNode(state);
-      state.log = pushLog(
-        state.log,
-        "Starcall: ancient signal detected — yields surging.",
-        "event",
-        state.timers.tick
-      );
+      appendLog(state, "Starcall: ancient signal detected — yields surging.", "event");
     },
     revert: () => {},
   },
@@ -363,19 +351,9 @@ export const EVENT_DEFS: EventDef[] = [
       const activeTurret = state.turrets.slice(0, derived.activeTurrets).find((t) => t.disabledTicks === 0);
       if (activeTurret) {
         activeTurret.disabledTicks = 15 * TICKS_PER_SEC;
-        state.log = pushLog(
-          state.log,
-          "Null Surge: targeting blackout — one turret disabled.",
-          "event",
-          state.timers.tick
-        );
+        appendLog(state, "Null Surge: targeting blackout — one turret disabled.", "event");
       } else {
-        state.log = pushLog(
-          state.log,
-          "Null Surge: targeting blackout — no perimeter turret to suppress.",
-          "event",
-          state.timers.tick
-        );
+        appendLog(state, "Null Surge: targeting blackout — no perimeter turret to suppress.", "event");
       }
     },
     revert: () => {},
@@ -396,12 +374,7 @@ export function activateEvent(state: GameState, eventDef: EventDef, announce = t
   eventDef.apply(state);
 
   if (announce) {
-    state.log = pushLog(
-      state.log,
-      `Event: ${eventDef.label} - ${eventDef.description}`,
-      "event",
-      state.timers.tick
-    );
+    appendLog(state, `Event: ${eventDef.label} - ${eventDef.description}`, "event");
   }
 
   if (eventDef.hudDurationTicks > 0) {

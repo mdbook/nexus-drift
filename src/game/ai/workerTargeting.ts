@@ -93,15 +93,24 @@ function scoreWorkerNode(
   // Path safety — penalize routes that cross heavy threat. Miners are braver,
   // drones are more cautious, per WORKER_PERSONALITY.pathFearScale.
   // Per-agent fearMod further multiplies the penalty: >1 = more cautious, <1 = braver.
+  // 3.2.1 — recently-spooked workers (just exited evasion) treat threat as
+  // costlier, so they don't immediately path back through the same lane they
+  // just fled from. See WORKER_AI.spookedDuration / spookedThreatMultiplier.
   if (enemies.length > 0) {
+    const spookMultiplier = agent.spookedTicks > 0 ? WORKER_AI.spookedThreatMultiplier : 1;
     const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
     score +=
-      pathThreat * WORKER_AI.pathSafetyPenalty * WORKER_PERSONALITY[agent.kind].pathFearScale * agent.fearMod;
+      pathThreat *
+      WORKER_AI.pathSafetyPenalty *
+      WORKER_PERSONALITY[agent.kind].pathFearScale *
+      agent.fearMod *
+      spookMultiplier;
 
     const nodeThreats = countThreats(node.x, node.y, WORKER_AI.nodeThreatRadius, enemies);
     score +=
-      nodeThreats * WORKER_AI.nodeThreatCrowdPenalty +
-      nodeThreats * nodeThreats * WORKER_AI.nodeThreatCrowdPenalty * 0.25;
+      (nodeThreats * WORKER_AI.nodeThreatCrowdPenalty +
+        nodeThreats * nodeThreats * WORKER_AI.nodeThreatCrowdPenalty * 0.25) *
+      spookMultiplier;
   }
 
   // Region bias — prefer nodes inside this worker kind's home territory.

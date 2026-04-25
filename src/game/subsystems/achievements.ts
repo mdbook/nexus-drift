@@ -5,6 +5,21 @@ import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
 export function stepAchievements(state: GameState) {
+  // 3.2.1 — tick down the achievement toast queue. The head toast is the one
+  // currently being shown by AchievementToast.tsx; once its ticks reach 0 we
+  // shift it off so the next queued unlock plays. Decay happens before the
+  // unlock checks below so a toast enqueued this same tick keeps full duration.
+  if (state.achievementToastQueue.length > 0) {
+    const head = state.achievementToastQueue[0];
+    if (head.ticks <= 1) {
+      state.achievementToastQueue = state.achievementToastQueue.slice(1);
+    } else {
+      const next = [...state.achievementToastQueue];
+      next[0] = { ...head, ticks: head.ticks - 1 };
+      state.achievementToastQueue = next;
+    }
+  }
+
   const derived = computeDerived(state);
   const threatRank = Math.floor(derived.progression.score / PROGRESSION.tiersPerScore);
 

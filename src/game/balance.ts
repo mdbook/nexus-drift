@@ -998,7 +998,9 @@ export const WORKER_PERSONALITY: Record<
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {
-  pathSafetyPenalty: 34, // score penalty per threat-sample unit along the path
+  // 3.2.1 — bumped from 34 → 48 so even non-spooked workers prefer safer
+  // lanes; the spook window multiplies this further (see `spookedThreatMultiplier`).
+  pathSafetyPenalty: 48, // score penalty per threat-sample unit along the path
   harvestingEvasionRadius: 42, // while at the node, only bolt when an enemy closes within this distance
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
@@ -1008,7 +1010,14 @@ export const WORKER_AI = {
   currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
   nodeThreatRadius: 82,
-  nodeThreatCrowdPenalty: 44,
+  // 3.2.1 — bumped from 44 → 60 (paired with pathSafetyPenalty bump above).
+  nodeThreatCrowdPenalty: 60,
+  // 3.2.1 — "spook" memory window: ticks of post-flee threat aversion.
+  // When evadeTicks decays to 0, set spookedTicks = spookedDuration so the
+  // worker treats the threat field as costlier (×spookedThreatMultiplier on
+  // pathSafetyPenalty + nodeThreatCrowdPenalty) for ~4s after fleeing.
+  spookedDuration: 240,
+  spookedThreatMultiplier: 2.5,
   harvestingStubbornEnemyLimit: 2,
   fleeTargetLookahead: 290, // max forward distance considered while persistent evasion is coasting
   fleeTargetMinForward: 48,

@@ -1,8 +1,10 @@
 import { memo, useState } from "react";
 import { Activity, Award, Biohazard, Bot, ChevronRight, Pickaxe, Radio, Swords, Zap } from "lucide-react";
 import type { LogCategory, LogEntry } from "@/game/types";
-import { TICK_MS } from "@/game/constants";
+import { ARCHIVE_LOG_CATEGORIES, TICK_MS } from "@/game/constants";
 import { elapsedTicks } from "@/game/utils";
+
+const ARCHIVE_FILTERS = new Set<LogCategory>(ARCHIVE_LOG_CATEGORIES);
 
 type CategoryMeta = {
   icon: React.ComponentType<{ className?: string }>;
@@ -90,13 +92,20 @@ function formatAge(currentTick: number, entryTick: number): string {
 
 type ActivityLogProps = {
   log: LogEntry[];
+  archiveLog: LogEntry[];
   currentTick: number;
 };
 
-export const ActivityLog = memo(function ActivityLog({ log, currentTick }: ActivityLogProps) {
+export const ActivityLog = memo(function ActivityLog({ log, archiveLog, currentTick }: ActivityLogProps) {
   const [activeFilter, setActiveFilter] = useState<LogCategory | "all">("all");
 
-  const filtered = activeFilter === "all" ? log : log.filter((entry) => entry.category === activeFilter);
+  // 3.2.1 — archival filters (upgrade / event / achievement) read from the
+  // long-form archiveLog so players can scroll back further than the
+  // 20-entry recent feed allows.
+  const isArchiveFilter = activeFilter !== "all" && ARCHIVE_FILTERS.has(activeFilter);
+  const sourceLog = isArchiveFilter ? archiveLog : log;
+  const filtered =
+    activeFilter === "all" ? log : sourceLog.filter((entry) => entry.category === activeFilter);
 
   return (
     <div className="mt-3 flex flex-col rounded-3xl border border-white/10 bg-white/5 p-3">
@@ -141,7 +150,7 @@ export const ActivityLog = memo(function ActivityLog({ log, currentTick }: Activ
         })}
         {/* Entry count badge */}
         <span className="ml-auto self-center text-[9px] text-white/25">
-          {filtered.length}/{log.length}
+          {filtered.length}/{sourceLog.length}
         </span>
       </div>
 

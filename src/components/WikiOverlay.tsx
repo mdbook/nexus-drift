@@ -1126,13 +1126,31 @@ const CATEGORIES: WikiCategory[] = [
 type WikiOverlayProps = {
   open: boolean;
   onClose: () => void;
+  // 3.2.1 — when set, the overlay opens with this entry pre-selected (used by
+  // the New-Enemy-Spotted card to deep-link straight to a Field Entities page).
+  initialEntryId?: string;
 };
 
-export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
+export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps) {
   const firstEntryId = CATEGORIES[0]?.entries[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(firstEntryId);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // 3.2.1 — apply the deep-link target every time the overlay re-opens with a
+  // new initialEntryId. Tracking the previous (open, id) pair via state lets
+  // the deep-link snap into selectedId during render without a useEffect
+  // cascade — the canonical "derive state from props on change" pattern.
+  const [lastInitial, setLastInitial] = useState<{ open: boolean; id: string | undefined }>({
+    open: false,
+    id: undefined,
+  });
+  if (lastInitial.open !== open || lastInitial.id !== initialEntryId) {
+    setLastInitial({ open, id: initialEntryId });
+    if (open && initialEntryId && selectedId !== initialEntryId) {
+      setSelectedId(initialEntryId);
+    }
+  }
 
   const allEntries = useMemo(() => CATEGORIES.flatMap((category) => category.entries), []);
 

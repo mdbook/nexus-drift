@@ -1,4 +1,4 @@
-import type { AchievementId } from "@/game/achievements";
+import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import type { Rng } from "@/game/rng";
 
 export type ResourceKey = "gold" | "ore" | "gems" | "energy" | "cores" | "flux";
@@ -165,6 +165,12 @@ export type Agent = {
   spottedTicks: number;
   /** Ticks until this slot's reboot cooldown ends after a cleansed corruption death. 0 = active. */
   rebootTicks: number;
+  /**
+   * 3.2.1 — counts down after a worker exits evasion. While > 0, the node-scoring
+   * threat penalties multiply by WORKER_AI.spookedThreatMultiplier so the worker
+   * doesn't path right back through the lane it just fled from.
+   */
+  spookedTicks: number;
 };
 
 export type Turret = {
@@ -470,6 +476,17 @@ export type GameState = {
   goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
   workerDeathFlash: { x: number; y: number; ticks: number; maxTicks: number } | null;
   missileClickCooldown: number;
+  achievementToastQueue: AchievementToast[];
+  archiveLog: LogEntry[];
+  discoveredEnemies: Partial<Record<EnemyKind, number>>;
+  enemyDiscoveryQueue: EnemyKind[];
+};
+
+export type AchievementToast = {
+  id: AchievementId;
+  rarity: AchievementRarity;
+  ticks: number;
+  maxTicks: number;
 };
 
 export type UpgradeDef = {

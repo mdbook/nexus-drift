@@ -1,7 +1,7 @@
 import { makeWorker } from "@/game/factories";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
 import type { EventId, GameState } from "@/game/types";
-import { pushLog } from "@/game/utils";
+import { appendLog } from "@/game/utils";
 
 // ─── Rarity & Category ────────────────────────────────────────────────────────
 
@@ -634,13 +634,27 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
 
 // ─── Unlock helper ────────────────────────────────────────────────────────────
 
+/**
+ * 3.2.1 — toast durations. Legendary unlocks get a longer hold (and a
+ * full-screen flourish in the renderer); everything else gets a brisker
+ * corner toast. Values are sim ticks at TICK_MS = 33.
+ */
+export const ACHIEVEMENT_TOAST_DURATION_DEFAULT = 240;
+export const ACHIEVEMENT_TOAST_DURATION_LEGENDARY = 300;
+
 export function unlockAchievement(state: GameState, id: AchievementId) {
   if (state.achievements[id]) return false;
 
   state.achievements[id] = true;
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
-    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`, "achievement", state.timers.tick);
+    appendLog(state, `Achievement unlocked: ${def.label}`, "achievement");
+    const maxTicks =
+      def.rarity === "legendary" ? ACHIEVEMENT_TOAST_DURATION_LEGENDARY : ACHIEVEMENT_TOAST_DURATION_DEFAULT;
+    state.achievementToastQueue = [
+      ...state.achievementToastQueue,
+      { id, rarity: def.rarity, ticks: maxTicks, maxTicks },
+    ];
   }
   return true;
 }
@@ -700,12 +714,7 @@ export function recoverLostDrone(state: GameState) {
   state.agents.push(recovered);
   state.lostDrone = null;
   state.lostWorkerFound = true;
-  state.log = pushLog(
-    state.log,
-    "Recovered the damaged drone and folded it into the roster.",
-    "event",
-    state.timers.tick
-  );
+  appendLog(state, "Recovered the damaged drone and folded it into the roster.", "event");
   return unlockAchievement(state, "lost_drone");
 }
 
