@@ -123,7 +123,7 @@ export function AdminPanel({
 
   const clampHeight = useCallback((h: number) => {
     const max = Math.max(360, Math.round(window.innerHeight * 0.85));
-    return Math.min(Math.max(h, 320), max);
+    return Math.min(Math.max(h, 200), max);
   }, []);
 
   useEffect(() => {
