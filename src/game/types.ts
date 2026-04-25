@@ -1,4 +1,5 @@
-import type { AchievementId, AchievementRarity } from "@/game/achievements";
+import type { AchievementId } from "@/game/achievements";
+import type { Notification } from "@/game/notifications";
 import type { Rng } from "@/game/rng";
 
 export type ResourceKey = "gold" | "ore" | "gems" | "energy" | "cores" | "flux";
@@ -476,17 +477,15 @@ export type GameState = {
   goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
   workerDeathFlash: { x: number; y: number; ticks: number; maxTicks: number } | null;
   missileClickCooldown: number;
-  achievementToastQueue: AchievementToast[];
+  /**
+   * 3.2.2 — unified notification queue. Achievement unlocks and enemy
+   * discoveries (plus future kinds) are pushed here via `pushNotification`.
+   * `tickNotifications` decays the visible window each tick. See
+   * `src/game/notifications.ts` for the discriminated union and helpers.
+   */
+  notifications: Notification[];
   archiveLog: LogEntry[];
   discoveredEnemies: Partial<Record<EnemyKind, number>>;
-  enemyDiscoveryQueue: EnemyKind[];
-};
-
-export type AchievementToast = {
-  id: AchievementId;
-  rarity: AchievementRarity;
-  ticks: number;
-  maxTicks: number;
 };
 
 export type UpgradeDef = {

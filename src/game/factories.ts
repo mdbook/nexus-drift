@@ -28,17 +28,26 @@ import type {
   Turret,
   VisibleResourceKey,
 } from "@/game/types";
+import {
+  buildAchievementNotification,
+  buildEnemyDiscoveredNotification,
+  pushNotification,
+  type Notification,
+} from "@/game/notifications";
 import { dist } from "@/game/utils";
+import type { AchievementId, AchievementRarity } from "@/game/achievements";
 
 // Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
 // defensively by field presence, so v5 and branch-local v6 saves both load
 // through the same fallback paths below.
 // v10 adds `Enemy.latchedWorkerId?` for the 3.1.5 warden parasite latch —
 // mid-latch saves resume their latch; older saves default to null (roaming).
-// v11 (3.2.1) adds: GameState.achievementToastQueue, GameState.archiveLog,
-// GameState.discoveredEnemies, GameState.enemyDiscoveryQueue, and
-// Agent.spookedTicks. All default to empty/0 for older saves.
-export const SCHEMA_VERSION = 11;
+// v11 (3.2.1) added: GameState.achievementToastQueue, GameState.archiveLog,
+// GameState.discoveredEnemies, GameState.enemyDiscoveryQueue, Agent.spookedTicks.
+// v12 (3.2.2) collapses achievementToastQueue + enemyDiscoveryQueue into a
+// single GameState.notifications queue. Legacy v11 saves are migrated by
+// translating both old fields into Notification entries.
+export const SCHEMA_VERSION = 12;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -428,16 +437,15 @@ export function spawnEnemy(
 
 /**
  * 3.2.1 — record an enemy kind as "discovered" the first time it appears in a
- * run. The first sighting is queued onto `enemyDiscoveryQueue` so the
- * EnemyDiscoveryCard can surface a one-time "New enemy spotted" prompt linked
- * to the wiki. Subsequent sightings are no-ops (idempotent).
+ * run. The first sighting pushes a unified Notification (kind: enemy-discovered)
+ * which the bottom-right NotificationStack surfaces with a "View archive"
+ * action. Subsequent sightings are no-ops (idempotent: by tick stamp here, by
+ * notification id inside `pushNotification`).
  */
 export function recordEnemyDiscovery(state: GameState, kind: EnemyKind) {
   if (state.discoveredEnemies[kind]) return;
   state.discoveredEnemies[kind] = state.timers.tick || 1;
-  if (!state.enemyDiscoveryQueue.includes(kind)) {
-    state.enemyDiscoveryQueue = [...state.enemyDiscoveryQueue, kind];
-  }
+  pushNotification(state, buildEnemyDiscoveredNotification(kind));
 }
 
 export function createInitialGameState(seed?: number): GameState {
@@ -536,10 +544,9 @@ export function createInitialGameState(seed?: number): GameState {
     goldExplosion: null,
     workerDeathFlash: null,
     missileClickCooldown: 0,
-    achievementToastQueue: [],
+    notifications: [],
     archiveLog: [],
     discoveredEnemies: {},
-    enemyDiscoveryQueue: [],
   };
 }
 
@@ -583,10 +590,9 @@ export function cloneGameState(prev: GameState): GameState {
     })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
     city: { ...prev.city },
-    achievementToastQueue: prev.achievementToastQueue.map((toast) => ({ ...toast })),
+    notifications: prev.notifications.map((entry) => ({ ...entry })),
     archiveLog: prev.archiveLog.map((entry) => ({ ...entry })),
     discoveredEnemies: { ...prev.discoveredEnemies },
-    enemyDiscoveryQueue: [...prev.enemyDiscoveryQueue],
   };
 }
 
@@ -813,9 +819,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     projectiles: Array.isArray(raw.projectiles)
       ? raw.projectiles.map((projectile) => ({ ...projectile }))
       : base.projectiles,
-    achievementToastQueue: Array.isArray(raw.achievementToastQueue)
-      ? raw.achievementToastQueue.map((toast) => ({ ...toast }))
-      : [],
+    notifications: migrateNotifications(raw),
     archiveLog: Array.isArray(raw.archiveLog)
       ? raw.archiveLog.map((entry) =>
           typeof entry === "string"
@@ -829,8 +833,55 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       : [],
     discoveredEnemies:
       raw.discoveredEnemies && typeof raw.discoveredEnemies === "object" ? { ...raw.discoveredEnemies } : {},
-    enemyDiscoveryQueue: Array.isArray(raw.enemyDiscoveryQueue) ? [...raw.enemyDiscoveryQueue] : [],
   };
+}
+
+/**
+ * v11 → v12 — pull legacy `achievementToastQueue` + `enemyDiscoveryQueue`
+ * fields off old saves and translate them into the unified `notifications`
+ * queue. v12+ saves carry `notifications` directly. Defensively rebuilds each
+ * entry through the normal builders so durations stay in sync with the
+ * current balance constants.
+ */
+function migrateNotifications(raw: SerializedGameState): Notification[] {
+  const out: Notification[] = [];
+  const seen = new Set<string>();
+
+  if (Array.isArray(raw.notifications)) {
+    for (const entry of raw.notifications) {
+      if (!entry || typeof entry !== "object" || typeof entry.id !== "string") continue;
+      if (seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      out.push({ ...entry });
+    }
+    return out;
+  }
+
+  const legacyToastQueue = (raw as { achievementToastQueue?: unknown }).achievementToastQueue;
+  if (Array.isArray(legacyToastQueue)) {
+    for (const toast of legacyToastQueue) {
+      if (!toast || typeof toast !== "object") continue;
+      const t = toast as { id?: AchievementId; rarity?: AchievementRarity };
+      if (!t.id || !t.rarity) continue;
+      const built = buildAchievementNotification(t.id, t.rarity);
+      if (seen.has(built.id)) continue;
+      seen.add(built.id);
+      out.push(built);
+    }
+  }
+
+  const legacyDiscoveryQueue = (raw as { enemyDiscoveryQueue?: unknown }).enemyDiscoveryQueue;
+  if (Array.isArray(legacyDiscoveryQueue)) {
+    for (const kind of legacyDiscoveryQueue) {
+      if (typeof kind !== "string") continue;
+      const built = buildEnemyDiscoveredNotification(kind as EnemyKind);
+      if (seen.has(built.id)) continue;
+      seen.add(built.id);
+      out.push(built);
+    }
+  }
+
+  return out;
 }
 
 export function addProjectile(

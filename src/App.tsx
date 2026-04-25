@@ -31,8 +31,8 @@ import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
-import { AchievementToast } from "@/components/AchievementToast";
-import { EnemyDiscoveryCard } from "@/components/EnemyDiscoveryCard";
+import { NotificationStack, type NotificationAction } from "@/components/NotificationStack";
+import { dismissNotification } from "@/game/notifications";
 import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -829,21 +829,18 @@ export default function App() {
         initialEntryId={wikiInitialEntryId}
       />
 
-      <AchievementToast toast={uiGame.achievementToastQueue[0]} />
-
-      <EnemyDiscoveryCard
-        kind={uiGame.enemyDiscoveryQueue[0]}
-        onDismiss={() =>
+      <NotificationStack
+        notifications={uiGame.notifications}
+        onDismiss={(id) =>
           mutateGame((next) => {
-            next.enemyDiscoveryQueue = next.enemyDiscoveryQueue.slice(1);
+            dismissNotification(next, id);
           })
         }
-        onOpenWiki={(entryId) => {
-          setWikiInitialEntryId(entryId);
-          setWikiOpen(true);
-          mutateGame((next) => {
-            next.enemyDiscoveryQueue = next.enemyDiscoveryQueue.slice(1);
-          });
+        onAction={(action: NotificationAction) => {
+          if (action.kind === "open-wiki") {
+            setWikiInitialEntryId(action.entryId);
+            setWikiOpen(true);
+          }
         }}
       />
     </div>

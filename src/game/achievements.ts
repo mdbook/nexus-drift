@@ -1,5 +1,6 @@
 import { makeWorker } from "@/game/factories";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
+import { buildAchievementNotification, pushNotification } from "@/game/notifications";
 import type { EventId, GameState } from "@/game/types";
 import { appendLog } from "@/game/utils";
 
@@ -634,14 +635,6 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
 
 // ─── Unlock helper ────────────────────────────────────────────────────────────
 
-/**
- * 3.2.1 — toast durations. Legendary unlocks get a longer hold (and a
- * full-screen flourish in the renderer); everything else gets a brisker
- * corner toast. Values are sim ticks at TICK_MS = 33.
- */
-export const ACHIEVEMENT_TOAST_DURATION_DEFAULT = 240;
-export const ACHIEVEMENT_TOAST_DURATION_LEGENDARY = 300;
-
 export function unlockAchievement(state: GameState, id: AchievementId) {
   if (state.achievements[id]) return false;
 
@@ -649,12 +642,7 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
     appendLog(state, `Achievement unlocked: ${def.label}`, "achievement");
-    const maxTicks =
-      def.rarity === "legendary" ? ACHIEVEMENT_TOAST_DURATION_LEGENDARY : ACHIEVEMENT_TOAST_DURATION_DEFAULT;
-    state.achievementToastQueue = [
-      ...state.achievementToastQueue,
-      { id, rarity: def.rarity, ticks: maxTicks, maxTicks },
-    ];
+    pushNotification(state, buildAchievementNotification(id, def.rarity));
   }
   return true;
 }

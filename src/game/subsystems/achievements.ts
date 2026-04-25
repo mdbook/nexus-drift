@@ -1,24 +1,15 @@
 import { PROGRESSION } from "@/game/balance";
 import { unlockAchievement } from "@/game/achievements";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
+import { tickNotifications } from "@/game/notifications";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
 
 export function stepAchievements(state: GameState) {
-  // 3.2.1 — tick down the achievement toast queue. The head toast is the one
-  // currently being shown by AchievementToast.tsx; once its ticks reach 0 we
-  // shift it off so the next queued unlock plays. Decay happens before the
-  // unlock checks below so a toast enqueued this same tick keeps full duration.
-  if (state.achievementToastQueue.length > 0) {
-    const head = state.achievementToastQueue[0];
-    if (head.ticks <= 1) {
-      state.achievementToastQueue = state.achievementToastQueue.slice(1);
-    } else {
-      const next = [...state.achievementToastQueue];
-      next[0] = { ...head, ticks: head.ticks - 1 };
-      state.achievementToastQueue = next;
-    }
-  }
+  // 3.2.2 — decrement visible notifications (achievements, enemy
+  // discoveries, …). Decay runs before the unlock checks below so a
+  // notification enqueued this same tick still gets a full-duration hold.
+  tickNotifications(state);
 
   const derived = computeDerived(state);
   const threatRank = Math.floor(derived.progression.score / PROGRESSION.tiersPerScore);
