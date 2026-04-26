@@ -16,6 +16,33 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.4",
+    badge: "Tighter Tier Curve",
+    summary:
+      "Follow-up to 3.2.3's onboarding pass. `PROGRESSION.tiersPerScore` drops from 75 to 60, pulling every score-gated unlock forward by ~20% — scouts (tier 1) and turrets (tier 3) become reachable on a meaningfully shorter timeline, complementing the faster level-up cadence and cheaper early upgrades from 3.2.3. The `LOST_DRONE_SCORE_THRESHOLD = 9 * tiersPerScore` derivation is preserved so the lost-drone gate auto-tracks (was 675, now 540). Enemy `minTier` gates (raider 1, brute 3, sapper 4, leech 5, phantom/zapper 6) are unchanged numerically — but because tiers themselves arrive sooner, enemy variety also unlocks earlier in real-time, so the relative balance between threats and defenses is preserved. Only the calendar moves; player power vs enemy roster at any given tier is identical to before. No save migration — `tiersPerScore` is a constant referenced live by `computeProgressionDirector`, so existing saves recompute their tier on next load.",
+    sections: [
+      {
+        title: "One Constant, Wide Effect",
+        items: [
+          "`PROGRESSION.tiersPerScore` 75 → 60. Tier 1 lands at score 60 instead of 75; tier 3 at 180 instead of 225; tier 5 at 300 instead of 375. Score itself is unchanged — this is purely a divisor tightening.",
+          "Score is computed from `level * 0.22 + prestige * 8 + totalUpgrades * 0.95 + weightedUpgradeScore * 0.9 + cityStage * 3.5 + totalIncome * 0.035`. The weights are untouched so the relative pull of each input on tier-up is preserved.",
+        ],
+      },
+      {
+        title: "Auto-Tracked Late-Game Gate",
+        items: [
+          "`LOST_DRONE_SCORE_THRESHOLD` is defined as `9 * PROGRESSION.tiersPerScore` in `src/game/subsystems/events.ts`, so the lost-drone event gate moves with the constant — was 675, is now 540. The achievement-tier gates (`tier_5`, `tier_8`, `tier_10`) use the same divisor and likewise track automatically.",
+        ],
+      },
+      {
+        title: "Why 60 And Not 55",
+        items: [
+          "The original brainstorm anchored at 55 (-27%). Picked the more conservative 60 (-20%) so this can land alongside the 3.2.3 onboarding buffs without compounding into a runaway tier ramp. If tier-up still feels slow once the 3.2.3 + 3.2.4 combo settles, this can drop further in a follow-up. The constant is a single line in `balance.ts`.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.3",
     badge: "Early-Game Onboarding",
     summary:
