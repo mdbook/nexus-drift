@@ -1,4 +1,12 @@
-import { type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { motion } from "framer-motion";
 import { Activity, ChevronUp, GripHorizontal, Sparkles, Terminal, Wrench, X } from "lucide-react";
 import { Card } from "@/components/ui/card";

@@ -23,14 +23,7 @@
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import type { EnemyKind, GameState } from "@/game/types";
 
-export type NotificationTone =
-  | "common"
-  | "uncommon"
-  | "rare"
-  | "legendary"
-  | "combat"
-  | "void"
-  | "info";
+export type NotificationTone = "common" | "uncommon" | "rare" | "legendary" | "combat" | "void" | "info";
 
 export type AchievementNotification = {
   kind: "achievement";
@@ -70,8 +63,7 @@ export function buildAchievementNotification(
   achievementId: AchievementId,
   rarity: AchievementRarity
 ): AchievementNotification {
-  const maxTicks =
-    rarity === "legendary" ? NOTIFICATION_TICKS_LEGENDARY : NOTIFICATION_TICKS_DEFAULT;
+  const maxTicks = rarity === "legendary" ? NOTIFICATION_TICKS_LEGENDARY : NOTIFICATION_TICKS_DEFAULT;
   return {
     kind: "achievement",
     id: `ach:${achievementId}`,

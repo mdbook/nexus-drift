@@ -105,7 +105,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Future-Proofing",
         items: [
-          "Adding a new toast kind is now a three-step contract documented at the top of `src/game/notifications.ts`: (1) add a variant to the `Notification` union; (2) add a builder helper; (3) add a render branch in `NotificationStack`. Action callbacks flow through a typed `NotificationAction` discriminated union (currently `{ kind: \"open-wiki\"; entryId }`) so a future variant can request a modal open, a panel scroll, or any host-side effect without coupling the stack to specific UI surfaces.",
+          'Adding a new toast kind is now a three-step contract documented at the top of `src/game/notifications.ts`: (1) add a variant to the `Notification` union; (2) add a builder helper; (3) add a render branch in `NotificationStack`. Action callbacks flow through a typed `NotificationAction` discriminated union (currently `{ kind: "open-wiki"; entryId }`) so a future variant can request a modal open, a panel scroll, or any host-side effect without coupling the stack to specific UI surfaces.',
           "Locked-in invariants by tests: `pushNotification` is idempotent by id; `dismissNotification` is a no-op when missing; only the first `NOTIFICATION_VISIBLE_LIMIT` entries decrement; queued entries promote on expiry.",
         ],
       },

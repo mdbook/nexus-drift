@@ -171,13 +171,7 @@ function NotificationCard({
     case "achievement":
       return <AchievementBody notification={notification} onDismiss={onDismiss} />;
     case "enemy-discovered":
-      return (
-        <EnemyDiscoveredBody
-          notification={notification}
-          onDismiss={onDismiss}
-          onAction={onAction}
-        />
-      );
+      return <EnemyDiscoveredBody notification={notification} onDismiss={onDismiss} onAction={onAction} />;
   }
 }
 
@@ -247,9 +241,7 @@ function AchievementBody({
           {rarityLabel}
         </div>
         <div className={`mt-0.5 truncate text-sm font-semibold ${tone.accent}`}>{def.label}</div>
-        <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">
-          {def.description}
-        </div>
+        <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">{def.description}</div>
       </div>
       <DismissButton onClick={onDismiss} accent="text-white/70" />
     </NotificationFrame>
@@ -282,9 +274,7 @@ function EnemyDiscoveredBody({
         </div>
         <div className={`mt-0.5 truncate text-sm font-semibold ${tone.accent}`}>{info.title}</div>
         <div className="mt-0.5 flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-[11px] leading-snug text-white/55">
-            {info.tagline}
-          </p>
+          <p className="min-w-0 flex-1 truncate text-[11px] leading-snug text-white/55">{info.tagline}</p>
           <button
             type="button"
             onClick={() => {
