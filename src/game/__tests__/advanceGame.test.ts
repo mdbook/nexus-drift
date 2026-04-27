@@ -3204,3 +3204,86 @@ describe("selectors ignore dying enemies (3.1.3 audit)", () => {
     expect(derived.corruptorCount).toBe(1);
   });
 });
+
+describe("xpForLevel curve (3.2.3)", () => {
+  // The HUD progress bar (selectors.ts) and the economy step (subsystems/economy.ts)
+  // both call xpForLevel to derive the next-level threshold. If those two paths
+  // ever diverge, the visible bar and the actual level-up tick disagree silently.
+  // These tests pin the curve and assert the HUD uses it directly.
+  it("formula matches floor(30 + L*15 + L^1.7 * 1.4) at known levels", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    expect(xpForLevel(0)).toBe(30);
+    expect(xpForLevel(1)).toBe(46);
+    expect(xpForLevel(5)).toBe(126);
+    expect(xpForLevel(10)).toBe(250);
+    expect(xpForLevel(20)).toBe(557);
+  });
+
+  it("HUD targetXp equals xpForLevel(state.level) at every checked level", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    for (const level of [0, 1, 5, 10, 21]) {
+      const state = createInitialGameState(1);
+      state.level = level;
+      const derived = computeDerived(state);
+      expect(derived.targetXp).toBe(xpForLevel(level));
+    }
+  });
+
+  it("3.2.3 reshape: early levels are cheaper than the old 80 + L*25 linear curve", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    // L=0..5 must be cheaper than the old curve so the cold-open feels alive.
+    for (const level of [0, 1, 2, 3, 4, 5]) {
+      const oldCurve = 80 + level * 25;
+      expect(xpForLevel(level)).toBeLessThan(oldCurve);
+    }
+  });
+});
+
+describe("archive log routing (3.2.1)", () => {
+  it("archival categories mirror into archiveLog; non-archival go only to log", async () => {
+    const { appendLog } = await import("@/game/utils");
+    const state = createInitialGameState(1);
+    state.log = [];
+    state.archiveLog = [];
+
+    appendLog(state, "purchased miner v2", "upgrade");
+    appendLog(state, "Meteor Shower active", "event");
+    appendLog(state, "achievement: First Core", "achievement");
+    appendLog(state, "miner moves toward node", "ambient");
+    appendLog(state, "system boot", "system");
+
+    expect(state.log).toHaveLength(5);
+    expect(state.archiveLog).toHaveLength(3);
+    expect(state.archiveLog.map((entry) => entry.category)).toEqual(["achievement", "event", "upgrade"]);
+  });
+
+  it("archiveLog caps at MAX_ARCHIVE_LOG with newest first", async () => {
+    const { appendLog } = await import("@/game/utils");
+    const { MAX_ARCHIVE_LOG } = await import("@/game/constants");
+    const state = createInitialGameState(1);
+    state.log = [];
+    state.archiveLog = [];
+
+    for (let i = 0; i < MAX_ARCHIVE_LOG + 1; i++) {
+      appendLog(state, `upgrade ${i}`, "upgrade");
+    }
+
+    expect(state.archiveLog).toHaveLength(MAX_ARCHIVE_LOG);
+    expect(state.archiveLog[0].message).toBe(`upgrade ${MAX_ARCHIVE_LOG}`);
+    expect(state.archiveLog[state.archiveLog.length - 1].message).toBe("upgrade 1");
+  });
+
+  it("v10-style save without archiveLog migrates to []", () => {
+    // schemaVersion 10 predates the parallel archive feed. The migration must
+    // backfill an empty array rather than leaving the field undefined.
+    const fresh = createInitialGameState(1);
+    const legacy = JSON.parse(JSON.stringify(fresh)) as Partial<GameState>;
+    delete (legacy as { archiveLog?: unknown }).archiveLog;
+    legacy.schemaVersion = 10;
+
+    const migrated = migrateGameState(legacy);
+    expect(Array.isArray(migrated.archiveLog)).toBe(true);
+    expect(migrated.archiveLog).toEqual([]);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+});
