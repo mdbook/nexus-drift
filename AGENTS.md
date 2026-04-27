@@ -35,6 +35,23 @@ Agents should **commit regularly** as they work. The default cadence is one comm
 
 If a user asks for work across multiple logical units in a single message, commit them separately as you complete each one — do not wait for the whole batch to finish before committing.
 
+## Pre-Commit Verification (Run All Four Gates)
+
+Before any commit — and especially before any push — run the same four gates that CI runs in its `verify` stage. If any fails, fix it in the same commit; don't ship with a known-red gate.
+
+```
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+```
+
+- **`format:check` is non-negotiable.** CI runs `prettier --check .` against the entire repo, not just files the current change touched. Pre-existing format drift in unrelated files will fail the build the moment any commit lands. If `format:check` reports drift in files outside your change, run `npx prettier --write <files>` (or `npm run format` for the whole repo) and fold the formatting fix into a dedicated commit titled e.g. `Apply prettier to <files>` so the diff stays reviewable. Do not silently mix formatting churn into a feature/balance commit.
+- **Run all four before pushing.** A green local test run is not enough — `lint` and `format:check` are independent gates and have caught drift that tests do not see (e.g. 3.2.4 release CI failed because four files had pre-existing prettier drift that no one had run `format:check` against).
+- **The CI `verify` stage is `format:check` + `lint` + `typecheck` + `test`** (see `.gitlab-ci.yml`). Treat them as a unit; do not drop any of them when editing CI either.
+
+If you only have time for one gate, run `format:check` — it has the highest false-negative rate locally because IDE-on-save formatting can mask drift that exists on disk for files you haven't opened in this session.
+
 ## Release Monitoring
 
 Agents working in this repo should actively watch for changes that are large enough to justify a new release suggestion.
