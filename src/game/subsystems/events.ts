@@ -3,7 +3,7 @@ import { EVENT_TICK } from "@/game/constants";
 import { activateEvent, EVENT_DEFS, recomputeEventModifiers } from "@/game/events/eventDefs";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
-import { elapsedTicks, pushLog } from "@/game/utils";
+import { elapsedTicks, appendLog } from "@/game/utils";
 
 const BIG_EVENT_TICK_MIN = 30 * 30;
 const BIG_EVENT_TICK_MAX = 90 * 30;
@@ -50,7 +50,7 @@ function stepAmbientMessages(state: GameState) {
     ambientMessages.push("Treasury overflow routed into colony purchase heuristics.");
   }
 
-  state.log = pushLog(state.log, state.rng.pick(ambientMessages), "ambient", state.timers.tick);
+  appendLog(state, state.rng.pick(ambientMessages), "ambient");
 }
 
 export function stepEvents(state: GameState) {
@@ -68,12 +68,7 @@ export function stepEvents(state: GameState) {
     const eventDef = EVENT_DEFS.find((def) => def.id === active.id);
     if (active.revertOnExpire) {
       eventDef?.revert(state);
-      state.log = pushLog(
-        state.log,
-        `${eventDef?.label ?? active.id} has ended.`,
-        "event",
-        state.timers.tick
-      );
+      appendLog(state, `${eventDef?.label ?? active.id} has ended.`, "event");
     }
     state.activeEvents = state.activeEvents.filter((event) => event.id !== active.id);
   }
@@ -148,11 +143,6 @@ export function stepEvents(state: GameState) {
       wobblePhase: state.rng.next() * Math.PI * 2,
       spawnTick: state.timers.tick,
     };
-    state.log = pushLog(
-      state.log,
-      "Outer zone telemetry caught a damaged drone drifting through the haze.",
-      "event",
-      state.timers.tick
-    );
+    appendLog(state, "Outer zone telemetry caught a damaged drone drifting through the haze.", "event");
   }
 }

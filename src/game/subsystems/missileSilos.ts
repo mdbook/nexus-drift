@@ -2,7 +2,7 @@ import { MISSILE_SILO } from "@/game/balance";
 import { addMissile } from "@/game/factories";
 import { isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 function siloTargetTier(kind: GameState["enemies"][number]["kind"]): number {
   if (kind === "brute") return 2;
@@ -34,8 +34,6 @@ export function stepMissileSilos(state: GameState) {
   for (let i = 0; i < state.missileSilos.length; i++) {
     state.missileSilos[i].active = i < activeSiloCount;
   }
-
-  if (activeSiloCount === 0) return;
 
   // 3.1.3: silo range scales with missileLauncher level so investment widens
   // the silo-vs-turret gap (turret range is hard-capped at TURRET.rangeMax).
@@ -86,6 +84,6 @@ export function stepMissileSilos(state: GameState) {
     });
 
     silo.cooldown = MISSILE_SILO.fireIntervalTicks;
-    state.log = pushLog(state.log, "Missile silo: long-range strike on target.", "combat", state.timers.tick);
+    appendLog(state, "Missile silo: long-range strike on target.", "combat");
   }
 }

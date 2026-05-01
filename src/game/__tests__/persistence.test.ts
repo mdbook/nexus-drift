@@ -1,0 +1,80 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadSavedState, SAVE_KEY, saveGameState } from "@/game/persistence";
+import { createInitialGameState, SCHEMA_VERSION } from "@/game/factories";
+import { advanceGame } from "@/game/advanceGame";
+
+// Vitest runs in the node environment, so localStorage is not present by
+// default. The persistence layer is the only entry point that touches the
+// browser-side store, so the test file installs a minimal in-memory shim.
+function installLocalStorageShim() {
+  const store = new Map<string, string>();
+  const shim = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => store.clear(),
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    get length() {
+      return store.size;
+    },
+  };
+  (globalThis as unknown as { localStorage: typeof shim }).localStorage = shim;
+  return shim;
+}
+
+describe("persistence load/save round-trip", () => {
+  beforeEach(() => {
+    installLocalStorageShim();
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { localStorage?: unknown }).localStorage;
+  });
+
+  it("loadSavedState returns a fresh initial state when nothing is stored", () => {
+    const loaded = loadSavedState();
+    expect(loaded.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(loaded.resources.gold).toBe(createInitialGameState().resources.gold);
+  });
+
+  it("saved state round-trips through save → load with key fields preserved", () => {
+    // Run a few ticks so the saved state isn't structurally identical to a
+    // fresh init — exercises log entries, tick advancement, and agent state.
+    let state = createInitialGameState(42);
+    for (let i = 0; i < 25; i++) state = advanceGame(state);
+    state.resources.gold = 1234;
+    state.level = 4;
+
+    saveGameState(state);
+    const loaded = loadSavedState();
+
+    expect(loaded.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(loaded.resources.gold).toBe(1234);
+    expect(loaded.level).toBe(4);
+    expect(loaded.timers.tick).toBe(state.timers.tick);
+    expect(loaded.agents).toHaveLength(state.agents.length);
+    expect(Array.isArray(loaded.log)).toBe(true);
+    expect(Array.isArray(loaded.archiveLog)).toBe(true);
+    expect(loaded.rng.getState()).toBe(state.rng.getState());
+  });
+
+  it("malformed JSON in localStorage falls back to a fresh initial state", () => {
+    localStorage.setItem(SAVE_KEY, "{not valid json");
+    const loaded = loadSavedState();
+    expect(loaded.schemaVersion).toBe(SCHEMA_VERSION);
+    // Fresh state — the corrupt payload was discarded, not coerced.
+    expect(loaded.resources).toEqual(createInitialGameState().resources);
+  });
+
+  it("payload missing required shape (no resources/upgrades) returns a fresh initial state", () => {
+    // The persistence guard rejects partial saves before they hit the migrator,
+    // so an obviously-broken save can't be silently merged into a real state.
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: SCHEMA_VERSION }));
+    const loaded = loadSavedState();
+    expect(loaded.resources).toEqual(createInitialGameState().resources);
+  });
+});

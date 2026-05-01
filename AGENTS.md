@@ -35,6 +35,23 @@ Agents should **commit regularly** as they work. The default cadence is one comm
 
 If a user asks for work across multiple logical units in a single message, commit them separately as you complete each one — do not wait for the whole batch to finish before committing.
 
+## Pre-Commit Verification (Run All Four Gates)
+
+Before any commit — and especially before any push — run the same four gates that CI runs in its `verify` stage. If any fails, fix it in the same commit; don't ship with a known-red gate.
+
+```
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+```
+
+- **`format:check` is non-negotiable.** CI runs `prettier --check .` against the entire repo, not just files the current change touched. Pre-existing format drift in unrelated files will fail the build the moment any commit lands. If `format:check` reports drift in files outside your change, run `npx prettier --write <files>` (or `npm run format` for the whole repo) and fold the formatting fix into a dedicated commit titled e.g. `Apply prettier to <files>` so the diff stays reviewable. Do not silently mix formatting churn into a feature/balance commit.
+- **Run all four before pushing.** A green local test run is not enough — `lint` and `format:check` are independent gates and have caught drift that tests do not see (e.g. 3.2.4 release CI failed because four files had pre-existing prettier drift that no one had run `format:check` against).
+- **The CI `verify` stage is `format:check` + `lint` + `typecheck` + `test`** (see `.gitlab-ci.yml`). Treat them as a unit; do not drop any of them when editing CI either.
+
+If you only have time for one gate, run `format:check` — it has the highest false-negative rate locally because IDE-on-save formatting can mask drift that exists on disk for files you haven't opened in this session.
+
 ## Release Monitoring
 
 Agents working in this repo should actively watch for changes that are large enough to justify a new release suggestion.
@@ -83,6 +100,24 @@ Before Kaniko builds, CI queries the GitLab container registry and fails if the
 version tag already exists. Do not remove that preflight unless replacing it with
 an equivalent duplicate-version guard; otherwise a second push with the same
 version would silently move the release tag.
+
+## GitHub Pages Mirror Subpath
+
+The repo mirrors to `github.com/mdbook/nexus-drift` and auto-publishes a static
+preview to <https://mdbook.github.io/nexus-drift/> via
+`.github/workflows/pages.yml` on every push to `main`. The Pages build runs
+`npm run build` with `GITHUB_PAGES=true`, which `vite.config.ts` reads to set
+Vite `base` to `/nexus-drift/`. Locally and in production `base` stays `/`.
+
+Because the Pages mirror lives at a subpath, any asset reference that assumes
+the site is at `/` will break there. Do not introduce new absolute paths
+starting with `/` in either application code or in JSON files served from
+`public/` (manifests, etc.) — use `import.meta.env.BASE_URL` (Vite rewrites it
+per build) or a relative path. Vite already rewrites absolute paths inside
+`index.html`, so HTML-side `href="/foo"` is fine; the trap is `fetch("/foo")`
+in TS or `"src": "/foo"` in `public/*.webmanifest`. Existing examples to
+mirror: `VERSION_CHECK_ENDPOINT` in `src/lib/versionCheck.ts` and the icon
+`src` in `public/site.webmanifest`.
 
 ## Test Count References
 
@@ -144,13 +179,13 @@ Rules for adding achievements:
 
 ## Activity Log Invariants
 
-`state.log` is a `LogEntry[]` (max 40, newest first). Each entry has `tick`, `category`, and `message`.
+As of 3.2.1 the activity log lives in two parallel arrays. `state.log` is the live HUD feed (`MAX_LOG = 20`, newest first). `state.archiveLog` is the long-form scroll-back mirror (`MAX_ARCHIVE_LOG = 200`, newest first) that retains only the archival categories — `upgrade`, `event`, `achievement` (exposed as `ARCHIVE_LOG_CATEGORIES` in `constants.ts`). Both arrays hold `LogEntry` objects with `tick`, `category`, and `message`.
 
-- Always call `pushLog(log, message, category, state.timers.tick)` — never push raw objects directly.
+- Always call `appendLog(state, message, category)` — never push raw objects directly. The helper writes to `state.log` and, when the category is archival, mirrors the entry into `state.archiveLog`. The lower-level `pushLog` slicer is retained for `MAX_LOG` enforcement but should not be invoked directly from sim code.
 - `LogCategory` is one of: `system` | `combat` | `mining` | `corruption` | `event` | `upgrade` | `achievement` | `ambient`. Pick the tightest fit; default to `ambient` for flavor.
-- `migrateGameState()` maps legacy `string[]` saves to `{ tick: 0, category: "system", message }` — do not remove that branch.
-- `cloneGameState()` maps `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
-- `MAX_LOG` is 40. Do not lower it without checking the `ActivityLog` component's `max-h-72` scroll container.
+- `migrateGameState()` maps legacy `string[]` saves to `{ tick: 0, category: "system", message }` — do not remove that branch. v10-and-earlier saves default `archiveLog` to `[]`.
+- `cloneGameState()` deep-copies both arrays via `entry => ({ ...entry })` — log entries are plain objects, so shallow spread is sufficient.
+- `MAX_LOG` is 20 and `MAX_ARCHIVE_LOG` is 200. Do not raise `MAX_LOG` without checking the `ActivityLog` `max-h-72` scroll container; do not lower `MAX_ARCHIVE_LOG` without checking that long sessions still retain enough progression history.
 
 ## Admin Command Terminal Invariants
 
@@ -181,6 +216,8 @@ The hidden admin console opens with `Space` five times. Admin mode extends the e
 ## Worker Flee-Retarget Invariant
 
 Workers in persistent evasion may retarget to nodes ahead of their flee direction via `chooseFleeDirectionTarget()`, but only when no immediate `evadeThreats` are present. Keep this opportunistic: reject nodes behind the worker, outside the flee lane, too far ahead, or behind a high-threat path. Do not let flee retargeting override active panic survival or recovery behavior.
+
+3.2.1 adds a post-flee "spook" memory window. The moment `agent.evadeTicks` decays to 0 in `stepMovement`, set `agent.spookedTicks = WORKER_AI.spookedDuration` (240) and force an immediate `chooseWorkerTarget(state, agent)` call rather than letting sticky retarget keep the worker on its old target. While `spookedTicks > 0`, `scoreWorkerNode` multiplies both `pathSafetyPenalty` and `nodeThreatCrowdPenalty` by `WORKER_AI.spookedThreatMultiplier` (×2.5) so a recently-fled worker treats threat as much costlier when scoring nodes. The spook window decays one tick per frame outside of evasion, and is re-armed every time evasion ends (so a worker yo-yoing between threat and safety stays cautious throughout). Reset `spookedTicks` to 0 when the worker dies or reboots.
 
 ## Worker Harvesting Stubbornness
 
@@ -233,7 +270,7 @@ When a worker's HP reaches 0 in `stepCombat`, the combat-death path sets `reboot
 
 ## Test Coverage
 
-195 tests (3.1.5 warden parasite latch: latch-on-contact sets `latchedWorkerId`, latched warden is not cloaked, corruption keeps ticking when the host flees out of `attachRadius`, host death releases the latch, warden-killed-mid-latch leaves the worker uncorrupted, pre-v10 save defaults `latchedWorkerId` to null, mid-latch save round-trips the latch; plus 3.1.4 audit follow-ups: event modifier composition, late-tier rawTier reachability, lone-sapper worker reboot, dying-enemy selector filter, zapper bolt target revalidation, colonyHealth hp/maxHp normalization, cloneGameState RNG isolation, resolveEnemyDeaths split idempotency, late-game defense scoring contributions, tick-wrap-safe elapsed delta + temp node expiry across wrap) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak / parasite-latch behavior, save migration for the permanent-cloak and latch fields, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, and sentinel cleanse paths. When adding new subsystems or schema changes, add tests in the same commit.
+213 tests (3.2.x audit additions: `xpForLevel` curve pinned to its sim and HUD consumers, 3.2.1 `archiveLog` routing/cap/migration, 3.2.1 worker spook memory window — set on evade-end, per-tick decay, reset on `killWorker`, threat-multiplier flip — and a `loadSavedState` round-trip / malformed-payload guard; plus 3.1.5 warden parasite latch: latch-on-contact sets `latchedWorkerId`, latched warden is not cloaked, corruption keeps ticking when the host flees out of `attachRadius`, host death releases the latch, warden-killed-mid-latch leaves the worker uncorrupted, pre-v10 save defaults `latchedWorkerId` to null, mid-latch save round-trips the latch; plus 3.1.4 audit follow-ups: event modifier composition, late-tier rawTier reachability, lone-sapper worker reboot, dying-enemy selector filter, zapper bolt target revalidation, colonyHealth hp/maxHp normalization, cloneGameState RNG isolation, resolveEnemyDeaths split idempotency, late-game defense scoring contributions, tick-wrap-safe elapsed delta + temp node expiry across wrap) across `src/game/__tests__/advanceGame.test.ts`, `src/game/__tests__/interactionAchievements.test.ts`, `src/game/__tests__/aiBehavior.test.ts`, `src/game/__tests__/adminCommands.test.ts`, `src/game/__tests__/notifications.test.ts`, `src/game/__tests__/persistence.test.ts`, and `src/lib/versionCheck.test.ts`. They must all pass before any commit. Coverage includes simulation invariants, subsystem targeting behavior, interaction-achievement helpers, worker-slot gating and costs, event-card linger behavior, live-version parsing/fetch helpers, admin preview-version helpers, admin command mutation/shell-effect paths, manual-override timing, projectile behavior, AI behavior, flee-direction worker retargeting, crowded-node avoidance, corruption linger, surround-combat pressure, save/load round-trips and the `loadSavedState` localStorage entry point, multi-class enemy target eligibility, warden cooldown / attach / permanent-cloak / parasite-latch behavior, save migration for the permanent-cloak and latch fields, `stepCity` regen post-wrap, the `hostileKills` vs `totalEnemiesKilled` split, `damageEnemy` shield cooldown arming, sentinel cleanse paths, the unified notification queue (idempotence, tick gating, post-expiry promotion), the parallel `archiveLog` feed (routing, cap, v10 migration), the worker spook memory window, and the `xpForLevel` curve. When adding new subsystems or schema changes, add tests in the same commit.
 
 ## Grid And Flex Children Must Have `min-w-0`
 

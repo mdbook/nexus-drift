@@ -1,8 +1,8 @@
 import { TICK_MS, TICK_WRAP } from "@/game/constants";
-import { CITY_HP, ECONOMY, FLUX } from "@/game/balance";
+import { CITY_HP, ECONOMY, FLUX, xpForLevel } from "@/game/balance";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
-import { clamp, dist, pushLog } from "@/game/utils";
+import { clamp, dist, appendLog } from "@/game/utils";
 
 const CITY_CENTER_X = 500;
 const CITY_CENTER_Y = 540;
@@ -32,11 +32,13 @@ export function stepEconomy(state: GameState) {
     );
   }
 
-  while (state.xp >= ECONOMY.levelXpBase + state.level * ECONOMY.levelXpPerLevel) {
-    state.xp -= ECONOMY.levelXpBase + state.level * ECONOMY.levelXpPerLevel;
+  let levelTarget = xpForLevel(state.level);
+  while (state.xp >= levelTarget) {
+    state.xp -= levelTarget;
     state.level += 1;
+    levelTarget = xpForLevel(state.level);
     state.combo = clamp(state.combo + ECONOMY.levelComboBonus, 1, ECONOMY.comboMax);
-    state.log = pushLog(state.log, `Sector level up -> ${state.level}`, "system", state.timers.tick);
+    appendLog(state, `Sector level up -> ${state.level}`, "system");
   }
 }
 

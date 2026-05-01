@@ -8,7 +8,7 @@ import {
   deductUpgradeCost,
   getUpgradeCostTotal,
   nextUpgradeCost,
-  pushLog,
+  appendLog,
 } from "@/game/utils";
 
 type EmergencyUpgradeChoice = { key: UpgradeKey; reason: string };
@@ -19,7 +19,7 @@ export function getAutobuyWeight(state: GameState, derived: DerivedState, key: U
   if (state.level < 3 && (key === "miner" || key === "drill")) weight *= 0.72;
   if (derived.totalIncome < 6 && (key === "miner" || key === "drill")) weight *= 0.86;
   if (state.resources.energy < 10 && key === "reactor") weight *= 0.82;
-  if (derived.progression.tier >= 2 && key === "turret" && state.upgrades.turret < 1) weight *= 0.52;
+  if (derived.progression.tier >= 3 && key === "turret" && state.upgrades.turret < 1) weight *= 0.52;
   if (derived.progression.tier >= 2 && key === "reactor" && state.upgrades.reactor < 1) weight *= 0.62;
   if (derived.progression.tier >= 3 && key === "shield" && state.upgrades.shield < 1) weight *= 0.68;
 
@@ -52,14 +52,12 @@ export function getAutobuyWeight(state: GameState, derived: DerivedState, key: U
   if (key === "bot" && state.upgrades.bot > Math.max(2, state.prestige + 1)) weight *= 1.25;
   if (key === "arsenal" && state.upgrades.scout === 0) weight *= 1.25;
 
-  // 3.0.0 Step 5: prioritize missile launcher once turrets are developed and
-  // the enemy roster includes heavy hitters (brutes/leeches). Pull weight down
-  // until preconditions are met so autobuy doesn't blow cores/flux early.
+  // 3.1.5 defense flip: missile launcher is now the early-game default. The
+  // first silo is armed at upgrade 0; investing in the track buys range,
+  // damage, and additional silos. Lean into it whenever heavy targets show up.
   if (key === "missileLauncher") {
-    if (state.upgrades.turret < 2) weight *= 1.55; // still building turret line
-    if (derived.enemyCounts.brute === 0 && derived.enemyCounts.leech === 0) weight *= 1.28; // no big targets yet
-    if (state.upgrades.turret >= 2 && (derived.enemyCounts.brute > 0 || derived.enemyCounts.leech > 0)) {
-      weight *= 0.62; // ready and high-value — strongly favour
+    if (derived.enemyCounts.brute > 0 || derived.enemyCounts.leech > 0) {
+      weight *= 0.62; // big-target suppression — strongly favour
     }
   }
 
@@ -128,11 +126,9 @@ export function getEmergencyUpgradeChoice(
     return { key: "sentinel", reason: "heavy-contact pressure" };
   }
 
-  // 3.0.0 Step 5: push missileLauncher L1 when brutes/leeches are an active
-  // problem and the turret line is solid enough to afford it.
+  // 3.1.5 defense flip: silos are the early-game default, but L1 still adds
+  // damage and range. Push it past the free L0 silo when heavy targets show up.
   if (
-    derived.progression.tier >= 3 &&
-    state.upgrades.turret >= 2 &&
     state.upgrades.missileLauncher < 1 &&
     (derived.enemyCounts.brute >= 1 || derived.enemyCounts.leech >= 2) &&
     canAfford("missileLauncher")
@@ -155,11 +151,10 @@ export function stepAutobuy(state: GameState) {
     deductUpgradeCost(state.resources, cost);
     state.upgrades[def.key] += 1;
     state.stats.spent += getUpgradeCostTotal(cost);
-    state.log = pushLog(
-      state.log,
+    appendLog(
+      state,
       `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`,
-      "upgrade",
-      state.timers.tick
+      "upgrade"
     );
     return;
   }
@@ -185,8 +180,7 @@ export function stepAutobuy(state: GameState) {
           derived.progression.tier >= 3) &&
         (def.key !== "arsenal" || state.upgrades.scout >= 1) &&
         (def.key !== "sentinel" || state.stats.brutesKilled > 0) &&
-        (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length) &&
-        (def.key !== "missileLauncher" || state.upgrades.turret >= 2);
+        (def.key !== "sentinel" || state.upgrades.sentinel < state.sentinels.length);
 
       return smartGate && canAffordUpgrade(state.resources, cost);
     })
@@ -203,12 +197,7 @@ export function stepAutobuy(state: GameState) {
     deductUpgradeCost(state.resources, chosen.cost);
     state.upgrades[chosen.def.key] += 1;
     state.stats.spent += getUpgradeCostTotal(chosen.cost);
-    state.log = pushLog(
-      state.log,
-      `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`,
-      "upgrade",
-      state.timers.tick
-    );
+    appendLog(state, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`, "upgrade");
     return;
   }
 
@@ -226,6 +215,6 @@ export function stepAutobuy(state: GameState) {
     state.resources.flux *= FLUX.prestigeResetMultiplier;
     state.prestige += 1;
     state.combo = Math.min(state.combo + derived.prestigeComboBonus, ECONOMY.comboMax);
-    state.log = pushLog(state.log, "Quantum reset complete. Prestige +1.", "system", state.timers.tick);
+    appendLog(state, "Quantum reset complete. Prestige +1.", "system");
   }
 }

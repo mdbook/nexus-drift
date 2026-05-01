@@ -4,6 +4,7 @@ import {
   ENEMY_ARCHETYPE,
   ENEMY_SHIELD,
   ENEMY_STATS,
+  MISSILE_SILO,
   SCOUT_HP,
   SENTINEL,
   SENTINEL_HP,
@@ -27,14 +28,26 @@ import type {
   Turret,
   VisibleResourceKey,
 } from "@/game/types";
+import {
+  buildAchievementNotification,
+  buildEnemyDiscoveredNotification,
+  pushNotification,
+  type Notification,
+} from "@/game/notifications";
 import { dist } from "@/game/utils";
+import type { AchievementId, AchievementRarity } from "@/game/achievements";
 
 // Schema 6 existed only during 3.0.0 branch testing. Production saves migrate
 // defensively by field presence, so v5 and branch-local v6 saves both load
 // through the same fallback paths below.
 // v10 adds `Enemy.latchedWorkerId?` for the 3.1.5 warden parasite latch —
 // mid-latch saves resume their latch; older saves default to null (roaming).
-export const SCHEMA_VERSION = 10;
+// v11 (3.2.1) added: GameState.achievementToastQueue, GameState.archiveLog,
+// GameState.discoveredEnemies, GameState.enemyDiscoveryQueue, Agent.spookedTicks.
+// v12 (3.2.2) collapses achievementToastQueue + enemyDiscoveryQueue into a
+// single GameState.notifications queue. Legacy v11 saves are migrated by
+// translating both old fields into Notification entries.
+export const SCHEMA_VERSION = 12;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -193,6 +206,7 @@ export function makeWorker(kind: Agent["kind"], id: number, currentTick = 0, slo
     corruptingTicks: 0,
     spottedTicks: 0,
     rebootTicks: 0,
+    spookedTicks: 0,
   };
 }
 
@@ -323,6 +337,10 @@ const MISSILE_SILO_LAYOUT: Array<{ x: number; y: number }> = [
 ];
 
 export function makeMissileSilos(): MissileSilo[] {
+  // 3.1.5 defense flip: prime active flags off silosByLevel so fresh games
+  // (and freshly-migrated old saves) render slot 0 armed from frame 0
+  // instead of waiting one tick for stepMissileSilos to flip the flag.
+  const initialActiveCount = MISSILE_SILO.silosByLevel[Math.min(0, MISSILE_SILO.silosByLevel.length - 1)];
   return MISSILE_SILO_LAYOUT.map((pos, index) => ({
     id: index + 1,
     x: pos.x,
@@ -330,8 +348,14 @@ export function makeMissileSilos(): MissileSilo[] {
     cooldown: 0,
     angle: -Math.PI / 2,
     targetId: null,
-    active: false,
+    active: index < initialActiveCount,
   }));
+}
+
+/** Recompute silo active flags from the missileLauncher upgrade level. */
+export function siloActiveCount(missileLauncherLevel: number): number {
+  const max = MISSILE_SILO.silosByLevel.length - 1;
+  return MISSILE_SILO.silosByLevel[Math.min(Math.max(0, missileLauncherLevel), max)];
 }
 
 /** Initial city HP — baseline from balance.CITY_HP.hpBase. */
@@ -411,6 +435,19 @@ export function spawnEnemy(
   return enemy;
 }
 
+/**
+ * 3.2.1 — record an enemy kind as "discovered" the first time it appears in a
+ * run. The first sighting pushes a unified Notification (kind: enemy-discovered)
+ * which the bottom-right NotificationStack surfaces with a "View archive"
+ * action. Subsequent sightings are no-ops (idempotent: by tick stamp here, by
+ * notification id inside `pushNotification`).
+ */
+export function recordEnemyDiscovery(state: GameState, kind: EnemyKind) {
+  if (state.discoveredEnemies[kind]) return;
+  state.discoveredEnemies[kind] = state.timers.tick || 1;
+  pushNotification(state, buildEnemyDiscoveredNotification(kind));
+}
+
 export function createInitialGameState(seed?: number): GameState {
   const citySeed = seed ?? Date.now();
   const rng = new Rng(citySeed);
@@ -418,7 +455,7 @@ export function createInitialGameState(seed?: number): GameState {
     schemaVersion: SCHEMA_VERSION,
     citySeed,
     rng,
-    resources: { gold: 24, ore: 8, gems: 0, energy: 0, cores: 0, flux: 0 },
+    resources: { gold: 60, ore: 20, gems: 0, energy: 0, cores: 0, flux: 0 },
     upgrades: {
       miner: 0,
       drill: 0,
@@ -507,6 +544,9 @@ export function createInitialGameState(seed?: number): GameState {
     goldExplosion: null,
     workerDeathFlash: null,
     missileClickCooldown: 0,
+    notifications: [],
+    archiveLog: [],
+    discoveredEnemies: {},
   };
 }
 
@@ -550,6 +590,9 @@ export function cloneGameState(prev: GameState): GameState {
     })),
     projectiles: prev.projectiles.map((projectile) => ({ ...projectile })),
     city: { ...prev.city },
+    notifications: prev.notifications.map((entry) => ({ ...entry })),
+    archiveLog: prev.archiveLog.map((entry) => ({ ...entry })),
+    discoveredEnemies: { ...prev.discoveredEnemies },
   };
 }
 
@@ -679,6 +722,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
             corruptingTicks: agent.corruptingTicks ?? 0,
             spottedTicks: agent.spottedTicks ?? 0,
             rebootTicks: agent.rebootTicks ?? 0,
+            spookedTicks: agent.spookedTicks ?? 0,
           };
         })
       : base.agents,
@@ -715,13 +759,21 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         }))
       : base.sentinels,
     missileSilos: Array.isArray(raw.missileSilos)
-      ? raw.missileSilos.map((silo) => ({
-          ...silo,
-          active: silo.active ?? false,
-          cooldown: silo.cooldown ?? 0,
-          angle: silo.angle ?? -Math.PI / 2,
-          targetId: silo.targetId ?? null,
-        }))
+      ? (() => {
+          // 3.1.5 defense flip: silosByLevel[0] = 1, so legacy saves where
+          // every silo.active was false need slot 0 primed up front.
+          // Recompute from the migrated upgrade level instead of trusting
+          // the saved flag.
+          const launcherLevel = (raw.upgrades?.missileLauncher as number | undefined) ?? 0;
+          const activeCount = siloActiveCount(launcherLevel);
+          return raw.missileSilos.map((silo, index) => ({
+            ...silo,
+            cooldown: silo.cooldown ?? 0,
+            angle: silo.angle ?? -Math.PI / 2,
+            targetId: silo.targetId ?? null,
+            active: index < activeCount,
+          }));
+        })()
       : base.missileSilos,
     city: raw.city
       ? {
@@ -767,7 +819,69 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     projectiles: Array.isArray(raw.projectiles)
       ? raw.projectiles.map((projectile) => ({ ...projectile }))
       : base.projectiles,
+    notifications: migrateNotifications(raw),
+    archiveLog: Array.isArray(raw.archiveLog)
+      ? raw.archiveLog.map((entry) =>
+          typeof entry === "string"
+            ? ({ tick: 0, category: "system" as const, message: entry } satisfies LogEntry)
+            : ({
+                tick: entry.tick ?? 0,
+                category: entry.category ?? "ambient",
+                message: entry.message ?? "",
+              } satisfies LogEntry)
+        )
+      : [],
+    discoveredEnemies:
+      raw.discoveredEnemies && typeof raw.discoveredEnemies === "object" ? { ...raw.discoveredEnemies } : {},
   };
+}
+
+/**
+ * v11 → v12 — pull legacy `achievementToastQueue` + `enemyDiscoveryQueue`
+ * fields off old saves and translate them into the unified `notifications`
+ * queue. v12+ saves carry `notifications` directly. Defensively rebuilds each
+ * entry through the normal builders so durations stay in sync with the
+ * current balance constants.
+ */
+function migrateNotifications(raw: SerializedGameState): Notification[] {
+  const out: Notification[] = [];
+  const seen = new Set<string>();
+
+  if (Array.isArray(raw.notifications)) {
+    for (const entry of raw.notifications) {
+      if (!entry || typeof entry !== "object" || typeof entry.id !== "string") continue;
+      if (seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      out.push({ ...entry });
+    }
+    return out;
+  }
+
+  const legacyToastQueue = (raw as { achievementToastQueue?: unknown }).achievementToastQueue;
+  if (Array.isArray(legacyToastQueue)) {
+    for (const toast of legacyToastQueue) {
+      if (!toast || typeof toast !== "object") continue;
+      const t = toast as { id?: AchievementId; rarity?: AchievementRarity };
+      if (!t.id || !t.rarity) continue;
+      const built = buildAchievementNotification(t.id, t.rarity);
+      if (seen.has(built.id)) continue;
+      seen.add(built.id);
+      out.push(built);
+    }
+  }
+
+  const legacyDiscoveryQueue = (raw as { enemyDiscoveryQueue?: unknown }).enemyDiscoveryQueue;
+  if (Array.isArray(legacyDiscoveryQueue)) {
+    for (const kind of legacyDiscoveryQueue) {
+      if (typeof kind !== "string") continue;
+      const built = buildEnemyDiscoveredNotification(kind as EnemyKind);
+      if (seen.has(built.id)) continue;
+      seen.add(built.id);
+      out.push(built);
+    }
+  }
+
+  return out;
 }
 
 export function addProjectile(

@@ -1,7 +1,8 @@
 import { makeWorker } from "@/game/factories";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
+import { buildAchievementNotification, pushNotification } from "@/game/notifications";
 import type { EventId, GameState } from "@/game/types";
-import { pushLog } from "@/game/utils";
+import { appendLog } from "@/game/utils";
 
 // ─── Rarity & Category ────────────────────────────────────────────────────────
 
@@ -640,7 +641,8 @@ export function unlockAchievement(state: GameState, id: AchievementId) {
   state.achievements[id] = true;
   const def = ACHIEVEMENT_DEFS.find((entry) => entry.id === id);
   if (def) {
-    state.log = pushLog(state.log, `Achievement unlocked: ${def.label}`, "achievement", state.timers.tick);
+    appendLog(state, `Achievement unlocked: ${def.label}`, "achievement");
+    pushNotification(state, buildAchievementNotification(id, def.rarity));
   }
   return true;
 }
@@ -700,12 +702,7 @@ export function recoverLostDrone(state: GameState) {
   state.agents.push(recovered);
   state.lostDrone = null;
   state.lostWorkerFound = true;
-  state.log = pushLog(
-    state.log,
-    "Recovered the damaged drone and folded it into the roster.",
-    "event",
-    state.timers.tick
-  );
+  appendLog(state, "Recovered the damaged drone and folded it into the roster.", "event");
   return unlockAchievement(state, "lost_drone");
 }
 

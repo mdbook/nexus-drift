@@ -184,8 +184,10 @@ export const UpgradeIndicatorRail = memo(function UpgradeIndicatorRail({
 }: Props) {
   const visible = upgradeDefs.filter((def) => {
     // Match Sidebar visibility rules exactly so the rail stays in sync.
-    if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
-    if (def.key === "sentinel" && game.stats.brutesKilled === 0) return false;
+    const alreadyPurchased = (game.upgrades[def.key] ?? 0) > 0;
+    if (!alreadyPurchased && def.minTier !== undefined && derived.progression.tier < def.minTier)
+      return false;
+    if (def.key === "sentinel" && !alreadyPurchased && game.stats.brutesKilled === 0) return false;
     return true;
   });
 

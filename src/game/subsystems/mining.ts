@@ -2,7 +2,7 @@ import { MINING_TICK } from "@/game/constants";
 import { CORRUPTION, MINING, WORKER_ABILITIES } from "@/game/balance";
 import { respawnNode } from "@/game/factories";
 import type { GameState } from "@/game/types";
-import { dist, pushLog } from "@/game/utils";
+import { dist, appendLog } from "@/game/utils";
 
 export function stepMining(state: GameState) {
   if (state.timers.tick % MINING_TICK !== 0) return;
@@ -68,7 +68,7 @@ export function stepMining(state: GameState) {
       state.stats.mined += amount;
       if (crit) {
         state.stats.crits += 1;
-        state.log = pushLog(state.log, `Critical haul on ${node.kind} node.`, "mining", state.timers.tick);
+        appendLog(state, `Critical haul on ${node.kind} node.`, "mining");
       }
 
       if (node.temporary) {

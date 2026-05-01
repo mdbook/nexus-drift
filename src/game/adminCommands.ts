@@ -1,10 +1,10 @@
 import { WARDEN } from "@/game/balance";
 import { upgradeDefs } from "@/game/data";
 import { activateEvent, EVENT_DEFS, getEventDef, recomputeEventModifiers } from "@/game/events/eventDefs";
-import { spawnEnemy } from "@/game/factories";
+import { recordEnemyDiscovery, spawnEnemy } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { EnemyKind, GameState, ResourceKey, UpgradeKey } from "@/game/types";
-import { fmt, pushLog } from "@/game/utils";
+import { fmt, appendLog } from "@/game/utils";
 
 export const ADMIN_SPEED_PRESETS = [1, 2, 4, 10, 20, 100] as const;
 export type AdminSpeedPreset = (typeof ADMIN_SPEED_PRESETS)[number];
@@ -246,6 +246,7 @@ function applyPreset(state: GameState, preset: string) {
       state.upgrades.missileLauncher = Math.max(state.upgrades.missileLauncher, 2);
       for (const kind of ["brute", "sapper", "leech", "zapper", "corruptor", "warden"] as const) {
         state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, state.level, kind, state.timers.tick));
+        recordEnemyDiscovery(state, kind);
       }
       break;
     }
@@ -253,7 +254,7 @@ function applyPreset(state: GameState, preset: string) {
       return fail(`Unknown preset "${preset}". Use: midgame, lategame, siege.`);
   }
 
-  state.log = pushLog(state.log, `Admin preset applied: ${preset}.`, "system", state.timers.tick);
+  appendLog(state, `Admin preset applied: ${preset}.`, "system");
   return ok(`Applied ${preset} preset.`, { changed: true });
 }
 
@@ -310,12 +311,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
       for (const key of RESOURCE_KEYS) {
         state.resources[key] += parsed.value;
       }
-      state.log = pushLog(
-        state.log,
-        `Admin granted all resources +${fmt(parsed.value)}.`,
-        "system",
-        state.timers.tick
-      );
+      appendLog(state, `Admin granted all resources +${fmt(parsed.value)}.`, "system");
       return ok(`Granted ${fmt(parsed.value)} to all resources.`, { changed: true });
     }
 
@@ -324,12 +320,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
     }
 
     state.resources[target] += parsed.value;
-    state.log = pushLog(
-      state.log,
-      `Admin granted ${target} +${fmt(parsed.value)}.`,
-      "system",
-      state.timers.tick
-    );
+    appendLog(state, `Admin granted ${target} +${fmt(parsed.value)}.`, "system");
     return ok(`Granted ${fmt(parsed.value)} ${target}.`, { changed: true });
   }
 
@@ -354,7 +345,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
       const message = relative
         ? `Admin incremented all upgrades by ${parsed.value}.`
         : `Admin set all upgrades to ${parsed.value}.`;
-      state.log = pushLog(state.log, message, "upgrade", state.timers.tick);
+      appendLog(state, message, "upgrade");
       return ok(
         relative
           ? `Incremented all upgrades by ${parsed.value}.`
@@ -372,12 +363,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
     const parsed = parseUpgradeTarget(state.upgrades[target], args[1]);
     if (!parsed.ok) return fail(parsed.message);
     state.upgrades[target] = parsed.value;
-    state.log = pushLog(
-      state.log,
-      `Admin set ${target} upgrade to ${parsed.value}.`,
-      "upgrade",
-      state.timers.tick
-    );
+    appendLog(state, `Admin set ${target} upgrade to ${parsed.value}.`, "upgrade");
     return ok(`${target} upgrade is now ${parsed.value}.`, { changed: true });
   }
 
@@ -385,7 +371,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
     const parsed = parseNumber(args[0], "level", { min: 1, max: 999, integer: true });
     if (!parsed.ok) return fail(parsed.message);
     state.level = parsed.value;
-    state.log = pushLog(state.log, `Admin set sector level to ${parsed.value}.`, "system", state.timers.tick);
+    appendLog(state, `Admin set sector level to ${parsed.value}.`, "system");
     return ok(`Sector level set to ${parsed.value}.`, { changed: true });
   }
 
@@ -393,7 +379,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
     const parsed = parseNumber(args[0], "XP", { min: 0, max: MAX_RESOURCE_AMOUNT });
     if (!parsed.ok) return fail(parsed.message);
     state.xp = parsed.value;
-    state.log = pushLog(state.log, `Admin set XP to ${fmt(parsed.value)}.`, "system", state.timers.tick);
+    appendLog(state, `Admin set XP to ${fmt(parsed.value)}.`, "system");
     return ok(`XP set to ${fmt(parsed.value)}.`, { changed: true });
   }
 
@@ -431,12 +417,12 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
       state.enemies.push(
         spawnEnemy(state.rng, state.nextEnemyId++, waveParsed.value, target, state.timers.tick)
       );
+      recordEnemyDiscovery(state, target);
     }
-    state.log = pushLog(
-      state.log,
+    appendLog(
+      state,
       `Admin spawned ${countParsed.value} ${target}${countParsed.value === 1 ? "" : "s"}.`,
-      target === "corruptor" || target === "blight" || target === "warden" ? "corruption" : "combat",
-      state.timers.tick
+      target === "corruptor" || target === "blight" || target === "warden" ? "corruption" : "combat"
     );
     return ok(`Spawned ${countParsed.value} ${target}${countParsed.value === 1 ? "" : "s"}.`, {
       changed: true,
@@ -451,7 +437,7 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
     if (!["workers", "defense", "city", "all"].includes(target)) {
       return fail("Usage: heal <workers|defense|city|all>");
     }
-    state.log = pushLog(state.log, `Admin healed ${target}.`, "system", state.timers.tick);
+    appendLog(state, `Admin healed ${target}.`, "system");
     return ok(`Healed ${target}.`, { changed: true });
   }
 
@@ -463,19 +449,19 @@ export function executeAdminCommand(state: GameState, input: string): AdminComma
         for (const node of state.nodes) {
           node.corruptedBy = null;
         }
-        state.log = pushLog(state.log, "Admin cleared enemies.", "combat", state.timers.tick);
+        appendLog(state, "Admin cleared enemies.", "combat");
         return ok("Cleared enemies.", { changed: true });
       case "events":
         resetActiveEvents(state);
-        state.log = pushLog(state.log, "Admin cleared active events.", "event", state.timers.tick);
+        appendLog(state, "Admin cleared active events.", "event");
         return ok("Cleared active events and reverted timed modifiers.", { changed: true });
       case "projectiles":
         state.projectiles = [];
-        state.log = pushLog(state.log, "Admin cleared projectiles.", "combat", state.timers.tick);
+        appendLog(state, "Admin cleared projectiles.", "combat");
         return ok("Cleared projectiles.", { changed: true });
       case "corruption":
         clearCorruption(state);
-        state.log = pushLog(state.log, "Admin cleared corruption state.", "corruption", state.timers.tick);
+        appendLog(state, "Admin cleared corruption state.", "corruption");
         return ok("Cleared node and worker corruption.", { changed: true });
       case "log":
         state.log = [];

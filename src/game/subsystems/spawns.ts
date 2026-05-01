@@ -1,9 +1,9 @@
 import { ENEMY_BUDGET_COST, WARDEN } from "@/game/balance";
-import { spawnEnemy } from "@/game/factories";
+import { recordEnemyDiscovery, spawnEnemy } from "@/game/factories";
 import { getCombatEnemyWeights, getCorruptorSpawnChance, getEnemyWavePower } from "@/game/progression";
 import { computeDerived } from "@/game/selectors";
 import type { DerivedState, EnemyKind, GameState } from "@/game/types";
-import { clamp, pushLog } from "@/game/utils";
+import { clamp, appendLog } from "@/game/utils";
 
 function pluralize(label: string, count: number) {
   return count === 1 ? label : `${label}s`;
@@ -119,11 +119,12 @@ export function stepSpawns(state: GameState) {
 
   for (const kind of spawned) {
     state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, kind, state.timers.tick));
+    recordEnemyDiscovery(state, kind);
   }
 
   const message = describeSpawnWave(spawned, derived);
   if (message) {
-    state.log = pushLog(state.log, message, "combat", state.timers.tick);
+    appendLog(state, message, "combat");
   }
 }
 
@@ -163,10 +164,6 @@ export function stepWardenSpawn(state: GameState) {
   state.timers.warden = 0;
   const wavePower = getEnemyWavePower(state.level, state.prestige, derived.progression);
   state.enemies.push(spawnEnemy(state.rng, state.nextEnemyId++, wavePower, "warden", state.timers.tick));
-  state.log = pushLog(
-    state.log,
-    "Void warden detected on perimeter. Infestation risk.",
-    "corruption",
-    state.timers.tick
-  );
+  recordEnemyDiscovery(state, "warden");
+  appendLog(state, "Void warden detected on perimeter. Infestation risk.", "corruption");
 }

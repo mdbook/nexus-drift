@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ENEMY_AI, WORKER, WORKER_AI } from "@/game/balance";
 import { createInitialGameState, migrateGameState, SCHEMA_VERSION, spawnEnemy } from "@/game/factories";
 import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
+import { killWorker } from "@/game/subsystems/combat";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
 import { stepEnemies, stepWorkers } from "@/game/subsystems/movement";
@@ -805,5 +806,121 @@ describe("group dispersal", () => {
       expect(m.x).toBe(xBefore[i]);
       expect(m.y).toBe(yBefore[i]);
     });
+  });
+});
+
+describe("worker spook memory (3.2.1)", () => {
+  // The "spook" window is the post-flee threat-aversion period: when
+  // evadeTicks decays to 0 we set spookedTicks = WORKER_AI.spookedDuration so
+  // the worker treats the threat field as ×spookedThreatMultiplier costlier
+  // for the next ~4s. See AGENTS.md → "Worker Flee-Retarget Invariant".
+
+  it("setting evadeTicks=1 and stepping triggers the spook window on evasion end", () => {
+    const state = baseState();
+    // Park all but one miner so the test only exercises one agent's branch.
+    for (const a of state.agents) a.active = false;
+    const miner = state.agents.find((a) => a.kind === "miner")!;
+    miner.active = true;
+    miner.x = 500;
+    miner.y = 440;
+    miner.evadeTicks = 1;
+    miner.spookedTicks = 0;
+    // No enemies present → evadeThreats is empty and the else-if branch runs:
+    // evadeTicks decrements to 0, spookedTicks is set to spookedDuration, then
+    // the same step's decay block subtracts 1 — so we expect spookedDuration-1.
+
+    stepWorkers(state);
+
+    expect(miner.evadeTicks).toBe(0);
+    expect(miner.spookedTicks).toBe(WORKER_AI.spookedDuration - 1);
+  });
+
+  it("spookedTicks decays one per frame while not evading", () => {
+    const state = baseState();
+    for (const a of state.agents) a.active = false;
+    const miner = state.agents.find((a) => a.kind === "miner")!;
+    miner.active = true;
+    miner.x = 500;
+    miner.y = 440;
+    miner.evadeTicks = 0;
+    miner.spookedTicks = 100;
+
+    stepWorkers(state);
+    expect(miner.spookedTicks).toBe(99);
+
+    stepWorkers(state);
+    expect(miner.spookedTicks).toBe(98);
+  });
+
+  it("killWorker resets spookedTicks so the rebooted worker isn't pre-spooked", () => {
+    const state = baseState();
+    const miner = state.agents.find((a) => a.kind === "miner")!;
+    miner.active = true;
+    miner.spookedTicks = WORKER_AI.spookedDuration;
+
+    killWorker(state, miner);
+
+    expect(miner.spookedTicks).toBe(0);
+    expect(miner.rebootTicks).toBeGreaterThan(0);
+  });
+
+  it("scoreWorkerNode threat penalty scales by spookedThreatMultiplier (target choice flips)", () => {
+    // Borderline scenario: node A is closer (otherwise more attractive) but
+    // its path crosses a single off-path raider; node B is further but safe.
+    // Without spook the distance advantage edges out the threat penalty.
+    // With spook the threat penalty ×2.5 outweighs the distance advantage
+    // and the worker prefers the safer node.
+    const buildState = (spookedTicks: number) => {
+      const state = baseState();
+      for (const a of state.agents) a.active = false;
+      const runner = state.agents.find((a) => a.kind === "runner")!;
+      runner.active = true;
+      runner.x = 500;
+      runner.y = 440;
+      runner.evadeTicks = 0;
+      runner.spookedTicks = spookedTicks;
+      runner.target = null;
+      runner.harvestBias = 0;
+      runner.fearMod = 1;
+
+      // Both nodes are tier-1 (`ore`) for the runner — same type multiplier on
+      // both, so distance + threat are the only differentiators.
+      const nodeA: ResourceNode = {
+        id: 9201,
+        kind: "ore",
+        x: 400,
+        y: 440,
+        size: 22,
+        hp: 40,
+        maxHp: 40,
+        pulse: 0,
+        corruption: 0,
+        corrupted: false,
+        corruptedBy: null,
+        spawnTick: 0,
+        workTicks: 0,
+      };
+      const nodeB: ResourceNode = { ...nodeA, id: 9203, x: 800, y: 440 };
+      state.nodes = [nodeA, nodeB];
+
+      // One raider 80px above the A-path midpoint — far enough that
+      // nodeThreatRadius (82) doesn't crowd-penalize node A directly, but
+      // close enough that threatAlongPath still samples it.
+      addEnemy(state, { kind: "raider", x: 450, y: 360, hp: 30, role: "combat" });
+      return { state, runner, nodeA, nodeB };
+    };
+
+    const calm = buildState(0);
+    const spooked = buildState(WORKER_AI.spookedDuration);
+
+    const calmPick = chooseWorkerTarget(calm.state, calm.runner);
+    const spookedPick = chooseWorkerTarget(spooked.state, spooked.runner);
+
+    // The calm runner picks the closer (mildly threatened) node A; the
+    // spooked runner picks the safer (further) node B. If this ever stops
+    // flipping, either the multiplier was removed or pathSafetyPenalty was
+    // retuned far enough to make the calm path already safe-pick.
+    expect(calmPick).toBe(calm.nodeA.id);
+    expect(spookedPick).toBe(spooked.nodeB.id);
   });
 });

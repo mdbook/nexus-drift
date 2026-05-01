@@ -31,6 +31,8 @@ import { ResourcePill, StatusBadge } from "@/components/HudPrimitives";
 import { Sidebar } from "@/components/Sidebar";
 import { UpgradeIndicatorRail } from "@/components/UpgradeIndicatorRail";
 import { AchievementsModal } from "@/components/AchievementsModal";
+import { NotificationStack, type NotificationAction } from "@/components/NotificationStack";
+import { dismissNotification } from "@/game/notifications";
 import { WikiOverlay } from "@/components/WikiOverlay";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -54,7 +56,7 @@ import { resourceDefs } from "@/game/data";
 import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
-import { clamp, fmt, pushLog } from "@/game/utils";
+import { clamp, fmt, appendLog } from "@/game/utils";
 import { isBetaBuild } from "@/lib/isBetaBuild";
 import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
 import { useGameLoop } from "@/hooks/useGameLoop";
@@ -110,7 +112,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4] as const;
-const SOURCE_URL = "https://gitlab.mdbook.me/mikayla/nexus-drift";
+const SOURCE_URL = "https://github.com/mdbook/nexus-drift";
 const SPEED_TOOLTIP: Record<number, string> = {
   1: "Normal speed — standard simulation rate.",
   2: "2× speed — double tick rate, useful for mid-game grinding.",
@@ -313,6 +315,7 @@ export default function App() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
+  const [wikiInitialEntryId, setWikiInitialEntryId] = useState<string | undefined>(undefined);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
   const [initialGame] = useState(loadSavedState);
@@ -366,7 +369,7 @@ export default function App() {
 
       if (driftRef.current === "drift") {
         mutateGame((next) => {
-          next.log = pushLog(next.log, "The drift remembers.", "system", next.timers.tick);
+          appendLog(next, "The drift remembers.", "system");
           unlockSecretAchievement(next, "drift");
         });
         driftRef.current = "";
@@ -376,11 +379,10 @@ export default function App() {
         const nextSynthwave = !synthwaveRef.current;
         setSynthwave(nextSynthwave);
         mutateGame((next) => {
-          next.log = pushLog(
-            next.log,
+          appendLog(
+            next,
             nextSynthwave ? "Synthwave protocol engaged." : "Synthwave protocol disengaged.",
-            "system",
-            next.timers.tick
+            "system"
           );
           unlockSecretAchievement(next, "synthwave");
         });
@@ -461,12 +463,7 @@ export default function App() {
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
     mutateGame((next) => {
-      next.log = pushLog(
-        next.log,
-        enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.",
-        "system",
-        next.timers.tick
-      );
+      appendLog(next, enabled ? "Admin: synthwave FX enabled." : "Admin: synthwave FX disabled.", "system");
     });
   };
 
@@ -823,7 +820,29 @@ export default function App() {
         />
       )}
 
-      <WikiOverlay open={wikiOpen} onClose={() => setWikiOpen(false)} />
+      <WikiOverlay
+        open={wikiOpen}
+        onClose={() => {
+          setWikiOpen(false);
+          setWikiInitialEntryId(undefined);
+        }}
+        initialEntryId={wikiInitialEntryId}
+      />
+
+      <NotificationStack
+        notifications={uiGame.notifications}
+        onDismiss={(id) =>
+          mutateGame((next) => {
+            dismissNotification(next, id);
+          })
+        }
+        onAction={(action: NotificationAction) => {
+          if (action.kind === "open-wiki") {
+            setWikiInitialEntryId(action.entryId);
+            setWikiOpen(true);
+          }
+        }}
+      />
     </div>
   );
 }

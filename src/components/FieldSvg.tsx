@@ -2211,10 +2211,32 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
 
               {agent.kind === "miner" &&
                 (() => {
-                  // swing goes 0-23; map to raise→strike arc
+                  // 3.2.1 — swing goes 0-23 then wraps. The previous curve was
+                  // `sin(πt)^0.55`, which left a non-zero residual at t≈1 and
+                  // snapped to 0 at the wrap, causing a one-tick visual gap.
+                  // The cosine form `(½(1−cos(2πt)))^0.55` (equivalent to
+                  // `sin(πt)²` raised to 0.55) lands smoothly with zero
+                  // derivative at both t=0 and t=1, so the arm rests cleanly
+                  // through the wraparound. Apex stays at t=0.5 (swing=12).
+                  // Gate on active-mining task (not on swing>0) — the wrap
+                  // hits swing=0 every cycle, so a swing-based gate strobes
+                  // the arm. Task changes only at state boundaries.
+                  const isMining = agent.task === "Mining" || agent.task === "Purging residue";
+                  if (!isMining) {
+                    return (
+                      <>
+                        <polygon
+                          points={hex(agent.x, agent.y + bob, 13)}
+                          fill={bodyFill}
+                          stroke={bodyStroke}
+                          strokeWidth="2"
+                        />
+                        <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
+                      </>
+                    );
+                  }
                   const swingT = agent.swing / 24;
-                  // eased: slow raise, fast strike — peak at t=0.45
-                  const swingProgress = Math.pow(Math.max(0, Math.sin(swingT * Math.PI)), 0.55);
+                  const swingProgress = Math.pow(0.5 * (1 - Math.cos(swingT * 2 * Math.PI)), 0.55);
                   // arm pivots from right shoulder, sweeps from raised (-2.0 rad) to strike (-0.35 rad)
                   const pickAngle = -2.0 + swingProgress * 1.65;
                   const shoulderX = agent.x + 7;
@@ -2228,7 +2250,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                   const h1y = tipY + Math.sin(headAngle) * 5;
                   const h2x = tipX - Math.cos(headAngle) * 3;
                   const h2y = tipY - Math.sin(headAngle) * 3;
-                  const isStriking = agent.swing > 0 && swingProgress > 0.88;
+                  const isStriking = swingProgress > 0.88;
                   return (
                     // hexagon — sturdy, industrial
                     <>
@@ -2239,41 +2261,37 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                         strokeWidth="2"
                       />
                       <circle cx={agent.x} cy={agent.y + bob} r="5" fill={dotColor} />
-                      {agent.swing > 0 && (
-                        <>
-                          {/* arm */}
-                          <line
-                            x1={shoulderX}
-                            y1={shoulderY}
-                            x2={tipX}
-                            y2={tipY}
-                            stroke="rgba(160,235,255,0.90)"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                          />
-                          {/* pickaxe head */}
-                          <line
-                            x1={h1x}
-                            y1={h1y}
-                            x2={h2x}
-                            y2={h2y}
-                            stroke={dotColor}
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                          />
-                          {/* impact spark at strike */}
-                          {isStriking && (
-                            <circle
-                              cx={tipX}
-                              cy={tipY}
-                              r="4"
-                              fill="none"
-                              stroke={dotColor}
-                              strokeWidth="1.2"
-                              opacity="0.85"
-                            />
-                          )}
-                        </>
+                      {/* arm — always rendered so wraparound doesn't blink */}
+                      <line
+                        x1={shoulderX}
+                        y1={shoulderY}
+                        x2={tipX}
+                        y2={tipY}
+                        stroke="rgba(160,235,255,0.90)"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      {/* pickaxe head */}
+                      <line
+                        x1={h1x}
+                        y1={h1y}
+                        x2={h2x}
+                        y2={h2y}
+                        stroke={dotColor}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                      {/* impact spark at strike */}
+                      {isStriking && (
+                        <circle
+                          cx={tipX}
+                          cy={tipY}
+                          r="4"
+                          fill="none"
+                          stroke={dotColor}
+                          strokeWidth="1.2"
+                          opacity="0.85"
+                        />
                       )}
                     </>
                   );

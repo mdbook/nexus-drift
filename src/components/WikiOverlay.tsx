@@ -868,13 +868,13 @@ const CATEGORIES: WikiCategory[] = [
         title: "Defense Turret",
         icon: Crosshair,
         accent: "cyan",
-        tagline: "Static perimeter gun. Reboots on hard hits.",
+        tagline: "Perimeter gun. Unlocks once siege class arrives.",
         preview: TURRET_PREVIEW,
-        lore: "Plain, proven, and endlessly repairable. Turrets do the unglamorous work of painting fire on anything that crosses the line. Sustained assault will break them, and the hull will reboot at half health — scarred, ready, already reacquiring.",
+        lore: "Turrets do not show up until the sector starts taking real hits. They are perimeter weapons — short range, fast cadence, plain and endlessly repairable — and they go in the ground the day the first brute walks the line. Sustained assault breaks them, and the hull reboots at half health: scarred, ready, already reacquiring.",
         notes: [
+          "Unlocks at Tier 3 (Raid). Brutes and sappers are the design target.",
           "Breaks under concentrated pressure; reboots rather than dies.",
           "Lane coverage only; will not chase.",
-          "Primary counter to mites, raiders, rushers.",
         ],
       },
       {
@@ -913,13 +913,14 @@ const CATEGORIES: WikiCategory[] = [
         title: "Missile Silo",
         icon: Target,
         accent: "amber",
-        tagline: "Long-range strike. Slow. Heavy. Surgical.",
+        tagline: "First watcher of the rim. Stand-off strike from day one.",
         preview: SILO_PREVIEW,
-        lore: "The silo is patient. It watches the field, waits for the targets worth spending a warhead on, and then spends one. Brutes and leeches sit permanently at the top of its priority list — the silo exists to remove the threats nothing else can remove in time.",
+        lore: "Every colony lands with one silo already armed. It is the first thing the rim ever sees fire back — a long, patient sweep of the field that picks apart anything wandering in from the dark. Slow cadence, heavy single shot, no perimeter to hold. As the threat profile escalates the priority list reshuffles to brutes and leeches first, but the silo opens the engagement long before any of that arrives.",
         notes: [
-          "Long range; slow reload cadence.",
-          "Prioritises brutes and leeches.",
-          "One clean hit ends most elite encounters.",
+          "Available from the start. One silo active by default.",
+          "Long range; slow reload cadence; no perimeter coverage.",
+          "Reprioritises brutes and leeches once they appear.",
+          "Structural — does not take damage.",
         ],
       },
     ],
@@ -1125,13 +1126,31 @@ const CATEGORIES: WikiCategory[] = [
 type WikiOverlayProps = {
   open: boolean;
   onClose: () => void;
+  // 3.2.1 — when set, the overlay opens with this entry pre-selected (used by
+  // the New-Enemy-Spotted card to deep-link straight to a Field Entities page).
+  initialEntryId?: string;
 };
 
-export function WikiOverlay({ open, onClose }: WikiOverlayProps) {
+export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps) {
   const firstEntryId = CATEGORIES[0]?.entries[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(firstEntryId);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // 3.2.1 — apply the deep-link target every time the overlay re-opens with a
+  // new initialEntryId. Tracking the previous (open, id) pair via state lets
+  // the deep-link snap into selectedId during render without a useEffect
+  // cascade — the canonical "derive state from props on change" pattern.
+  const [lastInitial, setLastInitial] = useState<{ open: boolean; id: string | undefined }>({
+    open: false,
+    id: undefined,
+  });
+  if (lastInitial.open !== open || lastInitial.id !== initialEntryId) {
+    setLastInitial({ open, id: initialEntryId });
+    if (open && initialEntryId && selectedId !== initialEntryId) {
+      setSelectedId(initialEntryId);
+    }
+  }
 
   const allEntries = useMemo(() => CATEGORIES.flatMap((category) => category.entries), []);
 

@@ -12,8 +12,8 @@ import type {
 // each, and full-doctrine runs land in the multi-session wallpaper range
 // (see plan file "let-s-get-ready-for-playful-snowflake.md" Section A).
 export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> = {
-  miner: { baseCost: 28, growth: 1.24 },
-  drill: { baseCost: 220, growth: 1.27 },
+  miner: { baseCost: 22, growth: 1.24 },
+  drill: { baseCost: 170, growth: 1.27 },
   reactor: { baseCost: 520, growth: 1.3 },
   bot: { baseCost: 1100, growth: 1.32 },
   turret: { baseCost: 520, growth: 1.3 },
@@ -24,7 +24,7 @@ export const UPGRADES: Record<UpgradeKey, { baseCost: number; growth: number }> 
   sentinel: { baseCost: 800, growth: 1.35 },
   archive: { baseCost: 0, growth: 1.3 },
   focusedBeam: { baseCost: 600, growth: 1.35 },
-  missileLauncher: { baseCost: 2200, growth: 1.32 },
+  missileLauncher: { baseCost: 600, growth: 1.3 },
 };
 
 export const WORKER = {
@@ -419,7 +419,7 @@ export const MISSILE_SILO = {
   missileGraceRadius: 30,
   missileCorpseGraceRadius: 26,
   /** Active silo count indexed by missileLauncher upgrade level. */
-  silosByLevel: [0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4] as const,
+  silosByLevel: [1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4] as const,
 } as const;
 
 /**
@@ -645,9 +645,20 @@ export const ECONOMY = {
   },
   levelComboBonus: 0.15,
   comboMax: 9.9,
-  levelXpBase: 80,
-  levelXpPerLevel: 25,
 } as const;
+
+// Sector-level XP threshold curve. Single source of truth — both the
+// economy step (which actually advances the level) and the HUD selector
+// (which renders the progress bar) must call this so they cannot drift.
+//
+// 3.2.3 — re-shaped from the old `80 + L*25` linear curve. The linear
+// coefficient was lowered (it dominated early thresholds and made the
+// first few level-ups slow) and the exponent term picks up so late-game
+// thresholds converge with the old curve around L=21. Result: levels
+// 0–5 are ~40–60% cheaper, parity returns by slot-2 unlock.
+export function xpForLevel(level: number): number {
+  return Math.floor(30 + level * 15 + level ** 1.7 * 1.4);
+}
 
 export const REWARDS = {
   goldPerKillBase: 10,
@@ -697,7 +708,7 @@ export const PROGRESSION = {
     cityStage: 3.5,
     totalIncome: 0.035,
   },
-  tiersPerScore: 75,
+  tiersPerScore: 60,
   powerBalance: {
     threatWeight: 1.08,
     corruptionNodeWeight: 0.75,
@@ -857,13 +868,15 @@ export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<
 };
 
 /**
- * 3.0.0: new turret slot gate.
+ * Turret slot gate.
  *
- * Turret slot count is now `min(upgrades.turret, TURRET_SLOTS_BY_LEVEL[level])`,
- * mirroring the worker-slot pattern. Index = sector level (clamped to last
- * entry). Values = number of additional turret slots on top of the always-on
- * first turret. Early levels keep 1 turret even if the upgrade has been
- * purchased; the 2nd turret unlocks at level 2, the 3rd at level 8.
+ * 3.1.5 defense flip: the always-on first turret is gone — turrets are tier-3
+ * gated and `selectors.ts` returns `activeTurrets = 0` until
+ * `state.upgrades.turret >= 1`. This array still gates additional slots
+ * beyond the first: index = sector level (clamped to last entry); values =
+ * number of additional turret slots on top of slot 0. The 2nd turret unlocks
+ * at sector level 2, the 3rd at level 8 — both still requiring the upgrade
+ * level to match.
  */
 export const TURRET_SLOTS_BY_LEVEL = [0, 0, 1, 1, 1, 1, 1, 1, 2] as const;
 
@@ -996,7 +1009,9 @@ export const WORKER_PERSONALITY: Record<
  * AI — worker target scoring and evasion tuning.
  */
 export const WORKER_AI = {
-  pathSafetyPenalty: 34, // score penalty per threat-sample unit along the path
+  // 3.2.1 — bumped from 34 → 48 so even non-spooked workers prefer safer
+  // lanes; the spook window multiplies this further (see `spookedThreatMultiplier`).
+  pathSafetyPenalty: 48, // score penalty per threat-sample unit along the path
   harvestingEvasionRadius: 42, // while at the node, only bolt when an enemy closes within this distance
   corruptionHardAvoidAbove: 20, // non-miners hard-penalize nodes beyond this
   corruptionSoftMultiplier: 1.9, // multiplier applied when hard-avoid triggers
@@ -1006,7 +1021,14 @@ export const WORKER_AI = {
   currentTargetProgressBonus: -28, // extra stickiness for finishing the current partially-mined node
   progressActiveThreshold: 30,
   nodeThreatRadius: 82,
-  nodeThreatCrowdPenalty: 44,
+  // 3.2.1 — bumped from 44 → 60 (paired with pathSafetyPenalty bump above).
+  nodeThreatCrowdPenalty: 60,
+  // 3.2.1 — "spook" memory window: ticks of post-flee threat aversion.
+  // When evadeTicks decays to 0, set spookedTicks = spookedDuration so the
+  // worker treats the threat field as costlier (×spookedThreatMultiplier on
+  // pathSafetyPenalty + nodeThreatCrowdPenalty) for ~4s after fleeing.
+  spookedDuration: 240,
+  spookedThreatMultiplier: 2.5,
   harvestingStubbornEnemyLimit: 2,
   fleeTargetLookahead: 290, // max forward distance considered while persistent evasion is coasting
   fleeTargetMinForward: 48,

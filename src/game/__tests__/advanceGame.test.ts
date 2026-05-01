@@ -308,9 +308,9 @@ describe("advanceGame simulation invariants", () => {
     // 3.0.0: UPGRADES base costs and WORKER_SLOT_UNLOCK_RESOURCE_COSTS both
     // scaled up so slot-unlock purchases feel like a deliberate flux+cores
     // spend. See balance.ts.
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 35 });
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 43, flux: 18, cores: 4 });
-    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 727, flux: 55, cores: 14 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 27 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 34, flux: 18, cores: 4 });
+    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 562, flux: 55, cores: 14 });
     expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 55, cores: 14 });
   });
 
@@ -894,6 +894,8 @@ describe("zapper enemy", () => {
 
   it("bolt applies disabledTicks to a turret when it is the nearest target", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     // Place zapper close to turret 1 (within firingRange=170)
     zapper.x = state.turrets[0].x + 60;
@@ -971,6 +973,8 @@ describe("zapper enemy", () => {
 
   it("does not fire at a broken turret during target selection", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     // Place zapper close to the first turret
     zapper.x = state.turrets[0].x + 60;
@@ -991,6 +995,8 @@ describe("zapper enemy", () => {
 
   it("bolt skips broken turret on impact (3.1.3 audit)", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     const zapper = spawnEnemy(state.rng, state.nextEnemyId++, 0, "zapper");
     zapper.x = state.turrets[0].x + 60;
     zapper.y = state.turrets[0].y - 80;
@@ -1057,6 +1063,8 @@ describe("zapper enemy", () => {
 
   it("disabled turret skips firing", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     // Place enemy in turret range
     const mite = spawnEnemy(state.rng, state.nextEnemyId++, 0, "mite");
     mite.x = state.turrets[0].x;
@@ -1429,11 +1437,16 @@ describe("missile silo subsystem (3.0.0 Step 5)", () => {
     expect(state.projectiles.find((p) => p.tag === "turret-missile")).toBeUndefined();
   });
 
-  it("missileLauncher=0 deactivates all silos", () => {
+  it("missileLauncher=0 leaves only slot 0 active (tier-0 first-contact silo)", () => {
+    // Post-flip: silos are now the early-game stand-off defense. silosByLevel[0] = 1
+    // so a fresh game starts with the first silo armed even without buying the upgrade.
+    // Subsequent slots still require investment.
     const state = createInitialGameState();
     state.upgrades.missileLauncher = 0;
+    state.enemies = [];
     stepMissileSilos(state);
-    expect(state.missileSilos.every((s) => !s.active)).toBe(true);
+    expect(state.missileSilos[0].active).toBe(true);
+    expect(state.missileSilos.slice(1).every((s) => !s.active)).toBe(true);
     expect(state.projectiles.length).toBe(0);
   });
 
@@ -1463,6 +1476,8 @@ describe("turret HP and break state (3.0.0)", () => {
   it("enters broken state at 0 hp, skips firing, and recovers at half maxHp", () => {
     const state = createInitialGameState();
     state.level = 3;
+    // Turrets are tier-3 gated post-flip; deploy slot 0 so stepTurrets ticks the broken counter.
+    state.upgrades.turret = 1;
     const turret = state.turrets[0];
     const originalBrokenCount = state.stats.turretsBroken;
 
@@ -1770,6 +1785,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     // the brute chases the worker. Move the turret much closer and the
     // weighted distance score should flip to turret.
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 so it's a valid target.
+    state.upgrades.turret = 1;
     state.agents.forEach((agent, idx) => {
       agent.active = idx === 0;
     });
@@ -1897,6 +1914,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
 
   it("contact damage to a turret applies the turretArmor mitigation", () => {
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     // Isolate the turret under test and remove workers so stepCombat's
     // worker loop doesn't also fire.
     state.agents.forEach((agent) => {
@@ -2006,6 +2025,8 @@ describe("enemy multi-class targeting (3.0.0 Step 4)", () => {
     // A brute just outside ENEMY_CONTACT_RADIUS.turret targeting the turret
     // should deal 0 damage; nudge it inside and the damage funnel fires.
     const state = createInitialGameState();
+    // Turrets are tier-3 gated post-flip; deploy slot 0 explicitly.
+    state.upgrades.turret = 1;
     state.agents.forEach((agent) => {
       agent.active = false;
     });
@@ -3181,5 +3202,88 @@ describe("selectors ignore dying enemies (3.1.3 audit)", () => {
     expect(derived.enemyCounts.corruptor).toBe(1);
     expect(derived.combatThreats).toBe(1);
     expect(derived.corruptorCount).toBe(1);
+  });
+});
+
+describe("xpForLevel curve (3.2.3)", () => {
+  // The HUD progress bar (selectors.ts) and the economy step (subsystems/economy.ts)
+  // both call xpForLevel to derive the next-level threshold. If those two paths
+  // ever diverge, the visible bar and the actual level-up tick disagree silently.
+  // These tests pin the curve and assert the HUD uses it directly.
+  it("formula matches floor(30 + L*15 + L^1.7 * 1.4) at known levels", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    expect(xpForLevel(0)).toBe(30);
+    expect(xpForLevel(1)).toBe(46);
+    expect(xpForLevel(5)).toBe(126);
+    expect(xpForLevel(10)).toBe(250);
+    expect(xpForLevel(20)).toBe(557);
+  });
+
+  it("HUD targetXp equals xpForLevel(state.level) at every checked level", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    for (const level of [0, 1, 5, 10, 21]) {
+      const state = createInitialGameState(1);
+      state.level = level;
+      const derived = computeDerived(state);
+      expect(derived.targetXp).toBe(xpForLevel(level));
+    }
+  });
+
+  it("3.2.3 reshape: early levels are cheaper than the old 80 + L*25 linear curve", async () => {
+    const { xpForLevel } = await import("@/game/balance");
+    // L=0..5 must be cheaper than the old curve so the cold-open feels alive.
+    for (const level of [0, 1, 2, 3, 4, 5]) {
+      const oldCurve = 80 + level * 25;
+      expect(xpForLevel(level)).toBeLessThan(oldCurve);
+    }
+  });
+});
+
+describe("archive log routing (3.2.1)", () => {
+  it("archival categories mirror into archiveLog; non-archival go only to log", async () => {
+    const { appendLog } = await import("@/game/utils");
+    const state = createInitialGameState(1);
+    state.log = [];
+    state.archiveLog = [];
+
+    appendLog(state, "purchased miner v2", "upgrade");
+    appendLog(state, "Meteor Shower active", "event");
+    appendLog(state, "achievement: First Core", "achievement");
+    appendLog(state, "miner moves toward node", "ambient");
+    appendLog(state, "system boot", "system");
+
+    expect(state.log).toHaveLength(5);
+    expect(state.archiveLog).toHaveLength(3);
+    expect(state.archiveLog.map((entry) => entry.category)).toEqual(["achievement", "event", "upgrade"]);
+  });
+
+  it("archiveLog caps at MAX_ARCHIVE_LOG with newest first", async () => {
+    const { appendLog } = await import("@/game/utils");
+    const { MAX_ARCHIVE_LOG } = await import("@/game/constants");
+    const state = createInitialGameState(1);
+    state.log = [];
+    state.archiveLog = [];
+
+    for (let i = 0; i < MAX_ARCHIVE_LOG + 1; i++) {
+      appendLog(state, `upgrade ${i}`, "upgrade");
+    }
+
+    expect(state.archiveLog).toHaveLength(MAX_ARCHIVE_LOG);
+    expect(state.archiveLog[0].message).toBe(`upgrade ${MAX_ARCHIVE_LOG}`);
+    expect(state.archiveLog[state.archiveLog.length - 1].message).toBe("upgrade 1");
+  });
+
+  it("v10-style save without archiveLog migrates to []", () => {
+    // schemaVersion 10 predates the parallel archive feed. The migration must
+    // backfill an empty array rather than leaving the field undefined.
+    const fresh = createInitialGameState(1);
+    const legacy = JSON.parse(JSON.stringify(fresh)) as Partial<GameState>;
+    delete (legacy as { archiveLog?: unknown }).archiveLog;
+    legacy.schemaVersion = 10;
+
+    const migrated = migrateGameState(legacy);
+    expect(Array.isArray(migrated.archiveLog)).toBe(true);
+    expect(migrated.archiveLog).toEqual([]);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });

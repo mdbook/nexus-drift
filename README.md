@@ -1,8 +1,8 @@
 # Nexus Drift
 
-Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, raiders push the perimeter, turrets hold the line, and scout craft hunt corruption before it rots the economy.
+Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, missile silos open every engagement at long range, turrets backfill the perimeter once the heavies arrive, and scout craft hunt corruption before it rots the economy.
 
-**Current release:** `3.1.5` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `3.2.4` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
@@ -18,7 +18,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, dual-gated by upgrade level and sector level (level 22 / 42), with Flux+Cores surcharges
 - **3.0.0**: Workers now have per-individual variance (speed ±12%, fear ±20%, harvest bias ±15%) plus class abilities: miner overclock, runner sprint burst, drone corruption scan
 - Workers commit hard to partially mined resources; one or two nearby enemies no longer dislodge an undamaged harvesting worker; live enemy bodies slow movement; fleeing workers can retarget ahead
-- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs, Missile Silos)
+- Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)
 - Seeded random events (12 event types) temporarily bend yields, speed, corruption pressure, and surprise spawns
 
 ### Combat & Enemies
@@ -28,7 +28,7 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 - **3.0.1**: Enemy target selection now excludes undeployed slots, corrupted/rebooting workers, and stale rebooted structure targets; void warden cooldown and kill-credit blockers are fixed
 - Zappers hold at firing distance and fire bolts that disable workers, turrets, scouts, or sentinels for ~7 seconds; late-game Void Wardens stalk isolated workers and, once within range, latch on as parasites — pinning to the host, uncloaking for the 3.5-second corruption window, and giving defenses a real shot to burn them off before the worker converts
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
-- **3.0.0**: Missile Silos are a separate upgrade track — long-range, slow-cadence (~16 s), high-damage artillery that runs alongside instant-hit turret beams. **3.1.3 invariant**: turret range is hard-clamped to 270 px regardless of upgrades, and missile silos always out-range turrets (silo base 400 px + 6 px per missileLauncher level)
+- **3.1.5 defense flip**: Missile Silos are now the colony's first defense — one silo is armed from the very start, available on a gold-only `missileLauncher` track from Tier 0. Defense Turrets gate to Tier 3 "Raid" so the close-range perimeter line shows up alongside the brute (the first enemy that genuinely targets turrets) and the sapper. Long-range silo + short-range turret remain a deliberate split: turret range is hard-clamped to 270 px and silo range scales with the upgrade (400 px + 6 px per level), so silos always out-reach turrets
 - Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
 - 71 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
 
@@ -73,7 +73,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (195 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (213 tests across src/game/__tests__/ and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -137,6 +137,14 @@ docker compose up --build
 ```
 
 The production image serves the static Vite build with Nginx on port `80`.
+
+The repository also mirrors to GitHub
+(`github.com/mdbook/nexus-drift`), where pushes to `main` auto-deploy a
+static preview build to GitHub Pages at
+<https://mdbook.github.io/nexus-drift/>. The Pages build is wired through
+`.github/workflows/pages.yml` and uses `GITHUB_PAGES=true` to set Vite
+`base` to `/nexus-drift/`; the local and production builds keep
+`base: "/"` unchanged.
 
 ---
 

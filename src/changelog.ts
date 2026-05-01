@@ -16,6 +16,192 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.4",
+    badge: "Tighter Tier Curve",
+    summary:
+      "Follow-up to 3.2.3's onboarding pass. `PROGRESSION.tiersPerScore` drops from 75 to 60, pulling every score-gated unlock forward by ~20% — scouts (tier 1) and turrets (tier 3) become reachable on a meaningfully shorter timeline, complementing the faster level-up cadence and cheaper early upgrades from 3.2.3. The `LOST_DRONE_SCORE_THRESHOLD = 9 * tiersPerScore` derivation is preserved so the lost-drone gate auto-tracks (was 675, now 540). Enemy `minTier` gates (raider 1, brute 3, sapper 4, leech 5, phantom/zapper 6) are unchanged numerically — but because tiers themselves arrive sooner, enemy variety also unlocks earlier in real-time, so the relative balance between threats and defenses is preserved. Only the calendar moves; player power vs enemy roster at any given tier is identical to before. No save migration — `tiersPerScore` is a constant referenced live by `computeProgressionDirector`, so existing saves recompute their tier on next load.",
+    sections: [
+      {
+        title: "One Constant, Wide Effect",
+        items: [
+          "`PROGRESSION.tiersPerScore` 75 → 60. Tier 1 lands at score 60 instead of 75; tier 3 at 180 instead of 225; tier 5 at 300 instead of 375. Score itself is unchanged — this is purely a divisor tightening.",
+          "Score is computed from `level * 0.22 + prestige * 8 + totalUpgrades * 0.95 + weightedUpgradeScore * 0.9 + cityStage * 3.5 + totalIncome * 0.035`. The weights are untouched so the relative pull of each input on tier-up is preserved.",
+        ],
+      },
+      {
+        title: "Auto-Tracked Late-Game Gate",
+        items: [
+          "`LOST_DRONE_SCORE_THRESHOLD` is defined as `9 * PROGRESSION.tiersPerScore` in `src/game/subsystems/events.ts`, so the lost-drone event gate moves with the constant — was 675, is now 540. The achievement-tier gates (`tier_5`, `tier_8`, `tier_10`) use the same divisor and likewise track automatically.",
+        ],
+      },
+      {
+        title: "Why 60 And Not 55",
+        items: [
+          "The original brainstorm anchored at 55 (-27%). Picked the more conservative 60 (-20%) so this can land alongside the 3.2.3 onboarding buffs without compounding into a runaway tier ramp. If tier-up still feels slow once the 3.2.3 + 3.2.4 combo settles, this can drop further in a follow-up. The constant is a single line in `balance.ts`.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.2.3",
+    badge: "Early-Game Onboarding",
+    summary:
+      "The opening of a fresh run is much faster. The sector-level XP curve is re-shaped from the old `80 + L*25` linear formula to `30 + L*15 + L^1.7 * 1.4`, dropping the first level threshold by 63% and keeping levels 0–5 roughly 40–60% cheaper while converging with the prior curve by L~21 (the slot-2 unlock) — so the first level-up arrives in ~2 minutes instead of ~5.5, but late-game pacing is unchanged. The threshold formula was also extracted to a single `xpForLevel(level)` helper in `balance.ts` so the level-up gate (`stepEconomy`) and the HUD progress bar (`computeDerived`) cannot drift apart again. Starting resources go from 24 gold / 8 ore to 60 gold / 20 ore, and miner / drill base costs drop from 28 / 220 to 22 / 170 — together this means the very first miner upgrade is affordable on tick 1, so a fresh run has a clickable decision immediately. Upgrade growth factors (1.24, 1.27) are unchanged, so by level 8+ costs are within ~5% of the prior curve. No save schema bump — `state.xp` and `state.level` are unchanged, and existing saves get the new curve applied to whatever level they're already at.",
+    sections: [
+      {
+        title: "Curved Level XP Threshold",
+        items: [
+          "`xpForLevel(level)` is the new single source of truth, exported from `balance.ts`. Both `stepEconomy` (the actual level-up while-loop) and `computeDerived` (the HUD's `targetXp`) call it. The previous `ECONOMY.levelXpBase` / `ECONOMY.levelXpPerLevel` constants are gone — the curve coefficients live inside the helper instead.",
+          "Curve: `Math.floor(30 + level * 15 + level ** 1.7 * 1.4)`. The linear coefficient was lowered (was 25) so it stops dominating the first few thresholds; the exponent term picks up gradually so by L~21 the new curve meets the old one and late-game pacing is unchanged. Sample thresholds (XP needed to advance _from_ level L to L+1): L0 80→30, L1 105→46, L2 130→64, L5 205→127, L10 330→250, L21 605→600.",
+        ],
+      },
+      {
+        title: "Better Cold Open",
+        items: [
+          "Starting `gold` 24 → 60 and starting `ore` 8 → 20 in `createInitialGameState`. The first miner upgrade is now affordable on tick 1, so a fresh run has a clickable decision immediately instead of a ~2.6-minute wait for passive income to clear the level-1 cost.",
+          "Miner upgrade `baseCost` 28 → 22, drill upgrade `baseCost` 220 → 170. Growth factors (1.24, 1.27) are untouched — by level 8+ the costs are within ~5% of the prior curve, so only the cheap early rungs get cheaper.",
+        ],
+      },
+      {
+        title: "No Save Migration",
+        items: [
+          "`state.xp` and `state.level` are unchanged in shape, and `nextUpgradeCost()` recomputes from current upgrade level on every read, so existing saves load cleanly and pick up the new curve from whatever progression they were already at. Schema stays at v12.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.2.2",
+    badge: "Unified Notifications",
+    summary:
+      "All player-facing toasts now flow through a single notification system. The 3.2.1 patch shipped two parallel queues — achievement toasts (top-right, with a separate legendary full-screen flourish) and a standalone enemy-discovered card pinned to the top of the field. Both have been collapsed into one `state.notifications` queue rendered by a single `NotificationStack` mounted in the bottom-right. At most three notifications are visible at once; additional pushes sit in an invisible queue with their timers paused, and the next entry promotes automatically when an active slot expires or is dismissed. Each notification holds for ~15 s (legendary holds ~18 s) and carries a stable id, so a re-push from the same achievement or enemy kind is idempotent. Adding a new toast kind is now a three-step process — extend the discriminated union, add a builder, add a render branch — instead of standing up a parallel queue. Save schema bumps to v12; the migration translates legacy v11 `achievementToastQueue` + `enemyDiscoveryQueue` arrays into the unified `notifications` queue with full type safety.",
+    sections: [
+      {
+        title: "One Stack, One Queue",
+        items: [
+          "`AchievementToast` (top-right rarity toasts + legendary centered flourish) and `EnemyDiscoveryCard` (top-of-field enemy alert with View archive button) are gone. Both are replaced by `NotificationStack` mounted in the bottom-right corner with a `flex-col-reverse` ordering so newest entries enter at the bottom, with framer-motion `AnimatePresence` + `layout` for spring entry/exit and reflow when the stack changes. The 3.2.1 legendary full-screen wash is dropped — legendary unlocks now share the same stack frame as everything else but get an amber tone, a stronger glow, and a longer dwell.",
+          "`Notification` is a discriminated union (`achievement` | `enemy-discovered`); per-kind body components route off `notification.kind` inside `NotificationStack`. Tone is decoupled from kind via a 7-color palette (`common` / `uncommon` / `rare` / `legendary` / `combat` / `void` / `info`) so a future `milestone` or `warning` variant can pick any tone without editing the stack.",
+        ],
+      },
+      {
+        title: "3-Visible Cap with Invisible Queue",
+        items: [
+          "`NOTIFICATION_VISIBLE_LIMIT = 3`. The stack only renders the head three; anything pushed beyond that holds in `state.notifications` with its full timer paused, so a long burst of unlocks doesn't silently expire while waiting in line. `tickNotifications` only decrements entries inside the visible window — when one expires (or the player dismisses one with the X button), the next queued entry slides into its slot with a fresh full-duration hold.",
+          "Default dwell is 450 ticks (~15 s); legendary unlocks dwell 540 ticks (~18 s). The fade is sim-driven, not wall-clock, so paused / 1×-2×-4× speed scales the toast duration with the rest of the simulation.",
+        ],
+      },
+      {
+        title: "Idempotent Push by Stable ID",
+        items: [
+          "Every notification carries a stable string id (`ach:<achievementId>` / `enemy:<enemyKind>`). `pushNotification` rejects an entry whose id is already in the queue, so re-unlocking the same achievement on the same tick or re-discovering an enemy kind never stacks duplicates in the queue. `dismissNotification(state, id)` is the single source of truth for clearing — wired to the X button on every card.",
+        ],
+      },
+      {
+        title: "Schema v12 Migration",
+        items: [
+          "`SCHEMA_VERSION` 11 → 12. The migration reads the new `notifications` array directly when present; otherwise it reconstructs the unified queue from the legacy v11 `achievementToastQueue` (translated via `buildAchievementNotification` with each entry's stored rarity) and `enemyDiscoveryQueue` (translated via `buildEnemyDiscoveredNotification`, which reapplies the void / combat tone routing for `corruptor` / `blight` / `warden`). Old saves load with their pending toasts intact and dwelling on the new clock; brand-new saves skip the legacy fields entirely.",
+        ],
+      },
+      {
+        title: "Future-Proofing",
+        items: [
+          'Adding a new toast kind is now a three-step contract documented at the top of `src/game/notifications.ts`: (1) add a variant to the `Notification` union; (2) add a builder helper; (3) add a render branch in `NotificationStack`. Action callbacks flow through a typed `NotificationAction` discriminated union (currently `{ kind: "open-wiki"; entryId }`) so a future variant can request a modal open, a panel scroll, or any host-side effect without coupling the stack to specific UI surfaces.',
+          "Locked-in invariants by tests: `pushNotification` is idempotent by id; `dismissNotification` is a no-op when missing; only the first `NOTIFICATION_VISIBLE_LIMIT` entries decrement; queued entries promote on expiry.",
+        ],
+      },
+      {
+        title: "Admin Console Polish",
+        items: [
+          "Admin panel is now vertically resizeable. A grip handle at the top of the expanded body drags between 200 px and 85 % of viewport height, defaulting to 460 px. The body height applies only when the console is expanded; collapse keeps the existing grid-template-rows transition.",
+          "The two-column body decoupled — terminal column always stays at full panel height. Previously the entire grid scrolled together inside a single `overflow-y-auto`, which let the right-hand command terminal slide off when the left column ran long. The grid is now a fixed-height container, the left column scrolls on its own (`min-h-0` + `overflow-y-auto`), and the terminal column fills the panel and scrolls only its own entries internally.",
+          "Terminal command input always visible at any panel height. Removed the `min-h-[220px]` floor on the entries scrollbox so it compresses freely; the input form stays anchored at the bottom even at the 200 px minimum.",
+          "Collapse / expand toggle now reads as a frosted pill that bulges out of the panel's top edge instead of a floating circle that the panel border ran through. The pill is rendered as a sibling AFTER the Card (outside its backdrop-filter stacking context) so its blur reads the page bg directly, and the Card's top edge gets a clip-path notch where the pill straddles so the pill's bottom half meets the page bg too — without that, the pill stacks slate over the panel's slate and reads darker. The pill uses `bg-slate-700/35 backdrop-blur-xl`: a lighter slate than the panel's `slate-950/60` because the bulge sits above the panel over a mostly-dark area instead of the colourful field, and lifting the slate compensates so it lands on the panel's perceived midtone.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.2.1",
+    badge: "Player-Facing Polish",
+    summary:
+      'Six player-facing follow-ups land on top of 3.2.0\'s Defense Flip. Achievements get loud — corner toasts on common/uncommon/rare, full-screen flourish on legendary. The Activity Log splits in two: a 20-entry recent feed for live HUD pace, and a 200-entry archiveLog mirror that retains every upgrade / event / achievement so long sessions don\'t lose their progression history. Update banners actually fire in deployed builds now — `public/version` is autogenerated from `package.json` on prebuild and predev. Miner hammers no longer flicker at the wraparound; the swing curve was rewritten with zero derivative at both endpoints. Workers that just escaped a threat lane get a four-second "spook" memory that multiplies path-safety penalties so they don\'t casually path back through the danger they just fled. Brand-new enemy archetypes now surface a dismissible "New enemy spotted" card pinned to the top of the field, with a one-click jump into the matching Field Archive entry. Save schema bumps to v11 to carry the new fields (`achievementToastQueue`, `archiveLog`, agent `spookedTicks`, `discoveredEnemies` + `enemyDiscoveryQueue`).',
+    sections: [
+      {
+        title: "Loud Achievement Unlock",
+        items: [
+          "Achievements now surface a transient on-screen notification on top of the existing Activity Log line. Common / uncommon / rare unlocks slide in as a rarity-tinted corner toast pinned top-right of the field, holding for ~4 seconds. Legendary unlocks get a centered, full-screen flourish — a low-alpha radial glow wash plus a spring-animated card with the achievement label and description, holding for ~5 seconds. Both presentations queue, so back-to-back unlocks never clobber each other.",
+          "`AchievementToastQueue` is part of state and persisted across saves; the head entry decays each tick via `stepAchievements` and pops cleanly when its timer expires. The legendary glow wash respects `useLowFxMode` and drops to a static gradient under coarse-pointer desktop, mirroring `EventBackdrop`.",
+        ],
+      },
+      {
+        title: "Long-form Activity Archive",
+        items: [
+          '`MAX_LOG` drops from 40 → 20 so the live Activity Log feed shows only the recent moments. A new `state.archiveLog` (capped at 200) mirrors only the archival categories — `upgrade`, `event`, `achievement` — giving the player a real scroll-back history of progression and event milestones without bloating the noisy combat / mining / corruption streams. The Activity Log UI swaps source arrays per filter tab: "All" shows the live 20-entry feed; selecting Upgrade / Event / Awards reads from the long-form archive. Count badge updates to reflect the active source.',
+          "All `state.log = pushLog(...)` call sites across achievements, admin commands, every subsystem, and `eventDefs` were converted to a single `appendLog(state, message, category)` helper that pushes to both arrays atomically (and only mirrors archival categories into the archive feed).",
+        ],
+      },
+      {
+        title: "Update-Available Banner Reliability",
+        items: [
+          "Deployed builds now actually serve `/version`. A new `scripts/write-version.mjs` reads `package.json` and writes `public/version` (plain text, e.g. `3.2.1\\n`); the file is wired into `npm run build` via `prebuild` and into `npm run dev` via `predev`, so both production bundles and the dev server expose the endpoint `useVersionCheck` polls. `public/version` is gitignored — the prebuild hook is mandatory before any `vite build` or `vite dev`, so the artifact is always present at runtime and never goes stale.",
+        ],
+      },
+      {
+        title: "Miner Hammer Wraparound",
+        items: [
+          "The miner swing animation no longer blinks at the apex / wrap. The previous curve `sin(πt)^0.55` left a non-zero residual at `swing=23` and snapped to 0 at `swing=0`, producing a one-tick visual gap. The new curve `(½(1−cos(2πt)))^0.55` has zero derivative at both endpoints, so the arm rests cleanly through the wraparound with the apex still at `swing=12`. The render gate also moves off `agent.swing > 0` (which strobed because swing wraps to 0 every cycle) onto the active-mining task — the pickaxe arm only shows while the worker is at a node mining or purging residue, and hides cleanly while traversing, evading, or recovering.",
+        ],
+      },
+      {
+        title: "Worker Spook Memory",
+        items: [
+          "Workers that just exited evasion no longer casually path right back through the threat lane they just fled. New `agent.spookedTicks` field (capped at `WORKER_AI.spookedDuration` = 240 ticks ≈ 4 s) is set the moment `evadeTicks` decays to 0 and forces an immediate `chooseWorkerTarget` retarget rather than letting sticky-target retargeting lock the worker back onto its original target. While `spookedTicks > 0`, `scoreWorkerNode` multiplies both `pathSafetyPenalty` and `nodeThreatCrowdPenalty` by `WORKER_AI.spookedThreatMultiplier` (×2.5), so post-flee scoring treats the threat field as much costlier.",
+          "Baseline path / crowd penalties also bumped: `pathSafetyPenalty` 34 → 48 and `nodeThreatCrowdPenalty` 44 → 60 so even non-spooked workers slightly prefer safer lanes. Sticky retarget threshold and flee-target gates are unchanged.",
+        ],
+      },
+      {
+        title: "New-Enemy-Spotted Card",
+        items: [
+          'The first time any `EnemyKind` spawns in a run — natural wave, event spawn, admin preset, or admin `spawn` command — a dismissible card slides in from the top of the field saying "New enemy spotted: <Name>" with a one-line tagline pulled from the wiki. Cards queue so back-to-back first sightings don\'t clobber each other, and the sim does not pause while a card is shown. "View archive" opens the Field Archive deep-linked to the matching entry; "Dismiss" pops the queue.',
+          "Discovered kinds persist across save / load via `state.discoveredEnemies`, so a kind never re-triggers a card after a reload. `WikiOverlay` gained an `initialEntryId` prop so any caller can deep-link straight into a specific Field Entities page.",
+        ],
+      },
+      {
+        title: "Save Schema v11",
+        items: [
+          "`SCHEMA_VERSION` bumps from 10 → 11 to carry four new fields: `achievementToastQueue`, `archiveLog`, agent `spookedTicks`, and `discoveredEnemies` + `enemyDiscoveryQueue`. All four ride together on a single migration block with defensive `?? []` / `?? {}` / `?? 0` fallbacks, so v10 saves load cleanly and inherit empty defaults for the new state.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "3.2.0",
+    badge: "Defense Flip",
+    summary:
+      'Defense progression flips. Missile silos are now the Tier-0 first-contact weapon — one armed from the very first tick on a gold-only `missileLauncher` track — and Defense Turrets gate to Tier 3 "Raid" so the close-range perimeter line shows up alongside the brute (the first enemy that genuinely targets turrets) and the sapper. The always-on first-turret floor in `selectors.ts` is gone; `activeMissileSilos` now contributes to city-stage progression so investing in the silo line does not silently stall the cityStage curve. Sidebar / UpgradeIndicatorRail keep already-purchased upgrades visible across tier shifts, the FieldStatsStrip gains a Missile Silos pill, and `null_surge` no longer claims to disable a phantom turret slot when the colony has no turret track.',
+    sections: [
+      {
+        title: "Progression Flip — Silos First, Turrets Late",
+        items: [
+          'Missile silos are now the colony\'s first defense line. The `missileLauncher` upgrade is unlocked from Tier 0 (was Tier 2 "Skirmish"), its cost drops from `{ gold: 2200, cores: 6, flux: 4 }` to a flat `600` gold, and growth eases from `1.32` to `1.30`. `silosByLevel[0]` is now `1` (was `0`), so a fresh game lands with one silo armed and watching the rim — long-range stand-off fire from the very first tick.',
+          'Defense turrets are now Tier 3 "Raid" gated. The `turret` upgrade carries `minTier: 3` and the always-on first-turret floor in `selectors.ts` is gone — `activeTurrets` returns `0` until `state.upgrades.turret >= 1`. Turrets arrive alongside the brute (the first enemy with `turret: 0.85` priority) and the sapper, which is when a perimeter close-range layer actually pulls its weight.',
+          "City growth scoring now treats active silos like active turrets. `homeDevelopment` adds `activeMissileSilos * CITY.developmentWeights.activeTurrets` so pushing the turret upgrade out of the early game does not silently stall the cityStage curve — the player's silo investment fills the same role.",
+          "Autobuy gates that required `state.upgrades.turret >= 2` before buying silos are gone. The missileLauncher weight bump now keys off brute / leech presence directly, and the turret weight bump moved from `tier >= 2` to `tier >= 3` to track the new unlock.",
+          'Wiki Defense entries rewritten: Missile Silo is the "first watcher of the rim" available from day one, and the Defense Turret entry advertises its tier-3 unlock and brute / sapper design target.',
+        ],
+      },
+      {
+        title: "Polish & Audit Follow-ups",
+        items: [
+          "`makeMissileSilos()` and `migrateGameState` now prime the silo `active` flags from `silosByLevel` so fresh games and freshly-migrated saves render slot 0 armed from frame 0 instead of waiting one tick for `stepMissileSilos` to flip the flag.",
+          '`null_surge` event filters by `derived.activeTurrets` before picking a turret to disable — a tier-7 player who skipped the turret track no longer sees the log claim a phantom slot was suppressed; the event surfaces a "no perimeter turret to suppress" line instead.',
+          '`Sidebar` and `UpgradeIndicatorRail` keep an upgrade tile visible if the player has already invested in it, even when the tier later drops below the gate or an admin preset jumps past it. Mirrors the existing sentinel "already-killed-a-brute" softening.',
+          "`FieldStatsStrip` now shows a Missile Silos pill alongside the Turrets pill, and the Turrets tooltip surfaces the tier-3 unlock when no turrets are deployed instead of pointing at an upgrade tile that's currently hidden.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.5",
     badge: "Warden Parasite Latch",
     summary:

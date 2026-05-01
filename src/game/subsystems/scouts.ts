@@ -3,7 +3,7 @@ import { WORLD_H, WORLD_W } from "@/game/constants";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
 import type { GameState } from "@/game/types";
-import { clamp, dist, pushLog } from "@/game/utils";
+import { clamp, dist, appendLog } from "@/game/utils";
 
 function scoutAvoidance(state: GameState, sx: number, sy: number): { ax: number; ay: number } {
   let ax = 0,
@@ -123,7 +123,7 @@ export function stepScouts(state: GameState) {
       if (scout.rebootTicks === 0) {
         scout.hp = scout.maxHp;
         scout.retreating = false;
-        state.log = pushLog(state.log, "Scout redeployed from home pad.", "combat", state.timers.tick);
+        appendLog(state, "Scout redeployed from home pad.", "combat");
       }
       return;
     }
@@ -341,7 +341,7 @@ export function stepScouts(state: GameState) {
             state.resources.flux +
               FLUX.cleanseCompletionBonus * (state.eventModifiers.fluxPurgeMultiplier ?? 1)
           );
-          state.log = pushLog(state.log, "Node cleansed. Flux recovered.", "corruption", state.timers.tick);
+          appendLog(state, "Node cleansed. Flux recovered.", "corruption");
         }
       }
 
