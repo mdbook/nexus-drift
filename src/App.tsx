@@ -112,7 +112,7 @@ const upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>> = 
 };
 
 const PUBLIC_SPEEDS = [1, 2, 4] as const;
-const SOURCE_URL = "https://gitlab.mdbook.me/mikayla/nexus-drift";
+const SOURCE_URL = "https://github.com/mdbook/nexus-drift";
 const SPEED_TOOLTIP: Record<number, string> = {
   1: "Normal speed — standard simulation rate.",
   2: "2× speed — double tick rate, useful for mid-game grinding.",
