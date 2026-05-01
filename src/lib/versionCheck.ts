@@ -1,4 +1,4 @@
-export const VERSION_CHECK_ENDPOINT = "/version";
+export const VERSION_CHECK_ENDPOINT = `${import.meta.env.BASE_URL}version`;
 export const VERSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 export function extractFlatVersion(value: string): string | null {

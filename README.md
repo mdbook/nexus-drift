@@ -138,6 +138,14 @@ docker compose up --build
 
 The production image serves the static Vite build with Nginx on port `80`.
 
+The repository also mirrors to GitHub
+(`github.com/mdbook/nexus-drift`), where pushes to `main` auto-deploy a
+static preview build to GitHub Pages at
+<https://mdbook.github.io/nexus-drift/>. The Pages build is wired through
+`.github/workflows/pages.yml` and uses `GITHUB_PAGES=true` to set Vite
+`base` to `/nexus-drift/`; the local and production builds keep
+`base: "/"` unchanged.
+
 ---
 
 ## CI

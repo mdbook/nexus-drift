@@ -422,6 +422,12 @@ npm run format:check
 
 Production model: Vite build → Nginx serves `dist/` → reverse proxy handles TLS.
 
+GitHub mirror + Pages preview:
+
+- The repo mirrors GitLab → `github.com/mdbook/nexus-drift`. `.github/workflows/pages.yml` runs on every push to `main` and publishes a static build to <https://mdbook.github.io/nexus-drift/>.
+- The Pages build sets the env var `GITHUB_PAGES=true`, which `vite.config.ts` reads to switch Vite `base` from `/` to `/nexus-drift/` so absolute asset paths resolve under the project subpath. Outside that workflow `base` stays `/` and prod is unaffected.
+- Because of the subpath, code that talks to assets must be base-aware: `VERSION_CHECK_ENDPOINT` in `src/lib/versionCheck.ts` is built from `import.meta.env.BASE_URL`, and `public/site.webmanifest` uses a relative `src` for its icon. Do not reintroduce hardcoded `/` paths in code or in JSON files served from `public/` — use `import.meta.env.BASE_URL` or a relative path so both deploys keep working.
+
 Local Docker verification:
 
 ```bash

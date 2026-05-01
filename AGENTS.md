@@ -101,6 +101,24 @@ version tag already exists. Do not remove that preflight unless replacing it wit
 an equivalent duplicate-version guard; otherwise a second push with the same
 version would silently move the release tag.
 
+## GitHub Pages Mirror Subpath
+
+The repo mirrors to `github.com/mdbook/nexus-drift` and auto-publishes a static
+preview to <https://mdbook.github.io/nexus-drift/> via
+`.github/workflows/pages.yml` on every push to `main`. The Pages build runs
+`npm run build` with `GITHUB_PAGES=true`, which `vite.config.ts` reads to set
+Vite `base` to `/nexus-drift/`. Locally and in production `base` stays `/`.
+
+Because the Pages mirror lives at a subpath, any asset reference that assumes
+the site is at `/` will break there. Do not introduce new absolute paths
+starting with `/` in either application code or in JSON files served from
+`public/` (manifests, etc.) — use `import.meta.env.BASE_URL` (Vite rewrites it
+per build) or a relative path. Vite already rewrites absolute paths inside
+`index.html`, so HTML-side `href="/foo"` is fine; the trap is `fetch("/foo")`
+in TS or `"src": "/foo"` in `public/*.webmanifest`. Existing examples to
+mirror: `VERSION_CHECK_ENDPOINT` in `src/lib/versionCheck.ts` and the icon
+`src` in `public/site.webmanifest`.
+
 ## Test Count References
 
 Several docs quote the total test count (`README.md` `## Testing`, `AGENTS.md` `## Test Coverage`, `handoff.md` near the end of Operational Notes). When you add or remove tests, update all three in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
