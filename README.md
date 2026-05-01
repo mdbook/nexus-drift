@@ -4,6 +4,10 @@ Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeS
 
 **Current release:** `3.2.4` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
+### [▶ Play Now](https://mdbook.github.io/nexus-drift/)
+
+No install — runs in your browser.
+
 ![Nexus Drift — active field with perimeter defense and purge wing](public/og-image.png)
 
 ---
