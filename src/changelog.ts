@@ -40,6 +40,13 @@ export const CHANGELOG: ChangelogEntry[] = [
           "The original brainstorm anchored at 55 (-27%). Picked the more conservative 60 (-20%) so this can land alongside the 3.2.3 onboarding buffs without compounding into a runaway tier ramp. If tier-up still feels slow once the 3.2.3 + 3.2.4 combo settles, this can drop further in a follow-up. The constant is a single line in `balance.ts`.",
         ],
       },
+      {
+        title: "Hotfix — Worker Reboot Ring",
+        items: [
+          "Fix the HP-charge ring shown around a worker mid-reboot. The ring's `strokeDasharray` was `${hpFrac*c} ${c}` paired with a fixed `+0.25c` `strokeDashoffset` in `FieldSvg.tsx`. Because the gap was a full circumference rather than `(1-hpFrac)*c`, the offset rotated the visible arc instead of just shifting its start point — the ring appeared to begin ~25% behind 12 o'clock and only filled to ~75% of the circle at `hpFrac = 1`.",
+          "Replaced with the standard progress-ring composition: a single full-period dash, a shrinking `(1 - hpFrac) * c` offset, and a `rotate(-90 cx cy)` so the arc starts at 12 o'clock and grows cleanly clockwise to a full ring. Visual-only change — no sim, save, or test impact.",
+        ],
+      },
     ],
   },
   {
