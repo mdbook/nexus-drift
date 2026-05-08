@@ -2143,7 +2143,10 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                   strokeWidth="2.5"
                 />
               )}
-              {/* 3.1.2: HP-charge ring shown while rebooting after combat death */}
+              {/* 3.1.2: HP-charge ring shown while rebooting after combat death.
+                  Standard progress-ring composition: full-period dasharray,
+                  shrinking dashoffset, -90° rotation so the arc starts at 12
+                  o'clock and grows clockwise from 0 to a full ring. */}
               {isRebooting &&
                 agent.hp < agent.maxHp &&
                 (() => {
@@ -2157,9 +2160,10 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                       fill="none"
                       stroke="rgba(80,200,255,0.70)"
                       strokeWidth="3"
-                      strokeDasharray={`${(hpFrac * circumference).toFixed(1)} ${circumference.toFixed(1)}`}
-                      strokeDashoffset={(circumference * 0.25).toFixed(1)}
+                      strokeDasharray={circumference.toFixed(1)}
+                      strokeDashoffset={((1 - hpFrac) * circumference).toFixed(1)}
                       strokeLinecap="round"
+                      transform={`rotate(-90 ${agent.x} ${agent.y + bob})`}
                     />
                   );
                 })()}
