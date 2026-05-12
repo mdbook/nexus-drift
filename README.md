@@ -275,7 +275,7 @@ tightening. Each of these can be its own tiny PR.
 ## Notes For Contributors
 
 - Keep `package.json` version and `src/changelog.ts` aligned when doing release work.
-- If architecture, commands, or player-facing behavior changes, update `README.md` and `handoff.md` in the same pass.
+- If architecture, commands, or player-facing behavior changes, update `README.md` and the relevant `docs/agent/<shard>.md` in the same pass (see [`docs/agent/INDEX.md`](docs/agent/INDEX.md)).
 - Follow-up UI/docs tweaks belong to the current in-flight release unless the user says otherwise.
 - Local `.claude/` files are tooling noise; repo docs, git status summaries, and linting should treat the whole directory as ignored.
 - Compare against `reference/idle_wallpaper_game.reference.jsx` when you need the original intended feel.

@@ -5,7 +5,7 @@ dist
 .gitlab-ci.yml
 .claude
 reference
-handoff.md
+docs
 README.md
 *.md
 npm-debug.log*
