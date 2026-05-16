@@ -36,7 +36,7 @@ When adding or removing tests, update the count in this file in the same pass. R
 `.gitlab-ci.yml` runs:
 
 - **`verify` stage**: `npm ci` → `npm run typecheck` → `npm run format:check` → `npm run lint` → `npm test`. **Treat them as a unit; do not drop any of them when editing CI.**
-- **`build` stage**: Kaniko builds and publishes the production container image **from `main` and `dev` only**. Images get the commit SHA, `:latest`, and the exact `package.json` version tag; `dev` also keeps `:dev`. CI fails before building if that version tag already exists in the GitLab container registry — do not remove that preflight unless replacing it with an equivalent duplicate-version guard; otherwise a second push with the same version would silently move the release tag.
+- **`build` stage**: Kaniko builds and publishes the production container image **from `main` and `dev` only**. Every build gets the commit SHA and the exact `package.json` version tag; `main` additionally moves `:latest`, and `dev` additionally moves `:dev`. `:latest` is `main`-only on purpose — dev pushes must not advance it. CI fails before building if that version tag already exists in the GitLab container registry — do not remove that preflight unless replacing it with an equivalent duplicate-version guard; otherwise a second push with the same version would silently move the release tag.
 - **Notification stages** report success or failure.
 
 ## Pre-Commit Verification

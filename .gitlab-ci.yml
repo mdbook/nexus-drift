@@ -51,7 +51,8 @@ build:
   script:
     - export IMAGE_VERSION_TAG="$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -n 1)"
     - test -n "$IMAGE_VERSION_TAG"
-    - export IMAGE_DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:latest --destination $CI_REGISTRY_IMAGE:$IMAGE_VERSION_TAG"
+    - export IMAGE_DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:$IMAGE_VERSION_TAG"
+    - if [ "$CI_COMMIT_BRANCH" = "main" ]; then export IMAGE_DESTINATIONS="$IMAGE_DESTINATIONS --destination $CI_REGISTRY_IMAGE:latest"; fi
     - if [ "$CI_COMMIT_BRANCH" = "dev" ]; then export IMAGE_DESTINATIONS="$IMAGE_DESTINATIONS --destination $CI_REGISTRY_IMAGE:dev"; fi
     - mkdir -p /kaniko/.docker
     - printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > /kaniko/.docker/config.json
