@@ -2,6 +2,7 @@ import { AUTO_TICK } from "@/game/constants";
 import { ECONOMY, FLUX, PRESTIGE } from "@/game/balance";
 import { getUpgradeDef, upgradeDefs } from "@/game/data";
 import { computeDerived } from "@/game/selectors";
+import type { SimTraceCtx } from "@/game/trace";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
 import {
   canAffordUpgrade,
@@ -139,7 +140,7 @@ export function getEmergencyUpgradeChoice(
   return null;
 }
 
-export function stepAutobuy(state: GameState) {
+export function stepAutobuy(state: GameState, ctx?: SimTraceCtx) {
   if (state.timers.auto < AUTO_TICK) return;
   state.timers.auto = 0;
 
@@ -156,6 +157,16 @@ export function stepAutobuy(state: GameState) {
       `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`,
       "upgrade"
     );
+    // ponytail: emit before the early-return so emergency ticks are still traced.
+    // The candidate ranking is bypassed on this path, so candidates is empty.
+    if (ctx) {
+      ctx.recordAutobuy({
+        tick: state.timers.tick,
+        candidates: [],
+        emergency: true,
+        chosenKey: emergencyChoice.key,
+      });
+    }
     return;
   }
 
@@ -193,6 +204,20 @@ export function stepAutobuy(state: GameState) {
     });
 
   const chosen = candidates[0];
+  // ponytail: emit before the early-returns so a no-purchase tick is still recorded.
+  // Weights are recomputed here (only when tracing) since the sort consumed them inline.
+  if (ctx) {
+    ctx.recordAutobuy({
+      tick: state.timers.tick,
+      candidates: candidates.map(({ def, cost }) => ({
+        key: def.key,
+        weight: getAutobuyWeight(state, derived, def.key),
+        affordable: canAffordUpgrade(state.resources, cost),
+      })),
+      emergency: false,
+      chosenKey: chosen ? chosen.def.key : null,
+    });
+  }
   if (chosen) {
     deductUpgradeCost(state.resources, chosen.cost);
     state.upgrades[chosen.def.key] += 1;

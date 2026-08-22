@@ -12,6 +12,7 @@ Options:
   --snapshot <csv>  Comma-separated tick indices to capture (e.g. 50,100,200).
   --every <n>       Also capture a snapshot every N ticks.
   --state           Include the full GameState in each snapshot (heavy; default is derived-only).
+  --trace           Capture autobuy + worker-target decision traces into result.traces.
   --out <path>      Write JSON to this file instead of stdout.`;
 
 export interface ParsedSimArgs {
@@ -36,6 +37,7 @@ export function parseSimArgs(argv: string[]): ParsedSimArgs {
       snapshot: { type: "string" },
       every: { type: "string" },
       state: { type: "boolean" },
+      trace: { type: "boolean" },
       out: { type: "string" },
     },
   });
@@ -53,6 +55,7 @@ export function parseSimArgs(argv: string[]): ParsedSimArgs {
   }
   if (values.every !== undefined) opts.snapshotEvery = requireInt(values.every, "every");
   if (values.state) opts.include = ["derived", "state"];
+  if (values.trace) opts.trace = true;
 
   return { opts, out: values.out };
 }

@@ -21,6 +21,7 @@ import {
 } from "@/game/balance";
 import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { computeDerived } from "@/game/selectors";
+import type { SimTraceCtx } from "@/game/trace";
 import { pickEnemyTargetMulti } from "@/game/targeting";
 import {
   applyLowHpRegionPull,
@@ -156,7 +157,9 @@ function shouldScanFleeTarget(tick: number, agentId: number): boolean {
   return positiveModulo(tick, interval) === phase;
 }
 
-export function stepWorkers(state: GameState) {
+// ponytail: `ctx` is the opt-in decision-trace sink, forwarded to the worker-target
+// picks below. Undefined on the production path → no instrumentation, no behavior change.
+export function stepWorkers(state: GameState, ctx?: SimTraceCtx) {
   if (!state.nodes.length) return;
   const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
   const combatEnemies = liveEnemies.filter((enemy) => enemy.role !== "corruptor");
@@ -223,7 +226,7 @@ export function stepWorkers(state: GameState) {
       state.timers.tick % (330 + agent.id * 45) === 0;
 
     if (needsTarget) {
-      agent.target = chooseWorkerTarget(state, agent);
+      agent.target = chooseWorkerTarget(state, agent, ctx);
     }
 
     const node =
@@ -321,7 +324,7 @@ export function stepWorkers(state: GameState) {
       // the threat lane — see WORKER_AI.spookedDuration.
       if (agent.evadeTicks === 0) {
         agent.spookedTicks = WORKER_AI.spookedDuration;
-        agent.target = chooseWorkerTarget(state, agent);
+        agent.target = chooseWorkerTarget(state, agent, ctx);
       }
     }
 
@@ -333,7 +336,7 @@ export function stepWorkers(state: GameState) {
 
     if (agent.evadeTicks > 0) {
       if (!recovering && evadeThreats.length === 0 && shouldScanFleeTarget(state.timers.tick, agent.id)) {
-        const fleeTarget = chooseFleeDirectionTarget(state, agent);
+        const fleeTarget = chooseFleeDirectionTarget(state, agent, ctx);
         if (fleeTarget !== null) agent.target = fleeTarget;
       }
 

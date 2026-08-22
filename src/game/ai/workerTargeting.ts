@@ -1,7 +1,11 @@
 import { WORKER_ABILITIES, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
 import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
+import type { SimTraceCtx, WorkerTargetTraceCandidate } from "@/game/trace";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
+
+/** The "why" fields a caller can ask `scoreWorkerNode` to surface (trace-only). */
+type WorkerNodeScoreWhy = Omit<WorkerTargetTraceCandidate, "nodeId" | "score">;
 
 // Tier 1 = strongly preferred, Tier 2 = acceptable, anything else = avoided
 const WORKER_TIER1: Record<Agent["kind"], string[]> = {
@@ -48,7 +52,10 @@ function scoreWorkerNode(
   enemies: Enemy[],
   contestedMap: Map<number, ContestEntry>,
   isCurrentTarget = false,
-  droneCoveredNodes: Set<number> = new Set()
+  droneCoveredNodes: Set<number> = new Set(),
+  // ponytail: trace-only sink. When present it is filled with the already-computed
+  // "why" locals (never recomputed); when undefined this fn behaves exactly as before.
+  why?: WorkerNodeScoreWhy
 ): number {
   const d = dist(agent.x, agent.y, node.x, node.y);
   const hpFactor = node.hp / node.maxHp;
@@ -96,9 +103,12 @@ function scoreWorkerNode(
   // 3.2.1 — recently-spooked workers (just exited evasion) treat threat as
   // costlier, so they don't immediately path back through the same lane they
   // just fled from. See WORKER_AI.spookedDuration / spookedThreatMultiplier.
+  // ponytail: hoisted so the trace can surface it below without recomputing. Stays 0
+  // when there are no enemies — the same value the scoring math would have used.
+  let pathThreat = 0;
   if (enemies.length > 0) {
     const spookMultiplier = agent.spookedTicks > 0 ? WORKER_AI.spookedThreatMultiplier : 1;
-    const pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
+    pathThreat = threatAlongPath(agent.x, agent.y, node.x, node.y, enemies);
     score +=
       pathThreat *
       WORKER_AI.pathSafetyPenalty *
@@ -132,10 +142,19 @@ function scoreWorkerNode(
 
   // Deterministic jitter to break ties.
   score += (agent.id * 41 + node.id * 17) % 20;
+
+  // ponytail: surface the decision inputs for the trace only when a sink asked.
+  if (why) {
+    why.harvestBias = agent.harvestBias;
+    why.fearMod = agent.fearMod;
+    why.spookedTicks = agent.spookedTicks;
+    why.pathThreat = pathThreat;
+    why.corruption = node.corruption;
+  }
   return score;
 }
 
-export function chooseWorkerTarget(state: GameState, agent: Agent): number | null {
+export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTraceCtx): number | null {
   if (!state.nodes.length) return null;
   const liveEnemies = state.enemies.filter((enemy) => enemy.hp > 0);
 
@@ -147,35 +166,52 @@ export function chooseWorkerTarget(state: GameState, agent: Agent): number | nul
   const droneCoveredNodes = buildDroneCoveredNodes(state.agents, state.nodes);
 
   const ranked = state.nodes
-    .map((node) => ({
-      id: node.id,
-      score: scoreWorkerNode(
+    .map((node) => {
+      // ponytail: only allocate the per-candidate "why" record when tracing is on.
+      const why = ctx ? ({} as WorkerNodeScoreWhy) : undefined;
+      const score = scoreWorkerNode(
         agent,
         node,
         liveEnemies,
         contestedMap,
         node.id === agent.target,
-        droneCoveredNodes
-      ),
-    }))
+        droneCoveredNodes,
+        why
+      );
+      return { id: node.id, score, why };
+    })
     .sort((a, b) => a.score - b.score);
 
   const best = ranked[0];
   if (!best) return state.nodes[0].id;
 
   // Sticky retargeting — stay on current node unless a candidate is materially better.
+  let chosenId = best.id;
+  let stickyHeld = false;
   const current = agent.target != null ? state.nodes.find((n) => n.id === agent.target) : null;
   if (current) {
     const currentScore = scoreWorkerNode(agent, current, liveEnemies, contestedMap, true, droneCoveredNodes);
     if (best.score >= currentScore * WORKER_AI.stickyThreshold) {
-      return current.id;
+      chosenId = current.id;
+      stickyHeld = true;
     }
   }
 
-  return best.id;
+  // ponytail: assemble + emit the trace record only when a sink is attached.
+  if (ctx) {
+    ctx.recordWorkerTarget({
+      tick: state.timers.tick,
+      agentId: agent.id,
+      candidates: ranked.map((r) => ({ nodeId: r.id, score: r.score, ...r.why! })),
+      chosenId,
+      stickyHeld,
+    });
+  }
+
+  return chosenId;
 }
 
-export function chooseFleeDirectionTarget(state: GameState, agent: Agent): number | null {
+export function chooseFleeDirectionTarget(state: GameState, agent: Agent, ctx?: SimTraceCtx): number | null {
   if (!state.nodes.length) return null;
   const mag = Math.hypot(agent.evadeDx, agent.evadeDy);
   if (mag < 0.001) return null;
@@ -188,6 +224,8 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
 
   let bestId: number | null = null;
   let bestScore = Infinity;
+  // ponytail: only buffer flee candidates when a trace sink is attached.
+  const traced: WorkerTargetTraceCandidate[] | undefined = ctx ? [] : undefined;
 
   for (const node of state.nodes) {
     const dx = node.x - agent.x;
@@ -203,13 +241,34 @@ export function chooseFleeDirectionTarget(state: GameState, agent: Agent): numbe
     if (pathThreat > WORKER_AI.fleeTargetMaxPathThreat) continue;
 
     const current = node.id === agent.target;
-    const baseScore = scoreWorkerNode(agent, node, liveEnemies, contestedMap, current, droneCoveredNodes);
+    const why = ctx ? ({} as WorkerNodeScoreWhy) : undefined;
+    const baseScore = scoreWorkerNode(
+      agent,
+      node,
+      liveEnemies,
+      contestedMap,
+      current,
+      droneCoveredNodes,
+      why
+    );
     const alignmentScore = forward * 0.2 + lateral * 1.15 + pathThreat * WORKER_AI.pathSafetyPenalty * 3;
     const score = baseScore + alignmentScore;
+    if (traced) traced.push({ nodeId: node.id, score, ...why! });
     if (score < bestScore) {
       bestScore = score;
       bestId = node.id;
     }
+  }
+
+  // ponytail: emit the flee retarget decision only when a sink is attached.
+  if (traced) {
+    ctx?.recordWorkerTarget({
+      tick: state.timers.tick,
+      agentId: agent.id,
+      candidates: traced,
+      chosenId: bestId,
+      stickyHeld: false,
+    });
   }
 
   return bestId;

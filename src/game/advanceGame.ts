@@ -17,9 +17,14 @@ import { stepWorkerCorruption } from "@/game/subsystems/workerCorruption";
 import { stepTurrets } from "@/game/subsystems/turrets";
 import { stepWorkerSlots } from "@/game/subsystems/workers";
 import { stepEnemyShields } from "@/game/subsystems/enemyShields";
+import type { SimTraceCtx } from "@/game/trace";
 import type { GameState } from "@/game/types";
 
-export function advanceGame(prev: GameState): GameState {
+// ponytail: `ctx` is the opt-in decision-trace sink (Phase 2). It is forwarded ONLY
+// to the two steps that reach an instrumented fn — stepWorkers + stepAutobuy — and
+// is undefined on the production path (useGameLoop passes nothing), so behavior is
+// byte-identical when tracing is off.
+export function advanceGame(prev: GameState, ctx?: SimTraceCtx): GameState {
   const state = cloneGameState(prev);
   state.timers.tick = (state.timers.tick + 1) % TICK_WRAP;
   state.timers.auto += 1;
@@ -65,7 +70,7 @@ export function advanceGame(prev: GameState): GameState {
   stepWorkerSlots(state);
   stepSpawns(state);
   stepWardenSpawn(state);
-  stepWorkers(state);
+  stepWorkers(state, ctx);
   stepTourist(state);
   stepLostDrone(state);
   stepEnemies(state);
@@ -81,7 +86,7 @@ export function advanceGame(prev: GameState): GameState {
   stepCombat(state);
   resolveEnemyDeaths(state);
   stepMining(state);
-  stepAutobuy(state);
+  stepAutobuy(state, ctx);
   stepProjectiles(state);
   tickDeathFades(state);
   stepEvents(state);
