@@ -4,20 +4,41 @@ import { ActivityLog } from "@/components/ActivityLog";
 import { StatTile, UpgradeTile } from "@/components/HudPrimitives";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/cn";
 import { TICK_MS } from "@/game/constants";
 import { resourceDefs, upgradeDefs } from "@/game/data";
+import { purchaseFailReason } from "@/game/purchases";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import { canAffordUpgrade, nextUpgradeCost, fmt, stateSafe } from "@/game/utils";
+import { nextUpgradeCost, fmt, stateSafe } from "@/game/utils";
 import { PANEL_CLASS } from "@/theme";
+
+type AutoMaster = GameState["upgradeAutoMaster"];
+
+const MASTER_OPTIONS: { value: AutoMaster; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "none", label: "None" },
+  { value: "custom", label: "Custom" },
+];
 
 type SidebarProps = {
   game: GameState;
   derived: DerivedState;
   upgradeIcons: Record<UpgradeKey, ComponentType<{ className?: string }>>;
   stabilityPct: number;
+  onPurchase: (key: UpgradeKey) => void;
+  onToggleAuto: (key: UpgradeKey) => void;
+  onSetAutoMaster: (master: AutoMaster) => void;
 };
 
-export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stabilityPct }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({
+  game,
+  derived,
+  upgradeIcons,
+  stabilityPct,
+  onPurchase,
+  onToggleAuto,
+  onSetAutoMaster,
+}: SidebarProps) {
   const spawnCadenceSeconds = (derived.progression.spawnIntervalTicks * TICK_MS) / 1000;
   const visibleUpgrades = upgradeDefs.filter((def) => {
     // Always show upgrades the player has already invested in, even if their
@@ -90,6 +111,33 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
           </div>
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">Autobuy</span>
+          <div
+            role="group"
+            aria-label="Autobuy master switch"
+            className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-0.5"
+          >
+            {MASTER_OPTIONS.map((option) => {
+              const active = game.upgradeAutoMaster === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onSetAutoMaster(option.value)}
+                  aria-pressed={active}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
+                    active ? "bg-emerald-300/15 text-emerald-100" : "text-white/45 hover:text-white/75"
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <StatTile label="Active Turrets" value={derived.activeTurrets} tint="rgba(255,255,255,0.95)" />
           <StatTile label="Active Scouts" value={derived.activeScouts} tint="rgba(220,180,255,0.95)" />
@@ -106,7 +154,10 @@ export const Sidebar = memo(function Sidebar({ game, derived, upgradeIcons, stab
                 def={def}
                 level={game.upgrades[def.key]}
                 cost={cost}
-                canAfford={canAffordUpgrade(game.resources, cost)}
+                reason={purchaseFailReason(game, def.key, { derived })}
+                autoOn={game.upgradeAutoFlags[def.key] ?? false}
+                onBuy={() => onPurchase(def.key)}
+                onToggleAuto={() => onToggleAuto(def.key)}
                 icon={Icon}
               />
             );

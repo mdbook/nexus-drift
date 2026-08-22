@@ -42,44 +42,77 @@ export type PurchaseOptions = {
 };
 
 /**
- * Single shared purchase path for BOTH manual (future UI) and automatic
- * (`stepAutobuy`) upgrade buys. Performs the cost-check, `deductUpgradeCost`,
- * level increment, `stats.spent` accounting, and activity-log append that the
- * autobuy purchase has always done — in one place so manual and auto stay in
- * lockstep.
+ * The reason (if any) `purchaseUpgrade` would refuse this buy right now, without
+ * mutating anything. `undefined` means the buy would succeed. Shared by the UI
+ * (to disable an unpurchasable tile and show the tone/tooltip reason) and by
+ * `purchaseUpgrade` itself, so the manual button and the actual buy agree on the
+ * gate/affordability check exactly. Gate order matches `purchaseUpgrade`:
+ * `locked` → `maxed` → `insufficient`.
+ */
+export function purchaseFailReason(
+  state: GameState,
+  key: UpgradeKey,
+  opts: Pick<PurchaseOptions, "derived" | "enforceGates"> = {}
+): PurchaseFailReason | undefined {
+  const { enforceGates = true } = opts;
+  const def = getUpgradeDef(key);
+
+  if (enforceGates) {
+    const derived = opts.derived ?? computeDerived(state);
+    if (def.minTier !== undefined && derived.progression.tier < def.minTier) {
+      return "locked";
+    }
+    // Sentinel is the only upgrade with a hard cap: one level per deployed slot.
+    if (key === "sentinel" && state.upgrades.sentinel >= state.sentinels.length) {
+      return "maxed";
+    }
+  }
+
+  if (!canAffordUpgrade(state.resources, nextUpgradeCost(def, state.upgrades[key]))) {
+    return "insufficient";
+  }
+
+  return undefined;
+}
+
+/**
+ * Single shared purchase path for BOTH manual (UI) and automatic (`stepAutobuy`)
+ * upgrade buys. Performs the cost-check, `deductUpgradeCost`, level increment,
+ * `stats.spent` accounting, and activity-log append — in one place so manual and
+ * auto stay in lockstep.
  */
 export function purchaseUpgrade(
   state: GameState,
   key: UpgradeKey,
   opts: PurchaseOptions = {}
 ): PurchaseResult {
-  const { enforceGates = true, log } = opts;
+  const reason = purchaseFailReason(state, key, opts);
+  if (reason) return { ok: false, reason };
+
   const def = getUpgradeDef(key);
-
-  if (enforceGates) {
-    const derived = opts.derived ?? computeDerived(state);
-    if (def.minTier !== undefined && derived.progression.tier < def.minTier) {
-      return { ok: false, reason: "locked" };
-    }
-    // Sentinel is the only upgrade with a hard cap: one level per deployed slot.
-    if (key === "sentinel" && state.upgrades.sentinel >= state.sentinels.length) {
-      return { ok: false, reason: "maxed" };
-    }
-  }
-
   const cost = nextUpgradeCost(def, state.upgrades[key]);
-  if (!canAffordUpgrade(state.resources, cost)) {
-    return { ok: false, reason: "insufficient" };
-  }
-
   deductUpgradeCost(state.resources, cost);
   state.upgrades[key] += 1;
   state.stats.spent += getUpgradeCostTotal(cost);
   appendLog(
     state,
-    log ? log(def.label, state.upgrades[key]) : `Purchased ${def.label} v${state.upgrades[key]}`,
+    opts.log ? opts.log(def.label, state.upgrades[key]) : `Purchased ${def.label} v${state.upgrades[key]}`,
     "upgrade"
   );
 
   return { ok: true };
+}
+
+/**
+ * Set a single upgrade's autobuy opt-in flag. Only consulted when
+ * `upgradeAutoMaster` is `"custom"`, but the per-tile chip is always settable
+ * (4.0 plan §2.1). The manual-purchase UI wires its Auto chips through here.
+ */
+export function setUpgradeAutoFlag(state: GameState, key: UpgradeKey, enabled: boolean): void {
+  state.upgradeAutoFlags[key] = enabled;
+}
+
+/** Set the master autobuy switch (All / None / Custom). */
+export function setUpgradeAutoMaster(state: GameState, master: GameState["upgradeAutoMaster"]): void {
+  state.upgradeAutoMaster = master;
 }

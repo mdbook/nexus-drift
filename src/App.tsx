@@ -1,5 +1,5 @@
 import { memo, type ComponentType, type CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Bot,
@@ -55,7 +55,8 @@ import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { getEventDef } from "@/game/events/eventDefs";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
-import type { UpgradeKey, VisibleResourceKey } from "@/game/types";
+import { purchaseUpgrade, setUpgradeAutoFlag, setUpgradeAutoMaster } from "@/game/purchases";
+import type { GameState, UpgradeKey, VisibleResourceKey } from "@/game/types";
 import { clamp, fmt, appendLog } from "@/game/utils";
 import { isBetaBuild } from "@/lib/isBetaBuild";
 import { ADMIN_SPEED_PRESETS } from "@/game/adminCommands";
@@ -460,6 +461,38 @@ export default function App() {
     [mutateGame]
   );
 
+  // 4.0 — manual purchase + autobuy-flag controls, wired through the same
+  // mutateGame store the field interactions use. Stable identities keep the
+  // memoized Sidebar from re-rendering on unrelated state churn.
+  const onPurchase = useCallback(
+    (key: UpgradeKey) => {
+      mutateGame((next) => {
+        purchaseUpgrade(next, key, {
+          log: (label, level) => `Operator purchased ${label} v${level}.`,
+        });
+      });
+    },
+    [mutateGame]
+  );
+
+  const onToggleAuto = useCallback(
+    (key: UpgradeKey) => {
+      mutateGame((next) => {
+        setUpgradeAutoFlag(next, key, !(next.upgradeAutoFlags[key] ?? false));
+      });
+    },
+    [mutateGame]
+  );
+
+  const onSetAutoMaster = useCallback(
+    (master: GameState["upgradeAutoMaster"]) => {
+      mutateGame((next) => {
+        setUpgradeAutoMaster(next, master);
+      });
+    },
+    [mutateGame]
+  );
+
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
     mutateGame((next) => {
@@ -719,6 +752,9 @@ export default function App() {
             derived={uiDerived}
             upgradeIcons={upgradeIcons}
             stabilityPct={uiStabilityPct}
+            onPurchase={onPurchase}
+            onToggleAuto={onToggleAuto}
+            onSetAutoMaster={onSetAutoMaster}
           />
         </div>
       </div>

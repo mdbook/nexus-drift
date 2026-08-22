@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { AUTO_TICK } from "@/game/constants";
 import { createInitialGameState } from "@/game/factories";
-import { purchaseUpgrade } from "@/game/purchases";
+import {
+  purchaseFailReason,
+  purchaseUpgrade,
+  setUpgradeAutoFlag,
+  setUpgradeAutoMaster,
+} from "@/game/purchases";
 import { computeDerived } from "@/game/selectors";
 import { stepAutobuy } from "@/game/subsystems/autobuy";
 import type { GameState, ResourceMap } from "@/game/types";
@@ -91,6 +96,68 @@ describe("purchaseUpgrade", () => {
     state.resources.cores = 0;
     const broke = purchaseUpgrade(state, "sentinel", { enforceGates: false });
     expect(broke).toEqual({ ok: false, reason: "insufficient" });
+  });
+});
+
+describe("manual purchase UI store actions (4.0 phase 1b)", () => {
+  it("a manual buy deducts cost, increments level, and logs a distinct operator message", () => {
+    const state = createInitialGameState(1);
+    const goldBefore = state.resources.gold;
+
+    // Mirrors the App onPurchase mutateGame closure.
+    const res = purchaseUpgrade(state, "miner", {
+      log: (label, level) => `Operator purchased ${label} v${level}.`,
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(state.upgrades.miner).toBe(1);
+    expect(state.resources.gold).toBeLessThan(goldBefore);
+    expect(state.log[0]?.category).toBe("upgrade");
+    expect(state.log[0]?.message).toBe("Operator purchased Auto Miner v1.");
+  });
+
+  it("purchaseFailReason drives the disabled-tile reason: undefined | insufficient | locked | maxed", () => {
+    const affordable = createInitialGameState(1);
+    expect(purchaseFailReason(affordable, "miner")).toBeUndefined();
+
+    const broke = createInitialGameState(1);
+    broke.resources.gold = 0;
+    broke.resources.ore = 0;
+    expect(purchaseFailReason(broke, "miner")).toBe("insufficient");
+
+    const locked = createInitialGameState(1);
+    locked.resources = { ...RICH };
+    const lockedDerived = computeDerived(locked);
+    lockedDerived.progression.tier = 0; // sentinel.minTier is above 0
+    expect(purchaseFailReason(locked, "sentinel", { derived: lockedDerived })).toBe("locked");
+
+    const maxed = createInitialGameState(1);
+    maxed.resources = { ...RICH };
+    maxed.upgrades.sentinel = maxed.sentinels.length;
+    const maxedDerived = computeDerived(maxed);
+    maxedDerived.progression.tier = 5; // clear the tier gate so the cap check is reached
+    expect(purchaseFailReason(maxed, "sentinel", { derived: maxedDerived })).toBe("maxed");
+  });
+
+  it("setUpgradeAutoFlag flips a single upgrade's autobuy opt-in", () => {
+    const state = createInitialGameState(1);
+    expect(state.upgradeAutoFlags.miner).toBeUndefined();
+
+    setUpgradeAutoFlag(state, "miner", true);
+    expect(state.upgradeAutoFlags.miner).toBe(true);
+
+    setUpgradeAutoFlag(state, "miner", false);
+    expect(state.upgradeAutoFlags.miner).toBe(false);
+  });
+
+  it("setUpgradeAutoMaster switches the master mode", () => {
+    const state = createInitialGameState(1);
+    setUpgradeAutoMaster(state, "all");
+    expect(state.upgradeAutoMaster).toBe("all");
+    setUpgradeAutoMaster(state, "custom");
+    expect(state.upgradeAutoMaster).toBe("custom");
+    setUpgradeAutoMaster(state, "none");
+    expect(state.upgradeAutoMaster).toBe("none");
   });
 });
 
