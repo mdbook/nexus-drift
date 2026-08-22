@@ -1,7 +1,9 @@
 import { advanceGame } from "@/game/advanceGame";
 import { SCHEMA_VERSION, createInitialGameState } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
+import type { SimTraces } from "@/game/trace";
 import type { DerivedState, GameState } from "@/game/types";
+import { createTraceCollector } from "@/sim/trace";
 
 /** Which channels a snapshot carries. `state` is heavy (GameState arrays), so it is opt-in. */
 export type SnapshotChannel = "state" | "derived";
@@ -17,6 +19,12 @@ export interface SimRunOpts {
   snapshotEvery?: number;
   /** Channels to capture. Defaults to `["derived"]`; add `"state"` for the full GameState. */
   include?: SnapshotChannel[];
+  /**
+   * When true, attach a decision-trace collector (Phase 2) and include the captured
+   * autobuy + worker-target records in `SimRunResult.traces`. When false/absent, no
+   * sink is passed to `advanceGame`, so the run is byte-identical to an untraced run.
+   */
+  trace?: boolean;
 }
 
 export interface SimSnapshot {
@@ -30,6 +38,8 @@ export interface SimRunResult {
   ticks: number;
   schemaVersion: number;
   snapshots: SimSnapshot[];
+  /** Decision traces, present only when `opts.trace` was set. */
+  traces?: SimTraces;
 }
 
 /** Resolve the sorted, de-duped set of tick indices to capture, clamped to [0, ticks]. */
@@ -58,6 +68,10 @@ export function runHeadless(opts: SimRunOpts): SimRunResult {
   const captureState = include.includes("state");
   const targets = new Set(resolveTargetTicks(opts));
 
+  // ponytail: only build a collector when tracing; otherwise ctx stays undefined and
+  // advanceGame runs its byte-identical production path.
+  const collector = opts.trace ? createTraceCollector() : undefined;
+
   const snapshots: SimSnapshot[] = [];
   // advanceGame clones-then-returns, so each tick is a fresh object; captured references never alias.
   let current = createInitialGameState(opts.seed);
@@ -67,8 +81,15 @@ export function runHeadless(opts: SimRunOpts): SimRunResult {
       if (captureState) snap.state = current;
       snapshots.push(snap);
     }
-    if (tick < opts.ticks) current = advanceGame(current);
+    if (tick < opts.ticks) current = advanceGame(current, collector);
   }
 
-  return { seed: opts.seed, ticks: opts.ticks, schemaVersion: SCHEMA_VERSION, snapshots };
+  const result: SimRunResult = {
+    seed: opts.seed,
+    ticks: opts.ticks,
+    schemaVersion: SCHEMA_VERSION,
+    snapshots,
+  };
+  if (collector) result.traces = collector.drain();
+  return result;
 }

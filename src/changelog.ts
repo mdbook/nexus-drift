@@ -16,6 +16,24 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.6",
+    badge: "Decision Traces",
+    summary:
+      "Additive tooling, zero gameplay change. Phase 2 of the sim harness adds opt-in decision-trace instrumentation so agents can inspect *why* the sim autobought an upgrade or a worker picked a node. The trace is threaded through `advanceGame(prev, ctx?)` as an optional sink — the production path (`useGameLoop`) passes nothing, so behavior is byte-identical when tracing is off. Proven, not asserted: a fixed-seed run with a collector attached is deep-equal to one without (final `GameState` + `Rng` identical). The sink interface lives in `src/game/trace.ts` and the concrete collector in `src/sim/trace.ts`, keeping the one-way `src/sim → src/game` dependency intact. Enable via `runHeadless({ trace: true })` or `npm run sim -- --trace`; captured records land in `SimRunResult.traces`.",
+    sections: [
+      {
+        title: "Decision Traces",
+        items: [
+          "`src/game/trace.ts` (new) — sink interface + record types only (`SimTraceCtx`, `AutobuyTraceRecord`, `WorkerTargetTraceRecord`, `SimTraces`). Lives in `src/game` so instrumented sim code can reference the type without a back-edge to the harness.",
+          "`src/sim/trace.ts` (new) — `createTraceCollector(): SimTraceCtx & { drain(): SimTraces }` buffers emitted records. The only place harness and trace concretely meet.",
+          "`stepAutobuy` emits one `AutobuyTraceRecord` per autobuy tick when a sink is attached — candidate keys/weights, the emergency flag, and the chosen key (null on a no-purchase tick; empty candidate list on an emergency tick, which bypasses the ranking).",
+          "`chooseWorkerTarget` / `chooseFleeDirectionTarget` emit one `WorkerTargetTraceRecord` per retarget — per-candidate score plus the `harvestBias`/`fearMod`/`spookedTicks`/`pathThreat`/`corruption` why-fields surfaced (not recomputed) from `scoreWorkerNode`, the chosen node id, and whether sticky retargeting held.",
+          "`runHeadless` gains `trace?: boolean` and a `traces?` result field; the CLI gains a `--trace` flag. When off, no sink is created and `advanceGame` runs its byte-identical production path.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.5",
     badge: "Sim Harness",
     summary:

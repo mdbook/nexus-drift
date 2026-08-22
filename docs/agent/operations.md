@@ -19,7 +19,7 @@ npm run format:check
 
 ## Test Coverage
 
-226 tests total across:
+233 tests total across:
 
 - `src/game/__tests__/advanceGame.test.ts` (152) — simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, worker class abilities, worker corruption + warden parasite latch, warden kill credit, sentinel cleanse, worker reboot, `stepWardenSpawn` gates, `xpForLevel` curve pin, `archiveLog` routing/cap/migration.
 - `src/game/__tests__/aiBehavior.test.ts` (30) — worker path safety, commitment, flee-direction retargeting, crowded-node avoidance, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash, ghost reposition, group dispersal, threat-field path weighting, spook memory.
@@ -29,6 +29,7 @@ npm run format:check
 - `src/game/__tests__/persistence.test.ts` (4) — empty-store cold start, save→load round-trip, malformed-JSON fallback, partial-save guard.
 - `src/lib/versionCheck.test.ts` (7) — flat-version parsing, preview-version generation, semver comparison, `/version` fetch handling.
 - `src/sim/__tests__/runHeadless.test.ts` (13) — headless-harness determinism (same seed → identical output, different seed → divergent), snapshot-at-tick correctness, default/periodic/clamped tick selection, derived-only vs full-state capture, JSON + `migrateGameState` round-trip (incl. Rng), and `parseSimArgs` CLI parsing/validation.
+- `src/sim/__tests__/trace.test.ts` (7) — decision-trace Phase 2: behavior-neutrality proof (fixed seed, collector vs none → deep-equal final GameState + Rng), traces present/absent by flag, autobuy record content (candidate weights/affordability + chosen key, gate-closed no-emit), and worker-target record content (chosenId matches return, why-fields surfaced, path-threat on the rejected candidate, stickyHeld, flee-retarget emit).
 
 When adding or removing tests, update the count in this file in the same pass. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
 

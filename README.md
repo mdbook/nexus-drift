@@ -77,7 +77,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (226 tests across src/game/__tests__/, src/sim/, and src/lib/)
+npm test            # unit tests (233 tests across src/game/__tests__/, src/sim/, and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -98,9 +98,12 @@ npm run sim -- --seed 42 --ticks 200 --snapshot 50,100,200
 
 # Periodic snapshots, include the full GameState, write to a file
 npm run sim -- --seed 42 --ticks 5000 --every 500 --state --out run.json
+
+# Capture autobuy + worker-target decision traces (why each choice was made)
+npm run sim -- --seed 42 --ticks 5000 --trace --out run.json
 ```
 
-`--seed` and `--ticks` are required; `--snapshot <csv>` and/or `--every <n>` pick which ticks to capture (default: just the final tick); `--state` adds the full `GameState` (heavy — default is the lightweight `DerivedState` only); `--out <path>` writes JSON to a file instead of stdout. Export uses plain `JSON.stringify` and reloads through the existing `migrateGameState` path. See [`docs/agent/sim-harness.md`](docs/agent/sim-harness.md) for the full API and design.
+`--seed` and `--ticks` are required; `--snapshot <csv>` and/or `--every <n>` pick which ticks to capture (default: just the final tick); `--state` adds the full `GameState` (heavy — default is the lightweight `DerivedState` only); `--trace` captures decision traces into `result.traces` (opt-in, behavior-neutral — the sim is byte-identical with tracing off); `--out <path>` writes JSON to a file instead of stdout. Export uses plain `JSON.stringify` and reloads through the existing `migrateGameState` path. See [`docs/agent/sim-harness.md`](docs/agent/sim-harness.md) for the full API and design.
 
 ---
 
