@@ -77,7 +77,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (213 tests across src/game/__tests__/ and src/lib/)
+npm test            # unit tests (226 tests across src/game/__tests__/, src/sim/, and src/lib/)
 npm run lint
 npm run build
 npm run preview
@@ -85,6 +85,22 @@ npm run format:check
 ```
 
 Beta builds — `npm run dev` locally or any deploy at `nexus-drift-beta.mdbook.me` / `nexus-drift-beta.*.mdbook.one` — show an amber `BETA` pill next to the version button, a tinted favicon, and a `[BETA]` document-title prefix. Detection lives in `src/lib/isBetaBuild.ts`. Production hosts (`nexus-drift.mdbook.me` / `nexus-drift.*.mdbook.one`) are unaffected.
+
+---
+
+## Simulation Harness
+
+A read-only, headless runner for the sim core, so the game can be run off-screen and its state/telemetry exported deterministically for balance analysis — no browser, no changes to gameplay logic. Lives in `src/sim/` and reuses the existing pure core (`createInitialGameState` + `advanceGame` + `computeDerived`).
+
+```bash
+# Snapshot the derived metrics at specific ticks (deterministic for a given seed)
+npm run sim -- --seed 42 --ticks 200 --snapshot 50,100,200
+
+# Periodic snapshots, include the full GameState, write to a file
+npm run sim -- --seed 42 --ticks 5000 --every 500 --state --out run.json
+```
+
+`--seed` and `--ticks` are required; `--snapshot <csv>` and/or `--every <n>` pick which ticks to capture (default: just the final tick); `--state` adds the full `GameState` (heavy — default is the lightweight `DerivedState` only); `--out <path>` writes JSON to a file instead of stdout. Export uses plain `JSON.stringify` and reloads through the existing `migrateGameState` path. See [`docs/agent/sim-harness.md`](docs/agent/sim-harness.md) for the full API and design.
 
 ---
 
