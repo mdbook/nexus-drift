@@ -137,24 +137,51 @@ New module `src/sim/` (harness lives outside `src/game/` so it never gets confus
 
 ### Phase 2 — decision traces (balancing lane leads, dev supports) — HIGHER RISK, sim instrumentation
 
-- **Dependency rule (enforced at gate): one-way `src/sim → src/game` only.** Trace TYPES live in
-  `src/sim/trace.ts` and are imported BY the two instrumented sim files; harness types must never be dragged
-  into `src/game/`, and `src/game/` must not import from `src/sim/`. The sink is a structural interface the
-  sim files accept, not a coupling back to the harness.
-- `src/sim/trace.ts` — `SimTraceCtx` sink interface + a default collector.
-- Instrument `stepAutobuy`/`getAutobuyWeight` to emit per-decision records (candidate weights, chosen key,
-  emergency-path flag, affordability) into the sink **only when present**.
-- Instrument **`chooseWorkerTarget` (`workerTargeting.ts:138`)** — have it accept the optional sink and emit
-  `{agentId, tick, candidates:[{nodeId,score,...}], chosenId, stickyHeld}` once per retarget. The per-candidate
-  "why" fields (incl. `harvestBias`/`fearMod`/`spookedTicks`/pathThreat/corruption) are already locals in
-  `scoreWorkerNode (:45)`. `movement.ts` is untouched except forwarding the sink to its 3 call sites
-  (`:226`,`:324`,`:336`). This is the "pathfinding trace."
-- Thread the sink per §3 approach chosen by review. `runHeadless` gains `trace?: boolean` → attaches a
-  collector → traces land in `SimRunResult.traces`.
-- **Gate emphasis:** prove zero behavior change (determinism tests green, 213 baseline intact + only net-new
-  tests added), zero hot-path cost when off.
-- **Tests:** trace off → identical output + no perf regression; trace on → decisions captured for a known
-  seed; a worker forced under threat shows the reject reason; autobuy trace shows the chosen candidate.
+Touches load-bearing sim code (the `advanceGame` orchestrator + two decision fns). Every change is
+opt-in and MUST be provably behavior-neutral when the sink is absent. Design below is post-opus-review.
+
+- **Dependency direction (enforced at gate): the sink INTERFACE lives in `src/game`, the COLLECTOR lives in
+  `src/sim`.** Concretely: a new **`src/game/trace.ts`** holds ONLY the minimal sink interface + record types
+  (`SimTraceCtx`, `AutobuyTraceRecord`, `WorkerTargetTraceRecord`). The instrumented sim files
+  (`advanceGame.ts`, `subsystems/autobuy.ts`, `ai/workerTargeting.ts`, `subsystems/movement.ts`) import the
+  interface from `@/game/trace` — an intra-`src/game` edge, NOT a back-edge to the harness. **`src/game/`
+  never imports from `src/sim/`.** `src/sim/trace.ts` provides the concrete collector
+  (`createTraceCollector(): SimTraceCtx & { drain(): SimTraces }`), importing the interface from
+  `@/game/trace`. Arrow stays one-way `src/sim → src/game`. (Rationale: sim code must reference the sink
+  type; if that type lived in `src/sim` the reference would be the forbidden `src/game → src/sim` edge.)
+- **Sink threading — approach (A), LOCKED (see §3):** `advanceGame(prev, ctx?: SimTraceCtx)`. `advanceGame`
+  forwards `ctx` only to the two steps that reach an instrumented fn — the autobuy step and the worker step;
+  every other subsystem call is unchanged. Sole prod caller `useGameLoop.ts:80` passes nothing. Guard:
+  `tsconfig noUnusedParameters:true` → each forwarding layer must actually forward/use `ctx`.
+- **Autobuy hook** — `stepAutobuy` (`subsystems/autobuy.ts:142`): after it computes the sorted `candidates`
+  (`:162-193`), the `emergencyChoice` (`:147`), and the final `chosen` (`:195`), emit ONE
+  `AutobuyTraceRecord {tick, candidates:[{key,weight}], emergency, chosenKey|null}` iff `ctx` present. Emit
+  before the early-returns so a no-purchase tick is still recorded. As-built: the emergency path emits
+  `candidates:[]` (ranking is bypassed there); the ranked list is post-affordability-filter (an `affordable`
+  field would be vacuously `true`, so it was dropped — tracing unaffordable-but-considered candidates is a
+  Phase 3 enhancement).
+- **Worker "pathfinding" hook** — `chooseWorkerTarget` (`ai/workerTargeting.ts:138`): accept `ctx` and emit
+  ONE `WorkerTargetTraceRecord {tick, agentId, candidates:[{nodeId,score, …why…}], chosenId|null,
+stickyHeld}` per retarget. The per-candidate "why" fields (`harvestBias`/`fearMod`/`spookedTicks`/pathThreat/
+  corruption) are already locals in `scoreWorkerNode` (`:45`) — surface them, don't recompute.
+  `movement.ts` forwards `ctx` to its 3 call sites (`:226`,`:324`,`:336`); as-built, `chooseFleeDirectionTarget`
+  is also instrumented (a flee scan is a genuine retarget → emits a record with `stickyHeld:false`).
+- **`runHeadless` gains `trace?: boolean`** → when true, attach a `createTraceCollector()`, pass it into every
+  `advanceGame` call, and `drain()` into `SimRunResult.traces` (`{ autobuy: AutobuyTraceRecord[], workers:
+WorkerTargetTraceRecord[] }`). When false/absent, pass nothing → identical to today.
+- **Zero-behavior-change — the load-bearing invariant, proven not asserted:**
+  - The trace only READS already-computed locals and pushes to the sink. It MUST draw no `rng`, allocate
+    nothing when `ctx` is undefined (guard: `if (ctx) …`), and NOT reorder any `step*` call. `// ponytail:`
+    the guards.
+  - **Proof test (required):** run a fixed seed for N ticks (a) with no ctx and (b) with a collector
+    attached; assert the two final `GameState`s are deep-equal (the collector must not perturb the sim).
+    Plus: the full existing suite passes unchanged (re-derive the baseline count via `npx vitest run` — do
+    not trust a number in this doc), with only net-new trace tests added.
+- **Trace-content tests:** trace on → a known seed captures autobuy candidate weights + chosen key; a worker
+  forced under path-threat shows the rejected candidate + reason; the worker record's `chosenId` matches the
+  agent's resulting `target`.
+- **Docs:** extend `docs/agent/sim-harness.md` (trace usage + record shapes), README, changelog (fold into the
+  in-flight version or a new patch — bump required since dev already published `:3.2.5`), test-count refs.
 
 ### Phase 3 — richer analysis + optional viewer (dev/balancing; ui-ux if viewer) — NICE-TO-HAVE
 
