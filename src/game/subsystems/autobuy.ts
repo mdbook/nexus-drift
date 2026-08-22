@@ -1,18 +1,25 @@
 import { AUTO_TICK } from "@/game/constants";
 import { ECONOMY, FLUX, PRESTIGE } from "@/game/balance";
 import { getUpgradeDef, upgradeDefs } from "@/game/data";
+import { purchaseUpgrade } from "@/game/purchases";
 import { computeDerived } from "@/game/selectors";
 import type { SimTraceCtx } from "@/game/trace";
 import type { DerivedState, GameState, UpgradeKey } from "@/game/types";
-import {
-  canAffordUpgrade,
-  deductUpgradeCost,
-  getUpgradeCostTotal,
-  nextUpgradeCost,
-  appendLog,
-} from "@/game/utils";
+import { canAffordUpgrade, getUpgradeCostTotal, nextUpgradeCost, appendLog } from "@/game/utils";
 
 type EmergencyUpgradeChoice = { key: UpgradeKey; reason: string };
+
+/**
+ * 4.0 — whether autobuy is allowed to buy `key` under the current master
+ * setting. `"all"` → always (byte-identical to pre-4.0); `"none"` → never;
+ * `"custom"` → only when the per-upgrade flag is explicitly on.
+ */
+function isAutoEligible(state: GameState, key: UpgradeKey): boolean {
+  const master = state.upgradeAutoMaster;
+  if (master === "all") return true;
+  if (master === "none") return false;
+  return state.upgradeAutoFlags[key] === true;
+}
 
 export function getAutobuyWeight(state: GameState, derived: DerivedState, key: UpgradeKey) {
   let weight = 1;
@@ -146,17 +153,16 @@ export function stepAutobuy(state: GameState, ctx?: SimTraceCtx) {
 
   const derived = computeDerived(state);
   const emergencyChoice = getEmergencyUpgradeChoice(state, derived);
-  if (emergencyChoice) {
-    const def = getUpgradeDef(emergencyChoice.key);
-    const cost = nextUpgradeCost(def, state.upgrades[def.key]);
-    deductUpgradeCost(state.resources, cost);
-    state.upgrades[def.key] += 1;
-    state.stats.spent += getUpgradeCostTotal(cost);
-    appendLog(
-      state,
-      `Ops bot fast-tracked ${def.label} v${state.upgrades[def.key]} for ${emergencyChoice.reason}.`,
-      "upgrade"
-    );
+  // 4.0 — the emergency path respects the autobuy flags too: if the player has
+  // opted this upgrade out, fall through to the ranking (which is also filtered).
+  if (emergencyChoice && isAutoEligible(state, emergencyChoice.key)) {
+    // enforceGates: false — getEmergencyUpgradeChoice already gates its picks
+    // (and deliberately fast-tracks some below their minTier), so purchaseUpgrade
+    // must not re-gate here. This keeps the emergency path byte-identical.
+    purchaseUpgrade(state, emergencyChoice.key, {
+      enforceGates: false,
+      log: (label, level) => `Ops bot fast-tracked ${label} v${level} for ${emergencyChoice.reason}.`,
+    });
     // ponytail: emit before the early-return so emergency ticks are still traced.
     // The candidate ranking is bypassed on this path, so candidates is empty.
     if (ctx) {
@@ -176,6 +182,9 @@ export function stepAutobuy(state: GameState, ctx?: SimTraceCtx) {
       cost: nextUpgradeCost(def, state.upgrades[def.key]),
     }))
     .filter(({ def, cost }) => {
+      // 4.0 — drop upgrades the player has opted out of BEFORE ranking, so the
+      // trace's candidates/chosenKey reflect only what was actually auto-eligible.
+      if (!isAutoEligible(state, def.key)) return false;
       if (def.minTier !== undefined && derived.progression.tier < def.minTier) return false;
 
       const smartGate =
@@ -218,14 +227,17 @@ export function stepAutobuy(state: GameState, ctx?: SimTraceCtx) {
     });
   }
   if (chosen) {
-    deductUpgradeCost(state.resources, chosen.cost);
-    state.upgrades[chosen.def.key] += 1;
-    state.stats.spent += getUpgradeCostTotal(chosen.cost);
-    appendLog(state, `Purchased ${chosen.def.label} v${state.upgrades[chosen.def.key]}`, "upgrade");
+    // enforceGates: false — the candidate filter above already applied minTier,
+    // the smart gates, and affordability, so purchaseUpgrade only executes the buy.
+    purchaseUpgrade(state, chosen.def.key, { enforceGates: false });
     return;
   }
 
+  // 4.0 — don't auto-prestige when autobuy is fully off ("none"); prestige is an
+  // autobuy behavior, and a manual player shouldn't have their run reset for them.
+  // Under "all" this guard is always true, so the pre-4.0 path is unchanged.
   if (
+    state.upgradeAutoMaster !== "none" &&
     state.resources.gold > PRESTIGE.goldGate &&
     state.resources.gems > PRESTIGE.gemsGate &&
     state.enemies.length < PRESTIGE.maxEnemies &&

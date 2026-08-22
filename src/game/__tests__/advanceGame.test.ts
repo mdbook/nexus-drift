@@ -608,6 +608,7 @@ describe("advanceGame simulation invariants", () => {
 
   it("fast-tracks scout upgrades once corrupters are active", () => {
     const seeded = createInitialGameState();
+    seeded.upgradeAutoMaster = "all"; // 4.0: fresh saves default to manual; this test exercises autobuy.
     seeded.level = 8;
     seeded.upgrades.miner = 2;
     seeded.upgrades.drill = 2;
@@ -637,6 +638,7 @@ describe("advanceGame simulation invariants", () => {
 
   it("can autobuy foundry using ore and flux costs", () => {
     const seeded = createInitialGameState();
+    seeded.upgradeAutoMaster = "all"; // 4.0: fresh saves default to manual; this test exercises autobuy.
     // 3.0.0: foundry minTier=3 now requires score ≥ 225 under the stretched
     // curve, so the test setup needs a meaningful late-game weight stack to
     // reach tier 3.

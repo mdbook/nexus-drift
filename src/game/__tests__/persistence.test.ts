@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadSavedState, SAVE_KEY, saveGameState } from "@/game/persistence";
-import { createInitialGameState, SCHEMA_VERSION } from "@/game/factories";
+import { createInitialGameState, migrateGameState, SCHEMA_VERSION } from "@/game/factories";
 import { advanceGame } from "@/game/advanceGame";
+
+type RawSave = Parameters<typeof migrateGameState>[0];
+
+/** A JSON round-trip of a fresh state, standing in for a serialized save on disk. */
+function serializedSave(seed: number): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(createInitialGameState(seed))) as Record<string, unknown>;
+}
 
 // Vitest runs in the node environment, so localStorage is not present by
 // default. The persistence layer is the only entry point that touches the
@@ -76,5 +83,38 @@ describe("persistence load/save round-trip", () => {
     localStorage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: SCHEMA_VERSION }));
     const loaded = loadSavedState();
     expect(loaded.resources).toEqual(createInitialGameState().resources);
+  });
+});
+
+describe("v13 autobuy-flag migration", () => {
+  it("a pre-13 (3.x) save comes up with master=all, empty flags, and schema 13", () => {
+    const raw = serializedSave(7);
+    // A real 3.x save predates these fields entirely.
+    delete raw.upgradeAutoMaster;
+    delete raw.upgradeAutoFlags;
+    raw.schemaVersion = 12;
+
+    const migrated = migrateGameState(raw as RawSave);
+
+    expect(migrated.schemaVersion).toBe(13);
+    expect(migrated.upgradeAutoMaster).toBe("all"); // returning players keep autobuy-everything
+    expect(migrated.upgradeAutoFlags).toEqual({});
+  });
+
+  it("a fresh 4.0 state defaults to manual play (master=none, empty flags)", () => {
+    const fresh = createInitialGameState();
+    expect(fresh.upgradeAutoMaster).toBe("none");
+    expect(fresh.upgradeAutoFlags).toEqual({});
+  });
+
+  it("a v13 save preserves an explicit master/flags choice through migration", () => {
+    const raw = serializedSave(9);
+    raw.upgradeAutoMaster = "custom";
+    raw.upgradeAutoFlags = { miner: true, reactor: false };
+
+    const migrated = migrateGameState(raw as RawSave);
+
+    expect(migrated.upgradeAutoMaster).toBe("custom");
+    expect(migrated.upgradeAutoFlags).toEqual({ miner: true, reactor: false });
   });
 });

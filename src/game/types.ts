@@ -438,6 +438,18 @@ export type GameState = {
   rng: Rng;
   resources: ResourceMap;
   upgrades: UpgradeMap;
+  /**
+   * 4.0 — per-upgrade autobuy opt-in used when `upgradeAutoMaster` is `"custom"`.
+   * A missing key resolves to `false` (not auto-bought). Ignored under `"all"` / `"none"`.
+   */
+  upgradeAutoFlags: Partial<Record<UpgradeKey, boolean>>;
+  /**
+   * 4.0 — master autobuy switch. `"all"` autobuys every eligible upgrade (the
+   * pre-4.0 behavior; loaded 3.x saves migrate to this), `"none"` disables
+   * autobuy entirely (fresh 4.0 saves default here — players buy manually), and
+   * `"custom"` defers to `upgradeAutoFlags` per upgrade.
+   */
+  upgradeAutoMaster: "all" | "none" | "custom";
   log: LogEntry[];
   combo: number;
   level: number;

@@ -6,7 +6,7 @@
 
 ## Save Slot
 
-Autosaves to `localStorage["nexusDriftSave"]` every 30 seconds. Saves carry a `schemaVersion` field (currently `12`).
+Autosaves to `localStorage["nexusDriftSave"]` every 30 seconds. Saves carry a `schemaVersion` field (currently `13`).
 
 `migrateGameState()` in `factories.ts` always stamps `SCHEMA_VERSION` on the returned state and handles older saves gracefully via defensive `?? defaultValue` fallbacks for every backfillable field.
 
@@ -24,7 +24,7 @@ Any change that adds, removes, or renames a field on `GameState` (or any nested 
 
 Do this even for fields that seem cosmetic or optional. A missing field on a loaded save produces `undefined` where the sim expects a number, which causes silent NaN propagation that is hard to diagnose.
 
-## Schema History (Current = v12)
+## Schema History (Current = v13)
 
 - **v5** — AI fields: `ResourceNode.workTicks`, `Agent.threatMemory`, `Enemy.archetype`, `Enemy.squadId`, optional `Enemy.dashTicks`. Backfilled with `?? default`.
 - **v6** — existed only during 3.0.0 branch testing; uses the same field-presence fallback path as older saves.
@@ -34,6 +34,7 @@ Do this even for fields that seem cosmetic or optional. A missing field on a loa
 - **v10** — `Enemy.latchedWorkerId?` (warden parasite latch — persists mid-latch saves; pre-v10 saves default to `null` so the warden resumes roaming).
 - **v11** — adds four fields together: `state.archiveLog` (long-form 200-entry mirror for upgrade/event/achievement categories), `Agent.spookedTicks` (post-flee threat-aversion memory), and the (now-legacy) `state.achievementToastQueue` + `state.enemyDiscoveryQueue` parallel toast queues plus `state.discoveredEnemies`.
 - **v12** — collapses the two parallel queues into a single `state.notifications: Notification[]` (discriminated union of `achievement` / `enemy-discovered`). The migration translates legacy v11 `achievementToastQueue` and `enemyDiscoveryQueue` entries via `buildAchievementNotification` / `buildEnemyDiscoveredNotification` and preserves stable ids for idempotent re-pushes. `state.discoveredEnemies` is unchanged.
+- **v13** (4.0) — adds `state.upgradeAutoMaster: "all" | "none" | "custom"` and `state.upgradeAutoFlags: Partial<Record<UpgradeKey, boolean>>` for the manual/auto purchase split. **Asymmetric default (identity preservation):** fresh 4.0 saves default `upgradeAutoMaster: "none"` + `{}` (players buy manually — the 4.0 identity), but loaded pre-13 saves migrate to `upgradeAutoMaster ?? "all"` + `upgradeAutoFlags ?? {}` so returning players keep the autobuy-everything idle experience. `upgradeAutoFlags` is an object → deep-copied in `cloneGameState`; `upgradeAutoMaster` is a primitive (handled by `...prev`).
 
 All new fields carry `?? []` / `?? {}` / `?? 0` migration fallbacks.
 

@@ -1,6 +1,6 @@
 # Economy
 
-**Source files:** `src/game/subsystems/economy.ts`, `src/game/subsystems/mining.ts`, `src/game/subsystems/autobuy.ts`, `src/game/selectors.ts`, `src/game/balance.ts` (`ECONOMY`, `CORRUPTION`, `CITY*`)
+**Source files:** `src/game/subsystems/economy.ts`, `src/game/subsystems/mining.ts`, `src/game/subsystems/autobuy.ts`, `src/game/purchases.ts`, `src/game/selectors.ts`, `src/game/balance.ts` (`ECONOMY`, `CORRUPTION`, `CITY*`)
 **Tests:** `src/game/__tests__/advanceGame.test.ts`
 **Key invariants:** `xpForLevel(level)` is the single XP threshold source; `ResourceNode.hp` only decreases through mining; idle nodes do not regenerate; city damage routes through `damageCity`.
 
@@ -41,13 +41,21 @@ Recently worked, partially mined nodes use `workTicks` to render a fading mined-
 
 Partially mined resource nodes may show fading recent-work visuals in `FieldSvg.tsx` based on `ResourceNode.workTicks`, but **idle nodes must not regenerate mined HP**. `ResourceNode.hp` only decreases through mining and resets through exhaustion/respawn (or temporary-node removal). If you add more progress or deterioration presentation, keep it visual-only.
 
+## Purchase path (`src/game/purchases.ts`)
+
+`purchaseUpgrade(state, key, opts?)` is the single shared buy path for **both** manual (future 4.0 UI) and automatic (`stepAutobuy`) purchases: cost-check → `deductUpgradeCost` → `state.upgrades[key] += 1` → `state.stats.spent +=` → `appendLog(..., "upgrade")`. Returns `{ ok: true }` or `{ ok: false, reason }` where reason is `"insufficient"` (can't afford), `"locked"` (below `minTier`), or `"maxed"` (hard cap — only Sentinel, capped by deployed slots). Reuses the helpers in `utils.ts` (`nextUpgradeCost` / `canAffordUpgrade` / `deductUpgradeCost` / `getUpgradeCostTotal`); it does not reimplement them.
+
+`opts.enforceGates` (default `true`) toggles the tier/max gates; **autobuy passes `false`** because it applies its own candidate gating upstream and deliberately fast-tracks some emergency picks below their `minTier` — affordability is always checked regardless. `opts.log` overrides the default `Purchased <label> v<level>` line (the emergency path uses it for `Ops bot fast-tracked …`).
+
 ## Autobuy
 
-Weighted upgrade prioritization with emergency paths (e.g. buy sentinel if 2+ brutes alive). Reads final resource totals after income and combat rewards. Multi-resource cost shapes are supported.
+Weighted upgrade prioritization with emergency paths (e.g. buy sentinel if 2+ brutes alive). Reads final resource totals after income and combat rewards. Multi-resource cost shapes are supported. Purchases execute through `purchaseUpgrade` (above).
+
+**4.0 flag gating.** Before selecting a candidate, `stepAutobuy` filters upgrades through `isAutoEligible(state, key)`: `upgradeAutoMaster === "all"` → always auto (byte-identical to pre-4.0), `"none"` → never, `"custom"` → only when `upgradeAutoFlags[key] === true`. The filter runs **before** the trace emit so the traced `candidates`/`chosenKey` reflect only what was auto-eligible. The emergency path respects the same flags: an opted-out emergency pick falls through to the (also-filtered) ranking.
 
 ## Prestige
 
-Auto-triggers when the colony is rich, stable, and clear enough. Combo bonus stacks with Archive upgrades.
+Auto-triggers when the colony is rich, stable, and clear enough — but **not when `upgradeAutoMaster === "none"`** (prestige is an autobuy behavior; a fully-manual player shouldn't have their run reset for them). Under `"all"` this guard is always true, so the pre-4.0 path is unchanged. Combo bonus stacks with Archive upgrades.
 
 ## City / Home District
 

@@ -47,7 +47,11 @@ import type { AchievementId, AchievementRarity } from "@/game/achievements";
 // v12 (3.2.2) collapses achievementToastQueue + enemyDiscoveryQueue into a
 // single GameState.notifications queue. Legacy v11 saves are migrated by
 // translating both old fields into Notification entries.
-export const SCHEMA_VERSION = 12;
+// v13 (4.0) adds GameState.upgradeAutoMaster + GameState.upgradeAutoFlags for
+// the manual/auto purchase split. Fresh 4.0 saves default master to "none"
+// (manual play); loaded pre-13 saves migrate to "all" (identity preservation —
+// returning players keep the autobuy-everything idle experience).
+export const SCHEMA_VERSION = 13;
 
 /**
  * Deterministic per-agent variance computed from the agent id. These are procedural
@@ -471,6 +475,9 @@ export function createInitialGameState(seed?: number): GameState {
       focusedBeam: 0,
       missileLauncher: 0,
     },
+    // 4.0 identity: fresh players buy manually. Autobuy is opt-in from here.
+    upgradeAutoMaster: "none",
+    upgradeAutoFlags: {},
     log: [
       { tick: 0, category: "system" as const, message: "Passive income stable." },
       { tick: 0, category: "system" as const, message: "Auto-routing drones to resource field." },
@@ -563,6 +570,7 @@ export function cloneGameState(prev: GameState): GameState {
     rng: Rng.fromState(prev.rng.getState()),
     resources: { ...prev.resources },
     upgrades: { ...prev.upgrades },
+    upgradeAutoFlags: { ...prev.upgradeAutoFlags },
     achievements: { ...prev.achievements },
     stats: {
       ...prev.stats,
@@ -616,6 +624,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     rng: rawRngState !== undefined ? Rng.fromState(rawRngState) : base.rng,
     resources: { ...base.resources, ...raw.resources },
     upgrades: { ...base.upgrades, ...raw.upgrades },
+    // v13 (4.0): pre-13 saves have no master flag. They migrate to "all" so
+    // returning players keep the autobuy-everything idle experience; the base
+    // fresh default ("none") only applies to brand-new 4.0 runs.
+    upgradeAutoMaster: raw.upgradeAutoMaster ?? "all",
+    upgradeAutoFlags: raw.upgradeAutoFlags ? { ...raw.upgradeAutoFlags } : {},
     achievements: { ...raw.achievements },
     stats: {
       ...base.stats,

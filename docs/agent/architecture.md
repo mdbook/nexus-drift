@@ -66,6 +66,7 @@ Game core:
 - `src/game/balance.ts` — single source of truth for all tuning constants.
 - `src/game/rng.ts` — deterministic Mulberry32 PRNG.
 - `src/game/targeting.ts` — shared targeting helpers (`pickEnemyTarget`, `pickEnemyTargetMulti`).
+- `src/game/purchases.ts` — `purchaseUpgrade`, the single shared upgrade-buy path for both manual and auto (`stepAutobuy`) purchases. See [economy.md](economy.md).
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper. See [events-achievements.md](events-achievements.md).
 - `src/game/achievements.ts` — achievement definitions, unlock helper, and the explicit interaction helpers (`spotTourist()`, etc.). See [events-achievements.md](events-achievements.md).
 - `src/game/adminCommands.ts` — pure admin command executor used by `AdminPanel`. Commands mutate the cloned `GameState` supplied by `mutateGame()` and return shell effects for speed/banner actions instead of reaching into React state directly.

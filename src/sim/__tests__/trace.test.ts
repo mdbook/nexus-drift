@@ -57,6 +57,8 @@ describe("autobuy trace content", () => {
   it("captures candidate keys + weights and the chosen key", () => {
     const state = createInitialGameState(1234);
     state.enemies = [];
+    // 4.0: fresh saves default master to "none". Enable autobuy so the ranking runs.
+    state.upgradeAutoMaster = "all";
     // Fresh, threat-free state → the emergency path is not taken, so the ranking runs.
     state.resources.gold = 10_000;
     state.resources.ore = 10_000;
