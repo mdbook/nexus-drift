@@ -32,7 +32,7 @@ registry_version_check:
       apk add --no-cache curl >/dev/null 2>&1
       repos_json="$(curl -sf --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories" 2>/dev/null || true)"
-      registry_repository_id="$(printf '%s' "$repos_json" | grep -o '"id":[0-9]*' | head -n1 | grep -o '[0-9]*')"
+      registry_repository_id="$(printf '%s' "$repos_json" | grep -o '"id":[0-9]*' | head -n1 | grep -o '[0-9]*' || true)"
       if [ -n "$registry_repository_id" ]; then
         tag_status="$(curl -o /dev/null -w '%{http_code}' -sf \
           --header "JOB-TOKEN: $CI_JOB_TOKEN" \
@@ -44,6 +44,8 @@ registry_version_check:
         else
           echo "Container release tag '$IMAGE_VERSION_TAG' is available (HTTP $tag_status)."
         fi
+      elif [ -z "$repos_json" ]; then
+        echo "Could not query container registry (token scope?) -- assuming release tag '$IMAGE_VERSION_TAG' is available."
       else
         echo "No existing container registry repository found; release tag '$IMAGE_VERSION_TAG' is available."
       fi
