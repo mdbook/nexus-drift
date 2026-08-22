@@ -2,7 +2,7 @@ import { WORKER_ABILITIES, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from 
 import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
 import type { SimTraceCtx, WorkerTargetTraceCandidate } from "@/game/trace";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
-import { dist } from "@/game/utils";
+import { dist, elapsedTicks } from "@/game/utils";
 
 /** The "why" fields a caller can ask `scoreWorkerNode` to surface (trace-only). */
 type WorkerNodeScoreWhy = Omit<WorkerTargetTraceCandidate, "nodeId" | "score">;
@@ -205,7 +205,7 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
   // no rng, adds no candidate, and still flows through the single emit below.
   const suggestion = agent.suggestedTarget;
   if (suggestion && suggestion.kind === "node" && suggestion.id != null) {
-    if (state.timers.tick >= suggestion.expiresAt) {
+    if (elapsedTicks(state.timers.tick, suggestion.createdAt) >= WORKER_AI.suggestionExpiryTicks) {
       agent.suggestedTarget = undefined; // expired — fall back to normal scoring
     } else {
       const suggestedId = Number(suggestion.id);

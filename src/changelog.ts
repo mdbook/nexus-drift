@@ -16,6 +16,28 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.0.1",
+    badge: "Operator Polish",
+    summary:
+      "Patch: wrap-safe expiry ticks for worker suggestions + priority marks; drop inert send-home marker; doc fix. A cleanup slice over 4.0.0 — no gameplay or balance change. The three new 4.0 nudge expiries (`Agent.suggestedTarget`, `state.priorityMarks`) now store a `createdAt` tick + fixed duration and test expiry through the house `elapsedTicks(now, then)` wrap-safe idiom instead of comparing raw absolute ticks, matching how `city.lastHostileTick` already works. Save-safe: these are transient UI nudges, so both are simply cleared on load rather than field-converted. The deterministic per-tick priority-mark prune and every trace-neutrality / headless invariant are untouched.",
+    sections: [
+      {
+        title: "Wrap-safe nudge expiries",
+        items: [
+          "`Agent.suggestedTarget` and `state.priorityMarks` entries now carry a `createdAt` tick (was an absolute `expiresAt`); expiry is `elapsedTicks(now, createdAt) >= duration` using the durations already in `balance.ts` (`WORKER_AI.suggestionExpiryTicks`, `PRIORITY_MARK.expiryTicks`). Fixes a benign mis-expiry that could only surface after ~3.9 days of continuous play at the `TICK_WRAP` instant. The per-tick prune in `advanceGame.ts` stays deterministic and keeps its `priorityMarks.length > 0` headless no-op guard; the decision-trace emits and autobuy are untouched.",
+          "Migration: `suggestedTarget` and `priorityMarks` are cleared on save-load (`migrateGameState`) rather than converted — they are short-lived nudges that never need to survive a reload, so no data conversion is needed for 4.0.0 saves. Schema stays v13.",
+        ],
+      },
+      {
+        title: "Cleanup",
+        items: [
+          '`suggestWorkerHome` ("Send home") no longer stamps an inert `kind: "home"` `suggestedTarget` marker — `chooseWorkerTarget` only ever consumed `kind: "node"` nudges, so the home object was dead cruft that serialized into saves and was never expiry-cleared. Nulling the worker\'s `target` (AI re-picks) is the whole functional effect and is preserved; `"home"` is dropped from the `suggestedTarget.kind` union.',
+          "`FieldPopover` docstring corrected: it reads the live `game`/`derived` snapshot (App.tsx passes the unthrottled state), not the throttled `uiGame`/`uiDerived` the Sidebar / status strip render from.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.0.0",
     badge: "You Are The Operator",
     summary:

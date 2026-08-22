@@ -635,8 +635,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     // fresh default ("none") only applies to brand-new 4.0 runs.
     upgradeAutoMaster: raw.upgradeAutoMaster ?? "all",
     upgradeAutoFlags: raw.upgradeAutoFlags ? { ...raw.upgradeAutoFlags } : {},
-    // 4.0 — defense-priority marks are short-lived; older saves have none.
-    priorityMarks: Array.isArray(raw.priorityMarks) ? raw.priorityMarks.map((mark) => ({ ...mark })) : [],
+    // 4.0 — defense-priority marks are short-lived, transient UI nudges. They use
+    // a `createdAt` tick (4.0.1) rather than the old absolute `expiresAt`, so we
+    // simply drop them on load: they never need to survive a reload, which also
+    // sidesteps any field-shape conversion for 4.0.0 saves.
+    priorityMarks: [],
     achievements: { ...raw.achievements },
     stats: {
       ...base.stats,
@@ -727,6 +730,10 @@ export function migrateGameState(raw: SerializedGameState): GameState {
           return {
             ...makeWorker(agent.kind, agent.id),
             ...agent,
+            // 4.0.1 — `suggestedTarget` is a transient UI nudge that now carries a
+            // `createdAt` tick instead of the old absolute `expiresAt`. Clear it on
+            // load rather than convert: it never needs to survive a reload.
+            suggestedTarget: undefined,
             killsNearby: agent.killsNearby ?? 0,
             veteranRank: agent.veteranRank ?? 0,
             spawnTick: agent.spawnTick ?? 0,

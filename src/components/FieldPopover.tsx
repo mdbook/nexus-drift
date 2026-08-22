@@ -12,9 +12,11 @@ import { clamp } from "@/game/utils";
  * anchored per layout.md §Tooltip Conventions, because the popover sits over the
  * `overflow-hidden` field card and an `absolute` panel would clip. The worker /
  * enemy variants carry a single soft-nudge action button; the city variant is
- * read-only. Live data is read from the throttled `game`/`derived` snapshot by
- * id, so an entity that dies while inspected simply renders "no longer on the
- * field" instead of stale numbers.
+ * read-only. Live data is read from the live `game`/`derived` snapshot by
+ * id (App.tsx passes the unthrottled state here, not the throttled
+ * `uiGame`/`uiDerived` that the Sidebar / status strip render from), so an
+ * entity that dies while inspected simply renders "no longer on the field"
+ * instead of stale numbers.
  */
 
 /** Which entity this popover is inspecting. Ids are entity ids (city has none). */

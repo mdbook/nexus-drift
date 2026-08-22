@@ -178,8 +178,10 @@ export type Agent = {
    * the normal safety/eligibility filters (path-threat / corruption). It never
    * bypasses those rules or the flee path, and is cleared on arrival, expiry, or
    * rejection. Phase 2 only stamps `kind: "node"` (`id` = stringified node id).
+   * `createdAt` is the tick it was stamped; expiry is `elapsedTicks(now, createdAt)
+   * >= WORKER_AI.suggestionExpiryTicks`, wrap-safe across `TICK_WRAP`.
    */
-  suggestedTarget?: { kind: "node" | "enemy" | "home"; id?: string; expiresAt: number };
+  suggestedTarget?: { kind: "node" | "enemy"; id?: string; createdAt: number };
 };
 
 export type Turret = {
@@ -479,9 +481,11 @@ export type GameState = {
    * target-scoring toward that enemy for a few seconds (§Enemy Target
    * Eligibility). A purely additive weight bias — it never overrides the
    * cloak/range/role eligibility filter that runs before scoring. Expired
-   * entries are pruned each tick. Defaults to `[]` on migrate.
+   * entries are pruned each tick. Defaults to `[]` on migrate. `createdAt` is the
+   * tick the mark was stamped; expiry is `elapsedTicks(now, createdAt) >=
+   * PRIORITY_MARK.expiryTicks`, wrap-safe across `TICK_WRAP`.
    */
-  priorityMarks: { enemyId: number; expiresAt: number }[];
+  priorityMarks: { enemyId: number; createdAt: number }[];
   log: LogEntry[];
   combo: number;
   level: number;

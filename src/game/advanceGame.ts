@@ -1,5 +1,7 @@
+import { PRIORITY_MARK } from "@/game/balance";
 import { TICK_WRAP } from "@/game/constants";
 import { cloneGameState } from "@/game/factories";
+import { elapsedTicks } from "@/game/utils";
 import { stepAutobuy } from "@/game/subsystems/autobuy";
 import { stepAchievements } from "@/game/subsystems/achievements";
 import { stepCombat, stepZapperFire, resolveEnemyDeaths, tickDeathFades } from "@/game/subsystems/combat";
@@ -79,7 +81,9 @@ export function advanceGame(prev: GameState, ctx?: SimTraceCtx): GameState {
   // 4.0 — drop expired defense-priority marks before defense scoring reads them.
   // Guarded so the neutrality path (no marks ever created headlessly) is a no-op.
   if (state.priorityMarks.length > 0) {
-    state.priorityMarks = state.priorityMarks.filter((mark) => mark.expiresAt > state.timers.tick);
+    state.priorityMarks = state.priorityMarks.filter(
+      (mark) => elapsedTicks(state.timers.tick, mark.createdAt) < PRIORITY_MARK.expiryTicks
+    );
   }
   stepTurrets(state);
   stepScouts(state);

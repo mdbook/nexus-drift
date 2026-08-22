@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PRIORITY_MARK } from "@/game/balance";
+import { TICK_WRAP } from "@/game/constants";
 import { createInitialGameState, spawnEnemy } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepWorkers } from "@/game/subsystems/movement";
@@ -62,7 +63,7 @@ describe("worker suggestion (4.0 phase 2)", () => {
     // With no suggestion the worker picks the nearer node.
     expect(chooseWorkerTarget(state, miner)).toBe(near.id);
 
-    miner.suggestedTarget = { kind: "node", id: String(far.id), expiresAt: state.timers.tick + 120 };
+    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: state.timers.tick };
     expect(chooseWorkerTarget(state, miner)).toBe(far.id);
     // Still en route (far away) → suggestion is retained.
     expect(miner.suggestedTarget).toBeTruthy();
@@ -83,7 +84,7 @@ describe("worker suggestion (4.0 phase 2)", () => {
       addEnemy(state, { kind: "raider", x: 540 + i * 6, y: 260, hp: 30, role: "combat" });
     }
 
-    miner.suggestedTarget = { kind: "node", id: String(far.id), expiresAt: state.timers.tick + 120 };
+    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: state.timers.tick };
     const picked = chooseWorkerTarget(state, miner);
     expect(picked).not.toBe(far.id);
     expect(miner.suggestedTarget).toBeUndefined();
@@ -98,7 +99,7 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.y = target.y; // already on top of the suggested node
     miner.target = null;
 
-    miner.suggestedTarget = { kind: "node", id: String(target.id), expiresAt: state.timers.tick + 120 };
+    miner.suggestedTarget = { kind: "node", id: String(target.id), createdAt: state.timers.tick };
     expect(chooseWorkerTarget(state, miner)).toBe(target.id);
     expect(miner.suggestedTarget).toBeUndefined();
   });
@@ -114,7 +115,8 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.target = null;
     state.timers.tick = 500;
 
-    miner.suggestedTarget = { kind: "node", id: String(far.id), expiresAt: 400 }; // already past
+    // Created at tick 300 → 200 ticks elapsed, past the 120-tick expiry.
+    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: 300 };
     expect(chooseWorkerTarget(state, miner)).toBe(near.id);
     expect(miner.suggestedTarget).toBeUndefined();
   });
@@ -136,8 +138,8 @@ describe("worker suggestion (4.0 phase 2)", () => {
     state.timers.tick = 0;
     addEnemy(state, { kind: "brute", x: 360, y: 260, hp: 80, role: "combat" });
 
-    // Nudge the worker straight into the threatened lane.
-    miner.suggestedTarget = { kind: "node", id: String(aheadNode.id), expiresAt: 120 };
+    // Nudge the worker straight into the threatened lane (fresh, unexpired).
+    miner.suggestedTarget = { kind: "node", id: String(aheadNode.id), createdAt: 0 };
     stepWorkers(state);
 
     // The threatened ahead node never becomes the target; the nudge is rejected.
@@ -167,14 +169,15 @@ describe("worker suggestion (4.0 phase 2)", () => {
 });
 
 describe("worker send-home (4.0 phase 3)", () => {
-  it("stamps a home marker and drops the current target so the AI re-evaluates", () => {
+  it("drops the current target (and stamps no lingering marker) so the AI re-evaluates", () => {
     const state = baseState();
     const miner = soloMiner(state);
     miner.target = 1234;
     state.timers.tick = 100;
 
     expect(suggestWorkerHome(state, miner.id)).toBe(true);
-    expect(miner.suggestedTarget).toEqual({ kind: "home", expiresAt: 160 });
+    // 4.0.1 — no inert "home" marker is left behind; nulling target is the effect.
+    expect(miner.suggestedTarget).toBeUndefined();
     expect(miner.target).toBeNull();
   });
 
@@ -241,5 +244,48 @@ describe("defense priority marks (4.0 phase 2)", () => {
     turret.cooldown = 0;
     stepTurrets(state);
     expect(visible.hp).toBeLessThan(40);
+  });
+});
+
+describe("wrap-safe expiry across TICK_WRAP (4.0.1)", () => {
+  it("a suggestion stamped just before the wrap survives it, then expires by elapsed ticks", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    const near = makeNode({ id: 8601, x: 260, y: 260 });
+    const far = makeNode({ id: 8602, x: 720, y: 260 });
+    state.nodes = [near, far];
+    miner.x = 300;
+    miner.y = 260;
+    miner.target = null;
+
+    // Stamped 60 ticks before the counter wraps.
+    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: TICK_WRAP - 60 };
+
+    // 30 ticks past the wrap → 90 ticks elapsed (< 120): still honored & retained.
+    state.timers.tick = 30;
+    expect(chooseWorkerTarget(state, miner)).toBe(far.id);
+    expect(miner.suggestedTarget).toBeTruthy();
+
+    // 90 ticks past the wrap → 150 ticks elapsed (>= 120): expired + cleared.
+    state.timers.tick = 90;
+    expect(chooseWorkerTarget(state, miner)).toBe(near.id);
+    expect(miner.suggestedTarget).toBeUndefined();
+  });
+
+  it("a priority mark stamped just before the wrap stays marked across it, then expires", () => {
+    const state = baseState();
+    const enemy = addEnemy(state, { kind: "raider", x: 520, y: 480, hp: 30, role: "combat" });
+
+    // Mark stamped 60 ticks before the wrap (createdAt = TICK_WRAP - 60).
+    state.timers.tick = TICK_WRAP - 60;
+    expect(suggestDefensePriority(state, enemy.id)).toBe(true);
+
+    // 60 ticks past the wrap → 120 ticks elapsed (< 150): still marked.
+    state.timers.tick = 60;
+    expect(isPriorityMarked(state, enemy.id)).toBe(true);
+
+    // 120 ticks past the wrap → 180 ticks elapsed (>= 150): expired.
+    state.timers.tick = 120;
+    expect(isPriorityMarked(state, enemy.id)).toBe(false);
   });
 });
