@@ -20,6 +20,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 | Activity log / notifications / admin terminal                       | [events-achievements.md](events-achievements.md)                                         |
 | CI / Docker / GitHub Pages / version banner / commands              | [operations.md](operations.md)                                                           |
 | Core simulation / `advanceGame` / RNG / cloning                     | [architecture.md](architecture.md)                                                       |
+| Headless sim runs / analysis harness / CLI / export                 | [sim-harness.md](sim-harness.md) + [architecture.md](architecture.md)                    |
 | Project structure / where does X live                               | [architecture.md](architecture.md)                                                       |
 | Cross-cutting save migration concerns                               | [persistence.md](persistence.md)                                                         |
 | What's left to do                                                   | [roadmap.md](roadmap.md)                                                                 |
@@ -35,6 +36,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 - [events-achievements.md](events-achievements.md) — random events, achievements, activity log, notifications, easter eggs, admin terminal
 - [persistence.md](persistence.md) — save schema versions, migration checklist, entity spawn/death fields
 - [operations.md](operations.md) — local commands, CI, Docker, Pages mirror, beta build, test counts
+- [sim-harness.md](sim-harness.md) — headless sim runner, CLI, deterministic export (read-only analysis tooling)
 - [roadmap.md](roadmap.md) — outstanding work
 
 ## Invariant Hot List

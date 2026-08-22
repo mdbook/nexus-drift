@@ -16,6 +16,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.2.5",
+    badge: "Sim Harness",
+    summary:
+      "Additive tooling, zero gameplay change. Adds a read-only headless simulation harness under `src/sim/` so agents can run Nexus Drift deterministically off-screen and export state/telemetry at arbitrary ticks for balance analysis. Phase 1 makes NO changes to `src/game/` sim logic — it only observes the existing pure core (`createInitialGameState` + `advanceGame` + `computeDerived`). Run it via `npm run sim -- --seed 42 --ticks 200 --snapshot 50,100,200`; output is JSON of the `DerivedState` metrics (plus optional full `GameState` via `--state`) at each requested tick, byte-identical across runs for a given seed. Export reuses plain `JSON.stringify` + the existing `migrateGameState` reload path — no bespoke serializer. Ships `tsx` (execution route that resolves the `@/` alias) and `@types/node` as devDependencies.",
+    sections: [
+      {
+        title: "Headless Harness",
+        items: [
+          "`src/sim/runHeadless.ts` — `runHeadless(opts)` runs the seeded sim to tick N, capturing snapshots at `snapshotAt[]` ticks and/or `snapshotEvery`. Requires an explicit seed for determinism; defaults to `derived`-only snapshots with full `state` opt-in (GameState arrays are heavy).",
+          "`src/sim/cli.ts` — CLI over Node's stdlib `util.parseArgs` (no yargs/commander). Flags: `--seed`, `--ticks`, `--snapshot <csv>`, `--every <n>`, `--state`, `--out <path>`. Writes the run JSON to a file or stdout.",
+          "`npm run sim` script wired via `tsx`, which auto-reads the tsconfig `@/` → `src/` path mapping. Export/reload round-trips through the existing `JSON.stringify` + `migrateGameState` path — the `Rng` serializes as `{ state }` and rehydrates via `Rng.fromState`.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.4",
     badge: "Tighter Tier Curve",
     summary:
