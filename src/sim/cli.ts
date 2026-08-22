@@ -13,6 +13,8 @@ Options:
   --every <n>       Also capture a snapshot every N ticks.
   --state           Include the full GameState in each snapshot (heavy; default is derived-only).
   --trace           Capture autobuy + worker-target decision traces into result.traces.
+  --autobuy-master <all|none|custom>
+                    Override state.upgradeAutoMaster on the initial state (default: all).
   --out <path>      Write JSON to this file instead of stdout.`;
 
 export interface ParsedSimArgs {
@@ -38,6 +40,7 @@ export function parseSimArgs(argv: string[]): ParsedSimArgs {
       every: { type: "string" },
       state: { type: "boolean" },
       trace: { type: "boolean" },
+      "autobuy-master": { type: "string" },
       out: { type: "string" },
     },
   });
@@ -56,6 +59,13 @@ export function parseSimArgs(argv: string[]): ParsedSimArgs {
   if (values.every !== undefined) opts.snapshotEvery = requireInt(values.every, "every");
   if (values.state) opts.include = ["derived", "state"];
   if (values.trace) opts.trace = true;
+  const autobuyMaster = values["autobuy-master"];
+  if (autobuyMaster !== undefined) {
+    if (autobuyMaster !== "all" && autobuyMaster !== "none" && autobuyMaster !== "custom") {
+      throw new Error(`--autobuy-master must be one of all|none|custom, got "${autobuyMaster}"`);
+    }
+    opts.autobuyMaster = autobuyMaster;
+  }
 
   return { opts, out: values.out };
 }

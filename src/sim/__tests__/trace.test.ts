@@ -32,6 +32,13 @@ describe("trace behavior-neutrality (paramount)", () => {
     expect(traced.traces?.autobuy.length).toBeGreaterThan(0);
     expect(traced.traces?.workers.length).toBeGreaterThan(0);
 
+    // runHeadless defaults fresh state to upgradeAutoMaster: "all" (the harness restores
+    // pre-4.0 always-autobuying behavior), so across 500 ticks autobuy must have actually
+    // considered and made at least one real purchase — not just gated-closed empty ticks.
+    const autobuyRecords = traced.traces?.autobuy ?? [];
+    expect(autobuyRecords.some((r) => r.candidates.length > 0 || r.chosenKey !== null)).toBe(true);
+    expect(autobuyRecords.some((r) => r.chosenKey !== null)).toBe(true);
+
     // Belt-and-suspenders on the class-instance rng the deep-equal could miss.
     const plainFinal = plain.snapshots[plain.snapshots.length - 1]?.state;
     const tracedFinal = traced.snapshots[traced.snapshots.length - 1]?.state;

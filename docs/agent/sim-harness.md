@@ -19,15 +19,16 @@ npm run sim -- --seed 42 --ticks 5000 --every 500 --state --out run.json
 
 Flags (parsed with Node's stdlib `util.parseArgs` — no CLI dependency):
 
-| Flag               | Required | Meaning                                                               |
-| ------------------ | -------- | --------------------------------------------------------------------- |
-| `--seed <n>`       | yes      | RNG seed (integer). Determinism — always pass one.                    |
-| `--ticks <n>`      | yes      | Number of ticks to advance. Tick 0 is the initial state.              |
-| `--snapshot <csv>` | no       | Exact tick indices to capture, e.g. `50,100,200`.                     |
-| `--every <n>`      | no       | Also capture every N ticks. Unioned with `--snapshot`.                |
-| `--state`          | no       | Include the full `GameState` per snapshot (heavy; default is off).    |
-| `--trace`          | no       | Capture autobuy + worker-target decision traces into `result.traces`. |
-| `--out <path>`     | no       | Write JSON to a file. Omit to write to stdout.                        |
+| Flag                                   | Required | Meaning                                                                  |
+| -------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| `--seed <n>`                           | yes      | RNG seed (integer). Determinism — always pass one.                       |
+| `--ticks <n>`                          | yes      | Number of ticks to advance. Tick 0 is the initial state.                 |
+| `--snapshot <csv>`                     | no       | Exact tick indices to capture, e.g. `50,100,200`.                        |
+| `--every <n>`                          | no       | Also capture every N ticks. Unioned with `--snapshot`.                   |
+| `--state`                              | no       | Include the full `GameState` per snapshot (heavy; default is off).       |
+| `--trace`                              | no       | Capture autobuy + worker-target decision traces into `result.traces`.    |
+| `--autobuy-master <all\|none\|custom>` | no       | Override `state.upgradeAutoMaster` on the initial state. Default: `all`. |
+| `--out <path>`                         | no       | Write JSON to a file. Omit to write to stdout.                           |
 
 If neither `--snapshot` nor `--every` is given, a single snapshot at the final tick is captured.
 
@@ -42,6 +43,8 @@ interface SimRunOpts {
   snapshotAt?: number[]; // exact tick indices (default: [ticks])
   snapshotEvery?: number; // OR/AND periodic capture
   include?: SnapshotChannel[]; // "state" | "derived" (default ["derived"])
+  trace?: boolean; // attach a decision-trace collector (default off)
+  autobuyMaster?: "all" | "none" | "custom"; // overrides state.upgradeAutoMaster (default "all")
 }
 interface SimSnapshot {
   tick: number;
@@ -57,6 +60,8 @@ interface SimRunResult {
 ```
 
 `derived` (the `computeDerived` metrics surface — rates, defenseScore, threatScore, enemyCounts, colonyHealth, progression director, etc.) is always captured. `state` is opt-in via `include: ["derived", "state"]` because GameState arrays are heavy. Requested ticks are clamped to `[0, ticks]`, de-duped, and sorted.
+
+**`autobuyMaster` default.** 4.0 Phase 1a made a _fresh_ `createInitialGameState` default `upgradeAutoMaster` to `"none"` (manual play, for new players). The harness exists to analyze the autonomous sim — including autobuy decisions — so `runHeadless` overrides that on its initial state and defaults `autobuyMaster` to `"all"`, restoring the pre-4.0 always-autobuying harness behavior. Pass `"none"` to analyze manual-only play, or `"custom"` to exercise per-upgrade opt-in flags (`state.upgradeAutoFlags`). This is a harness-only override — it never touches `src/game/factories.ts`'s fresh-save default.
 
 ## Export / reload
 

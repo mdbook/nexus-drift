@@ -25,6 +25,14 @@ export interface SimRunOpts {
    * sink is passed to `advanceGame`, so the run is byte-identical to an untraced run.
    */
   trace?: boolean;
+  /**
+   * Overrides `state.upgradeAutoMaster` on the freshly-created initial state.
+   * 4.0 made a *fresh* `createInitialGameState` default to `"none"` (manual play) —
+   * the harness exists to analyze the autonomous sim, so it defaults this to `"all"`
+   * to restore pre-4.0 always-autobuying harness behavior. Pass `"none"` to analyze
+   * manual-only play, or `"custom"` to exercise the per-upgrade opt-in flags.
+   */
+  autobuyMaster?: "all" | "none" | "custom";
 }
 
 export interface SimSnapshot {
@@ -75,6 +83,7 @@ export function runHeadless(opts: SimRunOpts): SimRunResult {
   const snapshots: SimSnapshot[] = [];
   // advanceGame clones-then-returns, so each tick is a fresh object; captured references never alias.
   let current = createInitialGameState(opts.seed);
+  current.upgradeAutoMaster = opts.autobuyMaster ?? "all";
   for (let tick = 0; tick <= opts.ticks; tick += 1) {
     if (targets.has(tick)) {
       const snap: SimSnapshot = { tick, derived: computeDerived(current) };
