@@ -93,7 +93,7 @@ const traces = collector.drain(); // { autobuy, workers }
 ```ts
 type AutobuyTraceRecord = {
   tick: number;
-  candidates: { key: UpgradeKey; weight: number; affordable: boolean }[];
+  candidates: { key: UpgradeKey; weight: number }[];
   emergency: boolean; // true = came from the emergency-choice path (candidates is empty)
   chosenKey: UpgradeKey | null; // null on a no-purchase tick
 };

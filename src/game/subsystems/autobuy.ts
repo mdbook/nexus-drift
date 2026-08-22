@@ -209,10 +209,9 @@ export function stepAutobuy(state: GameState, ctx?: SimTraceCtx) {
   if (ctx) {
     ctx.recordAutobuy({
       tick: state.timers.tick,
-      candidates: candidates.map(({ def, cost }) => ({
+      candidates: candidates.map(({ def }) => ({
         key: def.key,
         weight: getAutobuyWeight(state, derived, def.key),
-        affordable: canAffordUpgrade(state.resources, cost),
       })),
       emergency: false,
       chosenKey: chosen ? chosen.def.key : null,

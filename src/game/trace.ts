@@ -15,7 +15,6 @@ import type { UpgradeKey } from "@/game/types";
 export type AutobuyTraceCandidate = {
   key: UpgradeKey;
   weight: number;
-  affordable: boolean;
 };
 
 /** One autobuy decision (emitted once per autobuy tick when a sink is attached). */

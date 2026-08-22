@@ -27,6 +27,11 @@ describe("trace behavior-neutrality (paramount)", () => {
     // equal stringified snapshots proves the full states (and rng) never diverged.
     expect(JSON.stringify(traced.snapshots)).toBe(JSON.stringify(plain.snapshots));
 
+    // Non-vacuous: prove the traced run actually exercised both instrumented paths,
+    // so "identical to untraced" isn't trivially true because tracing never fired.
+    expect(traced.traces?.autobuy.length).toBeGreaterThan(0);
+    expect(traced.traces?.workers.length).toBeGreaterThan(0);
+
     // Belt-and-suspenders on the class-instance rng the deep-equal could miss.
     const plainFinal = plain.snapshots[plain.snapshots.length - 1]?.state;
     const tracedFinal = traced.snapshots[traced.snapshots.length - 1]?.state;
@@ -49,7 +54,7 @@ describe("trace behavior-neutrality (paramount)", () => {
 });
 
 describe("autobuy trace content", () => {
-  it("captures candidate keys + weights + affordability and the chosen key", () => {
+  it("captures candidate keys + weights and the chosen key", () => {
     const state = createInitialGameState(1234);
     state.enemies = [];
     // Fresh, threat-free state → the emergency path is not taken, so the ranking runs.
@@ -72,7 +77,6 @@ describe("autobuy trace content", () => {
     for (const candidate of record.candidates) {
       expect(typeof candidate.key).toBe("string");
       expect(typeof candidate.weight).toBe("number");
-      expect(candidate.affordable).toBe(true); // the ranked list is post-affordability-filter
     }
     // A purchase happened this tick, so chosenKey names it and the upgrade incremented.
     expect(record.chosenKey).not.toBeNull();
