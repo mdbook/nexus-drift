@@ -1,6 +1,6 @@
 # Layout & HUD
 
-**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`
+**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldPopover.tsx`, `src/components/V4OnboardingCard.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`
 **Tests:** none (visual)
 **Key invariants:** `lg` breakpoint, not `xl`; grid/flex children carry `min-w-0`; HUD lives in the field card footer on mobile; fixed-position tooltips with viewport ref.
 
@@ -50,6 +50,10 @@ Only push UI into the sidebar when the information is dense, multi-line, or rare
 **Tooltip positioning — use `position: fixed` with a viewport-anchor ref.** Do NOT use `absolute bottom-full` on tooltips inside the footer. The footer rows use `overflow-x-auto` for scroll-on-narrow-screens; CSS's overflow interaction rule makes `overflow-y` effectively clipped on those rows, which silently clips any upward `absolute` tooltip (only the arrow shows).
 
 Established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button; on `open` run `useLayoutEffect` to read `getBoundingClientRect()`; store viewport coordinates in state; render the tooltip with fixed positioning. Reference implementations: `FieldStatsStrip` (centered, above), `EventChip` (left-aligned, above), `UpgradeIndicatorRail` (above in the mobile footer, below in the desktop top chrome).
+
+### Inspect Popovers (`FieldPopover`)
+
+4.0 inspect popovers use the **same fixed-position rule** because they sit over the `overflow-hidden` field card — an `absolute` panel would clip. `src/components/FieldPopover.tsx` anchors to the originating click's viewport coordinates (a mouse click carries `clientX/Y`; a keyboard Enter/Space activation falls back to the target's on-screen centre), then a `useLayoutEffect` measures the panel and clamps it into the viewport (flips left / above at an edge). **One popover is open at a time** — `App.tsx` owns the single open/closed state, and a full-viewport catch layer closes it on any outside click. The three variants: worker (task, HP bar, speed/fear chips, "Send home"), city (hp / regen / last-hostile / energy factor, read-only), enemy (kind, hp, shield, threat, cloak, "Mark priority"). Live entity data is read from the throttled `game`/`derived` snapshot by id, so a unit that dies while inspected renders a "no longer on the field" state instead of stale numbers. Click routing lives in `FieldSvg` (`onWorkerInspect` / `onEnemyInspect` / `onCityInspect` open popovers; `onNodeClick` stays a direct worker nudge — nodes never open a popover).
 
 - **Stacking**: use `z-50` on fixed tooltips (not `z-30`). Modals at `z-50` are fine — when both are open the modal's backdrop captures pointer events so the tooltip is a non-issue.
 - **`pointer-events-none`** on fixed tooltips — prevents the tooltip from interfering with hover-leave detection on the button underneath when the cursor drifts upward.

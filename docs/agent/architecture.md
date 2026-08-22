@@ -45,7 +45,9 @@ App shell and rendering:
 - `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/components/FieldStatsStrip.tsx` — field-card HUD widgets. See [layout.md](layout.md) for tooltip and placement conventions.
 - `src/components/ActivityLog.tsx`, `src/components/NotificationStack.tsx`, `src/components/AchievementsModal.tsx`, `src/components/WikiOverlay.tsx` — log/feed/modal surfaces.
 - `src/components/AdminPanel.tsx` — hidden admin console (Space ×5, or tap version badge ×5 within 2 s on mobile). Single Card with `grid-template-rows` height animation; frosted-pill chevron at the top edge; vertically resizeable body (200 px – 85 dvh, default 460 px). UI state only — not persisted.
-- `src/components/Sidebar.tsx` — economy, automation, and threat panels.
+- `src/components/Sidebar.tsx` — economy, automation, and threat panels; hosts the autobuy master switch, per-tile Auto chips, and the 4.0 Idle Mode quick-toggle.
+- `src/components/FieldPopover.tsx` — 4.0 inspect popover (worker / city / enemy), fixed-position and viewport-clamped. See [layout.md](layout.md).
+- `src/components/V4OnboardingCard.tsx` — 4.0 first-run overlay, gated on `state.meta.v4OnboardingSeen`. See [persistence.md](persistence.md).
 - `src/components/HudPrimitives.tsx` — shared HUD widgets (`StatusBadge`, `ResourcePill`, `StatTile`, `UpgradeTile`).
 - `src/components/ui/` — local card and progress bar primitives.
 
@@ -67,6 +69,7 @@ Game core:
 - `src/game/rng.ts` — deterministic Mulberry32 PRNG.
 - `src/game/targeting.ts` — shared targeting helpers (`pickEnemyTarget`, `pickEnemyTargetMulti`).
 - `src/game/purchases.ts` — `purchaseUpgrade`, the single shared upgrade-buy path for both manual and auto (`stepAutobuy`) purchases. See [economy.md](economy.md).
+- `src/game/interactions.ts` — 4.0 soft player-guidance writers: `suggestWorkerToNode` / `suggestWorkerHome` (worker `suggestedTarget`), `suggestDefensePriority` / `isPriorityMarked` (`state.priorityMarks`). See [workers.md](workers.md) / [defenses.md](defenses.md).
 - `src/game/events/eventDefs.ts` — seeded random-event definitions and activation helper. See [events-achievements.md](events-achievements.md).
 - `src/game/achievements.ts` — achievement definitions, unlock helper, and the explicit interaction helpers (`spotTourist()`, etc.). See [events-achievements.md](events-achievements.md).
 - `src/game/adminCommands.ts` — pure admin command executor used by `AdminPanel`. Commands mutate the cloned `GameState` supplied by `mutateGame()` and return shell effects for speed/banner actions instead of reaching into React state directly.

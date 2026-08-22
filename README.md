@@ -1,8 +1,8 @@
 # Nexus Drift
 
-Nexus Drift is an autonomous sci-fi colony sim wallpaper built with React, TypeScript, and Vite. Workers mine on their own, missile silos open every engagement at long range, turrets backfill the perimeter once the heavies arrive, and scout craft hunt corruption before it rots the economy.
+Nexus Drift is a sci-fi colony sim built with React, TypeScript, and Vite. Workers mine on their own, missile silos open every engagement at long range, turrets backfill the perimeter once the heavies arrive, and scout craft hunt corruption before it rots the economy. **As of 4.0 you are the colony's operator** — buy upgrades yourself, nudge workers by clicking nodes, flag threats by clicking enemies, and inspect any unit — or flip Idle Mode on and let it run itself, exactly as it always has.
 
-**Current release:** `3.2.4` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `4.0.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ### [▶ Play Now](https://mdbook.github.io/nexus-drift/)
 
@@ -13,6 +13,13 @@ No install — runs in your browser.
 ---
 
 ## Features
+
+### Operator Model (4.0)
+
+- **You run the colony.** Upgrade tiles are click-to-buy when affordable, with a tone-coded tooltip explaining any gate or shortfall; autobuy stays as an opt-in fallback with a per-tile Auto chip and a master **All / None / Custom** switch. Fresh 4.0 runs start in manual mode; loaded 3.x saves come up on autobuy-everything, unchanged.
+- **Soft field guidance.** Click a resource node to nudge the nearest idle worker toward it; click an enemy to inspect it and mark it a defense priority. Both are soft — the AI stays authoritative under threat and every safety/flee rule still wins.
+- **Inspect popovers.** Click a worker, enemy, or the city core for a fixed-position popover (task / HP / modifiers, or hp / regen / energy factor); the worker popover can Send-home and the enemy popover can Mark-priority.
+- **One-tap Idle Mode** returns the classic hands-off sim, and a first-run overlay explains the model once (skipped for returning saves).
 
 ### Simulation & Economy
 
@@ -34,7 +41,7 @@ No install — runs in your browser.
 - **3.0.0**: Turrets, scouts, sentinels, and the home district all have structural HP and can be broken, retreated, or destroyed. Turrets break for ~80 s; scouts reboot for ~20 s; sentinels reboot for ~40 s
 - **3.1.5 defense flip**: Missile Silos are now the colony's first defense — one silo is armed from the very start, available on a gold-only `missileLauncher` track from Tier 0. Defense Turrets gate to Tier 3 "Raid" so the close-range perimeter line shows up alongside the brute (the first enemy that genuinely targets turrets) and the sapper. Long-range silo + short-range turret remain a deliberate split: turret range is hard-clamped to 270 px and silo range scales with the upgrade (400 px + 6 px per level), so silos always out-reach turrets
 - Shielded enemies show a cyan shield layer; shield damage is consumed before HP without overflow in the same hit
-- 71 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including 4 new corruption achievements for the void warden system
+- 74 achievements across 4 rarity tiers (common / uncommon / rare / legendary) and 6 categories, including the 4.0 operator-model set (first manual purchase, autobuy-off milestone, full manual run)
 
 ### HUD & UI
 
@@ -77,7 +84,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (256 tests across src/game/__tests__/, src/sim/, and src/lib/)
+npm test            # unit tests (268 tests across src/game/__tests__/, src/sim/, and src/lib/)
 npm run lint
 npm run build
 npm run preview

@@ -5,7 +5,12 @@ import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepWorkers } from "@/game/subsystems/movement";
 import { getTurretTargetScore, stepTurrets } from "@/game/subsystems/turrets";
 import { computeDerived } from "@/game/selectors";
-import { isPriorityMarked, suggestDefensePriority, suggestWorkerToNode } from "@/game/interactions";
+import {
+  isPriorityMarked,
+  suggestDefensePriority,
+  suggestWorkerHome,
+  suggestWorkerToNode,
+} from "@/game/interactions";
 import type { Enemy, GameState, ResourceNode } from "@/game/types";
 
 function baseState(): GameState {
@@ -158,6 +163,33 @@ describe("worker suggestion (4.0 phase 2)", () => {
     expect(suggestWorkerToNode(state, node.id)).toBe(true);
     expect(rebooting.suggestedTarget).toBeUndefined();
     expect(healthy.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
+  });
+});
+
+describe("worker send-home (4.0 phase 3)", () => {
+  it("stamps a home marker and drops the current target so the AI re-evaluates", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.target = 1234;
+    state.timers.tick = 100;
+
+    expect(suggestWorkerHome(state, miner.id)).toBe(true);
+    expect(miner.suggestedTarget).toEqual({ kind: "home", expiresAt: 160 });
+    expect(miner.target).toBeNull();
+  });
+
+  it("leaves a fleeing / rebooting worker alone and returns false", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.rebootTicks = 20;
+
+    expect(suggestWorkerHome(state, miner.id)).toBe(false);
+    expect(miner.suggestedTarget).toBeUndefined();
+  });
+
+  it("returns false for an unknown worker id", () => {
+    const state = baseState();
+    expect(suggestWorkerHome(state, 999999)).toBe(false);
   });
 });
 

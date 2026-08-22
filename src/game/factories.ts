@@ -521,6 +521,7 @@ export function createInitialGameState(seed?: number): GameState {
       touristClicks: 0,
       touristPassesClicked: 0,
       runtimeMs: 0,
+      autobuyOffTicks: 0,
     },
     timers: {
       tick: 0,
@@ -555,6 +556,8 @@ export function createInitialGameState(seed?: number): GameState {
     notifications: [],
     archiveLog: [],
     discoveredEnemies: {},
+    // 4.0 identity: fresh runs see the onboarding overlay once.
+    meta: { v4OnboardingSeen: false },
   };
 }
 
@@ -603,6 +606,7 @@ export function cloneGameState(prev: GameState): GameState {
     notifications: prev.notifications.map((entry) => ({ ...entry })),
     archiveLog: prev.archiveLog.map((entry) => ({ ...entry })),
     discoveredEnemies: { ...prev.discoveredEnemies },
+    meta: { ...prev.meta },
   };
 }
 
@@ -661,6 +665,7 @@ export function migrateGameState(raw: SerializedGameState): GameState {
         : base.stats.eventTagsInspected,
       touristClicks: raw.stats?.touristClicks ?? 0,
       touristPassesClicked: raw.stats?.touristPassesClicked ?? 0,
+      autobuyOffTicks: raw.stats?.autobuyOffTicks ?? 0,
     },
     timers: { ...base.timers, ...raw.timers, warden: raw.timers?.warden ?? 0 },
     touristWorker: raw.touristWorker
@@ -850,6 +855,11 @@ export function migrateGameState(raw: SerializedGameState): GameState {
       : [],
     discoveredEnemies:
       raw.discoveredEnemies && typeof raw.discoveredEnemies === "object" ? { ...raw.discoveredEnemies } : {},
+    // v13 (4.0): a save carrying `meta` is a 4.0-era save — trust its stored
+    // flag. A save WITHOUT `meta` predates onboarding (a returning 3.x player),
+    // so mark onboarding seen so the overlay never pops for them (identity
+    // preservation, mirrors the upgradeAutoMaster asymmetric default above).
+    meta: raw.meta ? { v4OnboardingSeen: raw.meta.v4OnboardingSeen ?? false } : { v4OnboardingSeen: true },
   };
 }
 

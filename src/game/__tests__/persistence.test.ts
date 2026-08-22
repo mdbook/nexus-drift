@@ -118,3 +118,43 @@ describe("v13 autobuy-flag migration", () => {
     expect(migrated.upgradeAutoFlags).toEqual({ miner: true, reactor: false });
   });
 });
+
+describe("4.0 onboarding flag (state.meta)", () => {
+  beforeEach(() => {
+    installLocalStorageShim();
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { localStorage?: unknown }).localStorage;
+  });
+
+  it("a fresh 4.0 state has not seen onboarding", () => {
+    expect(createInitialGameState().meta.v4OnboardingSeen).toBe(false);
+  });
+
+  it("a pre-4.0 save (no meta) migrates with onboarding already seen", () => {
+    const raw = serializedSave(11);
+    delete (raw as { meta?: unknown }).meta;
+    raw.schemaVersion = 12;
+
+    const migrated = migrateGameState(raw as RawSave);
+    // Returning players skip the overlay — identity preservation.
+    expect(migrated.meta.v4OnboardingSeen).toBe(true);
+  });
+
+  it("a 4.0 save preserves its stored onboarding flag across migration and save/load", () => {
+    const raw = serializedSave(13);
+    raw.meta = { v4OnboardingSeen: true };
+    expect(migrateGameState(raw as RawSave).meta.v4OnboardingSeen).toBe(true);
+
+    // Round-trip a not-yet-seen fresh save through disk — the flag survives.
+    const fresh = createInitialGameState(14);
+    fresh.meta.v4OnboardingSeen = false;
+    saveGameState(fresh);
+    expect(loadSavedState().meta.v4OnboardingSeen).toBe(false);
+
+    fresh.meta.v4OnboardingSeen = true;
+    saveGameState(fresh);
+    expect(loadSavedState().meta.v4OnboardingSeen).toBe(true);
+  });
+});

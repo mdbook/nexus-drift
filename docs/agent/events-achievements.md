@@ -77,15 +77,15 @@ The set of archival categories is exported as `ARCHIVE_LOG_CATEGORIES` from `con
 
 ## Achievements
 
-71 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
+74 achievements across 4 rarity tiers (`common` / `uncommon` / `rare` / `legendary`) and 6 categories (`combat`, `corruption`, `mining`, `progression`, `survival`, `secret`). `AchievementDef` carries `rarity`, `category`, and an optional `hidden` flag. Hidden locked achievements display as "???" placeholders in the modal until revealed.
 
 Categories and examples:
 
-- **Progression** — level milestones (10/20/30/50/75), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation.
+- **Progression** — level milestones (10/20/30/50/75), prestige stacking (1/3/5), threat tiers (5/8/10), all-upgrades-at-1 and all-at-5, foundry/archive max, cores/flux accumulation, and the 4.0 operator set: `first_manual_purchase` (a real manual buy) and `full_manual_run` (tier 3 with master autobuy off).
 - **Combat** — kill counts (10/100/500/1000), brutes (10/25), phantoms (5), leeches (3), sappers (10), first sentinel kill, turret level 8.
 - **Mining** — first crit, 25/100 crits, mined 1 k/10 k resources, gold hoard (5 k), gem collector (200).
 - **Corruption** — first purge, 50/200 purges, pristine (corruptors present + zero corrupted nodes), triple rot (3+ simultaneously), full spectrum (all three types), first sentinel cleanse (`purify_first`), warden killed before attach completes (`warden_killed`), 5 cleanses in one run (`quarantine`), 3+ workers corrupted for 30 continuous seconds (`void_outbreak` — legendary).
-- **Survival** — 15 m / 30 m / 1 h / 2 h / 4 h / 8 h / 24 h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present.
+- **Survival** — 15 m / 30 m / 1 h / 2 h / 4 h / 8 h / 24 h runtime, colony health 95% under pressure, every active worker full HP while hostiles are present, and `autobuy_off_milestone` (5 continuous minutes with master autobuy off).
 - **Secret** — drift easter egg, click-spotted tourist drone, multi-pass tourist secrets, broken lost-drone recovery, synthwave Konami, all 12 events experienced, all 12 event cards inspected, anomaly witness, projectile/corpse clicks, changelog/modal opens, manual override.
 
 ### Rules for adding achievements
@@ -102,7 +102,7 @@ Categories and examples:
 - `state.stats.purges` counts completed node cleanses only — increment in `stepScouts()` when a node is actually cleansed; do not increment for corruptor or blight deaths.
 - `state.stats.sentinelKills` counts lethal sentinel hits only. Credit at the damage site in `stepSentinels()`, not later in `resolveEnemyDeaths()` based on `targetId`.
 - `state.stats.wardensKilled` increments in `resolveEnemyDeaths()` only when a warden is killed before attaching; successful attachment removes the warden without kill credit.
-- Other tracked stats: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `corruptedPurified`, `corruptedWorkerOutbreakTicks`, `turretsBroken`. Migration adds `?? 0` fallbacks for all of these.
+- Other tracked stats: `phantomsKilled`, `leechesKilled`, `sappersKilled`, `corruptedPurified`, `corruptedWorkerOutbreakTicks`, `turretsBroken`, `autobuyOffTicks` (4.0 — continuous master-autobuy-off ticks). Migration adds `?? 0` fallbacks for all of these.
 
 ### Display-tier gotcha
 
@@ -110,7 +110,9 @@ Categories and examples:
 
 ### Input-driven helpers (authoritative)
 
-Interaction-driven achievement helpers live in `src/game/achievements.ts` and own the shell/renderer mutation points: `inspectEventTag`, `spotTourist`, `recoverLostDrone`, `witnessAnomaly`, `clickProjectile`, `clickDyingEnemy`, `recordAchievementsOpen`, `recordChangelogOpen`, `completeManualOverride`.
+Interaction-driven achievement helpers live in `src/game/achievements.ts` and own the shell/renderer mutation points: `inspectEventTag`, `spotTourist`, `recoverLostDrone`, `witnessAnomaly`, `clickProjectile`, `clickDyingEnemy`, `recordAchievementsOpen`, `recordChangelogOpen`, `completeManualOverride`, `recordManualPurchase`.
+
+`recordManualPurchase` (4.0) is the clean origin signal for `first_manual_purchase`: `App.tsx`'s manual-buy handler calls it only after a successful `purchaseUpgrade`, and `stepAutobuy` NEVER does — so the achievement can only ever fire on a real operator click, and the byte-identical autobuy path is untouched. Do NOT string-match the activity log to detect manual buys. The two milestone operator achievements (`autobuy_off_milestone`, `full_manual_run`) are passive checks in `stepAchievements`: `autobuy_off_milestone` counts CONTINUOUS ticks with `upgradeAutoMaster === "none"` via `stats.autobuyOffTicks` (reset to 0 the moment autobuy is re-enabled, mirroring the `corruptedWorkerOutbreakTicks` idiom; threshold = `ACHIEVEMENTS.autobuyOffMilestoneTicks`), and `full_manual_run` unlocks when `derived.progression.tier >= 3` while master is `"none"`.
 
 Keep these helpers authoritative — `App.tsx`, `EventChip.tsx`, and `FieldSvg.tsx` should route achievement-relevant interactions through them rather than mutating achievement state inline. `tourist_spotted` is intentionally input-driven; do not reintroduce a passive visibility unlock in `stepAchievements()`.
 
@@ -123,7 +125,7 @@ Keep these helpers authoritative — `App.tsx`, `EventChip.tsx`, and `FieldSvg.t
 ### UI surfaces
 
 - `AchievementsModal` — full modal with category tab bar (per-tab unlock counts), rarity-coloured rows and badges, hidden-achievement masking toggle (eye icon), completion progress bar, rarity legend footer.
-- Achievement ribbon in the field card uses rarity-coded border/background colours. Unlock count badge (e.g. `3/71`) at the right end. Opening the ribbon can itself unlock `archivist` once any hidden secret is already revealed.
+- Achievement ribbon in the field card uses rarity-coded border/background colours. Unlock count badge (e.g. `3/74`) at the right end. Opening the ribbon can itself unlock `archivist` once any hidden secret is already revealed.
 - Each ribbon badge is a button: clicking opens `AchievementsModal`, switches to the matching category, scrolls the corresponding row into view, focuses it, and plays a brief pulsing cyan highlight (animation in `src/index.css`, disabled under `prefers-reduced-motion`).
 
 ## Unified Notification Stack

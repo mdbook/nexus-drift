@@ -46,6 +46,7 @@ import {
   inspectEventTag,
   recordAchievementsOpen,
   recordChangelogOpen,
+  recordManualPurchase,
   recoverLostDrone,
   spotTourist,
   unlockSecretAchievement,
@@ -54,7 +55,9 @@ import {
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { getEventDef } from "@/game/events/eventDefs";
-import { suggestDefensePriority, suggestWorkerToNode } from "@/game/interactions";
+import { suggestDefensePriority, suggestWorkerHome, suggestWorkerToNode } from "@/game/interactions";
+import { FieldPopover, type PopoverTarget } from "@/components/FieldPopover";
+import { V4OnboardingCard } from "@/components/V4OnboardingCard";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import { purchaseUpgrade, setUpgradeAutoFlag, setUpgradeAutoMaster } from "@/game/purchases";
 import type { GameState, UpgradeKey, VisibleResourceKey } from "@/game/types";
@@ -320,6 +323,10 @@ export default function App() {
   const [wikiInitialEntryId, setWikiInitialEntryId] = useState<string | undefined>(undefined);
   const [achievementFocusId, setAchievementFocusId] = useState<AchievementId | null>(null);
   const [synthwave, setSynthwave] = useState(false);
+  // 4.0 Phase 3 — the single open inspect popover (one at a time). null = closed.
+  const [popover, setPopover] = useState<{ target: PopoverTarget; anchor: { x: number; y: number } } | null>(
+    null
+  );
   const [initialGame] = useState(loadSavedState);
   const { open: adminOpen, setOpen: setAdminOpen } = useAdminPanel();
   const { game, derived, uiGame, uiDerived, mutateGame } = useGameLoop(initialGame, speed);
@@ -458,16 +465,23 @@ export default function App() {
           clickDyingEnemy(next, enemyId);
         });
       },
-      // 4.0 Phase 2 — soft click-to-suggest, routed through the same store.
+      // 4.0 Phase 2 — node click stays a DIRECT soft nudge (no popover for nodes).
       onNodeClick: (nodeId: number) => {
         mutateGame((next) => {
           suggestWorkerToNode(next, nodeId);
         });
       },
-      onEnemyPriorityClick: (enemyId: number) => {
-        mutateGame((next) => {
-          suggestDefensePriority(next, enemyId);
-        });
+      // 4.0 Phase 3 — enemy / worker / city clicks OPEN a popover (one at a time).
+      // The enemy popover's "Mark priority" button is the only caller of
+      // suggestDefensePriority now — the Phase 2 direct-mark wiring is gone.
+      onEnemyInspect: (enemyId: number, anchor: { x: number; y: number }) => {
+        setPopover({ target: { kind: "enemy", id: enemyId }, anchor });
+      },
+      onWorkerInspect: (agentId: number, anchor: { x: number; y: number }) => {
+        setPopover({ target: { kind: "worker", id: agentId }, anchor });
+      },
+      onCityInspect: (anchor: { x: number; y: number }) => {
+        setPopover({ target: { kind: "city" }, anchor });
       },
     }),
     [mutateGame]
@@ -479,9 +493,12 @@ export default function App() {
   const onPurchase = useCallback(
     (key: UpgradeKey) => {
       mutateGame((next) => {
-        purchaseUpgrade(next, key, {
+        const result = purchaseUpgrade(next, key, {
           log: (label, level) => `Operator purchased ${label} v${level}.`,
         });
+        // 4.0 — first-manual-purchase signal. Clean origin flag (only manual
+        // buys reach here); autobuy's byte-identical path never calls this.
+        if (result.ok) recordManualPurchase(next);
       });
     },
     [mutateGame]
@@ -504,6 +521,31 @@ export default function App() {
     },
     [mutateGame]
   );
+
+  // 4.0 Phase 3 — popover action buttons route through the same store.
+  const onPopoverSendHome = useCallback(
+    (agentId: number) => {
+      mutateGame((next) => {
+        suggestWorkerHome(next, agentId);
+      });
+    },
+    [mutateGame]
+  );
+
+  const onPopoverMarkPriority = useCallback(
+    (enemyId: number) => {
+      mutateGame((next) => {
+        suggestDefensePriority(next, enemyId);
+      });
+    },
+    [mutateGame]
+  );
+
+  const dismissOnboarding = useCallback(() => {
+    mutateGame((next) => {
+      next.meta.v4OnboardingSeen = true;
+    });
+  }, [mutateGame]);
 
   const handleSynthwaveChange = (enabled: boolean) => {
     setSynthwave(enabled);
@@ -891,6 +933,20 @@ export default function App() {
           }
         }}
       />
+
+      {popover && (
+        <FieldPopover
+          target={popover.target}
+          anchor={popover.anchor}
+          game={game}
+          derived={derived}
+          onClose={() => setPopover(null)}
+          onSendHome={onPopoverSendHome}
+          onMarkPriority={onPopoverMarkPriority}
+        />
+      )}
+
+      {!game.meta.v4OnboardingSeen && <V4OnboardingCard onDismiss={dismissOnboarding} />}
     </div>
   );
 }

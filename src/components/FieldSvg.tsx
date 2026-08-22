@@ -1,4 +1,10 @@
-import { memo, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  memo,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
@@ -50,16 +56,24 @@ function hexPoints(cx: number, cy: number, r: number): string {
   return out;
 }
 
+/** Viewport coordinates for anchoring an inspect popover next to the click. */
+type Anchor = { x: number; y: number };
+
 type FieldInteractionHandlers = {
   onTouristClick?: () => void;
   onLostDroneClick?: () => void;
   onAnomalyClick?: () => void;
   onProjectileClick?: (projectileId: number) => void;
+  /** Corpse (fading-enemy) achievement click — mutually exclusive with the live-enemy inspect below (hp guard). */
   onEnemyClick?: (enemyId: number) => void;
-  // 4.0 Phase 2 — soft click-to-suggest routing. `onNodeClick` nudges the
-  // nearest worker; `onEnemyPriorityClick` flags a live enemy for defenses.
+  // 4.0 Phase 2 — node click stays a DIRECT soft nudge (nearest worker retargets).
   onNodeClick?: (nodeId: number) => void;
-  onEnemyPriorityClick?: (enemyId: number) => void;
+  // 4.0 Phase 3 — inspect clicks open a popover in App.tsx (one at a time). The
+  // enemy popover's "Mark priority" button is what calls suggestDefensePriority;
+  // clicking a live enemy no longer marks it directly (Phase 2 behavior removed).
+  onEnemyInspect?: (enemyId: number, anchor: Anchor) => void;
+  onWorkerInspect?: (agentId: number, anchor: Anchor) => void;
+  onCityInspect?: (anchor: Anchor) => void;
 };
 
 type FieldSvgProps = {
@@ -678,16 +692,27 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   const anomalyInteractive =
     Boolean(interactions?.onAnomalyClick) && game.activeEvents.length >= 3 && !game.achievements.event_streak;
   const nodeInteractive = Boolean(interactions?.onNodeClick);
-  const enemyPriorityInteractive = Boolean(interactions?.onEnemyPriorityClick);
-  // Phase 2: clicking the city core is cosmetic acknowledgment only (the inspect
-  // popover lands in Phase 3). It shares the field-interaction gate.
-  const cityInteractive = nodeInteractive;
+  const enemyInspectInteractive = Boolean(interactions?.onEnemyInspect);
+  const workerInspectInteractive = Boolean(interactions?.onWorkerInspect);
+  // Phase 3: clicking the city core opens the read-only inspect popover.
+  const cityInteractive = Boolean(interactions?.onCityInspect);
 
   // 4.0 — brief click-acknowledge pulse ring on the last-clicked target. Purely
   // presentation-only and tick-driven (no timers), consistent with the rest of
   // the field FX; simplifies under useLowFxMode rather than disappearing.
   const [clickPulse, setClickPulse] = useState<{ x: number; y: number; startTick: number } | null>(null);
   const pulseAt = (x: number, y: number) => setClickPulse({ x, y, startTick: game.timers.tick });
+
+  // Viewport anchor for inspect popovers: a mouse click carries clientX/Y; a
+  // keyboard activation (Enter/Space) has none, so fall back to the target's
+  // on-screen center.
+  const inspectAnchor = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>): Anchor => {
+    if ("key" in event) {
+      const rect = (event.currentTarget as Element).getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return { x: event.clientX, y: event.clientY };
+  };
 
   const onSvgActivate = (event: ReactKeyboardEvent<SVGElement>, handler?: () => void) => {
     if (!handler) return;
@@ -777,7 +802,10 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         const barWidth = 140;
         const barX = WORLD_W / 2 - barWidth / 2;
         const barY = 512;
-        const cityClick = () => pulseAt(WORLD_W / 2, 540);
+        const cityClick = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>) => {
+          interactions?.onCityInspect?.(inspectAnchor(event));
+          pulseAt(WORLD_W / 2, 540);
+        };
         return (
           <g>
             {cityFlash > 0 && (
@@ -791,8 +819,8 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
               />
             )}
             {cityInteractive && (
-              // Phase 2 city click: cosmetic acknowledgment only (no inspect
-              // popover until Phase 3). Transparent hit-band over the home core.
+              // Phase 3 city click: opens the read-only inspect popover.
+              // Transparent hit-band over the home core.
               <rect
                 x={WORLD_W / 2 - 120}
                 y={500}
@@ -803,7 +831,11 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                 tabIndex={0}
                 aria-label="Inspect the home district"
                 onClick={cityClick}
-                onKeyDown={(event) => onSvgActivate(event, cityClick)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  cityClick(event);
+                }}
                 style={{ cursor: "pointer" }}
               />
             )}
@@ -1486,12 +1518,14 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           enemy.hp <= 0 ? deathAlpha(enemy.dyingTicks) : spawnAlpha(game.timers.tick, enemy.spawnTick);
         const corpseInteractive =
           Boolean(interactions?.onEnemyClick) && enemy.hp <= 0 && enemy.dyingTicks > 0;
-        // 4.0 — live combat enemies route to the defense-priority nudge. Corpses
-        // stay on the achievement handler above, so the achievement click keeps
-        // winning its ties (the two states are mutually exclusive by hp).
-        const priorityInteractive = enemyPriorityInteractive && enemy.hp > 0 && enemy.role !== "corruptor";
-        const priorityClick = () => {
-          interactions?.onEnemyPriorityClick?.(enemy.id);
+        // 4.0 Phase 3 — live combat enemies open the ENEMY inspect popover (whose
+        // "Mark priority" button is what nudges defenses). Corpses stay on the
+        // achievement handler above, so the achievement click keeps winning its
+        // ties — the two states are mutually exclusive by hp. Corruptors are
+        // purge-wing targets (not turret-scored), so they carry no inspect.
+        const inspectInteractive = enemyInspectInteractive && enemy.hp > 0 && enemy.role !== "corruptor";
+        const inspectClick = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>) => {
+          interactions?.onEnemyInspect?.(enemy.id, inspectAnchor(event));
           pulseAt(enemy.x, enemy.y);
         };
         const enemyInteractiveProps = corpseInteractive
@@ -1504,13 +1538,17 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                 onSvgActivate(event, () => interactions?.onEnemyClick?.(enemy.id)),
               style: { cursor: "pointer" },
             }
-          : priorityInteractive
+          : inspectInteractive
             ? {
                 role: "button" as const,
                 tabIndex: 0,
-                "aria-label": "Flag this enemy as a defense priority",
-                onClick: priorityClick,
-                onKeyDown: (event: ReactKeyboardEvent<SVGElement>) => onSvgActivate(event, priorityClick),
+                "aria-label": "Inspect this enemy",
+                onClick: inspectClick,
+                onKeyDown: (event: ReactKeyboardEvent<SVGElement>) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  inspectClick(event);
+                },
                 style: { cursor: "pointer" },
               }
             : {};
@@ -2167,17 +2205,40 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           // hexagon points helper — module-hoisted (hexPoints) to avoid per-render closure allocation.
           const hex = hexPoints;
 
+          // 4.0 Phase 3 — clicking a worker opens the inspect popover.
+          const workerClick = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>) => {
+            interactions?.onWorkerInspect?.(agent.id, inspectAnchor(event));
+          };
+          const workerProps = workerInspectInteractive
+            ? {
+                role: "button" as const,
+                tabIndex: 0,
+                "aria-label": `Inspect ${agent.kind} worker`,
+                onClick: workerClick,
+                onKeyDown: (event: ReactKeyboardEvent<SVGElement>) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  workerClick(event);
+                },
+                style: { cursor: "pointer" as const },
+              }
+            : {};
+
           return (
             <g
               key={agent.id}
+              {...workerProps}
               opacity={isRebooting ? agentAlpha * 0.45 : agentAlpha}
-              style={agentDisabled ? { filter: "grayscale(1)" } : undefined}
+              style={agentDisabled ? { filter: "grayscale(1)", ...workerProps.style } : workerProps.style}
               transform={
                 corruptShakeX !== 0 || corruptShakeY !== 0
                   ? `translate(${corruptShakeX.toFixed(2)},${corruptShakeY.toFixed(2)})`
                   : undefined
               }
             >
+              {workerInspectInteractive && (
+                <circle cx={agent.x} cy={agent.y + bob} r="18" fill="rgba(0,0,0,0.001)" />
+              )}
               {agentDisabled && (
                 <circle
                   cx={agent.x}

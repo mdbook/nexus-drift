@@ -113,28 +113,46 @@ export const Sidebar = memo(function Sidebar({
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">Autobuy</span>
-          <div
-            role="group"
-            aria-label="Autobuy master switch"
-            className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-0.5"
-          >
-            {MASTER_OPTIONS.map((option) => {
-              const active = game.upgradeAutoMaster === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => onSetAutoMaster(option.value)}
-                  aria-pressed={active}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
-                    active ? "bg-emerald-300/15 text-emerald-100" : "text-white/45 hover:text-white/75"
-                  )}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-1.5">
+            {/* 4.0 — Idle Mode quick-toggle: one tap flips master to All (the old
+                hands-off idle sim); tapping again while on returns to manual. */}
+            <button
+              type="button"
+              onClick={() => onSetAutoMaster(game.upgradeAutoMaster === "all" ? "none" : "all")}
+              aria-pressed={game.upgradeAutoMaster === "all"}
+              title="Idle Mode: autobuy everything (the classic hands-off sim)"
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
+                game.upgradeAutoMaster === "all"
+                  ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-100"
+                  : "border-white/10 bg-white/5 text-white/45 hover:text-white/75"
+              )}
+            >
+              Idle Mode
+            </button>
+            <div
+              role="group"
+              aria-label="Autobuy master switch"
+              className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-0.5"
+            >
+              {MASTER_OPTIONS.map((option) => {
+                const active = game.upgradeAutoMaster === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onSetAutoMaster(option.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
+                      active ? "bg-emerald-300/15 text-emerald-100" : "text-white/45 hover:text-white/75"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

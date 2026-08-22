@@ -5,6 +5,7 @@ import {
   inspectEventTag,
   recordAchievementsOpen,
   recordChangelogOpen,
+  recordManualPurchase,
   recoverLostDrone,
   spotTourist,
   witnessAnomaly,
@@ -12,7 +13,10 @@ import {
 import { activateEvent, EVENT_DEFS, getEventDef } from "@/game/events/eventDefs";
 import { createInitialGameState, migrateGameState, spawnEnemy } from "@/game/factories";
 import { stepAchievements } from "@/game/subsystems/achievements";
+import { stepAutobuy } from "@/game/subsystems/autobuy";
 import { stepEvents } from "@/game/subsystems/events";
+import { ACHIEVEMENTS } from "@/game/balance";
+import { AUTO_TICK } from "@/game/constants";
 import { recordManualOverrideClick, INITIAL_MANUAL_OVERRIDE_SEQUENCE } from "@/lib/manualOverride";
 
 describe("interaction achievement helpers", () => {
@@ -298,6 +302,99 @@ describe("lost drone spawn and migration", () => {
     expect(restored.lostDrone).toBeNull();
     expect(restored.activeEvents[0].revertOnExpire).toBe(true);
     expect(restored.achievements.event_streak).toBe(true);
+  });
+});
+
+describe("operator-model achievements (4.0)", () => {
+  it("first_manual_purchase fires on a manual buy signal and is idempotent", () => {
+    const state = createInitialGameState();
+    expect(state.achievements.first_manual_purchase).toBeUndefined();
+
+    expect(recordManualPurchase(state)).toBe(true);
+    expect(state.achievements.first_manual_purchase).toBe(true);
+
+    // Second manual buy must NOT re-fire (no double-unlock).
+    expect(recordManualPurchase(state)).toBe(false);
+  });
+
+  it("first_manual_purchase does NOT fire from autobuy purchases", () => {
+    const state = createInitialGameState(1234);
+    state.enemies = [];
+    // Restore pre-4.0 always-autobuy so the ranking actually buys this tick.
+    state.upgradeAutoMaster = "all";
+    state.resources.gold = 10_000;
+    state.resources.ore = 10_000;
+    state.resources.gems = 10_000;
+    state.resources.energy = 10_000;
+    state.resources.cores = 10_000;
+    state.timers.auto = AUTO_TICK;
+
+    const upgradesBefore = Object.values(state.upgrades).reduce((a, b) => a + b, 0);
+    stepAutobuy(state);
+    const upgradesAfter = Object.values(state.upgrades).reduce((a, b) => a + b, 0);
+
+    // Proof autobuy actually bought something this tick…
+    expect(upgradesAfter).toBeGreaterThan(upgradesBefore);
+    // …yet the manual-purchase achievement stays locked — autobuy never signals it.
+    expect(state.achievements.first_manual_purchase).toBeUndefined();
+  });
+
+  it("autobuy_off_milestone fires after the continuous off-tick threshold and resets when autobuy is on", () => {
+    const state = createInitialGameState();
+    state.upgradeAutoMaster = "none";
+    state.stats.autobuyOffTicks = ACHIEVEMENTS.autobuyOffMilestoneTicks - 1;
+
+    stepAchievements(state); // ticks to the threshold
+    expect(state.stats.autobuyOffTicks).toBe(ACHIEVEMENTS.autobuyOffMilestoneTicks);
+    expect(state.achievements.autobuy_off_milestone).toBe(true);
+
+    // Flipping autobuy back on resets the continuous counter.
+    const other = createInitialGameState();
+    other.upgradeAutoMaster = "all";
+    other.stats.autobuyOffTicks = 5000;
+    stepAchievements(other);
+    expect(other.stats.autobuyOffTicks).toBe(0);
+    expect(other.achievements.autobuy_off_milestone).toBeUndefined();
+  });
+
+  it("autobuy_off_milestone does not fire spuriously while autobuy is enabled", () => {
+    const state = createInitialGameState();
+    state.upgradeAutoMaster = "all";
+    for (let i = 0; i < 50; i++) stepAchievements(state);
+    expect(state.stats.autobuyOffTicks).toBe(0);
+    expect(state.achievements.autobuy_off_milestone).toBeUndefined();
+  });
+
+  it("full_manual_run needs both tier 3 AND autobuy off", () => {
+    // Extreme late-game weight so the display tier is well past 3.
+    const tierThreeState = () => {
+      const state = createInitialGameState();
+      state.level = 500;
+      state.prestige = 20;
+      for (const key of Object.keys(state.upgrades) as Array<keyof typeof state.upgrades>) {
+        state.upgrades[key] = 20;
+      }
+      return state;
+    };
+
+    // Autobuy on → no unlock even at high tier.
+    const autoOn = tierThreeState();
+    autoOn.upgradeAutoMaster = "all";
+    stepAchievements(autoOn);
+    expect(autoOn.achievements.full_manual_run).toBeUndefined();
+
+    // Autobuy off + tier 3 → unlock.
+    const manual = tierThreeState();
+    manual.upgradeAutoMaster = "none";
+    stepAchievements(manual);
+    expect(manual.achievements.full_manual_run).toBe(true);
+  });
+
+  it("full_manual_run stays locked at low tier even with autobuy off", () => {
+    const state = createInitialGameState();
+    state.upgradeAutoMaster = "none";
+    stepAchievements(state);
+    expect(state.achievements.full_manual_run).toBeUndefined();
   });
 });
 

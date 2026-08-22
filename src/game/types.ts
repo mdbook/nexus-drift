@@ -400,6 +400,22 @@ export type Stats = {
   touristClicks: number;
   touristPassesClicked: number;
   runtimeMs: number;
+  /**
+   * 4.0 — running count of CONTINUOUS ticks with master autobuy off. Drives
+   * `autobuy_off_milestone`; reset to 0 in `stepAchievements` the moment autobuy
+   * is re-enabled. Migration backfills `?? 0`.
+   */
+  autobuyOffTicks: number;
+};
+
+/**
+ * 4.0 — persisted first-run / onboarding flags. A small bag so future one-shot
+ * "seen this UI" markers can live here without another GameState field. Fresh
+ * runs default `v4OnboardingSeen: false` (show the overlay); loaded pre-4.0
+ * saves migrate to `true` (returning players skip it — identity preservation).
+ */
+export type GameMeta = {
+  v4OnboardingSeen: boolean;
 };
 
 export type Timers = {
@@ -514,6 +530,8 @@ export type GameState = {
   notifications: Notification[];
   archiveLog: LogEntry[];
   discoveredEnemies: Partial<Record<EnemyKind, number>>;
+  /** 4.0 — persisted onboarding / first-run flags. See {@link GameMeta}. */
+  meta: GameMeta;
 };
 
 export type UpgradeDef = {

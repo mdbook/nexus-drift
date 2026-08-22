@@ -1,4 +1,4 @@
-import { PROGRESSION } from "@/game/balance";
+import { ACHIEVEMENTS, PROGRESSION } from "@/game/balance";
 import { unlockAchievement } from "@/game/achievements";
 import { EVENT_DEFS } from "@/game/events/eventDefs";
 import { tickNotifications } from "@/game/notifications";
@@ -33,6 +33,22 @@ export function stepAchievements(state: GameState) {
   const upgradeValues = Object.values(state.upgrades);
   if (upgradeValues.every((v) => v >= 1)) unlockAchievement(state, "all_upgrades_1");
   if (upgradeValues.every((v) => v >= 5)) unlockAchievement(state, "all_upgrades_5");
+
+  // Operator model (4.0): running with master autobuy off. `full_manual_run`
+  // is a snapshot check (tier reached while off); `autobuy_off_milestone` is a
+  // running counter of CONTINUOUS off-ticks that resets the moment autobuy is
+  // re-enabled (mirrors the void_outbreak counter idiom). Deterministic, no rng.
+  if (state.upgradeAutoMaster === "none") {
+    // tier 3 is within the capped display-tier range (max 5), so the display
+    // tier is the correct field here (§Display-tier gotcha).
+    if (derived.progression.tier >= 3) unlockAchievement(state, "full_manual_run");
+    state.stats.autobuyOffTicks += 1;
+    if (state.stats.autobuyOffTicks >= ACHIEVEMENTS.autobuyOffMilestoneTicks) {
+      unlockAchievement(state, "autobuy_off_milestone");
+    }
+  } else {
+    state.stats.autobuyOffTicks = 0;
+  }
 
   if (state.upgrades.foundry >= 10) unlockAchievement(state, "max_foundry");
   if (state.upgrades.archive >= 10) unlockAchievement(state, "max_archive");

@@ -16,6 +16,38 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.0.0",
+    badge: "You Are The Operator",
+    summary:
+      'The genre flips: Nexus Drift is no longer a pure watch-it-run idle sim — you are the colony\'s operator. Buy upgrades yourself (each tile is clickable when affordable, with a tone-coded tooltip explaining any gate or shortfall), toggle autobuy per-upgrade or master All / None / Custom, nudge idle workers by clicking resource nodes, flag threats by clicking enemies, and inspect any worker / enemy / the city core through a fixed-position popover. Autobuy stays — as an opt-in fallback — so the classic hands-off experience is one "Idle Mode" tap away. This is a major release for identity reasons (the game changes shape), but it is fully SAVE-SAFE: manual and automatic purchases share one code path (`purchaseUpgrade`) so autobuy is byte-identical to pre-4.0 when master is All, and loaded 3.x saves migrate to master=All (autobuy-everything) with onboarding pre-dismissed — returning players see zero behavioral change, while fresh 4.0 runs start in manual mode. Landed across three phases on one branch (purchase core + autobuy-flag refactor + migration → worker-suggest + defense-priority marks → inspect popovers + onboarding + achievements) so every slice was verifiable in isolation.',
+    sections: [
+      {
+        title: "Manual Purchases + Autobuy Toggles",
+        items: [
+          "`src/game/purchases.ts` (new) — `purchaseUpgrade(state, key, opts)` is the single shared buy path for BOTH the manual UI and `stepAutobuy`: cost-check, `deductUpgradeCost`, level increment, `stats.spent`, and log line in one place. `purchaseFailReason` powers both the disabled-tile reason and the actual gate so button and buy always agree. `enforceGates: false` on the autobuy paths keeps them byte-identical (they gate upstream).",
+          '`GameState.upgradeAutoMaster` ("all" | "none" | "custom") + `upgradeAutoFlags` per-upgrade opt-ins. `stepAutobuy` filters candidates (and the emergency pick) through `isAutoEligible` BEFORE ranking, so the trace\'s candidate list reflects only auto-eligible upgrades. Auto-prestige is suppressed under master=None (a manual player\'s run isn\'t reset for them).',
+          "Sidebar upgrade tiles gain a clickable affordable state, an unaffordable tooltip reason, and a per-tile Auto chip; the Automation card header carries the master All / None / Custom switch plus a one-tap Idle Mode toggle (flip to All and walk away).",
+        ],
+      },
+      {
+        title: "Soft Worker + Defense Guidance",
+        items: [
+          "`src/game/interactions.ts` (new) — `suggestWorkerToNode` stamps the nearest eligible worker's `Agent.suggestedTarget`; `chooseWorkerTarget` honors it ONLY while it passes the same path-threat / corruption / flee filters, then clears on arrival / expiry / rejection. It never bypasses safety rules and draws no rng — the decision-trace emit is untouched and byte-neutral.",
+          "`suggestDefensePriority` pushes a short-lived `state.priorityMarks` entry that biases turret target-scoring toward that enemy — a pure additive weight that can never make a cloaked / out-of-range / ineligible enemy targetable (§Enemy Target Eligibility). `suggestWorkerHome` (Phase 3) drops a worker's current target with a 60-tick home marker so the AI re-evaluates.",
+          "`FieldSvg` click routing: nodes retarget the nearest worker directly; live enemies / workers / the city core open an inspect popover; corpse / tourist / projectile / anomaly achievement clicks still win their ties. A brief tick-driven pulse ring acknowledges node / enemy / city clicks, simplifying (not disappearing) under `useLowFxMode`.",
+        ],
+      },
+      {
+        title: "Inspect Popovers, Onboarding + Achievements",
+        items: [
+          "`src/components/FieldPopover.tsx` (new) — one fixed-position, viewport-clamped popover at a time (it sits over the `overflow-hidden` field card). Worker: task, HP bar, speed/fear chips, Send-home button. City: hp / regen / last-hostile / energy factor, read-only. Enemy: kind, hp, shield, threat, cloak state, Mark-priority button (the only caller of `suggestDefensePriority` now).",
+          'First-run onboarding overlay ("Click upgrades to buy. Or flip Auto on and watch."), stored as `state.meta.v4OnboardingSeen`; fresh runs see it once, migrated 3.x saves skip it. Three achievements: `first_manual_purchase` (a real operator buy — never autobuy), `autobuy_off_milestone` (5 continuous minutes with autobuy off), `full_manual_run` (reach tier 3 with master=None).',
+          "Save schema stays v13: `upgradeAutoMaster` / `upgradeAutoFlags` / `priorityMarks` land at v13 with the asymmetric migration default (fresh=None, loaded=All), and `Agent.suggestedTarget`, `stats.autobuyOffTicks`, and `state.meta` are additive-within-v13 with defensive `??` backfills.",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.6",
     badge: "Decision Traces",
     summary:

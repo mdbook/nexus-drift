@@ -89,7 +89,11 @@ export type AchievementId =
   | "warhead_whisperer"
   | "archivist"
   | "release_reader"
-  | "manual_override";
+  | "manual_override"
+  // Operator model (4.0)
+  | "first_manual_purchase"
+  | "autobuy_off_milestone"
+  | "full_manual_run";
 
 // ─── Def ─────────────────────────────────────────────────────────────────────
 
@@ -631,6 +635,29 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     category: "secret",
     hidden: true,
   },
+
+  // ── Operator model (4.0) ──────────────────────────────────────────────────────
+  {
+    id: "first_manual_purchase",
+    label: "Hands On",
+    description: "Buy an upgrade yourself instead of leaving it to autobuy.",
+    rarity: "common",
+    category: "progression",
+  },
+  {
+    id: "autobuy_off_milestone",
+    label: "Full Control",
+    description: "Run the colony for 5 continuous minutes with autobuy switched off.",
+    rarity: "uncommon",
+    category: "survival",
+  },
+  {
+    id: "full_manual_run",
+    label: "Solo Operator",
+    description: "Reach threat tier 3 with master autobuy fully off.",
+    rarity: "rare",
+    category: "progression",
+  },
 ];
 
 // ─── Unlock helper ────────────────────────────────────────────────────────────
@@ -747,4 +774,15 @@ export function recordChangelogOpen(state: GameState) {
 
 export function completeManualOverride(state: GameState) {
   return unlockAchievement(state, "manual_override");
+}
+
+/**
+ * 4.0 — input-driven signal for the player's first MANUAL (operator) upgrade
+ * purchase. Called from the manual-buy UI handler in `App.tsx` after a
+ * successful `purchaseUpgrade`, NEVER from `stepAutobuy` — so the byte-identical
+ * autobuy path is untouched and the achievement can only ever fire on a real
+ * operator click. Idempotent via `unlockAchievement`, so repeated buys no-op.
+ */
+export function recordManualPurchase(state: GameState) {
+  return unlockAchievement(state, "first_manual_purchase");
 }

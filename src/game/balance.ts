@@ -1073,6 +1073,18 @@ export const PRIORITY_MARK = {
 } as const;
 
 /**
+ * 4.0 — tunables for the operator-model achievements (see
+ * §Achievement System Invariants). `autobuyOffMilestoneTicks` is the number of
+ * CONTINUOUS ticks the player must run with master autobuy off to earn
+ * `autobuy_off_milestone` — ~5 min at the sim's ~30 ticks/s. The counter
+ * (`stats.autobuyOffTicks`) resets the moment autobuy is re-enabled, so this is
+ * a sustained-manual-play milestone, not a lifetime accumulator.
+ */
+export const ACHIEVEMENTS = {
+  autobuyOffMilestoneTicks: 9000,
+} as const;
+
+/**
  * AI — sentinel intercept bodyguard tuning.
  */
 export const SENTINEL_AI = {
