@@ -197,7 +197,45 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
     }
   }
 
+  // 4.0 — soft player suggestion. Applied AFTER sticky so a live nudge outranks
+  // sticky retarget, but it NEVER bypasses the safety filters: the suggested
+  // node still has to survive the same path-threat and corruption checks the
+  // scorer honors. On rejection / expiry / arrival the nudge is cleared and
+  // normal scoring stands. Crucially this only overrides `chosenId` — it draws
+  // no rng, adds no candidate, and still flows through the single emit below.
+  const suggestion = agent.suggestedTarget;
+  if (suggestion && suggestion.kind === "node" && suggestion.id != null) {
+    if (state.timers.tick >= suggestion.expiresAt) {
+      agent.suggestedTarget = undefined; // expired — fall back to normal scoring
+    } else {
+      const suggestedId = Number(suggestion.id);
+      const suggestedNode = state.nodes.find((n) => n.id === suggestedId);
+      const pathThreat = suggestedNode
+        ? liveEnemies.length > 0
+          ? threatAlongPath(agent.x, agent.y, suggestedNode.x, suggestedNode.y, liveEnemies)
+          : 0
+        : 0;
+      const corruptionBlocked =
+        suggestedNode != null &&
+        agent.kind !== "miner" &&
+        suggestedNode.corruption > WORKER_AI.corruptionHardAvoidAbove;
+      const eligible =
+        suggestedNode != null && !corruptionBlocked && pathThreat <= WORKER_AI.suggestionMaxPathThreat;
+      if (eligible) {
+        chosenId = suggestedId;
+        stickyHeld = false;
+        if (dist(agent.x, agent.y, suggestedNode.x, suggestedNode.y) <= WORKER_AI.suggestionArrivalRadius) {
+          agent.suggestedTarget = undefined; // arrived — hand back to normal AI
+        }
+      } else {
+        agent.suggestedTarget = undefined; // unsafe / gone — reject + clear
+      }
+    }
+  }
+
   // ponytail: assemble + emit the trace record only when a sink is attached.
+  // The suggested pick reaches this emit through `chosenId` above — there is no
+  // early return that would skip the trace when a suggestion is honored.
   if (ctx) {
     ctx.recordWorkerTarget({
       tick: state.timers.tick,

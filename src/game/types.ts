@@ -172,6 +172,14 @@ export type Agent = {
    * doesn't path right back through the lane it just fled from.
    */
   spookedTicks: number;
+  /**
+   * 4.0 — soft player nudge stamped by `suggestWorkerToNode`. When set and
+   * unexpired, `chooseWorkerTarget` prefers this target ONLY if it still passes
+   * the normal safety/eligibility filters (path-threat / corruption). It never
+   * bypasses those rules or the flee path, and is cleared on arrival, expiry, or
+   * rejection. Phase 2 only stamps `kind: "node"` (`id` = stringified node id).
+   */
+  suggestedTarget?: { kind: "node" | "enemy" | "home"; id?: string; expiresAt: number };
 };
 
 export type Turret = {
@@ -450,6 +458,14 @@ export type GameState = {
    * `"custom"` defers to `upgradeAutoFlags` per upgrade.
    */
   upgradeAutoMaster: "all" | "none" | "custom";
+  /**
+   * 4.0 — short-lived player "defense priority" flags. Each entry biases turret
+   * target-scoring toward that enemy for a few seconds (§Enemy Target
+   * Eligibility). A purely additive weight bias — it never overrides the
+   * cloak/range/role eligibility filter that runs before scoring. Expired
+   * entries are pruned each tick. Defaults to `[]` on migrate.
+   */
+  priorityMarks: { enemyId: number; expiresAt: number }[];
   log: LogEntry[];
   combo: number;
   level: number;

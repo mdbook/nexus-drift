@@ -1035,6 +1035,15 @@ export const WORKER_AI = {
   fleeTargetLateralLimit: 125,
   fleeTargetMaxPathThreat: 0.038,
   fleeTargetScanTicks: 12,
+  // 4.0 — soft player suggestion (suggestWorkerToNode). A stamped suggestion is
+  // honored only while the path to it stays at/under this threat ceiling (reuses
+  // the same threatAlongPath scale as flee retargeting, a touch more permissive
+  // since the player asked for it). Expires after `suggestionExpiryTicks`; once
+  // the worker is within `suggestionArrivalRadius` the nudge is cleared and
+  // normal AI resumes.
+  suggestionMaxPathThreat: 0.05,
+  suggestionExpiryTicks: 120,
+  suggestionArrivalRadius: 26,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,
   stickyThreshold: 0.64, // only switch target if candidate score is < this * current — lower = stickier
@@ -1048,6 +1057,19 @@ export const WORKER_AI = {
     Math.PI * 0.75,
     -Math.PI * 0.75,
   ],
+} as const;
+
+/**
+ * 4.0 — player "mark priority" defense nudge (suggestDefensePriority).
+ * `expiryTicks` ≈ 5 s at the sim's ~30 ticks/s. `turretScoreBonus` is a flat
+ * score REDUCTION applied in `getTurretTargetScore` (lower score = higher
+ * priority) — strong enough to reorder targeting but only among enemies that
+ * already passed the cloak/range/role eligibility filter, so it can never make
+ * a cloaked enemy targetable. See §Enemy Target Eligibility.
+ */
+export const PRIORITY_MARK = {
+  expiryTicks: 150,
+  turretScoreBonus: 90,
 } as const;
 
 /**

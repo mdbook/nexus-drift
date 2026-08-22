@@ -76,6 +76,11 @@ export function advanceGame(prev: GameState, ctx?: SimTraceCtx): GameState {
   stepEnemies(state);
   stepCorruption(state);
   stepWorkerCorruption(state);
+  // 4.0 — drop expired defense-priority marks before defense scoring reads them.
+  // Guarded so the neutrality path (no marks ever created headlessly) is a no-op.
+  if (state.priorityMarks.length > 0) {
+    state.priorityMarks = state.priorityMarks.filter((mark) => mark.expiresAt > state.timers.tick);
+  }
   stepTurrets(state);
   stepScouts(state);
   stepSentinels(state);

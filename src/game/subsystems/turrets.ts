@@ -1,5 +1,6 @@
-import { FOCUSED_BEAM, TURRET, TURRET_HP } from "@/game/balance";
+import { FOCUSED_BEAM, PRIORITY_MARK, TURRET, TURRET_HP } from "@/game/balance";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
+import { isPriorityMarked } from "@/game/interactions";
 import { addProjectile } from "@/game/factories";
 import { computeDerived } from "@/game/selectors";
 import type { GameState } from "@/game/types";
@@ -38,6 +39,14 @@ export function getTurretTargetScore(
     if (victim && Math.hypot(victim.x - HOME_X, victim.y - TURRET_LINE_Y) < TURRET_COORD_RADIUS) {
       score -= TURRET_COORD_BONUS;
     }
+  }
+
+  // 4.0 — player defense-priority nudge. A marked (unexpired) enemy scores lower
+  // (= higher priority). This is a bias ONLY: stepTurrets filters out cloaked /
+  // out-of-range / corruptor enemies BEFORE calling this, so a marked cloaked
+  // enemy is never even a candidate here. See §Enemy Target Eligibility.
+  if (isPriorityMarked(state, enemy.id)) {
+    score -= PRIORITY_MARK.turretScoreBonus;
   }
 
   return score;

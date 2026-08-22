@@ -54,6 +54,7 @@ import {
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { getEventDef } from "@/game/events/eventDefs";
+import { suggestDefensePriority, suggestWorkerToNode } from "@/game/interactions";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
 import { purchaseUpgrade, setUpgradeAutoFlag, setUpgradeAutoMaster } from "@/game/purchases";
 import type { GameState, UpgradeKey, VisibleResourceKey } from "@/game/types";
@@ -455,6 +456,17 @@ export default function App() {
       onEnemyClick: (enemyId: number) => {
         mutateGame((next) => {
           clickDyingEnemy(next, enemyId);
+        });
+      },
+      // 4.0 Phase 2 — soft click-to-suggest, routed through the same store.
+      onNodeClick: (nodeId: number) => {
+        mutateGame((next) => {
+          suggestWorkerToNode(next, nodeId);
+        });
+      },
+      onEnemyPriorityClick: (enemyId: number) => {
+        mutateGame((next) => {
+          suggestDefensePriority(next, enemyId);
         });
       },
     }),

@@ -42,6 +42,12 @@ Turrets always beam — no missile fallback. Every shot is an instant-hit beam w
 
 `getTurretTargetScore` in `turrets.ts` reduces the score (raises priority) by `TURRET_COORD_BONUS` (60) when the target enemy is actively chasing a worker within 200 px of the home district. This prevents turrets from tunnel-visioning on distant strays while a brute marches on the home pad.
 
+### Defense priority marks (4.0 soft player nudge)
+
+`suggestDefensePriority(state, enemyId)` in `src/game/interactions.ts` pushes (or refreshes) a short-lived `state.priorityMarks: { enemyId; expiresAt }[]` entry, expiring after `PRIORITY_MARK.expiryTicks` (150 ≈ 5 s). `getTurretTargetScore` subtracts `PRIORITY_MARK.turretScoreBonus` (90) for a marked (unexpired) enemy via `isPriorityMarked`, so a flagged enemy is preferred among the turret's candidates.
+
+**It is a weight bias only, never an eligibility override.** The cloak / range / role (`role !== "corruptor" && !isCloaked(enemy) && in-range`) filter in `stepTurrets` runs _before_ scoring, so a marked enemy that is cloaked or out of range is never even a candidate — marking a phantom while it is cloaked does nothing until it uncloaks (see [enemies.md § Enemy Target Eligibility](enemies.md)). Expired marks are pruned once per tick in `advanceGame` (guarded on `length > 0`, so the headless neutrality path is a no-op). The live-enemy click that creates these marks is wired in `FieldSvg.tsx`; corpse clicks still route to the achievement handler.
+
 ## Missile Silos
 
 `MissileSilo` entities (deployed via the `missileLauncher` upgrade track) are separate from turrets and **invulnerable** — they do not carry HP, are not in `ENEMY_TARGET_PRIORITY`, and take no contact damage.

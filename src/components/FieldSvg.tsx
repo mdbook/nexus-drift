@@ -1,4 +1,4 @@
-import { memo, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
@@ -56,6 +56,10 @@ type FieldInteractionHandlers = {
   onAnomalyClick?: () => void;
   onProjectileClick?: (projectileId: number) => void;
   onEnemyClick?: (enemyId: number) => void;
+  // 4.0 Phase 2 — soft click-to-suggest routing. `onNodeClick` nudges the
+  // nearest worker; `onEnemyPriorityClick` flags a live enemy for defenses.
+  onNodeClick?: (nodeId: number) => void;
+  onEnemyPriorityClick?: (enemyId: number) => void;
 };
 
 type FieldSvgProps = {
@@ -673,6 +677,17 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   const lostDroneInteractive = Boolean(interactions?.onLostDroneClick) && Boolean(game.lostDrone);
   const anomalyInteractive =
     Boolean(interactions?.onAnomalyClick) && game.activeEvents.length >= 3 && !game.achievements.event_streak;
+  const nodeInteractive = Boolean(interactions?.onNodeClick);
+  const enemyPriorityInteractive = Boolean(interactions?.onEnemyPriorityClick);
+  // Phase 2: clicking the city core is cosmetic acknowledgment only (the inspect
+  // popover lands in Phase 3). It shares the field-interaction gate.
+  const cityInteractive = nodeInteractive;
+
+  // 4.0 — brief click-acknowledge pulse ring on the last-clicked target. Purely
+  // presentation-only and tick-driven (no timers), consistent with the rest of
+  // the field FX; simplifies under useLowFxMode rather than disappearing.
+  const [clickPulse, setClickPulse] = useState<{ x: number; y: number; startTick: number } | null>(null);
+  const pulseAt = (x: number, y: number) => setClickPulse({ x, y, startTick: game.timers.tick });
 
   const onSvgActivate = (event: ReactKeyboardEvent<SVGElement>, handler?: () => void) => {
     if (!handler) return;
@@ -762,6 +777,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         const barWidth = 140;
         const barX = WORLD_W / 2 - barWidth / 2;
         const barY = 512;
+        const cityClick = () => pulseAt(WORLD_W / 2, 540);
         return (
           <g>
             {cityFlash > 0 && (
@@ -772,6 +788,23 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                 height={WORLD_H - 500}
                 fill={`rgba(255,80,80,${cityFlash.toFixed(2)})`}
                 style={{ pointerEvents: "none" }}
+              />
+            )}
+            {cityInteractive && (
+              // Phase 2 city click: cosmetic acknowledgment only (no inspect
+              // popover until Phase 3). Transparent hit-band over the home core.
+              <rect
+                x={WORLD_W / 2 - 120}
+                y={500}
+                width={240}
+                height={WORLD_H - 500}
+                fill="rgba(0,0,0,0.001)"
+                role="button"
+                tabIndex={0}
+                aria-label="Inspect the home district"
+                onClick={cityClick}
+                onKeyDown={(event) => onSvgActivate(event, cityClick)}
+                style={{ cursor: "pointer" }}
               />
             )}
             {showCityBar && (
@@ -1046,8 +1079,26 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
               )
             : spawnAlpha(game.timers.tick, node.spawnTick);
 
+        const nodeClick = () => {
+          interactions?.onNodeClick?.(node.id);
+          pulseAt(node.x, node.y);
+        };
+        const nodeProps = nodeInteractive
+          ? {
+              role: "button" as const,
+              tabIndex: 0,
+              "aria-label": `Suggest a worker mine the ${node.kind} node`,
+              onClick: nodeClick,
+              onKeyDown: (event: ReactKeyboardEvent<SVGElement>) => onSvgActivate(event, nodeClick),
+              style: { cursor: "pointer" as const },
+            }
+          : {};
+
         return (
-          <g key={node.id} opacity={nodeAlpha}>
+          <g key={node.id} opacity={nodeAlpha} {...nodeProps}>
+            {nodeInteractive && (
+              <circle cx={node.x} cy={node.y} r={node.size + 10} fill="rgba(0,0,0,0.001)" />
+            )}
             {node.corruption > 0 && (
               <>
                 <circle
@@ -1435,6 +1486,14 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           enemy.hp <= 0 ? deathAlpha(enemy.dyingTicks) : spawnAlpha(game.timers.tick, enemy.spawnTick);
         const corpseInteractive =
           Boolean(interactions?.onEnemyClick) && enemy.hp <= 0 && enemy.dyingTicks > 0;
+        // 4.0 — live combat enemies route to the defense-priority nudge. Corpses
+        // stay on the achievement handler above, so the achievement click keeps
+        // winning its ties (the two states are mutually exclusive by hp).
+        const priorityInteractive = enemyPriorityInteractive && enemy.hp > 0 && enemy.role !== "corruptor";
+        const priorityClick = () => {
+          interactions?.onEnemyPriorityClick?.(enemy.id);
+          pulseAt(enemy.x, enemy.y);
+        };
         const enemyInteractiveProps = corpseInteractive
           ? {
               role: "button" as const,
@@ -1445,7 +1504,16 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                 onSvgActivate(event, () => interactions?.onEnemyClick?.(enemy.id)),
               style: { cursor: "pointer" },
             }
-          : {};
+          : priorityInteractive
+            ? {
+                role: "button" as const,
+                tabIndex: 0,
+                "aria-label": "Flag this enemy as a defense priority",
+                onClick: priorityClick,
+                onKeyDown: (event: ReactKeyboardEvent<SVGElement>) => onSvgActivate(event, priorityClick),
+                style: { cursor: "pointer" },
+              }
+            : {};
 
         if (enemy.role === "corruptor") {
           const wobble = Math.sin((game.timers.tick + enemy.id * 11) / 7) * 2;
@@ -2476,6 +2544,43 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
             </g>
           );
         })}
+
+      {clickPulse &&
+        (() => {
+          // 4.0 — tick-driven click-acknowledge ring. Fully faded rings render
+          // nothing. Under lowFxMode we draw a single static ring instead of the
+          // expanding animation (simplify, don't remove) per §Coarse-Pointer FX.
+          const DURATION = 16;
+          const age = elapsedTicks(game.timers.tick, clickPulse.startTick);
+          if (age < 0 || age > DURATION) return null;
+          const t = age / DURATION;
+          if (lowFxMode) {
+            return (
+              <circle
+                cx={clickPulse.x}
+                cy={clickPulse.y}
+                r={26}
+                fill="none"
+                stroke="rgba(127,222,255,0.5)"
+                strokeWidth="2"
+                opacity={0.55 * (1 - t)}
+                style={{ pointerEvents: "none" }}
+              />
+            );
+          }
+          return (
+            <circle
+              cx={clickPulse.x}
+              cy={clickPulse.y}
+              r={12 + t * 30}
+              fill="none"
+              stroke="rgba(127,222,255,0.9)"
+              strokeWidth={0.5 + 2.5 * (1 - t)}
+              opacity={0.85 * (1 - t)}
+              style={{ pointerEvents: "none" }}
+            />
+          );
+        })()}
     </svg>
   );
 }

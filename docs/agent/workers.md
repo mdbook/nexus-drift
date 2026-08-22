@@ -39,6 +39,16 @@ Target selection filters to **live enemies** before scoring — death-fade enemi
 
 The sticky retarget threshold is 0.64 — a candidate must be much better before it unseats the current assignment. Partially mined current nodes also get `currentTargetProgressBonus`.
 
+## Worker Suggestion (4.0 soft player nudge)
+
+`suggestWorkerToNode(state, nodeId, clickXY?)` in `src/game/interactions.ts` stamps the nearest eligible worker (active, alive, not corrupted/rebooting/disabled, **not currently evading**) with `Agent.suggestedTarget = { kind: "node", id, expiresAt }`, expiring after `WORKER_AI.suggestionExpiryTicks` (120). It is the only writer of `suggestedTarget`.
+
+`chooseWorkerTarget` reads the suggestion as a **soft preference applied after the sticky block**: a live suggestion outranks sticky retarget, but it never bypasses the safety filters. The suggested node is honored only if it still exists, its path threat stays `<= WORKER_AI.suggestionMaxPathThreat` (0.05, same `threatAlongPath` scale as flee retargeting), and it is not in the non-miner corruption hard-avoid band. On rejection (unsafe / gone), expiry, or arrival (within `WORKER_AI.suggestionArrivalRadius`, 26 px) the nudge is cleared and normal scoring resumes.
+
+**Trace invariant:** the suggested pick only overrides the local `chosenId` — it draws no rng, adds no candidate, and still flows through the single `ctx.recordWorkerTarget({...})` emit at the end of `chooseWorkerTarget`. Do not add an early `return` for the suggested id. See [sim-harness.md](sim-harness.md) and `src/sim/__tests__/trace.test.ts`.
+
+The suggestion lives only in `chooseWorkerTarget`; `chooseFleeDirectionTarget` is untouched, so **flee/evasion behavior always wins** — a nudged worker under active threat still flees per the Flee-Retarget Invariant.
+
 ## Per-Agent Variance
 
 Each `Agent` carries three float fields seeded at spawn by a deterministic hash of `agent.id`:

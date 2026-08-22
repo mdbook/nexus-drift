@@ -478,6 +478,7 @@ export function createInitialGameState(seed?: number): GameState {
     // 4.0 identity: fresh players buy manually. Autobuy is opt-in from here.
     upgradeAutoMaster: "none",
     upgradeAutoFlags: {},
+    priorityMarks: [],
     log: [
       { tick: 0, category: "system" as const, message: "Passive income stable." },
       { tick: 0, category: "system" as const, message: "Auto-routing drones to resource field." },
@@ -571,6 +572,7 @@ export function cloneGameState(prev: GameState): GameState {
     resources: { ...prev.resources },
     upgrades: { ...prev.upgrades },
     upgradeAutoFlags: { ...prev.upgradeAutoFlags },
+    priorityMarks: prev.priorityMarks.map((mark) => ({ ...mark })),
     achievements: { ...prev.achievements },
     stats: {
       ...prev.stats,
@@ -629,6 +631,8 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     // fresh default ("none") only applies to brand-new 4.0 runs.
     upgradeAutoMaster: raw.upgradeAutoMaster ?? "all",
     upgradeAutoFlags: raw.upgradeAutoFlags ? { ...raw.upgradeAutoFlags } : {},
+    // 4.0 — defense-priority marks are short-lived; older saves have none.
+    priorityMarks: Array.isArray(raw.priorityMarks) ? raw.priorityMarks.map((mark) => ({ ...mark })) : [],
     achievements: { ...raw.achievements },
     stats: {
       ...base.stats,

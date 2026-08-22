@@ -75,3 +75,5 @@ Established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button; 
 - Treat `useLowFxMode` as a **render-budget fallback only**. Never branch gameplay, save data, or simulation logic on it.
 - Any new full-screen ambient animation, large blur wash, particle loop, or SVG filter added to the background / event backdrop / field-label surfaces must either simplify or disable under `useLowFxMode`.
 - Do not flatten the surface into "no effect". Keep a static gradient / glow version so the visual identity remains intact even when motion is reduced for performance.
+
+The 4.0 click-acknowledge pulse follows this budget: clicking a node / live enemy / city core stamps a brief tick-driven ring (`FieldSvg.tsx` local `clickPulse` state, faded via `elapsedTicks`, no timers). Under `useLowFxMode` it renders a single static ring instead of the expanding animation — simplified, not removed.
