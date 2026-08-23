@@ -19,7 +19,7 @@ npm run format:check
 
 ## Test Coverage
 
-293 tests total across:
+302 tests total across:
 
 - `src/game/__tests__/advanceGame.test.ts` (152) — simulation invariants, subsystem behavior, achievement edge cases, projectile behavior, corruption linger, worker-slot gating/costs, surround-pressure combat, save/load round-trip, turret/scout/sentinel/city HP, multi-class enemy targeting, missile silo subsystem, worker class abilities, worker corruption + warden parasite latch, warden kill credit, sentinel cleanse, worker reboot, `stepWardenSpawn` gates, `xpForLevel` curve pin, `archiveLog` routing/cap/migration.
 - `src/game/__tests__/aiBehavior.test.ts` (30) — worker path safety, commitment, flee-direction retargeting, crowded-node avoidance, archetype targeting, brute target stability, squad bucketing, sentinel intercept priority, scout finish-bias, sticky retarget threshold, ambusher dash, ghost reposition, group dispersal, threat-field path weighting, spook memory.
