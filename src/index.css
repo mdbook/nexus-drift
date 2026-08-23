@@ -42,6 +42,12 @@ a {
   color: inherit;
 }
 
+/* Kill the iOS ~300ms tap delay + double-tap-zoom hijack on every control so
+   taps register instantly on touch. `manipulation` still allows pan/scroll. */
+button {
+  touch-action: manipulation;
+}
+
 ::selection {
   background: rgba(172, 92, 255, 0.3);
 }
