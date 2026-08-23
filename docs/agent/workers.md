@@ -66,6 +66,17 @@ The sticky retarget threshold is 0.64 — a candidate must be much better before
 
 **Headless neutrality:** `suggestedTarget` (both `node` and `home`) is written ONLY by the UI helpers in `interactions.ts`, never on the headless/replay path. So the new immediate-retarget trigger (`movement.ts`) and the home routing are always inert in a headless run → retarget cadence and destinations there are byte-identical. `chooseFleeDirectionTarget` is untouched, so **flee/evasion behavior always wins** — a nudged worker under active threat still flees per the Flee-Retarget Invariant.
 
+### Press-and-hold Lead (4.3.0)
+
+`state.leadPoint?: { x, y }` is a transient world-space point the operator holds/drags on the field ("lead your workers"). While it is set, `stepWorkers` (movement.ts) gives every **eligible non-fleeing** worker a strong continuous pull toward it.
+
+- **Placement.** The lead block sits **after the evade branch's early return** and **after the reboot/disabled/corrupted early returns** — so a worker fleeing a real threat (or rebooting/disabled/corrupted) never sees it. **Flee/survival always wins**, exactly like the Send-home routing. It is also gated `!recovering`, so a hurt worker still prioritizes limping home to heal.
+- **Steer, not teleport.** Each tick the worker steps toward the point by `min(distanceToPoint, agent.speed × speedMod × WORKER_LEAD.pullSpeedScale × veteranBonus × falloff × blocking.speedScale)` — clamped to world bounds and to never overshoot (settles at the point, no jitter). Task reads `"Following"`.
+- **Distance falloff.** `falloff = WORKER_LEAD.falloffRadius / (dist + falloffRadius)` → 1 at the point, 0.5 one `falloffRadius` out, tapering beyond. Nearer crews respond harder; distant crews still drift in slowly. Tuning in `balance.ts` (`WORKER_LEAD`, defaults `falloffRadius: 260`, `pullSpeedScale: 1.5`).
+- **Only writers.** `setLeadPoint` / `clearLeadPoint` in `interactions.ts` are the only writers, called only from the UI pointer handlers (App `onLeadStart` / `onLeadMove` / `onLeadEnd`). It clamps into the field.
+
+**Trace/headless neutrality:** `state.leadPoint` is UI-only-set (never headless/replay), so in a headless run it is always `undefined` and the whole lead block is a strict no-op — it does not run before `chooseWorkerTarget`, draws no rng, and touches no trace emit. The physical steer never perturbs the targeting decision or its single `recordWorkerTarget` record. Transient like `suggestedTarget`: defaulted `undefined` on init, cloned per tick, dropped on load (no SCHEMA bump). See `src/game/__tests__/leadPoint.test.ts` and [layout.md](layout.md) for the input gesture + FX marker.
+
 ## Per-Agent Variance
 
 Each `Agent` carries three float fields seeded at spawn by a deterministic hash of `agent.id`:

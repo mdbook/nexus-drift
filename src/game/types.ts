@@ -22,6 +22,7 @@ export type TaskState =
   | "Recovering"
   | "Traversing"
   | "Returning"
+  | "Following"
   | "Working"
   | "Mining"
   | "Collecting"
@@ -535,6 +536,17 @@ export type GameState = {
   frozenMissile: { id: number; x: number; y: number; ticks: number } | null;
   goldExplosion: { x: number; y: number; ticks: number; maxTicks: number } | null;
   workerDeathFlash: { x: number; y: number; ticks: number; maxTicks: number } | null;
+  /**
+   * 4.3.0 — press-and-hold "lead your workers" gesture point (world coords).
+   * While the operator holds/drags on the field, eligible non-fleeing workers
+   * get a strong continuous pull toward this point (distance falloff — nearer
+   * crews respond harder). Set/cleared ONLY by the UI pointer handlers via
+   * `setLeadPoint` / `clearLeadPoint` (never on the headless/replay path), so it
+   * is trace-neutral exactly like `suggestedTarget` / `priorityMarks`: in a
+   * headless run it is always `undefined` and the movement bias is a strict
+   * no-op. Transient — defaulted `undefined` on init and dropped on load.
+   */
+  leadPoint?: { x: number; y: number };
   missileClickCooldown: number;
   /**
    * 3.2.2 — unified notification queue. Achievement unlocks and enemy

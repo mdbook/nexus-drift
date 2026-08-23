@@ -552,6 +552,7 @@ export function createInitialGameState(seed?: number): GameState {
     frozenMissile: null,
     goldExplosion: null,
     workerDeathFlash: null,
+    leadPoint: undefined,
     missileClickCooldown: 0,
     notifications: [],
     archiveLog: [],
@@ -588,6 +589,7 @@ export function cloneGameState(prev: GameState): GameState {
     frozenMissile: prev.frozenMissile ? { ...prev.frozenMissile } : null,
     goldExplosion: prev.goldExplosion ? { ...prev.goldExplosion } : null,
     workerDeathFlash: prev.workerDeathFlash ? { ...prev.workerDeathFlash } : null,
+    leadPoint: prev.leadPoint ? { ...prev.leadPoint } : undefined,
     activeEvents: prev.activeEvents.map((event) => ({ ...event })),
     eventModifiers: { ...prev.eventModifiers },
     log: prev.log.map((entry) => ({ ...entry })),
@@ -698,6 +700,9 @@ export function migrateGameState(raw: SerializedGameState): GameState {
     frozenMissile: null,
     goldExplosion: null,
     workerDeathFlash: null,
+    // 4.3.0 — transient lead gesture point. Never survives a reload (only ever
+    // set by the live UI drag), so drop it on load rather than carry it.
+    leadPoint: undefined,
     missileClickCooldown: (raw as { missileClickCooldown?: number }).missileClickCooldown ?? 0,
     activeEvents: Array.isArray(raw.activeEvents)
       ? raw.activeEvents.map((event) => ({

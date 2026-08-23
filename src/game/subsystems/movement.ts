@@ -17,6 +17,7 @@ import {
   WORKER_ABILITIES,
   WORKER_BLOCKING,
   WORKER_AI,
+  WORKER_LEAD,
   ZAPPER,
 } from "@/game/balance";
 import { chooseFleeDirectionTarget, chooseWorkerTarget } from "@/game/ai/workerTargeting";
@@ -377,6 +378,59 @@ export function stepWorkers(state: GameState, ctx?: SimTraceCtx) {
       );
       agent.damageTicks = Math.max(0, agent.damageTicks - 1);
       // Miner overclock resets while evading (not at node).
+      if (agent.kind === "miner") agent.overclockTicks = 0;
+      return;
+    }
+
+    // 4.3.0 — Press-and-hold "lead your workers". While the field drag handler
+    // holds a lead point, every eligible non-fleeing worker gets a strong
+    // continuous pull toward it, with distance falloff (nearer crews respond
+    // harder — see WORKER_LEAD). This sits AFTER the evade branch above (which
+    // returns early), so a worker fleeing a real threat ignores the pull —
+    // survival always wins, exactly like the Send-home routing below. It is a
+    // movement STEER: the worker steps toward the point (clamped so it never
+    // overshoots) and animates there; it is never teleported. `recovering`
+    // workers are excluded so a hurt worker still prioritizes limping home to
+    // heal. NEUTRALITY: `state.leadPoint` is written ONLY by the UI pointer
+    // handlers (`setLeadPoint`/`clearLeadPoint`), never on the headless/replay
+    // path, so this whole block is a strict no-op in a headless run — no rng
+    // drawn, no `chooseWorkerTarget` call, no trace emit touched. It also does
+    // not run before `chooseWorkerTarget`, so the targeting decision + its single
+    // trace record are untouched; this only biases the physical step.
+    if (state.leadPoint && !recovering) {
+      const lead = state.leadPoint;
+      const ldx = lead.x - agent.x;
+      const ldy = lead.y - agent.y;
+      const ld = Math.hypot(ldx, ldy);
+      // falloff → 1 at the point, 0.5 at one falloffRadius out, tapering beyond.
+      const falloff = WORKER_LEAD.falloffRadius / (ld + WORKER_LEAD.falloffRadius);
+      const veteranBonus = 1 + agent.veteranRank * 0.05;
+      const step = Math.min(
+        ld,
+        agent.speed *
+          agent.speedMod *
+          WORKER_LEAD.pullSpeedScale *
+          veteranBonus *
+          falloff *
+          blocking.speedScale
+      );
+      if (ld > 0.001) {
+        agent.x = clamp(agent.x + (ldx / ld) * step, 20, WORLD_W - 20);
+        agent.y = clamp(agent.y + (ldy / ld) * step, 50, WORLD_H - 32);
+      }
+      agent.tx = lead.x;
+      agent.ty = lead.y;
+      agent.swing = (agent.swing + 1) % 24;
+      agent.task = "Following";
+      agent.panic = clamp(agent.panic - WORKER.panicDelta.traversing, 0, 100);
+      agent.hp = clamp(
+        agent.hp + WORKER.healRate.traversing + state.upgrades.shield * WORKER.healRate.traversingShield,
+        0,
+        agent.maxHp
+      );
+      agent.damageTicks = Math.max(0, agent.damageTicks - 1);
+      // Lead pull is traversal, not node work — reset miner overclock like the
+      // traverse/evade branches do.
       if (agent.kind === "miner") agent.overclockTicks = 0;
       return;
     }

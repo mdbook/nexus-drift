@@ -1,13 +1,16 @@
 import {
   memo,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useReducedMotion } from "framer-motion";
 import { WORLD_H, WORLD_W } from "@/game/constants";
-import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
+import { LEAD_GESTURE, MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP, WORKER_LEAD } from "@/game/balance";
+import { shouldEnterLeadMode } from "@/lib/leadGesture";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
@@ -77,6 +80,12 @@ type FieldInteractionHandlers = {
   onEnemyInspect?: (enemyId: number, anchor: Anchor) => void;
   onWorkerInspect?: (agentId: number, anchor: Anchor) => void;
   onCityInspect?: (anchor: Anchor) => void;
+  // 4.3.0 — press-and-hold drag-to-lead. onLeadStart fires once the press
+  // promotes past the tap threshold (see lib/leadGesture.ts); onLeadMove tracks
+  // the drag; onLeadEnd clears on release/cancel. All carry WORLD coords.
+  onLeadStart?: (x: number, y: number) => void;
+  onLeadMove?: (x: number, y: number) => void;
+  onLeadEnd?: () => void;
 };
 
 type FieldSvgProps = {
@@ -734,10 +743,126 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
     handler();
   };
 
+  // 4.3.0 — press-and-hold drag-to-lead gesture. A press promotes to "lead mode"
+  // once it clears the tap threshold (held LEAD_GESTURE.holdMs OR moved
+  // LEAD_GESTURE.moveThresholdPx — see shouldEnterLeadMode). Below that it stays
+  // a plain tap and the existing entity onClick handlers (node suggest / inspect)
+  // fire unchanged; a completed lead gesture swallows exactly one trailing click
+  // so the release never also fires a tap. Pointer coords → world via the SVG's
+  // screen CTM (handles viewBox scale + letterboxing). No-op when App does not
+  // supply the lead handlers.
+  const gestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startTime: number;
+    svg: SVGSVGElement;
+    leadActive: boolean;
+  } | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const swallowClickRef = useRef(false);
+
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const clientToWorld = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y };
+  };
+
+  const promoteToLead = (clientX: number, clientY: number) => {
+    const g = gestureRef.current;
+    if (!g || g.leadActive) return;
+    g.leadActive = true;
+    clearHoldTimer();
+    // Suppress the click that would otherwise fire on release after a drag.
+    swallowClickRef.current = true;
+    try {
+      g.svg.setPointerCapture(g.pointerId);
+    } catch {
+      /* pointer capture is best-effort */
+    }
+    const w = clientToWorld(g.svg, clientX, clientY);
+    if (w) interactions?.onLeadStart?.(w.x, w.y);
+  };
+
+  const onFieldPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!interactions?.onLeadStart) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return; // primary button only
+    const startX = event.clientX;
+    const startY = event.clientY;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX,
+      startY,
+      startTime: performance.now(),
+      svg: event.currentTarget,
+      leadActive: false,
+    };
+    swallowClickRef.current = false;
+    clearHoldTimer();
+    // Press-and-hold: promote after holdMs even with no movement (summon to a spot).
+    holdTimerRef.current = window.setTimeout(() => promoteToLead(startX, startY), LEAD_GESTURE.holdMs);
+  };
+
+  const onFieldPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== event.pointerId) return;
+    if (g.leadActive) {
+      event.preventDefault();
+      const w = clientToWorld(g.svg, event.clientX, event.clientY);
+      if (w) interactions?.onLeadMove?.(w.x, w.y);
+      return;
+    }
+    const movedPx = Math.hypot(event.clientX - g.startX, event.clientY - g.startY);
+    const heldMs = performance.now() - g.startTime;
+    if (shouldEnterLeadMode({ heldMs, movedPx })) {
+      promoteToLead(event.clientX, event.clientY);
+    }
+  };
+
+  const onFieldPointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== event.pointerId) return;
+    clearHoldTimer();
+    const wasLead = g.leadActive;
+    const svg = g.svg;
+    const pointerId = g.pointerId;
+    gestureRef.current = null;
+    if (wasLead) {
+      try {
+        svg.releasePointerCapture(pointerId);
+      } catch {
+        /* already released */
+      }
+      interactions?.onLeadEnd?.();
+    }
+  };
+
+  const onFieldClickCapture = (event: ReactMouseEvent<SVGSVGElement>) => {
+    if (swallowClickRef.current) {
+      swallowClickRef.current = false;
+      event.stopPropagation();
+      event.preventDefault();
+    }
+  };
+
   return (
     <svg
       viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
       className="h-full min-h-[380px] w-full touch-manipulation select-none bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] lg:min-h-0"
+      onPointerDown={onFieldPointerDown}
+      onPointerMove={onFieldPointerMove}
+      onPointerUp={onFieldPointerUp}
+      onPointerCancel={onFieldPointerUp}
+      onLostPointerCapture={onFieldPointerUp}
+      onClickCapture={onFieldClickCapture}
     >
       <defs>
         <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
@@ -2728,6 +2853,58 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
               opacity={0.85 * (1 - t)}
               style={{ pointerEvents: "none" }}
             />
+          );
+        })()}
+
+      {game.leadPoint &&
+        (() => {
+          // 4.3.0 — press-and-hold lead marker. A cyan ring + center dot mark the
+          // held point (consistent with the 4.1 lead-line hue). Per §Coarse-Pointer
+          // FX Budget: full FX adds a faint dashed falloff ring + faint pull lines
+          // from each currently-led worker and a gentle pulse; reduceFx collapses
+          // to a single static ring + dot (simplify, don't remove).
+          const lead = game.leadPoint;
+          const pulse = reduceFx ? 0 : Math.sin(game.timers.tick / 6) * 3;
+          return (
+            <g style={{ pointerEvents: "none" }}>
+              {!reduceFx && (
+                <>
+                  <circle
+                    cx={lead.x}
+                    cy={lead.y}
+                    r={WORKER_LEAD.falloffRadius}
+                    fill="none"
+                    stroke="rgba(127,222,255,0.08)"
+                    strokeWidth={1}
+                    strokeDasharray="6 10"
+                  />
+                  {game.agents
+                    .filter(
+                      (a) => a.active && a.hp > 0 && !a.corrupted && a.rebootTicks <= 0 && a.evadeTicks <= 0
+                    )
+                    .map((a) => (
+                      <line
+                        key={a.id}
+                        x1={a.x}
+                        y1={a.y}
+                        x2={lead.x}
+                        y2={lead.y}
+                        stroke="rgba(127,222,255,0.14)"
+                        strokeWidth={1}
+                      />
+                    ))}
+                </>
+              )}
+              <circle
+                cx={lead.x}
+                cy={lead.y}
+                r={18 + pulse}
+                fill="rgba(127,222,255,0.10)"
+                stroke="rgba(127,222,255,0.75)"
+                strokeWidth={2}
+              />
+              <circle cx={lead.x} cy={lead.y} r={3} fill="rgba(200,245,255,0.9)" />
+            </g>
           );
         })()}
     </svg>

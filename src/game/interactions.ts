@@ -1,8 +1,9 @@
 import { MISSILE_SILO, PRIORITY_MARK } from "@/game/balance";
+import { WORLD_H, WORLD_W } from "@/game/constants";
 import { isCloaked } from "@/game/enemyUtils";
 import { computeDerived } from "@/game/selectors";
 import type { Agent, GameState } from "@/game/types";
-import { dist, elapsedTicks } from "@/game/utils";
+import { clamp, dist, elapsedTicks } from "@/game/utils";
 
 /**
  * 4.0 Phase 2 — soft click-to-suggest worker guidance and defense priority.
@@ -92,6 +93,27 @@ export function suggestWorkerHome(state: GameState, agentId: number): boolean {
   agent.suggestedTarget = { kind: "home", createdAt: state.timers.tick };
   agent.target = null;
   return true;
+}
+
+/**
+ * 4.3.0 — press-and-hold "lead your workers" gesture point. `setLeadPoint`
+ * stamps the world-space point the operator is holding/dragging; `clearLeadPoint`
+ * removes it on release. These are the ONLY writers of `state.leadPoint`, and
+ * they are called only from the UI pointer handlers — never on the
+ * headless/replay path — so the movement bias that reads `state.leadPoint`
+ * (movement.ts) is a strict no-op in a headless run (trace-neutral, like
+ * `suggestedTarget` / `priorityMarks`). The point is clamped into the field so a
+ * drag off the edge still resolves to an in-bounds lead.
+ */
+export function setLeadPoint(state: GameState, x: number, y: number): void {
+  state.leadPoint = {
+    x: clamp(x, 0, WORLD_W),
+    y: clamp(y, 0, WORLD_H),
+  };
+}
+
+export function clearLeadPoint(state: GameState): void {
+  state.leadPoint = undefined;
 }
 
 /** True when this enemy carries an unexpired player defense-priority mark. */

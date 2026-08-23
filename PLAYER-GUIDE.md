@@ -54,6 +54,23 @@ on the very next moment, not "eventually."
 - If nothing happens and you see a "no eligible worker" note in the log, it means
   every worker is busy fleeing or rebooting right now. Try again in a moment.
 
+### Lead your workers around — PRESS AND HOLD, THEN DRAG
+
+Want to physically herd your crews? **Press and hold anywhere on the field, then
+drag.** A cyan **lead ring** appears where you're holding, and every nearby worker
+gets pulled toward it — the closer a worker is, the harder it's tugged, so it feels
+like a magnet. Drag the ring around and your crews stream after it; **let go and
+they hand straight back to normal AI.** Works with a mouse or a finger (great on
+iPad).
+
+- A **quick tap** still does the normal thing (send a worker to a node, or open an
+  inspect popover) — you only enter "lead" mode once you've held briefly or started
+  dragging, so taps never get eaten.
+- **Fleeing still wins.** A worker running from a real threat ignores the pull —
+  survival beats your finger. Hurt workers limping home to heal also sit it out.
+- Use it to bunch idle crews onto a fresh vein, walk them away from a hot corner,
+  or just gather everyone for a beat before releasing them.
+
 ### Inspect or recall a worker — TAP THE WORKER
 
 Tap a worker drone to open its **inspect popover**. It shows what the worker is

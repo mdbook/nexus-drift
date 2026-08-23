@@ -56,7 +56,13 @@ import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
 import { computeUnlockedLore } from "@/game/lore";
 import { getEventDef } from "@/game/events/eventDefs";
-import { suggestDefensePriority, suggestWorkerHome, suggestWorkerToNode } from "@/game/interactions";
+import {
+  clearLeadPoint,
+  setLeadPoint,
+  suggestDefensePriority,
+  suggestWorkerHome,
+  suggestWorkerToNode,
+} from "@/game/interactions";
 import { FieldPopover, type PopoverTarget } from "@/components/FieldPopover";
 import { V4OnboardingCard } from "@/components/V4OnboardingCard";
 import { loadSavedState, SAVE_KEY } from "@/game/persistence";
@@ -489,6 +495,25 @@ export default function App() {
       },
       onCityInspect: (anchor: { x: number; y: number }) => {
         setPopover({ target: { kind: "city" }, anchor });
+      },
+      // 4.3.0 — press-and-hold drag-to-lead. Start/move stamp the transient lead
+      // point (world coords) via the UI-only setter; end clears it and hands the
+      // workers back to normal AI. These are the only callers of setLeadPoint /
+      // clearLeadPoint, keeping the sim/headless path free of state.leadPoint.
+      onLeadStart: (x: number, y: number) => {
+        mutateGame((next) => {
+          setLeadPoint(next, x, y);
+        });
+      },
+      onLeadMove: (x: number, y: number) => {
+        mutateGame((next) => {
+          setLeadPoint(next, x, y);
+        });
+      },
+      onLeadEnd: () => {
+        mutateGame((next) => {
+          clearLeadPoint(next);
+        });
       },
     }),
     [mutateGame]

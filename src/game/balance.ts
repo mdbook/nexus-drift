@@ -1120,6 +1120,35 @@ export const PRIORITY_MARK = {
 } as const;
 
 /**
+ * 4.3.0 — press-and-hold "lead your workers" tuning.
+ *
+ * Movement side: while `state.leadPoint` is set (only ever by the UI pointer
+ * handlers), each eligible non-fleeing worker steps toward the held point at
+ * `pullSpeedScale × agent.speed`, scaled by a distance falloff so nearer crews
+ * respond harder. `falloff = falloffRadius / (dist + falloffRadius)` → 1 at the
+ * point, 0.5 at one `falloffRadius` out, tapering (never quite 0) beyond. The
+ * step is clamped so it never overshoots the point (settle, don't jitter). This
+ * is a movement STEER layered AFTER the flee/evade branch, so a worker fleeing a
+ * real threat ignores the pull — survival always wins.
+ */
+export const WORKER_LEAD = {
+  falloffRadius: 260,
+  pullSpeedScale: 1.5,
+} as const;
+
+/**
+ * 4.3.0 — tap-vs-hold disambiguation for the lead gesture (screen-space). A
+ * pointer press promotes to a lead DRAG once it is held `holdMs` OR the pointer
+ * has moved `moveThresholdPx` from where it went down. Below both thresholds the
+ * press stays a plain TAP and routes to the existing node-suggest / inspect
+ * click handlers unchanged. See `shouldEnterLeadMode` in `lib/leadGesture.ts`.
+ */
+export const LEAD_GESTURE = {
+  holdMs: 150,
+  moveThresholdPx: 8,
+} as const;
+
+/**
  * 4.0 — tunables for the operator-model achievements (see
  * §Achievement System Invariants). `autobuyOffMilestoneTicks` is the number of
  * CONTINUOUS ticks the player must run with master autobuy off to earn
