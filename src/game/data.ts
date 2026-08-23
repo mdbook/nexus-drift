@@ -1,4 +1,4 @@
-import { UPGRADES } from "@/game/balance";
+import { GEM_UPGRADE_COST, UPGRADES } from "@/game/balance";
 import type {
   EnemyKind,
   EnemyVisual,
@@ -55,9 +55,11 @@ export const upgradeDefs: UpgradeDef[] = [
   {
     key: "reactor",
     label: "Reactor",
-    baseCost: UPGRADES.reactor.baseCost,
+    // 4.4.0: gems added as a sink. Thematic — the reactor is the main energy
+    // producer, so gems now fund the energy capacity that operator actions burn.
+    baseCost: { gold: UPGRADES.reactor.baseCost, gems: GEM_UPGRADE_COST.reactor },
     growth: UPGRADES.reactor.growth,
-    effectText: "+ Energy + anti-raider gun power",
+    effectText: "+ Energy + anti-raider gun power (costs gems)",
   },
   {
     key: "bot",
@@ -97,9 +99,10 @@ export const upgradeDefs: UpgradeDef[] = [
   {
     key: "arsenal",
     label: "Scout Arsenal",
-    baseCost: UPGRADES.arsenal.baseCost,
+    // 4.4.0: gems added as a sink (mid/late upgrade).
+    baseCost: { gold: UPGRADES.arsenal.baseCost, gems: GEM_UPGRADE_COST.arsenal },
     growth: UPGRADES.arsenal.growth,
-    effectText: "Purge burst + field cleanse",
+    effectText: "Purge burst + field cleanse (costs gems)",
   },
   {
     key: "foundry",
@@ -137,9 +140,11 @@ export const upgradeDefs: UpgradeDef[] = [
   {
     key: "missileLauncher",
     label: "Missile Launcher",
-    baseCost: UPGRADES.missileLauncher.baseCost,
+    // 4.4.0: gems added as a sink (high-value late upgrade).
+    baseCost: { gold: UPGRADES.missileLauncher.baseCost, gems: GEM_UPGRADE_COST.missileLauncher },
     growth: UPGRADES.missileLauncher.growth,
-    effectText: "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level.",
+    effectText:
+      "Long-range missile silos — few shots, big hits, massive range. +12 dmg / level (costs gems).",
   },
 ];
 

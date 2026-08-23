@@ -631,7 +631,14 @@ export const ECONOMY = {
     gemsBase: 0.02,
     gemsPerDrill: 0.08,
     gemsPerReactor: 0.02,
-    energyBase: 0.03,
+    // 4.4.0: 0.03 → 0.15. The operator-action energy economy makes manual
+    // nudges/marks/send-homes cost energy; at the old 0.03/s (~1.8/min, and a
+    // fresh colony started at 0 energy) even light manual play would starve.
+    // Bumped so baseline passive income alone (~9/min, before reactors/kills)
+    // comfortably covers a normal action cadence — GENEROUS by directive; only
+    // spam-clicking outruns it. Energy has no upgrade/progression gate, so this
+    // does not affect the deadlock fix or prestige pacing. See balance-log.md.
+    energyBase: 0.15,
     energyPerReactor: 0.25,
     energyPerShield: 0.04,
   },
@@ -1134,6 +1141,50 @@ export const PRIORITY_MARK = {
 export const WORKER_LEAD = {
   falloffRadius: 260,
   pullSpeedScale: 1.5,
+} as const;
+
+/**
+ * 4.4.0 — operator-action energy economy. Manual operator actions (the
+ * UI-called interaction helpers in `interactions.ts`) cost ENERGY; idle and
+ * autobuy play are UNTOUCHED (autobuy never calls these helpers, and none of
+ * these deductions run on the sim/headless path). Tuned GENEROUS by operator
+ * directive: at baseline passive energy income (`ECONOMY.rates.energyBase` =
+ * 0.15/s ≈ 9/min, before reactors/kills add more) a normal cadence of a handful
+ * of actions per minute stays net-positive; only rapid spam-clicking outruns
+ * income and hits the refusal wall. All costs live here as named constants.
+ *
+ *  - `nudgeWorkerCost` / `markThreatCost` / `sendHomeCost` — flat per-action
+ *    energy cost. When the reserve can't cover it the action is REFUSED
+ *    (`interactions.ts` returns false → the UI shows a "Not enough energy" cue).
+ *  - `leadDrainPerTick` — energy drained per tick while the press-and-hold
+ *    drag-to-lead gesture is held (`stepLeadDrain` in movement.ts). Gated on the
+ *    UI-only `state.leadPoint`, so it is a strict no-op on the headless/replay
+ *    path (draws no rng, trace-neutral). ~0.25/tick ≈ 7.5/min held — a real
+ *    but light drain that auto-releases the lead at 0 so it can never go
+ *    negative.
+ *  - `startingEnergy` — the fresh-colony energy reserve (createInitialGameState)
+ *    so the very first operator actions are never refused before income accrues.
+ */
+export const OPERATOR_ACTIONS = {
+  nudgeWorkerCost: 1,
+  markThreatCost: 1,
+  sendHomeCost: 1,
+  leadDrainPerTick: 0.25,
+  startingEnergy: 25,
+} as const;
+
+/**
+ * 4.4.0 — gem sinks on a few high-value mid/late upgrades. Gems previously
+ * piled up unused (income outruns their only sink, prestige's gemsGate=380), so
+ * these base gem amounts are added to each upgrade's cost in `data.ts` and scale
+ * by that upgrade's existing growth factor like any other cost key. Modest by
+ * design: a healthy colony's gem bank (hundreds→thousands) easily covers them,
+ * so gems become a meaningful recurring SPEND without re-gating progression.
+ */
+export const GEM_UPGRADE_COST = {
+  reactor: 15,
+  arsenal: 12,
+  missileLauncher: 18,
 } as const;
 
 /**

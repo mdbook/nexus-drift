@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { AUTO_TICK } from "@/game/constants";
 import { createInitialGameState } from "@/game/factories";
+import { getUpgradeDef } from "@/game/data";
+import { nextUpgradeCost } from "@/game/utils";
 import {
   purchaseFailReason,
   purchaseUpgrade,
@@ -96,6 +98,25 @@ describe("purchaseUpgrade", () => {
     state.resources.cores = 0;
     const broke = purchaseUpgrade(state, "sentinel", { enforceGates: false });
     expect(broke).toEqual({ ok: false, reason: "insufficient" });
+  });
+
+  it("a gem-costed upgrade (reactor) actually requires gems, not just gold (4.4.0 sink)", () => {
+    const state = createInitialGameState(1);
+    const cost = nextUpgradeCost(getUpgradeDef("reactor"), 0);
+    expect(cost.gems ?? 0).toBeGreaterThan(0); // reactor now carries a gem cost
+
+    // Plenty of gold, zero gems → refused for insufficiency.
+    state.resources = { ...RICH, gems: 0 };
+    expect(purchaseUpgrade(state, "reactor", { enforceGates: false })).toEqual({
+      ok: false,
+      reason: "insufficient",
+    });
+
+    // Give it exactly the gems it needs → the buy goes through and spends them.
+    state.resources.gems = cost.gems!;
+    expect(purchaseUpgrade(state, "reactor", { enforceGates: false })).toEqual({ ok: true });
+    expect(state.upgrades.reactor).toBe(1);
+    expect(state.resources.gems).toBe(0); // gems were actually consumed
   });
 });
 

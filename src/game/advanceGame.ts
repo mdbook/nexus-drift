@@ -10,7 +10,13 @@ import { stepCity, stepEconomy } from "@/game/subsystems/economy";
 import { stepEvents } from "@/game/subsystems/events";
 import { stepMining } from "@/game/subsystems/mining";
 import { stepMissileSilos } from "@/game/subsystems/missileSilos";
-import { stepEnemies, stepLostDrone, stepTourist, stepWorkers } from "@/game/subsystems/movement";
+import {
+  stepEnemies,
+  stepLeadDrain,
+  stepLostDrone,
+  stepTourist,
+  stepWorkers,
+} from "@/game/subsystems/movement";
 import { stepProjectiles } from "@/game/subsystems/projectiles";
 import { stepScouts } from "@/game/subsystems/scouts";
 import { stepSentinels } from "@/game/subsystems/sentinels";
@@ -72,6 +78,10 @@ export function advanceGame(prev: GameState, ctx?: SimTraceCtx): GameState {
   stepWorkerSlots(state);
   stepSpawns(state);
   stepWardenSpawn(state);
+  // 4.4.0 — drain energy for a held drag-to-lead BEFORE the workers act on the
+  // lead point, so a reserve that hits 0 releases the lead this same tick (no
+  // free follow-tick at empty). No-op on the headless path (leadPoint is UI-only).
+  stepLeadDrain(state);
   stepWorkers(state, ctx);
   stepTourist(state);
   stepLostDrone(state);

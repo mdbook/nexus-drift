@@ -13,6 +13,7 @@ import {
   ENEMY_MOVEMENT,
   ENEMY_SEPARATION,
   ENEMY_SPECIAL,
+  OPERATOR_ACTIONS,
   WORKER,
   WORKER_ABILITIES,
   WORKER_BLOCKING,
@@ -156,6 +157,27 @@ function shouldScanFleeTarget(tick: number, agentId: number): boolean {
   // negative remainder behavior.
   const phase = positiveModulo(-(agentId - 1) * 7, interval);
   return positiveModulo(tick, interval) === phase;
+}
+
+/**
+ * 4.4.0 — energy drain for the press-and-hold drag-to-lead gesture. Runs once
+ * per tick while the operator holds a lead point. NEUTRALITY: `state.leadPoint`
+ * is written ONLY by the UI pointer handlers (`setLeadPoint`/`clearLeadPoint`),
+ * never on the headless/replay path, so this whole function is a strict no-op in
+ * a headless run — it draws no rng and touches no trace. When held it deducts
+ * `OPERATOR_ACTIONS.leadDrainPerTick`; if the reserve can't cover the next tick
+ * it floors energy at 0 and auto-releases the lead (clears `leadPoint`) so a
+ * drag can never push energy negative or keep steering for free.
+ */
+export function stepLeadDrain(state: GameState) {
+  if (!state.leadPoint) return;
+  const cost = OPERATOR_ACTIONS.leadDrainPerTick;
+  if (state.resources.energy < cost) {
+    state.resources.energy = 0;
+    state.leadPoint = undefined;
+    return;
+  }
+  state.resources.energy -= cost;
 }
 
 // ponytail: `ctx` is the opt-in decision-trace sink, forwarded to the worker-target

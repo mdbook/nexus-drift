@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cloneGameState, createInitialGameState, spawnEnemy } from "@/game/factories";
+import { OPERATOR_ACTIONS } from "@/game/balance";
 import { setLeadPoint, clearLeadPoint } from "@/game/interactions";
-import { stepWorkers } from "@/game/subsystems/movement";
+import { stepLeadDrain, stepWorkers } from "@/game/subsystems/movement";
 import type { Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
 
@@ -163,5 +164,39 @@ describe("press-and-hold lead point", () => {
     expect(state.leadPoint).toEqual({ x: 1000, y: 0 });
     clearLeadPoint(state);
     expect(state.leadPoint).toBeUndefined();
+  });
+});
+
+describe("drag-to-lead energy drain (4.4.0)", () => {
+  it("drains energy each tick while the lead is held", () => {
+    const state = baseState();
+    setLeadPoint(state, 500, 300);
+    state.resources.energy = 10;
+
+    stepLeadDrain(state);
+    expect(state.resources.energy).toBeCloseTo(10 - OPERATOR_ACTIONS.leadDrainPerTick, 6);
+    stepLeadDrain(state);
+    expect(state.resources.energy).toBeCloseTo(10 - 2 * OPERATOR_ACTIONS.leadDrainPerTick, 6);
+    // The lead is still held (energy comfortably above the per-tick cost).
+    expect(state.leadPoint).toBeDefined();
+  });
+
+  it("auto-releases the lead at 0 and never goes negative", () => {
+    const state = baseState();
+    setLeadPoint(state, 500, 300);
+    // Just under one tick's drain — the next tick can't be covered.
+    state.resources.energy = OPERATOR_ACTIONS.leadDrainPerTick / 2;
+
+    stepLeadDrain(state);
+    expect(state.resources.energy).toBe(0); // floored, not negative
+    expect(state.leadPoint).toBeUndefined(); // lead auto-released
+  });
+
+  it("is a strict no-op when no lead point is set (headless neutrality)", () => {
+    const state = baseState();
+    expect(state.leadPoint).toBeUndefined();
+    state.resources.energy = 42;
+    stepLeadDrain(state);
+    expect(state.resources.energy).toBe(42); // untouched on the headless path
   });
 });

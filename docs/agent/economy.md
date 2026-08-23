@@ -11,7 +11,23 @@
 - Gold anchors the early economy.
 - Cores come from elite combat kills (brutes, phantoms).
 - Flux comes from anti-corruption play (purges, corruptor kills).
+- Gems fund a few mid/late upgrades (see Gem upgrade sinks below); energy funds manual operator actions (see below).
 - Upgrade costs can consume multiple resource types.
+
+## Operator-action energy economy (4.4.0)
+
+Manual operator actions cost **energy**; idle and autobuy play are UNTOUCHED (autobuy never calls these helpers). Constants live in `OPERATOR_ACTIONS` (`balance.ts`).
+
+- **Per-action energy cost** — the UI-called helpers in `interactions.ts` each spend a flat amount on success: `suggestWorkerToNode` (`nudgeWorkerCost`), `suggestDefensePriority` (`markThreatCost`), `suggestWorkerHome` (`sendHomeCost`). If the reserve can't cover it the action is **refused** (helper returns `false`), and `App.tsx` shows a "Not enough energy …" cue instead of the generic no-op cue.
+- **Drag-to-lead drain** — `stepLeadDrain` (`movement.ts`, wired into `advanceGame` right before `stepWorkers`) drains `leadDrainPerTick` energy each tick while the press-and-hold lead is held. It **auto-releases** the lead (clears `state.leadPoint`) when energy would hit 0, so a drag can never push energy negative.
+- **Starting reserve** — `createInitialGameState` seeds `OPERATOR_ACTIONS.startingEnergy` energy so the very first operator actions are never refused. Existing saves keep their stored energy (no migration / schema bump).
+- **Tuning is deliberately GENEROUS** — at baseline passive income (`ECONOMY.rates.energyBase`, bumped 0.03 → 0.15 in 4.4.0 ≈ 9/min before reactors/kills) a normal cadence of a few actions per minute stays net-positive; only rapid spam-clicking outruns income and hits the refusal wall. See [balance-log.md](balance-log.md) for the validation numbers.
+
+**Trace-neutrality (invariant):** every energy deduction is on the UI path (`interactions.ts`) or gated on the UI-only `state.leadPoint` (`stepLeadDrain`), never on the headless/replay path. `trace.test.ts` and `runHeadless` stay byte-identical; no rng is added.
+
+### Gem upgrade sinks (4.4.0)
+
+Gems previously piled up unused. `GEM_UPGRADE_COST` (`balance.ts`) adds a gem component to three high-value mid/late upgrades in `data.ts` — **reactor, arsenal, missileLauncher** — scaled by each upgrade's growth factor like any other cost key. Modest by design: a healthy colony's gem bank (hundreds→thousands) easily covers them, so gems become a real recurring spend without re-gating progression or the Tier-0 deadlock fix.
 
 ## Sector Level XP Curve
 

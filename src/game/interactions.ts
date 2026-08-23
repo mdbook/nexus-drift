@@ -1,4 +1,4 @@
-import { MISSILE_SILO, PRIORITY_MARK } from "@/game/balance";
+import { MISSILE_SILO, OPERATOR_ACTIONS, PRIORITY_MARK } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { isCloaked } from "@/game/enemyUtils";
 import { computeDerived } from "@/game/selectors";
@@ -44,6 +44,13 @@ export function suggestWorkerToNode(
   }
   if (!best) return false;
 
+  // 4.4.0 — operator-action energy cost. Charged only when the action can
+  // actually land (a nudge-able worker exists); refused when the reserve can't
+  // cover it so the caller shows a "Not enough energy" cue. UI-path only — this
+  // helper is never called on the sim/headless tick, so it is trace-neutral.
+  if (state.resources.energy < OPERATOR_ACTIONS.nudgeWorkerCost) return false;
+  state.resources.energy -= OPERATOR_ACTIONS.nudgeWorkerCost;
+
   best.suggestedTarget = {
     kind: "node",
     id: String(nodeId),
@@ -61,6 +68,10 @@ export function suggestWorkerToNode(
 export function suggestDefensePriority(state: GameState, enemyId: number): boolean {
   const enemy = state.enemies.find((e) => e.id === enemyId && e.hp > 0);
   if (!enemy) return false;
+
+  // 4.4.0 — operator-action energy cost (UI-path only; trace-neutral).
+  if (state.resources.energy < OPERATOR_ACTIONS.markThreatCost) return false;
+  state.resources.energy -= OPERATOR_ACTIONS.markThreatCost;
 
   const existing = state.priorityMarks.find((mark) => mark.enemyId === enemyId);
   if (existing) {
@@ -89,6 +100,10 @@ export function suggestWorkerHome(state: GameState, agentId: number): boolean {
   const agent = state.agents.find((a) => a.id === agentId && a.active);
   if (!agent || agent.hp <= 0 || agent.corrupted) return false;
   if (agent.rebootTicks > 0 || agent.disabledTicks > 0 || agent.evadeTicks > 0) return false;
+
+  // 4.4.0 — operator-action energy cost (UI-path only; trace-neutral).
+  if (state.resources.energy < OPERATOR_ACTIONS.sendHomeCost) return false;
+  state.resources.energy -= OPERATOR_ACTIONS.sendHomeCost;
 
   agent.suggestedTarget = { kind: "home", createdAt: state.timers.tick };
   agent.target = null;

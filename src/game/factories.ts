@@ -5,6 +5,7 @@ import {
   ENEMY_SHIELD,
   ENEMY_STATS,
   MISSILE_SILO,
+  OPERATOR_ACTIONS,
   SCOUT_HP,
   SENTINEL,
   SENTINEL_HP,
@@ -459,7 +460,10 @@ export function createInitialGameState(seed?: number): GameState {
     schemaVersion: SCHEMA_VERSION,
     citySeed,
     rng,
-    resources: { gold: 60, ore: 20, gems: 0, energy: 0, cores: 0, flux: 0 },
+    // 4.4.0: fresh colonies start with an energy reserve so the very first
+    // operator actions (which now cost energy) are never refused before passive
+    // income accrues. Existing saves keep their stored energy (no migration).
+    resources: { gold: 60, ore: 20, gems: 0, energy: OPERATOR_ACTIONS.startingEnergy, cores: 0, flux: 0 },
     upgrades: {
       miner: 0,
       drill: 0,

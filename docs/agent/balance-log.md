@@ -174,3 +174,82 @@ every seed measured.
   stalled one seed is that autobuy under-invested in defense as tiers escalated;
   that decision code was left untouched (logic), and the tier curve was tuned
   conservatively (28) to stay within its comfort zone instead.
+
+---
+
+## 4.4.0 — Operator-action energy economy + gem upgrade sinks
+
+Picks up the "operator-action / resource-sink slice" flagged as deferred above:
+the two dead resources (energy, gems) now matter, and the player's **manual**
+operator actions become real decisions. Idle/autobuy play is untouched.
+
+### Energy — manual operator actions cost energy (GENEROUS tuning)
+
+New constants in `OPERATOR_ACTIONS` (`balance.ts`):
+
+| constant           | value | meaning                                                     |
+| ------------------ | ----- | ----------------------------------------------------------- |
+| `nudgeWorkerCost`  | 1     | energy per worker nudge (`suggestWorkerToNode`)             |
+| `markThreatCost`   | 1     | energy per threat mark (`suggestDefensePriority`)           |
+| `sendHomeCost`     | 1     | energy per send-home (`suggestWorkerHome`)                  |
+| `leadDrainPerTick` | 0.25  | energy/tick while drag-to-lead is held (`stepLeadDrain`)    |
+| `startingEnergy`   | 25    | fresh-colony reserve so the first actions are never refused |
+
+Insufficient energy REFUSES the action (helper returns false → the existing
+no-op cue now reads "Not enough energy …"). The drag drain auto-releases the
+lead at 0 (energy floored, never negative).
+
+Also bumped **`ECONOMY.rates.energyBase` 0.03 → 0.15** (income was too low to
+support generous manual play — a fresh colony even started at 0 energy). This is
+the only change on the headless/economy path; every operator-action deduction
+lives on the UI path (`interactions.ts`) or is gated on the UI-only
+`state.leadPoint` (`stepLeadDrain`), so headless/replay stays trace-neutral.
+
+**GENEROUS validation (harness, `npm run sim`):**
+
+- Passive energy income at baseline (0 reactors/shields, full city) is now
+  `energyBase = 0.15/s` ≈ **9/min**, before reactors (+15/min each) and combat
+  kills (~3/min early) add more. At tick rate 33 ms ≈ 30.3 ticks/s.
+- seed 1, autobuy=all, no manual actions: energy = **33.9 @ 1 min → 118.5 @ 10
+  min → 334.6 @ 30 min** (starts at the 25 reserve, climbs steadily — never
+  starved). seed 7 long run: **1086 @ 1.1 h → 55 944 @ 5.5 h** (idle/autobuy
+  spends none).
+- Cost of a **normal** manual cadence (say ~4–6 deliberate actions/min ×1 energy
+  = 4–6/min) sits **well under** the ~9–12/min income → net-positive; even a busy
+  ~12 actions/min is ~neutral, buffered by the 25 reserve. A **spam** burst
+  (2–3 clicks/s = 120–180/min) drains the 25 reserve in ~10–15 s, then the wall
+  (refusal) rate-limits it until income recovers. Exactly the operator's ask:
+  normal play never nags, only spam hits a wall.
+- Drag-to-lead held continuously costs 0.25/tick ≈ **7.5/min** — under passive
+  income, so a lull-time drag is roughly free, but combined with nudge-spam it
+  accelerates depletion and auto-releases at 0.
+
+### Gems — real upgrade sink
+
+Gems piled unused (income outruns the only sink, prestige `gemsGate = 380`).
+Added a `GEM_UPGRADE_COST` base (scaled by each upgrade's growth factor like any
+cost key) to three high-value mid/late upgrades in `data.ts`:
+
+| upgrade         | gems @ L0 | note                                      |
+| --------------- | --------- | ----------------------------------------- |
+| reactor         | 15        | thematic — the energy producer costs gems |
+| arsenal         | 12        |                                           |
+| missileLauncher | 18        |                                           |
+
+**Progression / deadlock unaffected (harness, seed 7, autobuy=all, 600 000
+ticks / 5.5 h):** reactor/arsenal/missile all still bought freely
+(**React 12 / Ars 12 / Miss 11** by 5.5 h, level 59), and gems still pile to
+**~21 500** despite the sink — so gems became a meaningful recurring SPEND, not a
+gate. Prestige gates (`goldGate`/`gemsGate`) untouched; gems stay far above
+`gemsGate`. The Tier-0 deadlock fix is intact (fresh saves keep progressing).
+
+### Trace-neutrality
+
+- Energy deductions for nudge/mark/send-home are in the UI-called helpers in
+  `interactions.ts` — never on the `advanceGame` tick, never in a headless run.
+- The drag drain (`stepLeadDrain`, wired into `advanceGame` before `stepWorkers`)
+  is gated on `state.leadPoint`, which is written ONLY by the UI pointer handlers
+  → strict no-op headless (draws no rng, touches no trace/emit).
+- `trace.test.ts` (traced == untraced) and `runHeadless` same-seed determinism
+  stay byte-identical; no `recordWorkerTarget`/`recordAutobuy`/autobuy change; no
+  rng added. All four gates green, 319 tests (was 310; +9 for the new economy).

@@ -53,6 +53,7 @@ import {
   witnessAnomaly,
 } from "@/game/achievements";
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
+import { OPERATOR_ACTIONS } from "@/game/balance";
 import { resourceDefs } from "@/game/data";
 import { computeUnlockedLore } from "@/game/lore";
 import { getEventDef } from "@/game/events/eventDefs";
@@ -496,7 +497,13 @@ export default function App() {
           // cue instead of silently no-op'ing, so "nothing happened" reads as
           // "no worker free", not "the button is broken".
           if (!suggestWorkerToNode(next, nodeId)) {
-            appendLog(next, "No free worker to reroute there.", "system");
+            // 4.4.0 — distinguish the refusal reason: an insufficient energy
+            // reserve (the action costs energy now) vs. no eligible worker.
+            const msg =
+              next.resources.energy < OPERATOR_ACTIONS.nudgeWorkerCost
+                ? "Not enough energy to reroute a worker."
+                : "No free worker to reroute there.";
+            appendLog(next, msg, "system");
           }
         });
       },
@@ -588,7 +595,11 @@ export default function App() {
         // 4.x — a failed recall (worker fleeing / rebooting / corrupted) logs a
         // cue rather than doing nothing silently.
         if (!suggestWorkerHome(next, agentId)) {
-          appendLog(next, "That worker can't be recalled right now.", "system");
+          const msg =
+            next.resources.energy < OPERATOR_ACTIONS.sendHomeCost
+              ? "Not enough energy to recall that worker."
+              : "That worker can't be recalled right now.";
+          appendLog(next, msg, "system");
         }
       });
     },
@@ -602,7 +613,11 @@ export default function App() {
         // already greys the button out when no live weapon can act on the enemy
         // (canWeaponActOnEnemy), so this covers the die-while-inspected race.
         if (!suggestDefensePriority(next, enemyId)) {
-          appendLog(next, "Target lost — nothing to mark.", "system");
+          const msg =
+            next.resources.energy < OPERATOR_ACTIONS.markThreatCost
+              ? "Not enough energy to mark a threat."
+              : "Target lost — nothing to mark.";
+          appendLog(next, msg, "system");
         }
       });
     },

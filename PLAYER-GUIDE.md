@@ -41,6 +41,19 @@ it doesn't end the game.
 Here's the part people miss. **The field is interactive — tap things on it.**
 Everything you tap gives you visible feedback so you know it worked.
 
+### Your commands run on ENERGY (and it's generous)
+
+Your hands-on commands — nudging a worker to a node, marking a threat, recalling
+a worker, and herding crews with a lead-drag — spend a little **energy**. Energy
+refills on its own comfortably faster than normal play burns it, and you start
+every colony with a reserve, so **you'll basically never run dry just playing.**
+It only becomes a limit if you _mash_ commands — rapid-fire spamming will
+temporarily bottom out your energy, and a command with nothing left to spend is
+refused with a "Not enough energy" note in the log. Ease off for a moment and it
+tops right back up. (Your **idle / autobuy** colony spends **zero** energy —
+this only ever touches your own manual clicks.) Reactors boost energy income, so
+if you love hands-on play, a few reactors keep the tank full.
+
 ### Send a worker to mine a specific node — TAP THE NODE
 
 This is the big one. **Tap (or click) a resource node on the field, and the
@@ -52,7 +65,8 @@ on the very next moment, not "eventually."
 - Workers still dodge danger on the way — a nudge never marches a drone into
   something that will kill it. Safety always wins.
 - If nothing happens and you see a "no eligible worker" note in the log, it means
-  every worker is busy fleeing or rebooting right now. Try again in a moment.
+  every worker is busy fleeing or rebooting right now. Try again in a moment. (A
+  "Not enough energy" note instead just means you've been spamming — see above.)
 
 ### Lead your workers around — PRESS AND HOLD, THEN DRAG
 
@@ -70,6 +84,8 @@ iPad).
   survival beats your finger. Hurt workers limping home to heal also sit it out.
 - Use it to bunch idle crews onto a fresh vein, walk them away from a hot corner,
   or just gather everyone for a beat before releasing them.
+- A held lead-drag slowly sips energy while you hold it; if you ever run the tank
+  fully dry mid-drag it just lets go on its own. In normal use you won't notice.
 
 ### Inspect or recall a worker — TAP THE WORKER
 
@@ -99,6 +115,10 @@ Upgrade tiles in the sidebar are clickable whenever you can afford them. Each
 tile's tooltip explains any gate or shortfall ("needs Tier 2", "need 40 more
 ore"). Buying is how you grow — early on, get miners and mining depth going so
 your economy snowballs.
+
+- A few high-value upgrades (**Reactor, Scout Arsenal, Missile Launcher**) also
+  cost **gems** on top of gold — their tiles say "(costs gems)". Gems pile up fast
+  from mining, so this is just something to spend them on, not a real roadblock.
 
 ### Hands-off? Flip on Idle Mode
 

@@ -20,6 +20,7 @@ No install — runs in your browser.
 - **Soft field guidance.** Click a resource node to nudge the nearest idle worker toward it; click an enemy to inspect it and mark it a defense priority. Both are soft — the AI stays authoritative under threat and every safety/flee rule still wins.
 - **Inspect popovers.** Click a worker, enemy, or the city core for a fixed-position popover (task / HP / modifiers, or hp / regen / energy factor); the worker popover can Send-home and the enemy popover can Mark-priority.
 - **One-tap Idle Mode** returns the classic hands-off sim, and a first-run overlay explains the model once (skipped for returning saves).
+- **4.4.0 — manual actions cost energy.** Your hands-on commands (node nudge, threat mark, send-home, and the held drag-to-lead) each spend a little energy; idle/autobuy play spends none. Tuned generous — passive income comfortably outpaces a normal action cadence, so only rapid spam-clicking hits the "Not enough energy" wall (a starved drag-to-lead just auto-releases). Reactors, Scout Arsenal, and Missile Launcher now also cost **gems**, giving the previously-idle gem pile a real sink.
 
 ### Simulation & Economy
 

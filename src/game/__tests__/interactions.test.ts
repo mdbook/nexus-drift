@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PRIORITY_MARK, WORKER_AI } from "@/game/balance";
+import { OPERATOR_ACTIONS, PRIORITY_MARK, WORKER_AI } from "@/game/balance";
+import { runHeadless } from "@/sim/runHeadless";
 import { TICK_WRAP } from "@/game/constants";
 import { idleModeButtonClass, idleModeDotClass, isIdleModeActive } from "@/components/idleModeButton";
 import { createInitialGameState, spawnEnemy } from "@/game/factories";
@@ -580,5 +581,68 @@ describe("wrap-safe expiry across TICK_WRAP (4.0.1)", () => {
     // 120 ticks past the wrap → 180 ticks elapsed (>= 150): expired.
     state.timers.tick = 120;
     expect(isPriorityMarked(state, enemy.id)).toBe(false);
+  });
+});
+
+describe("operator-action energy economy (4.4.0)", () => {
+  it("suggestWorkerToNode deducts energy on success", () => {
+    const state = baseState();
+    const node = makeNode({ id: 8600, x: 500, y: 300 });
+    state.nodes = [node];
+    soloMiner(state);
+    state.resources.energy = 10;
+
+    expect(suggestWorkerToNode(state, node.id)).toBe(true);
+    expect(state.resources.energy).toBe(10 - OPERATOR_ACTIONS.nudgeWorkerCost);
+  });
+
+  it("refuses (returns false) + spends nothing when energy is below the nudge cost", () => {
+    const state = baseState();
+    const node = makeNode({ id: 8601, x: 500, y: 300 });
+    state.nodes = [node];
+    const miner = soloMiner(state);
+    state.resources.energy = OPERATOR_ACTIONS.nudgeWorkerCost - 0.01;
+
+    expect(suggestWorkerToNode(state, node.id)).toBe(false);
+    // No worker was tasked and no energy was drained.
+    expect(miner.suggestedTarget).toBeUndefined();
+    expect(state.resources.energy).toBe(OPERATOR_ACTIONS.nudgeWorkerCost - 0.01);
+  });
+
+  it("suggestDefensePriority deducts energy on success and refuses when starved", () => {
+    const state = baseState();
+    const enemy = addEnemy(state, { kind: "raider", x: 520, y: 480, hp: 30, role: "combat" });
+
+    state.resources.energy = OPERATOR_ACTIONS.markThreatCost;
+    expect(suggestDefensePriority(state, enemy.id)).toBe(true);
+    expect(state.resources.energy).toBe(0);
+
+    // Now starved: refused, and no mark churn.
+    expect(suggestDefensePriority(state, enemy.id)).toBe(false);
+  });
+
+  it("suggestWorkerHome deducts energy on success and refuses when starved", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.x = 400;
+    miner.y = 200;
+
+    state.resources.energy = OPERATOR_ACTIONS.sendHomeCost + 5;
+    expect(suggestWorkerHome(state, miner.id)).toBe(true);
+    expect(state.resources.energy).toBe(5);
+
+    state.resources.energy = 0;
+    miner.suggestedTarget = undefined;
+    expect(suggestWorkerHome(state, miner.id)).toBe(false);
+    expect(miner.suggestedTarget).toBeUndefined();
+  });
+
+  it("idle / autobuy play spends NO energy — energy only grows over a headless run", () => {
+    // A headless run never calls the UI interaction helpers or sets leadPoint,
+    // so the operator-action economy is invisible to it: energy is pure income.
+    const result = runHeadless({ seed: 99, ticks: 1500, snapshotAt: [0, 1500], include: ["state"] });
+    const start = result.snapshots[0].state!.resources.energy;
+    const end = result.snapshots[1].state!.resources.energy;
+    expect(end).toBeGreaterThan(start); // income accrued, nothing deducted it
   });
 });
