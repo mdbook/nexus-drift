@@ -1,6 +1,7 @@
-import { MISSILE_SILO } from "@/game/balance";
+import { MISSILE_SILO, PRIORITY_MARK } from "@/game/balance";
 import { addMissile } from "@/game/factories";
 import { isCloaked } from "@/game/enemyUtils";
+import { isPriorityMarked } from "@/game/interactions";
 import type { GameState } from "@/game/types";
 import { dist, appendLog } from "@/game/utils";
 
@@ -59,7 +60,14 @@ export function stepMissileSilos(state: GameState) {
       if (isCloaked(enemy)) continue;
       if (dist(silo.x, silo.y, enemy.x, enemy.y) > range) continue;
 
-      const tier = siloTargetTier(enemy.kind);
+      // 4.x — player defense-priority nudge. A marked (unexpired) enemy gets a
+      // large additive tier boost so it outranks any unmarked tier. This is a
+      // bias ONLY: the cloak / corruptor / range filters above already ran, so a
+      // marked cloaked or out-of-range enemy is never a candidate here. Marks are
+      // written solely by the UI (`suggestDefensePriority`), never headless, so
+      // replay has zero marks → this branch is trace-neutral. See §Priority Marks.
+      const tier =
+        siloTargetTier(enemy.kind) + (isPriorityMarked(state, enemy.id) ? PRIORITY_MARK.siloTierBonus : 0);
       if (tier > bestTargetTier || (tier === bestTargetTier && enemy.hp < bestTargetHp)) {
         bestTarget = enemy;
         bestTargetTier = tier;

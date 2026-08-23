@@ -1,6 +1,7 @@
-import { FLUX, SENTINEL, SENTINEL_AI, SENTINEL_HP, WARDEN } from "@/game/balance";
+import { FLUX, PRIORITY_MARK, SENTINEL, SENTINEL_AI, SENTINEL_HP, WARDEN } from "@/game/balance";
 import { addProjectile } from "@/game/factories";
 import { damageEnemy, isCloaked } from "@/game/enemyUtils";
+import { isPriorityMarked } from "@/game/interactions";
 import { damageCorruptedWorker } from "@/game/subsystems/combat";
 import type { Agent, Enemy, EnemyKind, GameState } from "@/game/types";
 import { dist, appendLog } from "@/game/utils";
@@ -59,7 +60,13 @@ function pickSentinelTarget(sentinel: { x: number; y: number }, state: GameState
     if (!Number.isFinite(nearestWorkerDist)) nearestWorkerDist = SENTINEL_AI.threatWorkerRadiusBias;
     const selfDist = dist(sentinel.x, sentinel.y, enemy.x, enemy.y);
     const priorityBonus = PRIORITY_BONUS[enemy.kind] ?? 0;
-    const score = nearestWorkerDist + selfDist * 0.4 - priorityBonus;
+    // 4.x — player defense-priority nudge. A marked (unexpired) enemy scores
+    // lower (= higher priority), outranking even a leech. Bias ONLY: the combat-
+    // role and cloak filters above already ran, so a marked cloaked / corruptor
+    // enemy is never a candidate. Marks are UI-written (never headless), so replay
+    // has zero marks → trace-neutral. See §Priority Marks.
+    const markBonus = isPriorityMarked(state, enemy.id) ? PRIORITY_MARK.sentinelScoreBonus : 0;
+    const score = nearestWorkerDist + selfDist * 0.4 - priorityBonus - markBonus;
     if (score < bestScore) {
       bestScore = score;
       best = enemy;

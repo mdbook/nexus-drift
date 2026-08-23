@@ -6,8 +6,12 @@ import { createInitialGameState, spawnEnemy } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepWorkers } from "@/game/subsystems/movement";
 import { getTurretTargetScore, stepTurrets } from "@/game/subsystems/turrets";
+import { stepMissileSilos } from "@/game/subsystems/missileSilos";
+import { stepSentinels } from "@/game/subsystems/sentinels";
 import { computeDerived } from "@/game/selectors";
 import {
+  canWeaponActOnEnemy,
+  describeWorkerReason,
   isPriorityMarked,
   suggestDefensePriority,
   suggestWorkerHome,
@@ -353,6 +357,186 @@ describe("defense priority marks (4.0 phase 2)", () => {
     turret.cooldown = 0;
     stepTurrets(state);
     expect(visible.hp).toBeLessThan(40);
+  });
+});
+
+describe("priority-mark reaches silos + sentinels (4.x)", () => {
+  it("silo picks a marked lower-tier enemy over an unmarked brute in range", () => {
+    const state = baseState();
+    const silo = state.missileSilos[0];
+    silo.cooldown = 0;
+    // Both within the 400px silo range of slot 0.
+    const brute = addEnemy(state, { kind: "brute", x: silo.x + 30, y: silo.y - 40, hp: 200, role: "combat" });
+    const mite = addEnemy(state, { kind: "mite", x: silo.x - 20, y: silo.y - 30, hp: 40, role: "combat" });
+
+    // Unmarked: the higher-tier brute is the silo's pick.
+    stepMissileSilos(state);
+    expect(silo.targetId).toBe(brute.id);
+
+    // Mark the mite → its effective tier boost outranks the brute.
+    silo.cooldown = 0;
+    silo.targetId = null;
+    expect(suggestDefensePriority(state, mite.id)).toBe(true);
+    stepMissileSilos(state);
+    expect(silo.targetId).toBe(mite.id);
+  });
+
+  it("silo mark does NOT override the cloak filter", () => {
+    const state = baseState();
+    const silo = state.missileSilos[0];
+    silo.cooldown = 0;
+    const cloaked = addEnemy(state, {
+      kind: "mite",
+      x: silo.x,
+      y: silo.y - 30,
+      hp: 40,
+      role: "combat",
+      permanentCloak: true,
+    });
+    const visible = addEnemy(state, { kind: "mite", x: silo.x + 20, y: silo.y - 30, hp: 40, role: "combat" });
+    suggestDefensePriority(state, cloaked.id);
+    expect(isPriorityMarked(state, cloaked.id)).toBe(true);
+
+    stepMissileSilos(state);
+    // The marked cloaked enemy is never a candidate; the visible one is engaged.
+    expect(silo.targetId).toBe(visible.id);
+  });
+
+  it("sentinel picks a marked enemy over an unmarked leech", () => {
+    const state = baseState();
+    // Isolate the mark effect: no active workers → equal nearestWorkerDist term.
+    for (const a of state.agents) a.active = false;
+    state.upgrades.sentinel = 1; // one live sentinel (index 0 @ 300,500)
+    const sentinel = state.sentinels[0];
+    sentinel.hp = 9999; // clamped to maxHp → full → not retreating
+    // Same point → equal selfDist, so only the kind bonus + mark decide.
+    const leech = addEnemy(state, { kind: "leech", x: 300, y: 450, hp: 120, role: "combat" });
+    const mite = addEnemy(state, { kind: "mite", x: 300, y: 450, hp: 40, role: "combat" });
+
+    stepSentinels(state);
+    expect(state.sentinels[0].targetId).toBe(leech.id);
+
+    expect(suggestDefensePriority(state, mite.id)).toBe(true);
+    stepSentinels(state);
+    expect(state.sentinels[0].targetId).toBe(mite.id);
+  });
+
+  it("sentinel mark does NOT override the cloak filter", () => {
+    const state = baseState();
+    for (const a of state.agents) a.active = false;
+    state.upgrades.sentinel = 1;
+    state.sentinels[0].hp = 9999;
+    const cloaked = addEnemy(state, {
+      kind: "brute",
+      x: 300,
+      y: 450,
+      hp: 120,
+      role: "combat",
+      permanentCloak: true,
+    });
+    const visible = addEnemy(state, { kind: "mite", x: 300, y: 450, hp: 40, role: "combat" });
+    suggestDefensePriority(state, cloaked.id);
+
+    stepSentinels(state);
+    expect(state.sentinels[0].targetId).toBe(visible.id);
+  });
+});
+
+describe("no-op interaction feedback signals (4.x)", () => {
+  it("suggestWorkerToNode returns false when no worker is eligible", () => {
+    const state = baseState();
+    const node = makeNode({ id: 8801, x: 500, y: 300 });
+    state.nodes = [node];
+    for (const a of state.agents) a.active = false; // no eligible worker
+    expect(suggestWorkerToNode(state, node.id)).toBe(false);
+  });
+
+  it("suggestDefensePriority returns false for a dead / missing enemy", () => {
+    const state = baseState();
+    const dead = addEnemy(state, { kind: "raider", x: 500, y: 480, hp: 0, role: "combat" });
+    expect(suggestDefensePriority(state, dead.id)).toBe(false);
+    expect(suggestDefensePriority(state, 999999)).toBe(false);
+  });
+});
+
+describe("canWeaponActOnEnemy honest-mark check (4.x)", () => {
+  it("false for a cloaked enemy even with a live turret in range", () => {
+    const state = baseState();
+    state.upgrades.turret = 5;
+    const turret = state.turrets[0];
+    turret.x = 500;
+    turret.y = 480;
+    turret.range = 200;
+    const cloaked = addEnemy(state, {
+      kind: "mite",
+      x: 510,
+      y: 480,
+      hp: 40,
+      role: "combat",
+      permanentCloak: true,
+    });
+    expect(canWeaponActOnEnemy(state, cloaked.id)).toBe(false);
+  });
+
+  it("false for a corruptor (no mark-consuming weapon targets it)", () => {
+    const state = baseState();
+    state.upgrades.sentinel = 1;
+    const corruptor = addEnemy(state, { kind: "warden", x: 300, y: 450, hp: 100, role: "corruptor" });
+    expect(canWeaponActOnEnemy(state, corruptor.id)).toBe(false);
+  });
+
+  it("true when a live sentinel exists for a visible combat enemy anywhere", () => {
+    const state = baseState();
+    state.upgrades.sentinel = 1;
+    const enemy = addEnemy(state, { kind: "raider", x: 800, y: 200, hp: 60, role: "combat" });
+    expect(canWeaponActOnEnemy(state, enemy.id)).toBe(true);
+  });
+
+  it("false pre-any-weapon (no turret / silo / sentinel can reach)", () => {
+    const state = baseState();
+    // No turret/sentinel upgrades; park the enemy far outside silo range.
+    state.upgrades.turret = 0;
+    state.upgrades.sentinel = 0;
+    const enemy = addEnemy(state, { kind: "raider", x: 990, y: 20, hp: 60, role: "combat" });
+    expect(canWeaponActOnEnemy(state, enemy.id)).toBe(false);
+  });
+});
+
+describe("worker-why derivation (4.x)", () => {
+  it("a fleeing worker reports 'fleeing'", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.evadeTicks = 10;
+    expect(describeWorkerReason(miner)).toBe("fleeing");
+  });
+
+  it("a player-nudged worker reports 'tasked by you'", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
+    expect(describeWorkerReason(miner)).toBe("tasked by you");
+  });
+
+  it("a forced-home worker reports 'returning home'", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = { kind: "home", createdAt: state.timers.tick };
+    expect(describeWorkerReason(miner)).toBe("returning home");
+  });
+
+  it("an ordinary working worker has no special reason", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    expect(describeWorkerReason(miner)).toBeNull();
+  });
+
+  it("an offline/corrupted state wins over a standing nudge", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.corrupted = true;
+    miner.evadeTicks = 5;
+    miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
+    expect(describeWorkerReason(miner)).toBe("void-infested");
   });
 });
 

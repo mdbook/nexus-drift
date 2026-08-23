@@ -1106,6 +1106,17 @@ export const WORKER_AI = {
 export const PRIORITY_MARK = {
   expiryTicks: 150,
   turretScoreBonus: 90,
+  // 4.x — the mark now also biases missile silos and sentinels (previously
+  // turret-only). Same additive-bias pattern: it never bypasses cloak / range /
+  // role eligibility, it only reorders the already-eligible candidate set.
+  // siloTierBonus is added to a marked enemy's threat TIER; the max unmarked
+  // tier is 2 (brute), so any value > 2 makes a marked enemy outrank every
+  // unmarked one while wounded-first ordering still breaks ties within the mark.
+  siloTierBonus: 5,
+  // sentinelScoreBonus is SUBTRACTED from a marked enemy's sentinel score (lower
+  // = higher priority); it exceeds the largest kind PRIORITY_BONUS (leech 240)
+  // so a marked enemy outranks even a leech.
+  sentinelScoreBonus: 260,
 } as const;
 
 /**

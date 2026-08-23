@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CITY_HP } from "@/game/balance";
 import { TICK_WRAP } from "@/game/constants";
 import { isCloaked } from "@/game/enemyUtils";
-import { isPriorityMarked } from "@/game/interactions";
+import { canWeaponActOnEnemy, describeWorkerReason, isPriorityMarked } from "@/game/interactions";
 import type { DerivedState, GameState } from "@/game/types";
 import { clamp } from "@/game/utils";
 
@@ -184,11 +184,23 @@ function WorkerBody({
 
   const hpPct = agent.maxHp > 0 ? (agent.hp / agent.maxHp) * 100 : 0;
   const hpTone = hpPct < 30 ? "rgba(255,120,120,0.9)" : "rgba(120,220,255,0.85)";
+  // 4.x — legibility: surface what the worker is heading to and a one-line "why"
+  // reason, both read from agent locals the sim already computes (no sim change).
+  const reason = describeWorkerReason(agent);
+  const targetNode = agent.target != null ? game.nodes.find((n) => n.id === agent.target) : undefined;
+  const targetLabel =
+    agent.suggestedTarget?.kind === "home"
+      ? "Home pad"
+      : targetNode
+        ? `${targetNode.kind} node #${targetNode.id}`
+        : "—";
   return (
     <>
       <Header title={`${agent.kind[0].toUpperCase()}${agent.kind.slice(1)} #${agent.id}`} sub="Worker" />
       <div className="space-y-1.5">
         <Row label="Task" value={agent.task} />
+        <Row label="Target" value={targetLabel} />
+        {reason && <Row label="State" value={reason} />}
         <div>
           <div className="mb-1 flex items-baseline justify-between text-xs">
             <span className="text-white/45">HP</span>
@@ -270,6 +282,11 @@ function EnemyBody({
   const shieldPct = hasShield ? ((enemy.shield ?? 0) / enemy.shieldMax!) * 100 : 0;
   const cloaked = isCloaked(enemy);
   const alreadyMarked = isPriorityMarked(game, enemy.id);
+  // 4.x — honest mark state: grey the button out and say so when NO live weapon
+  // can currently act on this enemy (cloaked, out of every weapon's range, or
+  // pre-any-weapon), instead of accepting a mark that silently no-ops.
+  const canAct = canWeaponActOnEnemy(game, enemy.id);
+  const markLabel = alreadyMarked ? "Priority marked" : canAct ? "Mark priority" : "No weapon can hit this";
   return (
     <>
       <Header title={`${enemy.kind[0].toUpperCase()}${enemy.kind.slice(1)}`} sub="Hostile Contact" />
@@ -298,9 +315,9 @@ function EnemyBody({
         <Row label="Cloak" value={cloaked ? "cloaked" : "visible"} />
       </div>
       <ActionButton
-        label={alreadyMarked ? "Priority marked" : "Mark priority"}
+        label={markLabel}
         tone="amber"
-        disabled={alreadyMarked}
+        disabled={alreadyMarked || !canAct}
         onClick={() => {
           onMarkPriority(enemy.id);
           onClose();

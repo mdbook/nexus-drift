@@ -469,7 +469,13 @@ export default function App() {
       // 4.0 Phase 2 — node click stays a DIRECT soft nudge (no popover for nodes).
       onNodeClick: (nodeId: number) => {
         mutateGame((next) => {
-          suggestWorkerToNode(next, nodeId);
+          // 4.x — feed the returned boolean back to the player: a failed nudge
+          // (no eligible worker — all fleeing / rebooting / corrupted) now logs a
+          // cue instead of silently no-op'ing, so "nothing happened" reads as
+          // "no worker free", not "the button is broken".
+          if (!suggestWorkerToNode(next, nodeId)) {
+            appendLog(next, "No free worker to reroute there.", "system");
+          }
         });
       },
       // 4.0 Phase 3 — enemy / worker / city clicks OPEN a popover (one at a time).
@@ -527,7 +533,11 @@ export default function App() {
   const onPopoverSendHome = useCallback(
     (agentId: number) => {
       mutateGame((next) => {
-        suggestWorkerHome(next, agentId);
+        // 4.x — a failed recall (worker fleeing / rebooting / corrupted) logs a
+        // cue rather than doing nothing silently.
+        if (!suggestWorkerHome(next, agentId)) {
+          appendLog(next, "That worker can't be recalled right now.", "system");
+        }
       });
     },
     [mutateGame]
@@ -536,7 +546,12 @@ export default function App() {
   const onPopoverMarkPriority = useCallback(
     (enemyId: number) => {
       mutateGame((next) => {
-        suggestDefensePriority(next, enemyId);
+        // 4.x — a failed mark (target already gone) logs a cue. The popover
+        // already greys the button out when no live weapon can act on the enemy
+        // (canWeaponActOnEnemy), so this covers the die-while-inspected race.
+        if (!suggestDefensePriority(next, enemyId)) {
+          appendLog(next, "Target lost — nothing to mark.", "system");
+        }
       });
     },
     [mutateGame]
