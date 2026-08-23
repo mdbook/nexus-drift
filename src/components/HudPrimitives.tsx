@@ -140,7 +140,7 @@ export function UpgradeTile({
             aria-label={`Toggle autobuy for ${def.label}`}
             title={autoOn ? "Autobuy on (when master is Custom)" : "Autobuy off"}
             className={cn(
-              "rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] transition-colors",
+              "inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 text-[9px] font-medium uppercase tracking-[0.18em] transition-colors",
               autoOn
                 ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-100"
                 : "border-white/10 bg-white/5 text-white/40 hover:text-white/70"
@@ -163,7 +163,7 @@ export function UpgradeTile({
             purchasable ? `Buy ${def.label} for ${formatUpgradeCost(cost)}` : `${def.label}: ${buy.title}`
           }
           className={cn(
-            "rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] transition-colors",
+            "inline-flex min-h-[40px] items-center justify-center rounded-full border px-4 text-[11px] font-medium uppercase tracking-[0.18em] transition-colors",
             purchasable
               ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-100 hover:bg-emerald-300/25"
               : cn("cursor-not-allowed border-white/10 bg-white/5", buy.tone)

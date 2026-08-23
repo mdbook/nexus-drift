@@ -1,6 +1,6 @@
 # Layout & HUD
 
-**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldPopover.tsx`, `src/components/Sidebar.tsx`, `src/components/idleModeButton.ts`, `src/components/V4OnboardingCard.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`
+**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldPopover.tsx`, `src/components/Sidebar.tsx`, `src/components/idleModeButton.ts`, `src/components/V4OnboardingCard.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`, `src/hooks/useCoarsePointer.ts`, `src/hooks/useTooltip.ts`
 **Tests:** none (visual)
 **Key invariants:** `lg` breakpoint, not `xl`; grid/flex children carry `min-w-0`; HUD lives in the field card footer on mobile; fixed-position tooltips with viewport ref.
 
@@ -45,11 +45,23 @@ Achievement badges live inside the field card, below the field toolbar, so they 
 
 Only push UI into the sidebar when the information is dense, multi-line, or rarely glanced at.
 
+## Touch Targets (Coarse Pointer)
+
+The field is played on iPad, where the `viewBox` WORLD_W=1000 renders to ~600px (world→screen scale ≈ 0.6), so a world-space hit radius `r` becomes `r*0.6` px on screen. Small transparent hit-circles that feel fine with a mouse fall well under the 44px touch minimum.
+
+- **`useCoarsePointer` (`src/hooks/useCoarsePointer.ts`)** is the signal for touch-target sizing: `(hover: none) and (pointer: coarse)` at **any** width (unlike `useLowFxMode`, which also requires `lg`). Use it to enlarge invisible hit-halos on touch while keeping desktop precise. Presentation/input only — never branch game/sim logic on it.
+- **Field hit-halo radii (`FieldSvg.tsx`)** are gated on `useCoarsePointer`: worker `18→28`, tourist `16→26`, lost-drone `22→30`, resource node `size+10 → size+22`, enemy `style.radius+12 → style.radius+24` (corruptor corpse `24→34`). Desktop (fine pointer) keeps the smaller values.
+- **Live enemies** normally rely on their visible geometry for clicks (no transparent halo). On coarse pointers only, they also get an enlarged transparent hit-halo (`showEnemyHit = corpseInteractive || (inspectInteractive && coarsePointer)`), so desktop click precision is unchanged. Enlarging changes ONLY the invisible hit-circle — never entity visuals, collision, or movement.
+- **`touch-action: manipulation`** is set app-wide on `button` (index.css) and on the field `<svg>` (`touch-manipulation` utility) to kill the iOS ~300ms tap delay and double-tap-zoom hijack. The field `<svg>` also carries `select-none` so drags don't select. `manipulation` still permits pan/scroll.
+- **Sidebar / HUD controls** carry `min-h-[36px]`–`min-h-[44px]` finger targets (Buy button, per-tile Auto toggle, master All/None/Custom, Idle Mode toggle, `FieldPopover` action buttons). The Autobuy master group is spaced (`gap-2.5`) so mis-taps between Idle Mode and the master switch are less likely. Keep the visual tone; only the tap area grew.
+
 ## Tooltip Conventions
 
 **Tooltip positioning — use `position: fixed` with a viewport-anchor ref.** Do NOT use `absolute bottom-full` on tooltips inside the footer. The footer rows use `overflow-x-auto` for scroll-on-narrow-screens; CSS's overflow interaction rule makes `overflow-y` effectively clipped on those rows, which silently clips any upward `absolute` tooltip (only the arrow shows).
 
 Established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button; on `open` run `useLayoutEffect` to read `getBoundingClientRect()`; store viewport coordinates in state; render the tooltip with fixed positioning. Reference implementations: `FieldStatsStrip` (centered, above), `EventChip` (left-aligned, above), `UpgradeIndicatorRail` (above in the mobile footer, below in the desktop top chrome).
+
+**Tap-to-open on touch (`useTooltip`).** Hover-only tooltips are invisible on touch. `useTooltip` opens on `hover || focus || tapped`: a `pointerdown` with `pointerType` `touch`/`pen` (pure `isTapPointer` helper) toggles a latched `tapped` state, and while latched a document `pointerdown` listener closes it on any outside tap. Mouse is unaffected — it never sets `tapped`, so the hover path (and hover-leave close) stays clean. Every `useTooltip` consumer gets this for free via the spread `triggerProps` (now including `onPointerDown`).
 
 ### Inspect Popovers (`FieldPopover`)
 
@@ -83,6 +95,13 @@ Established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button; 
 The 4.0 click-acknowledge pulse follows this budget: clicking a node / live enemy / city core stamps a brief tick-driven ring (`FieldSvg.tsx` local `clickPulse` state, faded via `elapsedTicks`, no timers). Under `useLowFxMode` it renders a single static ring instead of the expanding animation — simplified, not removed.
 
 The 4.1.0 **worker "tasked" indicator** follows the same budget: while a worker carries an active `kind: "node"` suggestion (`agent.suggestedTarget`), `FieldSvg.tsx` draws a subtle cyan lead line from the worker to the suggested node plus a marker ring on the node. The ring pulses (tick-driven `sin`) only at full FX; under `useLowFxMode` it renders a static ring. Presence of the marker (whose node still exists) is the proxy for "active" — the sim clears it on arrival / expiry / node-gone.
+
+### `prefers-reduced-motion`
+
+`FieldSvg.tsx` reads `useReducedMotion()` (framer-motion, same as `Background.tsx`) and folds it into the FX gate two ways:
+
+- **`reduceFx = lowFxMode || prefersReducedMotion`** replaces `lowFxMode` at the continuous-motion FX gates already documented above (tasked-node ring pulse, click-acknowledge pulse) so reduced-motion users get the same static fallbacks. `reduceFx` is a superset of `lowFxMode`, so iPad (already low-FX) behaviour is unchanged — this only _adds_ the reduced-motion case.
+- **Un-budgeted continuous motions** that were not previously `lowFxMode`-gated (worker/scout bob, corruption shake, resource-node glow pulse) are zeroed/flattened on `prefersReducedMotion` **only** (not `reduceFx`), so their iPad look is preserved while reduced-motion users get a still field. Follow this split when adding new continuous field motion: gate documented FX-budget effects on `reduceFx`, and zero any always-on sine/bob/shake on `prefersReducedMotion`.
 
 ## Idle Mode Status Indicator (Sidebar)
 

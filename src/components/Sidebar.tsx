@@ -114,7 +114,7 @@ export const Sidebar = memo(function Sidebar({
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">Autobuy</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2.5">
             {/* 4.0 — Idle Mode quick-toggle: one tap flips master to All (the old
                 hands-off idle sim); tapping again while on returns to manual.
                 4.1.0 — when active it reads as a LIT status indicator (glowing
@@ -148,7 +148,7 @@ export const Sidebar = memo(function Sidebar({
                     onClick={() => onSetAutoMaster(option.value)}
                     aria-pressed={active}
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
+                      "inline-flex min-h-[36px] items-center justify-center rounded-full px-3 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
                       active ? "bg-emerald-300/15 text-emerald-100" : "text-white/45 hover:text-white/75"
                     )}
                   >

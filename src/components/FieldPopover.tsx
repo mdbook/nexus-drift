@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CITY_HP } from "@/game/balance";
 import { TICK_WRAP } from "@/game/constants";
 import { isCloaked } from "@/game/enemyUtils";
@@ -70,6 +70,12 @@ export function FieldPopover({
     top: anchor.y + GAP,
   });
 
+  // a11y: move focus into the dialog on open so keyboard users land inside it,
+  // and Escape closes it (previously only an outside click did).
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
   useLayoutEffect(() => {
     const el = panelRef.current;
     if (!el) return;
@@ -92,9 +98,16 @@ export function FieldPopover({
         ref={panelRef}
         role="dialog"
         aria-label="Field inspector"
-        className="fixed rounded-2xl border border-cyan-300/20 bg-slate-950/95 p-3 shadow-[0_0_40px_rgba(4,10,26,0.6)] backdrop-blur-md"
+        tabIndex={-1}
+        className="fixed rounded-2xl border border-cyan-300/20 bg-slate-950/95 p-3 shadow-[0_0_40px_rgba(4,10,26,0.6)] outline-none backdrop-blur-md"
         style={{ left: pos.left, top: pos.top, width: PANEL_WIDTH }}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
       >
         {target.kind === "worker" && (
           <WorkerBody game={game} agentId={target.id} onSendHome={onSendHome} onClose={onClose} />
@@ -146,7 +159,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`mt-3 w-full rounded-xl border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] transition-colors ${
+      className={`mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border px-3 text-xs font-medium uppercase tracking-[0.16em] transition-colors ${
         disabled ? "cursor-not-allowed border-white/10 bg-white/5 text-white/30" : active
       }`}
     >

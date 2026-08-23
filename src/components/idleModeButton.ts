@@ -18,7 +18,7 @@ export function isIdleModeActive(master: GameState["upgradeAutoMaster"]): boolea
  *  existing `ready` tone), inactive = the standard muted button. */
 export function idleModeButtonClass(active: boolean): string {
   const base =
-    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors";
+    "inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors";
   const state = active
     ? "border-emerald-300/40 bg-emerald-300/20 text-emerald-100 shadow-[0_0_12px_rgba(110,231,183,0.45)] ring-1 ring-emerald-300/30"
     : "border-white/10 bg-white/5 text-white/45 hover:text-white/75";

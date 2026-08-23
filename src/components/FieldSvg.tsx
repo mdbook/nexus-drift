@@ -5,12 +5,14 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { useReducedMotion } from "framer-motion";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
 import { useLowFxMode } from "@/hooks/useLowFxMode";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { clamp, elapsedTicks } from "@/game/utils";
 
 const SPAWN_FADE_TICKS = 20;
@@ -632,6 +634,15 @@ function renderHomeDistrict(
 
 function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   const lowFxMode = useLowFxMode();
+  // Touch-target sizing: enlarge invisible field hit-halos to the ~44px touch
+  // minimum on coarse pointers (iPad/phone). Desktop keeps precise small halos.
+  const coarsePointer = useCoarsePointer();
+  // Reduced-motion users should not get continuous field motion (node pulses,
+  // worker bob, corruption shake). Fold prefers-reduced-motion into the existing
+  // low-FX continuous-effect gate so the low-FX static fallbacks apply to them
+  // too; iPad (already low-FX) behaviour is unchanged since reduceFx is a superset.
+  const prefersReducedMotion = useReducedMotion();
+  const reduceFx = lowFxMode || prefersReducedMotion;
   const activeTurretXs = useMemo(
     () => game.turrets.slice(0, derived.activeTurrets).map((turret) => turret.x),
     [game.turrets, derived.activeTurrets]
@@ -725,7 +736,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   return (
     <svg
       viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
-      className="h-full min-h-[380px] w-full bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] lg:min-h-0"
+      className="h-full min-h-[380px] w-full touch-manipulation select-none bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] lg:min-h-0"
     >
       <defs>
         <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
@@ -1129,7 +1140,12 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         return (
           <g key={node.id} opacity={nodeAlpha} {...nodeProps}>
             {nodeInteractive && (
-              <circle cx={node.x} cy={node.y} r={node.size + 10} fill="rgba(0,0,0,0.001)" />
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={coarsePointer ? node.size + 22 : node.size + 10}
+                fill="rgba(0,0,0,0.001)"
+              />
             )}
             {node.corruption > 0 && (
               <>
@@ -1155,7 +1171,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
               cy={node.y}
               r={node.size + 16}
               fill="url(#fieldGlow)"
-              opacity={0.18 + (Math.sin(node.pulse) + 1) * 0.08}
+              opacity={prefersReducedMotion ? 0.26 : 0.18 + (Math.sin(node.pulse) + 1) * 0.08}
             />
             <circle
               cx={node.x}
@@ -1477,7 +1493,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           }
           style={lostDroneInteractive ? { cursor: "pointer" } : undefined}
         >
-          {lostDroneInteractive && <circle r="22" fill="rgba(0,0,0,0.001)" />}
+          {lostDroneInteractive && <circle r={coarsePointer ? 30 : 22} fill="rgba(0,0,0,0.001)" />}
           <ellipse rx="15" ry="11" fill="rgba(209, 213, 219, 0.12)" />
           <ellipse
             rx="10.5"
@@ -1557,7 +1573,9 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           const wobble = Math.sin((game.timers.tick + enemy.id * 11) / 7) * 2;
           return (
             <g key={enemy.id} opacity={enemyFadeAlpha} {...enemyInteractiveProps}>
-              {corpseInteractive && <circle cx={enemy.x} cy={enemy.y} r="24" fill="rgba(0,0,0,0.001)" />}
+              {corpseInteractive && (
+                <circle cx={enemy.x} cy={enemy.y} r={coarsePointer ? 34 : 24} fill="rgba(0,0,0,0.001)" />
+              )}
               <circle cx={enemy.x} cy={enemy.y} r="22" fill="rgba(160,70,255,0.08)" />
               <circle
                 cx={enemy.x}
@@ -1597,6 +1615,12 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         }
 
         const style = ENEMY_STYLE[enemy.kind as Exclude<typeof enemy.kind, "corruptor">];
+        // Touch: on coarse pointers give both fading wrecks AND live inspectable
+        // enemies an enlarged transparent hit-halo. On desktop (fine pointer) the
+        // corpse keeps its existing small halo and live enemies keep relying on
+        // their visible geometry — so desktop click precision is unchanged.
+        const enemyHitR = coarsePointer ? style.radius + 24 : style.radius + 12;
+        const showEnemyHit = corpseInteractive || (inspectInteractive && coarsePointer);
         const enemyOpacity = (isCloaked(enemy) ? 0.2 : 1) * enemyFadeAlpha;
         const threatPulse = 0.12 + Math.sin((game.timers.tick + enemy.id * 7) / 10) * 0.07;
         const threatRing = (
@@ -1671,9 +1695,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         if (enemy.kind === "raider") {
           return (
             <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
-              {corpseInteractive && (
-                <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />
-              )}
+              {showEnemyHit && <circle cx={enemy.x} cy={enemy.y} r={enemyHitR} fill="rgba(0,0,0,0.001)" />}
               {threatRing}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
               {/* thick outer armour ring */}
@@ -1740,9 +1762,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         if (enemy.kind === "wisp") {
           return (
             <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
-              {corpseInteractive && (
-                <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />
-              )}
+              {showEnemyHit && <circle cx={enemy.x} cy={enemy.y} r={enemyHitR} fill="rgba(0,0,0,0.001)" />}
               {/* motion trail — diamonds fading out behind the wisp */}
               {enemy.trail.map(([tx, ty], i) => {
                 const t = (i + 1) / enemy.trail.length;
@@ -1796,9 +1816,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           const charged = enemy.fireCooldown !== undefined && enemy.fireCooldown < 15;
           return (
             <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
-              {corpseInteractive && (
-                <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />
-              )}
+              {showEnemyHit && <circle cx={enemy.x} cy={enemy.y} r={enemyHitR} fill="rgba(0,0,0,0.001)" />}
               {threatRing}
               {shieldGlow}
               <circle cx={enemy.x} cy={enemy.y} r={style.radius + 14} fill={style.glow} />
@@ -1867,9 +1885,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
         if (enemy.kind === "sapper") {
           return (
             <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
-              {corpseInteractive && (
-                <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />
-              )}
+              {showEnemyHit && <circle cx={enemy.x} cy={enemy.y} r={enemyHitR} fill="rgba(0,0,0,0.001)" />}
               <circle
                 cx={enemy.x}
                 cy={enemy.y}
@@ -1911,9 +1927,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
 
         return (
           <g key={enemy.id} opacity={enemyOpacity} {...enemyInteractiveProps}>
-            {corpseInteractive && (
-              <circle cx={enemy.x} cy={enemy.y} r={style.radius + 12} fill="rgba(0,0,0,0.001)" />
-            )}
+            {showEnemyHit && <circle cx={enemy.x} cy={enemy.y} r={enemyHitR} fill="rgba(0,0,0,0.001)" />}
             {threatRing}
             {shieldGlow}
             <circle cx={enemy.x} cy={enemy.y} r={style.radius + 11} fill={style.glow} />
@@ -1970,7 +1984,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
 
       {game.scouts.map((scout, index) => {
         const live = index < derived.activeScouts;
-        const bob = Math.sin(scout.pulse) * 2.2;
+        const bob = prefersReducedMotion ? 0 : Math.sin(scout.pulse) * 2.2;
 
         if (!live) return null;
 
@@ -2155,7 +2169,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           style={touristInteractive ? { cursor: "pointer", outline: "none" } : undefined}
         >
           {/* Transparent hit area so the tiny tourist is still reasonably clickable. */}
-          {touristInteractive && <circle r="16" fill="rgba(0,0,0,0.001)" />}
+          {touristInteractive && <circle r={coarsePointer ? 26 : 16} fill="rgba(0,0,0,0.001)" />}
           <circle r="8" fill="rgba(253, 230, 138, 0.16)" />
           <circle r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1" />
           <rect x="5" y="-3" width="6" height="4" rx="1" fill="#374151" />
@@ -2166,7 +2180,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
       {game.agents
         .filter((agent) => agent.active)
         .map((agent) => {
-          const bob = Math.sin((game.timers.tick + agent.id * 8) / 7) * 2;
+          const bob = prefersReducedMotion ? 0 : Math.sin((game.timers.tick + agent.id * 8) / 7) * 2;
           const shieldActive = game.upgrades.shield > 0;
           const panicOpacity = clamp(agent.panic / 100, 0, 1) * 0.22;
           const dotColor = AGENT_STYLE[agent.kind];
@@ -2178,7 +2192,8 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           const isCorrupted = agent.corrupted;
           const isRebooting = agent.rebootTicks > 0;
           // Shake amplitude grows with corruptionTicks, capped at 3 px.
-          const corruptShake = isCorrupted ? Math.min(3, agent.corruptionTicks / 400) : 0;
+          const corruptShake =
+            isCorrupted && !prefersReducedMotion ? Math.min(3, agent.corruptionTicks / 400) : 0;
           const corruptShakeX = corruptShake * Math.sin(game.timers.tick * 1.7 + agent.id);
           const corruptShakeY = corruptShake * Math.cos(game.timers.tick * 2.3 + agent.id * 0.7);
           const corruptPulse = 0.45 + Math.sin(game.timers.tick / 9) * 0.2;
@@ -2248,7 +2263,12 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
               }
             >
               {workerInspectInteractive && (
-                <circle cx={agent.x} cy={agent.y + bob} r="18" fill="rgba(0,0,0,0.001)" />
+                <circle
+                  cx={agent.x}
+                  cy={agent.y + bob}
+                  r={coarsePointer ? 28 : 18}
+                  fill="rgba(0,0,0,0.001)"
+                />
               )}
               {/* 4.1.0 Fix 1(c): "tasked" nudge indicator — a subtle cyan lead
                   line from the worker to its suggested node. */}
@@ -2267,7 +2287,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                   <circle
                     cx={taskedNode.x}
                     cy={taskedNode.y}
-                    r={lowFxMode ? 12 : 11 + Math.sin(game.timers.tick / 6) * 2}
+                    r={reduceFx ? 12 : 11 + Math.sin(game.timers.tick / 6) * 2}
                     fill="none"
                     stroke="rgba(120,220,255,0.5)"
                     strokeWidth="1.5"
@@ -2650,7 +2670,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           const age = elapsedTicks(game.timers.tick, clickPulse.startTick);
           if (age < 0 || age > DURATION) return null;
           const t = age / DURATION;
-          if (lowFxMode) {
+          if (reduceFx) {
             return (
               <circle
                 cx={clickPulse.x}
