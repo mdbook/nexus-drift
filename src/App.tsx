@@ -442,6 +442,22 @@ export default function App() {
     setAchievementsOpen(true);
   };
 
+  // 4.3.0 — coalesce the lead-drag pointermove stream. A raw pointermove fires
+  // ~60×/s, and each mutateGame is a full cloneGameState + computeDerived +
+  // setSnapshot — cloning the whole game per move event janks the drag on a large
+  // colony / iPad. rAF-throttle so at most ONE mutate lands per frame with the
+  // latest point; the pull stays responsive (rAF ≈ display refresh) without the
+  // per-event clone storm.
+  const leadPendingRef = useRef<{ x: number; y: number } | null>(null);
+  const leadRafRef = useRef<number | null>(null);
+  const cancelLeadRaf = useCallback(() => {
+    if (leadRafRef.current !== null) {
+      cancelAnimationFrame(leadRafRef.current);
+      leadRafRef.current = null;
+    }
+    leadPendingRef.current = null;
+  }, []);
+
   // 3.1.0 — stable FieldSvg interactions prop so the memoized FieldSvg doesn't
   // re-render on unrelated App-level state changes. mutateGame identity is
   // stable from useGameLoop, so the only real dep here is mutateGame itself.
@@ -501,22 +517,33 @@ export default function App() {
       // workers back to normal AI. These are the only callers of setLeadPoint /
       // clearLeadPoint, keeping the sim/headless path free of state.leadPoint.
       onLeadStart: (x: number, y: number) => {
+        cancelLeadRaf(); // drop any stale coalesced move from a prior gesture
         mutateGame((next) => {
           setLeadPoint(next, x, y);
         });
       },
       onLeadMove: (x: number, y: number) => {
-        mutateGame((next) => {
-          setLeadPoint(next, x, y);
+        // Store the latest point; flush at most once per frame.
+        leadPendingRef.current = { x, y };
+        if (leadRafRef.current !== null) return;
+        leadRafRef.current = requestAnimationFrame(() => {
+          leadRafRef.current = null;
+          const point = leadPendingRef.current;
+          leadPendingRef.current = null;
+          if (!point) return;
+          mutateGame((next) => {
+            setLeadPoint(next, point.x, point.y);
+          });
         });
       },
       onLeadEnd: () => {
+        cancelLeadRaf(); // discard any pending move so the release wins
         mutateGame((next) => {
           clearLeadPoint(next);
         });
       },
     }),
-    [mutateGame]
+    [mutateGame, cancelLeadRaf]
   );
 
   // 4.0 — manual purchase + autobuy-flag controls, wired through the same

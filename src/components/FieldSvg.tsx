@@ -795,6 +795,20 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   const onFieldPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!interactions?.onLeadStart) return;
     if (event.pointerType === "mouse" && event.button !== 0) return; // primary button only
+    // Multi-touch guard: a second finger's pointerdown would overwrite gestureRef
+    // while the first still holds capture with leadActive, so the first's
+    // pointerup / lostpointercapture (now a stale pointerId) would be ignored and
+    // leadPoint would stay stuck. End any in-flight lead gesture first.
+    const prior = gestureRef.current;
+    if (prior?.leadActive) {
+      clearHoldTimer();
+      try {
+        prior.svg.releasePointerCapture(prior.pointerId);
+      } catch {
+        /* already released */
+      }
+      interactions.onLeadEnd?.();
+    }
     const startX = event.clientX;
     const startY = event.clientY;
     gestureRef.current = {
