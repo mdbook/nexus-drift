@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.3.0",
+    badge: "Drag to Lead",
+    summary:
+      "Press-and-hold drag-to-lead: hold anywhere on the field and drag, and your worker crews follow your pointer — a strong, distance-falloff pull that lets you herd the colony around by hand. Release and they hand back to normal AI. Works on touch and mouse; a quick tap still does the old thing (suggest a node / inspect an entity). Fleeing workers still bolt from real threats — the pull never overrides survival — and none of it touches the idle sim: the lead point is UI-only, so the headless/replay path and the decision-trace neutrality proof are byte-unchanged.",
+    sections: [
+      {
+        title: "Press-and-hold to lead your crews",
+        items: [
+          "Hold on the field past a short threshold (~150ms, or a small drag) and every non-fleeing worker gets a strong continuous pull toward your pointer, falling off with distance so nearby crews respond hardest. Drag to lead them around; release hands them back to the AI. A quick tap below the threshold still routes to the existing suggest-node / inspect handlers, unchanged.",
+          "Survival always wins: the lead pull is layered after the flee/evade logic, so a worker dodging a real threat (or rebooting / limping home to heal) ignores the pull. Touch-friendly — a stray second finger can't strand the gesture, and the drag is frame-coalesced so it stays smooth on a big colony.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.2.0",
     badge: "Operator Update",
     summary:
