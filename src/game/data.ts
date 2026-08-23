@@ -73,7 +73,11 @@ export const upgradeDefs: UpgradeDef[] = [
     baseCost: UPGRADES.turret.baseCost,
     growth: UPGRADES.turret.growth,
     effectText: "+ Range + fire rate, anti-wisp",
-    minTier: 3,
+    // 4.1: 3 → 2. The turret is the primary perimeter weapon; gating it at
+    // Tier 3 left an unblocked colony without a fixed gun until deep into the
+    // run. Tier 2 keeps it off the Tier-0/1 opening but makes it available as
+    // real pressure arrives.
+    minTier: 2,
   },
   {
     key: "shield",

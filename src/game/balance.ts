@@ -688,9 +688,22 @@ export const MINING = {
 // 3.0.0: prestige gates raised ~6× so auto-prestige lands in the 6-10 hour
 // range instead of the ~45 min current target.
 export const PRESTIGE = {
-  goldGate: 60000,
+  // 4.1: 60000 → 10000. The 60k gate predates the 4.0 income cuts and put
+  // auto-prestige ~83 h out of reach for a healthy colony. gemsGate (380) is
+  // fine — gems accrue fast, so gold stays the binding *resource* gate; left
+  // unchanged.
+  goldGate: 10000,
   gemsGate: 380,
-  maxEnemies: 3,
+  // 4.1: 3 → 12. Harness measurement over 8.3 h/seed showed goldGate alone did
+  // NOT make prestige reachable: even with gold at 20k+ and gems at 60k+,
+  // auto-prestige never fired, because at Tier 5 the field never falls below 4
+  // enemies — so the "clear enough" lull (`enemies.length < maxEnemies`) was
+  // unsatisfiable and maxEnemies=3, not goldGate, was the true blocker. The
+  // Tier-5 enemyCap runs ~24; requiring the field to drop below 12 keeps
+  // prestige a genuine dominance lull (colony has cleared the field to under
+  // half cap) rather than a constant reset, while making it actually attainable
+  // in a multi-hour run. Verified to fire in the harness after this change.
+  maxEnemies: 12,
   resetMultipliers: { gold: 0.18, ore: 0.15, gems: 0.2, energy: 0.2, cores: 0, flux: 0 },
   comboBonus: 0.6,
 } as const;
@@ -708,7 +721,15 @@ export const PROGRESSION = {
     cityStage: 3.5,
     totalIncome: 0.035,
   },
-  tiersPerScore: 60,
+  // 4.1: 60 → 28. At 60 a fresh colony's score topped out ~41 and NEVER
+  // reached Tier 1, so corruptor/turret/scout gating (all minTier >= 1) never
+  // opened — part of the deadlock. 28 lands Tier 1 at ~35-40 min on the
+  // unblocked curve, opening corruptors (flux/cores drops) and the tier roster.
+  // Harness note: a more aggressive 20 hit Tier 1 at ~23 min but escalated the
+  // higher tiers fast enough that autobuy's defense lagged the wave curve and
+  // one seed income-collapse-stalled late-game — 28 keeps progression flowing
+  // for every seed measured, so the anti-stall value wins over the faster gate.
+  tiersPerScore: 28,
   powerBalance: {
     threatWeight: 1.08,
     corruptionNodeWeight: 0.75,
@@ -853,18 +874,29 @@ export const WORKER_SLOTS_BY_UPGRADE: Record<WorkerKind, number[]> = {
 // slot gates behind level 42 (was 24). These align with the stretched XP
 // curve so multi-worker deployment lands on a multi-hour, multi-session
 // cadence instead of an hour-long run.
+// 4.1: 2nd crew slot 22 → 10, 3rd crew slot 42 → 22. The old L22/L42 gates
+// (paired with the flux/cores upgrade freeze) meant mining stayed single-worker
+// for hours even after the deadlock is unblocked. Pulling them in lets a second
+// miner/runner/drone land in the first ~30-40 min and a third by the first
+// prestige window. (Still AND-gated by WORKER_SLOTS_BY_UPGRADE: upgrade L3 / L6.)
 export const WORKER_SLOTS_BY_LEVEL = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-  2, 2, 2, 2, 2, 2, 3,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,
 ] as const;
 
-// 3.0.0: slot-unlock surcharges climb ~4× so the level 3 / level 6 worker
-// purchases feel like a deliberate flux+cores spend, not a rounding error.
+// 4.1 economy-deadlock fix: the slot-unlock surcharge on the miner/drill/bot
+// level-3 and level-6 purchases was denominated in flux + cores — resources
+// that only drop from `minTier >= 1` enemies. Since a fresh colony is pinned at
+// Tier 0 (score never reaches the old `tiersPerScore=60`), those enemies never
+// spawn, flux/cores stay at 0 forever, and miner/drill freeze at L2 / bot at
+// L0 — the self-reinforcing income starvation that defined the Tier-0 deadlock.
+// Redenominated to gold + ore (ore was piling up unused, so this also gives it
+// a real early sink). Still a deliberate, weighty spend at the two slot-unlock
+// rungs — just one payable from the resources a Tier-0 colony actually earns.
 export const WORKER_SLOT_UNLOCK_RESOURCE_COSTS: Partial<
   Record<number, Partial<Record<ResourceKey, number>>>
 > = {
-  3: { flux: 18, cores: 4 },
-  6: { flux: 55, cores: 14 },
+  3: { gold: 80, ore: 150 },
+  6: { gold: 500, ore: 900 },
 };
 
 /**

@@ -15,8 +15,8 @@ Kinds: `miner`, `runner`, `drone`. Each kind has **3 slots** (9 agents total). S
 Late-game slots are intentionally gated through two parallel checks: an upgrade-track gate and a sector-level gate.
 
 - `WORKER_SLOTS_BY_UPGRADE[kind][upgradeLevel]` — slot count allowed by that worker track's upgrade level. Level 3 unlocks slot 1; level 6 unlocks slot 2.
-- `WORKER_SLOTS_BY_LEVEL[level]` — slot count allowed by colony progression. The second unit deploys at **sector level 22** and the third unit at **sector level 42**.
-- `WORKER_SLOT_UNLOCK_RESOURCE_COSTS[level]` — extra flux/core surcharge that `nextUpgradeCost()` applies when a worker-track purchase lands exactly on a slot-unlock level (`flux: 18 / cores: 4` at level 3; `flux: 55 / cores: 14` at level 6).
+- `WORKER_SLOTS_BY_LEVEL[level]` — slot count allowed by colony progression. The second unit deploys at **sector level 10** and the third unit at **sector level 22** (4.1: pulled in from 22 / 42 as part of the Tier-0 deadlock fix, so mining isn't single-worker for hours once the economy is unblocked).
+- `WORKER_SLOT_UNLOCK_RESOURCE_COSTS[level]` — extra surcharge that `nextUpgradeCost()` applies when a worker-track purchase lands exactly on a slot-unlock level (`gold: 80 / ore: 150` at level 3; `gold: 500 / ore: 900` at level 6). **4.1:** redenominated from the old flux+cores surcharge — flux/cores only drop from `minTier >= 1` enemies, so at Tier 0 the surcharge was unearnable and froze miner/drill at L2 (the economy deadlock). Gold+ore are earnable from tick 1 and give abundant ore a real early sink.
 - `stepWorkerSlots()` in `subsystems/workers.ts` runs after `stepEconomy` and reconciles `agent.active` against the **minimum** of the upgrade gate and the level gate. It only ever activates, never deactivates — workers stay in the field once deployed.
 
 All subsystems that iterate `state.agents` must guard on `agent.active` before processing. Check combat, movement, mining, and zapper targeting when touching those subsystems. `FieldSvg.tsx` filters `game.agents` to active-only before rendering. Migration always defaults `agent.active ?? true` so existing 3-agent saves load cleanly.

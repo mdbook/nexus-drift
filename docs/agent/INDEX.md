@@ -16,6 +16,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 | Enemy balance / new enemy archetype / shields                       | [enemies.md](enemies.md) + [workers.md](workers.md)                                      |
 | Defense balance — turret / silo / sentinel / scout / zapper disable | [defenses.md](defenses.md) + [enemies.md](enemies.md)                                    |
 | Economy / mining / autobuy / prestige / city HP                     | [economy.md](economy.md)                                                                 |
+| Balance-constant changes / progression tuning audit trail           | [balance-log.md](balance-log.md) + [economy.md](economy.md)                              |
 | Random events / event card mechanics                                | [events-achievements.md](events-achievements.md)                                         |
 | Activity log / notifications / admin terminal                       | [events-achievements.md](events-achievements.md)                                         |
 | CI / Docker / GitHub Pages / version banner / commands              | [operations.md](operations.md)                                                           |
@@ -33,6 +34,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 - [enemies.md](enemies.md) — combat kinds, archetypes, multi-class targeting, shields, warden
 - [defenses.md](defenses.md) — turrets, missile silos, scouts, sentinels, disable system
 - [economy.md](economy.md) — resources, mining, autobuy, prestige, city
+- [balance-log.md](balance-log.md) — audit trail of balance-constant changes (old→new, why, BEFORE/AFTER harness measurements)
 - [events-achievements.md](events-achievements.md) — random events, achievements, activity log, notifications, easter eggs, admin terminal
 - [persistence.md](persistence.md) — save schema versions, migration checklist, entity spawn/death fields
 - [operations.md](operations.md) — local commands, CI, Docker, Pages mirror, beta build, test counts

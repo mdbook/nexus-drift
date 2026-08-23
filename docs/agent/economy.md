@@ -61,6 +61,8 @@ Weighted upgrade prioritization with emergency paths (e.g. buy sentinel if 2+ br
 
 Auto-triggers when the colony is rich, stable, and clear enough — but **not when `upgradeAutoMaster === "none"`** (prestige is an autobuy behavior; a fully-manual player shouldn't have their run reset for them). Under `"all"` this guard is always true, so the pre-4.0 path is unchanged. Combo bonus stacks with Archive upgrades.
 
+**4.1 prestige gates (`PRESTIGE` in `balance.ts`):** `goldGate = 10000` (was 60000; the 60k predated the 4.0 income cuts and put first prestige ~83 h out), `gemsGate = 380` (unchanged — gems accrue fast), `maxEnemies = 12` (was 3). The `enemies.length < maxEnemies` "clear enough" lull was the true blocker: at Tier 5 the field never falls below ~4 enemies, so at 3 auto-prestige could never fire regardless of gold. 12 (under half the Tier-5 enemyCap) makes it a genuine dominance lull that's actually reachable — first prestige ~5.5 h in the harness. The trigger code in `autobuy.ts` is unchanged; only the gate constants moved. See [balance-log.md](balance-log.md) for the BEFORE/AFTER measurements.
+
 ## City / Home District
 
 The home district skyline evolves with progression and upgrade investment. Mature colonies attract a wandering tourist drone after 15+ real-time minutes at city stage 5.

@@ -288,30 +288,31 @@ describe("advanceGame simulation invariants", () => {
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(1);
     expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(1);
 
-    // 3.0.0: WORKER_SLOTS_BY_LEVEL now gates the second slot at L22 and the
-    // third at L42, aligning multi-worker deployment with the stretched XP
-    // curve.
-    state.level = 22;
+    // 4.1: WORKER_SLOTS_BY_LEVEL gates the second slot at L10 and the third at
+    // L22 (was L22 / L42). Pulled in as part of the Tier-0 deadlock fix so
+    // mining isn't single-worker for hours after the economy is unblocked.
+    state.level = 10;
     stepWorkerSlots(state);
     expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(2);
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(2);
     expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(2);
 
-    state.level = 42;
+    state.level = 22;
     stepWorkerSlots(state);
     expect(state.agents.filter((agent) => agent.kind === "miner" && agent.active)).toHaveLength(3);
     expect(state.agents.filter((agent) => agent.kind === "runner" && agent.active)).toHaveLength(3);
     expect(state.agents.filter((agent) => agent.kind === "drone" && agent.active)).toHaveLength(3);
   });
 
-  it("charges flux and cores on the worker-slot unlock upgrade levels", () => {
-    // 3.0.0: UPGRADES base costs and WORKER_SLOT_UNLOCK_RESOURCE_COSTS both
-    // scaled up so slot-unlock purchases feel like a deliberate flux+cores
-    // spend. See balance.ts.
+  it("charges gold and ore on the worker-slot unlock upgrade levels", () => {
+    // 4.1: WORKER_SLOT_UNLOCK_RESOURCE_COSTS redenominated from flux+cores to
+    // gold+ore. The old flux/cores surcharge was unearnable at Tier 0 (those
+    // resources only drop from minTier>=1 enemies), which froze miner/drill at
+    // L2 and defined the Tier-0 economy deadlock. See balance.ts.
     expect(nextUpgradeCost(getUpgradeDef("miner"), 1)).toEqual({ gold: 27 });
-    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 34, flux: 18, cores: 4 });
-    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 562, flux: 55, cores: 14 });
-    expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4408, flux: 55, cores: 14 });
+    expect(nextUpgradeCost(getUpgradeDef("miner"), 2)).toEqual({ gold: 114, ore: 150 });
+    expect(nextUpgradeCost(getUpgradeDef("drill"), 5)).toEqual({ gold: 1062, ore: 900 });
+    expect(nextUpgradeCost(getUpgradeDef("bot"), 5)).toEqual({ gold: 4908, ore: 900 });
   });
 
   it("never produces NaN resources over a long run", () => {

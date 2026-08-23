@@ -26,7 +26,7 @@ No install — runs in your browser.
 - Fully browser-run simulation with no network gameplay dependency
 - Deterministic seeded RNG in the simulation layer for reproducible runs
 - **3.0.0**: Economy stretched 5–8× for multi-session play — the second turret is a 25-35 min milestone, the third worker of any kind takes hours, and overnight runs are now first-class
-- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, dual-gated by upgrade level and sector level (level 22 / 42), with Flux+Cores surcharges
+- Each worker kind (miner / runner / drone) supports up to 3 simultaneous units, dual-gated by upgrade level and sector level (level 10 / 22), with Gold+Ore slot-unlock surcharges
 - **3.0.0**: Workers now have per-individual variance (speed ±12%, fear ±20%, harvest bias ±15%) plus class abilities: miner overclock, runner sprint burst, drone corruption scan
 - Workers commit hard to partially mined resources; one or two nearby enemies no longer dislodge an undamaged harvesting worker; live enemy bodies slow movement; fleeing workers can retarget ahead
 - Flux and Cores feed multi-resource upgrades (Foundry, Data Archive, Sentinel Mechs)

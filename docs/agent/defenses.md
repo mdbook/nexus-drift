@@ -10,7 +10,7 @@ Static base defense. Target combat enemies only — never corruptors, never cloa
 
 ### Activation
 
-Turrets are Tier 3 "Raid" gated (`minTier: 3` on the `turret` upgrade in `data.ts`). The always-on first-turret floor is gone:
+Turrets are Tier 2 "Skirmish" gated (`minTier: 2` on the `turret` upgrade in `data.ts`; 4.1: lowered from Tier 3 so the primary perimeter weapon isn't emergency-only). The always-on first-turret floor is gone:
 
 ```
 activeTurrets = state.upgrades.turret >= 1
@@ -18,7 +18,7 @@ activeTurrets = state.upgrades.turret >= 1
   : 0
 ```
 
-So no turret deploys until the player both reaches Tier 3 **and** buys the upgrade. The 2nd turret slot unlocks at sector level 2, the 3rd at level 8, both gated by upgrade level on top.
+So no turret deploys until the player both reaches Tier 2 **and** buys the upgrade. The 2nd turret slot unlocks at sector level 2, the 3rd at level 8, both gated by upgrade level on top.
 
 Subsystems must keep reading `derived.activeTurrets` rather than recomputing locally — `selectors.ts` is the single source of truth.
 
