@@ -54,6 +54,7 @@ import {
 } from "@/game/achievements";
 import type { AchievementId, AchievementRarity } from "@/game/achievements";
 import { resourceDefs } from "@/game/data";
+import { computeUnlockedLore } from "@/game/lore";
 import { getEventDef } from "@/game/events/eventDefs";
 import { suggestDefensePriority, suggestWorkerHome, suggestWorkerToNode } from "@/game/interactions";
 import { FieldPopover, type PopoverTarget } from "@/components/FieldPopover";
@@ -917,6 +918,10 @@ export default function App() {
           setWikiInitialEntryId(undefined);
         }}
         initialEntryId={wikiInitialEntryId}
+        // Compute lazily — only while the archive is open — so the unlock scan
+        // never runs on the per-tick render path. Derived from live GameState;
+        // no persisted unlock field (see game/lore.ts).
+        unlockedLore={wikiOpen ? computeUnlockedLore(game) : undefined}
       />
 
       <NotificationStack
