@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.0",
+    badge: "Command Energy",
+    summary:
+      "Your manual operator actions now cost a little energy — nudging a worker, marking a threat, sending one home, and holding a drag-to-lead all draw from your energy reserve. It's tuned generously: normal operating stays net-positive (passive income comfortably outpaces a normal cadence, and you start with a reserve), so you'll only ever hit the wall by spam-clicking. This finally makes energy matter, and gems too — a few key upgrades (Reactor, Scout Arsenal, Missile Launcher) now cost gems, turning two resources that used to just pile up unused into real spends. Idle play is untouched: autobuy and the idle sim cost no energy, and none of it touches the headless/replay determinism.",
+    sections: [
+      {
+        title: "Operator actions cost energy (generously)",
+        items: [
+          "Nudge / mark / send-home each cost a little energy; drag-to-lead drains slowly while held and auto-releases if you ever bottom out. If you're short, the action is politely refused with a 'not enough energy' cue — no half-spends, never negative. Energy income was raised so a normal operating pace never runs you dry; only rapid spam drains the reserve and rate-limits itself.",
+          "Gems get a real sink: Reactor, Scout Arsenal, and Missile Launcher now cost gems alongside their other resources — a meaningful recurring spend (gems still accrue plenty), not a progression gate. Idle Mode / autobuy spend zero energy and are completely unchanged; the Tier-0 progression fix from 4.2.0 is intact.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.3.0",
     badge: "Drag to Lead",
     summary:
