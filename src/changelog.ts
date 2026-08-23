@@ -16,6 +16,41 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.1.0",
+    badge: "Guidance Polish",
+    summary:
+      "Guidance polish from iPad playtest feedback: responsive worker suggestions + visible tasking, a forced Send-home command, and an Idle Mode status indicator. Tap-to-suggest now actually feels like it does something — the worker consults your nudge on the very next tick and shows a lead line to the tasked node — and Send-home is a real forced return that persists until the worker is home. None of it touches the sim spine: `suggestedTarget` is still written only by the UI, so the headless/replay path and every decision-trace neutrality proof are byte-unchanged.",
+    sections: [
+      {
+        title: "Responsive worker suggestions (Fix 1)",
+        items: [
+          'Root cause fixed: a stamped node nudge used to expire (~120t) long BEFORE the worker\'s slow ~330–690t retarget window came around, so it lapsed unused and felt dead. `movement.ts` now forces an immediate retarget the tick a `kind: "node"` suggestion is set (`agent.suggestedTarget?.kind === "node"` added to the `needsTarget` condition), so the worker heads for the tapped node at once.',
+          "The nudge no longer silently expires unused: `WORKER_AI.suggestionExpiryTicks` bumped 120 → 600, and an unsafe path is now a TRANSIENT rejection — the suggestion is retained and retried each retarget until the path clears, the worker arrives (`suggestionArrivalRadius`), the node is gone, or it truly time-expires. The safety filters are unchanged (path-threat / corruption still gate it) and flee/danger still always wins.",
+          "Visible feedback: while a worker carries an active node suggestion, `FieldSvg` draws a subtle cyan lead line from the worker to the tasked node plus a marker ring on it, so you SEE the nudge took. Respects the coarse-pointer FX budget — the ring pulses only at full FX, static under `useLowFxMode`.",
+        ],
+      },
+      {
+        title: "Forced Send-home (Fix 2)",
+        items: [
+          '"Send home" (worker inspect popover) is now a real command, not a soft stand-down. `suggestWorkerHome` stamps a PERSISTENT `suggestedTarget: { kind: "home" }`; `movement.ts` routes the worker to its `homeX/homeY` (reusing the recovering-destination pattern) and clears the marker only on arrival within `WORKER_AI.suggestionArrivalRadius`, then normal AI resumes. The worker shows a "Returning" task en route.',
+          'It never bypasses survival: the home routing sits after the evade branch, so the worker still flee-dodges real threats on the way home. `chooseWorkerTarget` ignores a `"home"` marker (it only consumes `kind: "node"`) and scores a harmless fall-through node target that the movement-layer home routing overrides. `"home"` is re-added to the `suggestedTarget.kind` union (4.0.1 had removed an inert version) — now with real behavior.',
+        ],
+      },
+      {
+        title: "Idle Mode status indicator (Fix 3)",
+        items: [
+          'The sidebar "Idle Mode" toggle (master autobuy all↔none) now reads as a LIT/glowing status indicator when idle mode is active (`upgradeAutoMaster === "all"`) — a glowing emerald treatment plus a status pip, using the existing `ready` tone — so it reads as "mode: idle / hands-off" rather than just a button. It still toggles. Styling is factored into pure, unit-tested helpers (`idleModeButtonClass` / `idleModeDotClass` / `isIdleModeActive`).',
+        ],
+      },
+      {
+        title: "Trace / neutrality",
+        items: [
+          "Decision-trace neutrality preserved end to end: `suggestedTarget` (both `node` and `home`) is written ONLY by the UI helpers in `interactions.ts`, never on the headless/replay path, so the new immediate-retarget trigger and home routing are always inert there. `chooseWorkerTarget`/`chooseFleeDirectionTarget` keep their single `ctx.recordWorkerTarget` emit untouched (no early return, no new rng, no reorder); `trace.test.ts` byte-identical proof and all `runHeadless` invariants stay green.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.0.1",
     badge: "Operator Polish",
     summary:

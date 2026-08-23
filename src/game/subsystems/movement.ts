@@ -220,9 +220,16 @@ export function stepWorkers(state: GameState, ctx?: SimTraceCtx) {
     // index shifts for survivors, which used to silently change their
     // retarget cadence mid-life. Using `agent.id` keeps each worker's
     // retarget window fixed for its lifetime.
+    // 4.1.0 Fix 1(a): a fresh `kind: "node"` suggestion forces an immediate
+    // retarget so the nudge is consulted on the very next tick instead of
+    // lapsing before the worker's slow ~330–690t retarget window comes around.
+    // NEUTRALITY: `suggestedTarget` is written ONLY by the UI helpers in
+    // `interactions.ts` (never in headless/replay), so this trigger is always
+    // false on the sim/trace path → retarget cadence there is unchanged.
     const needsTarget =
       agent.target == null ||
       !state.nodes.some((node) => node.id === agent.target) ||
+      agent.suggestedTarget?.kind === "node" ||
       state.timers.tick % (330 + agent.id * 45) === 0;
 
     if (needsTarget) {
@@ -374,12 +381,31 @@ export function stepWorkers(state: GameState, ctx?: SimTraceCtx) {
       return;
     }
 
-    const destination = recovering ? { x: agent.homeX, y: agent.homeY, size: 18, corrupted: false } : node;
+    // 4.1.0 Fix 2: a forced Send-home command (`suggestedTarget.kind === "home"`)
+    // routes the worker to its home pad and PERSISTS until arrival — no time
+    // expiry. This sits after the evade branch above (which returns early), so a
+    // real threat still makes the worker flee first; the return only overrides the
+    // normal destination. NEUTRALITY: the "home" marker is only ever stamped by
+    // the UI helper `suggestWorkerHome`, never headlessly, so this is inert on the
+    // sim/trace path. `chooseWorkerTarget` ignores "home" and still scores a
+    // fall-through node target; this override just replaces the destination.
+    const homeCommanded = agent.suggestedTarget?.kind === "home";
+    const destination =
+      recovering || homeCommanded ? { x: agent.homeX, y: agent.homeY, size: 18, corrupted: false } : node;
 
     const dx = destination.x - agent.x;
     const dy = destination.y - agent.y;
     const d = Math.max(1, Math.hypot(dx, dy));
-    const workRadius = recovering ? 22 : clamp(destination.size * 0.45, 16, 24);
+    const workRadius = recovering
+      ? 22
+      : homeCommanded
+        ? WORKER_AI.suggestionArrivalRadius
+        : clamp(destination.size * 0.45, 16, 24);
+
+    // Clear the forced-home marker once the worker reaches home; normal AI resumes.
+    if (homeCommanded && d <= workRadius) {
+      agent.suggestedTarget = undefined;
+    }
 
     if (d <= workRadius) {
       // tx/ty are render/intention anchors, not a movement delta source. If
@@ -456,7 +482,7 @@ export function stepWorkers(state: GameState, ctx?: SimTraceCtx) {
     agent.tx = destination.x;
     agent.ty = destination.y;
     agent.swing = 0;
-    agent.task = recovering ? "Recovering" : "Traversing";
+    agent.task = recovering ? "Recovering" : homeCommanded ? "Returning" : "Traversing";
     agent.panic = clamp(
       agent.panic - (recovering ? WORKER.panicDelta.traversingRecovering : WORKER.panicDelta.traversing),
       0,

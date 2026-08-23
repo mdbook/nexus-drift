@@ -39,17 +39,32 @@ Target selection filters to **live enemies** before scoring — death-fade enemi
 
 The sticky retarget threshold is 0.64 — a candidate must be much better before it unseats the current assignment. Partially mined current nodes also get `currentTargetProgressBonus`.
 
-## Worker Suggestion (4.0 soft player nudge)
+## Worker Suggestion (4.0 player nudge, 4.1.0 responsive)
 
-`suggestWorkerToNode(state, nodeId, clickXY?)` in `src/game/interactions.ts` stamps the nearest eligible worker (active, alive, not corrupted/rebooting/disabled, **not currently evading**) with `Agent.suggestedTarget = { kind: "node", id, createdAt }`, where `createdAt` is the stamp tick. Expiry is wrap-safe: `elapsedTicks(now, createdAt) >= WORKER_AI.suggestionExpiryTicks` (120), matching the house `elapsedTicks` idiom (4.0.1 — was a raw `expiresAt` absolute-tick compare).
+`suggestWorkerToNode(state, nodeId, clickXY?)` in `src/game/interactions.ts` stamps the nearest eligible worker (active, alive, not corrupted/rebooting/disabled, **not currently evading**) with `Agent.suggestedTarget = { kind: "node", id, createdAt }`, where `createdAt` is the stamp tick. Expiry is wrap-safe: `elapsedTicks(now, createdAt) >= WORKER_AI.suggestionExpiryTicks` (600 as of 4.1.0 — was 120), matching the house `elapsedTicks` idiom.
 
-`suggestWorkerHome(state, agentId)` (4.0 Phase 3 — the worker inspect popover's "Send home" button) is the only other writer: it drops the worker's current `target` (same fleeing/rebooting/disabled skip) so `chooseWorkerTarget` re-evaluates from scratch, and stamps **no** `suggestedTarget` marker. `chooseWorkerTarget` only ever consumes `kind: "node"` markers, so the old `"home"` marker was inert cruft (never read, never expiry-cleared) and was dropped in 4.0.1 — nulling `target` is the whole functional effect, a soft "stand down and re-pick per AI". These two helpers are the only writers of `suggestedTarget`; `suggestedTarget.kind` is `"node" | "enemy"` (`"home"` removed).
+**4.1.0 responsiveness (Fix 1).** Two changes make a tap actually feel like it does something:
 
-`chooseWorkerTarget` reads the suggestion as a **soft preference applied after the sticky block**: a live suggestion outranks sticky retarget, but it never bypasses the safety filters. The suggested node is honored only if it still exists, its path threat stays `<= WORKER_AI.suggestionMaxPathThreat` (0.05, same `threatAlongPath` scale as flee retargeting), and it is not in the non-miner corruption hard-avoid band. On rejection (unsafe / gone), expiry, or arrival (within `WORKER_AI.suggestionArrivalRadius`, 26 px) the nudge is cleared and normal scoring resumes.
+- **Immediate retarget (movement.ts).** `agent.suggestedTarget?.kind === "node"` is now part of the `needsTarget` condition (`movement.ts` ~L223), so the worker re-decides its target on the very next tick after a nudge instead of waiting out its slow `330 + agent.id * 45` (~330–690t) retarget window. Previously the ~120t expiry lapsed before that window came around, so the nudge felt dead.
+- **Persist until acted on (workerTargeting.ts).** `suggestionExpiryTicks` bumped 120 → 600, and an unsafe path is now a **transient** rejection — the suggestion is **retained and retried** each retarget rather than cleared. The nudge is cleared only on: arrival (within `suggestionArrivalRadius`, 26 px), the node being **gone**, or true time-expiry. The safety filters are unchanged: it is honored only while path threat stays `<= WORKER_AI.suggestionMaxPathThreat` (0.05) and the node is not in the non-miner corruption hard-avoid band.
+
+`chooseWorkerTarget` reads the node suggestion as a **soft preference applied after the sticky block**: a live suggestion outranks sticky retarget, but it never bypasses the safety filters and only overrides the local `chosenId`.
+
+**Visible tasking (Fix 1c).** While a worker carries an active `kind: "node"` suggestion, `FieldSvg.tsx` draws a subtle cyan lead line from the worker to the tasked node plus a marker ring on it. Follows the §Coarse-Pointer FX Budget — the ring pulses only at full FX, static under `useLowFxMode`.
+
+### Forced Send-home (4.1.0, Fix 2)
+
+`suggestWorkerHome(state, agentId)` (worker inspect popover's "Send home") is now a **real command**, not the 4.0/4.0.1 soft stand-down. It stamps a **persistent** `suggestedTarget = { kind: "home", createdAt }` (same fleeing/rebooting/disabled/corrupted skip) and nulls `target`. `"home"` is re-added to the `suggestedTarget.kind` union (`"node" | "enemy" | "home"`).
+
+- **Routing (movement.ts).** When `suggestedTarget.kind === "home"`, the worker's destination is overridden to `homeX/homeY` (reusing the recovering-destination pattern) with arrival radius `WORKER_AI.suggestionArrivalRadius`. The marker **persists — no time expiry** — and is cleared only when the worker reaches home, after which normal AI resumes. Task reads `"Returning"` en route.
+- **Flee still wins.** The home override sits **after** the evade branch (which returns early), so a real threat still makes the worker flee first; the return only replaces the normal destination.
+- **`chooseWorkerTarget` ignores `"home"`** — it only ever consumes `kind: "node"`, so a home-commanded worker still scores a harmless fall-through node target that the movement-layer home routing overrides.
+
+`suggestWorkerToNode` / `suggestWorkerHome` are the only writers of `suggestedTarget`.
 
 **Trace invariant:** the suggested pick only overrides the local `chosenId` — it draws no rng, adds no candidate, and still flows through the single `ctx.recordWorkerTarget({...})` emit at the end of `chooseWorkerTarget`. Do not add an early `return` for the suggested id. See [sim-harness.md](sim-harness.md) and `src/sim/__tests__/trace.test.ts`.
 
-The suggestion lives only in `chooseWorkerTarget`; `chooseFleeDirectionTarget` is untouched, so **flee/evasion behavior always wins** — a nudged worker under active threat still flees per the Flee-Retarget Invariant.
+**Headless neutrality:** `suggestedTarget` (both `node` and `home`) is written ONLY by the UI helpers in `interactions.ts`, never on the headless/replay path. So the new immediate-retarget trigger (`movement.ts`) and the home routing are always inert in a headless run → retarget cadence and destinations there are byte-identical. `chooseFleeDirectionTarget` is untouched, so **flee/evasion behavior always wins** — a nudged worker under active threat still flees per the Flee-Retarget Invariant.
 
 ## Per-Agent Variance
 

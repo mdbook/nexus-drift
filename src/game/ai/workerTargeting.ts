@@ -197,12 +197,19 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
     }
   }
 
-  // 4.0 — soft player suggestion. Applied AFTER sticky so a live nudge outranks
-  // sticky retarget, but it NEVER bypasses the safety filters: the suggested
-  // node still has to survive the same path-threat and corruption checks the
-  // scorer honors. On rejection / expiry / arrival the nudge is cleared and
-  // normal scoring stands. Crucially this only overrides `chosenId` — it draws
+  // 4.0/4.1.0 — soft player suggestion. Applied AFTER sticky so a live nudge
+  // outranks sticky retarget, but it NEVER bypasses the safety filters: the
+  // suggested node still has to survive the same path-threat and corruption
+  // checks the scorer honors. Crucially this only overrides `chosenId` — it draws
   // no rng, adds no candidate, and still flows through the single emit below.
+  //
+  // 4.1.0 Fix 1(b): a node suggestion no longer silently expires unused. It is
+  // cleared only on arrival, true time-expiry, or the node being gone. An unsafe
+  // path/corruption is a TRANSIENT rejection — the nudge is RETAINED (this tick
+  // falls back to normal scoring) and retried on the next retarget until the path
+  // clears, the worker arrives, or it truly expires. `chooseWorkerTarget` only
+  // ever consumes `kind: "node"`; a `"home"` command is handled in movement.ts,
+  // so it falls through here to normal node scoring (and is left untouched).
   const suggestion = agent.suggestedTarget;
   if (suggestion && suggestion.kind === "node" && suggestion.id != null) {
     if (elapsedTicks(state.timers.tick, suggestion.createdAt) >= WORKER_AI.suggestionExpiryTicks) {
@@ -210,25 +217,24 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
     } else {
       const suggestedId = Number(suggestion.id);
       const suggestedNode = state.nodes.find((n) => n.id === suggestedId);
-      const pathThreat = suggestedNode
-        ? liveEnemies.length > 0
-          ? threatAlongPath(agent.x, agent.y, suggestedNode.x, suggestedNode.y, liveEnemies)
-          : 0
-        : 0;
-      const corruptionBlocked =
-        suggestedNode != null &&
-        agent.kind !== "miner" &&
-        suggestedNode.corruption > WORKER_AI.corruptionHardAvoidAbove;
-      const eligible =
-        suggestedNode != null && !corruptionBlocked && pathThreat <= WORKER_AI.suggestionMaxPathThreat;
-      if (eligible) {
-        chosenId = suggestedId;
-        stickyHeld = false;
-        if (dist(agent.x, agent.y, suggestedNode.x, suggestedNode.y) <= WORKER_AI.suggestionArrivalRadius) {
-          agent.suggestedTarget = undefined; // arrived — hand back to normal AI
-        }
+      if (suggestedNode == null) {
+        agent.suggestedTarget = undefined; // node gone — clear
       } else {
-        agent.suggestedTarget = undefined; // unsafe / gone — reject + clear
+        const pathThreat =
+          liveEnemies.length > 0
+            ? threatAlongPath(agent.x, agent.y, suggestedNode.x, suggestedNode.y, liveEnemies)
+            : 0;
+        const corruptionBlocked =
+          agent.kind !== "miner" && suggestedNode.corruption > WORKER_AI.corruptionHardAvoidAbove;
+        const eligible = !corruptionBlocked && pathThreat <= WORKER_AI.suggestionMaxPathThreat;
+        if (eligible) {
+          chosenId = suggestedId;
+          stickyHeld = false;
+          if (dist(agent.x, agent.y, suggestedNode.x, suggestedNode.y) <= WORKER_AI.suggestionArrivalRadius) {
+            agent.suggestedTarget = undefined; // arrived — hand back to normal AI
+          }
+        }
+        // else: transient unsafe — retain the nudge and retry on the next retarget.
       }
     }
   }

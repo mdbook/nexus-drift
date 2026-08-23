@@ -1038,11 +1038,15 @@ export const WORKER_AI = {
   // 4.0 — soft player suggestion (suggestWorkerToNode). A stamped suggestion is
   // honored only while the path to it stays at/under this threat ceiling (reuses
   // the same threatAlongPath scale as flee retargeting, a touch more permissive
-  // since the player asked for it). Expires after `suggestionExpiryTicks`; once
-  // the worker is within `suggestionArrivalRadius` the nudge is cleared and
-  // normal AI resumes.
+  // since the player asked for it). Cleared on arrival (within
+  // `suggestionArrivalRadius`), when the node is gone, or on time-expiry.
   suggestionMaxPathThreat: 0.05,
-  suggestionExpiryTicks: 120,
+  // 4.1.0 Fix 1(b): bumped 120 → 600. The old ~4s expiry lapsed BEFORE a worker's
+  // slow ~330–690t retarget window came around, so the nudge felt dead. With the
+  // immediate-retarget trigger (movement.ts Fix 1(a)) the worker consults it at
+  // once; this longer ceiling lets a nudge survive a brief unsafe-path patch and
+  // keep retrying until the worker actually arrives, instead of silently expiring.
+  suggestionExpiryTicks: 600,
   suggestionArrivalRadius: 26,
   regroupPanicThreshold: 70,
   regroupWeight: 0.05,

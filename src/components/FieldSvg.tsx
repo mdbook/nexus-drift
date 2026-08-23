@@ -2205,6 +2205,17 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           // hexagon points helper — module-hoisted (hexPoints) to avoid per-render closure allocation.
           const hex = hexPoints;
 
+          // 4.1.0 Fix 1(c): while a worker carries an active `kind: "node"`
+          // suggestion, surface a subtle "tasked" line to the target node so the
+          // player SEES the nudge took. The sim clears the marker on arrival /
+          // expiry / node-gone, so a present marker whose node still exists is a
+          // good proxy for "active". Respects the coarse-pointer FX budget: the
+          // node marker pulses only when full FX are on, otherwise a static ring.
+          const taskedNode =
+            agent.suggestedTarget?.kind === "node" && agent.suggestedTarget.id != null
+              ? game.nodes.find((n) => n.id === Number(agent.suggestedTarget!.id))
+              : undefined;
+
           // 4.0 Phase 3 — clicking a worker opens the inspect popover.
           const workerClick = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>) => {
             interactions?.onWorkerInspect?.(agent.id, inspectAnchor(event));
@@ -2238,6 +2249,30 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
             >
               {workerInspectInteractive && (
                 <circle cx={agent.x} cy={agent.y + bob} r="18" fill="rgba(0,0,0,0.001)" />
+              )}
+              {/* 4.1.0 Fix 1(c): "tasked" nudge indicator — a subtle cyan lead
+                  line from the worker to its suggested node. */}
+              {taskedNode && (
+                <g style={{ pointerEvents: "none" }}>
+                  <line
+                    x1={agent.x}
+                    y1={agent.y + bob}
+                    x2={taskedNode.x}
+                    y2={taskedNode.y}
+                    stroke="rgba(120,220,255,0.32)"
+                    strokeWidth="1.5"
+                    strokeDasharray="4 5"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx={taskedNode.x}
+                    cy={taskedNode.y}
+                    r={lowFxMode ? 12 : 11 + Math.sin(game.timers.tick / 6) * 2}
+                    fill="none"
+                    stroke="rgba(120,220,255,0.5)"
+                    strokeWidth="1.5"
+                  />
+                </g>
               )}
               {agentDisabled && (
                 <circle

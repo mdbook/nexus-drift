@@ -1,6 +1,6 @@
 # Layout & HUD
 
-**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldPopover.tsx`, `src/components/V4OnboardingCard.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`
+**Source files:** `src/App.tsx`, `src/components/FieldSvg.tsx`, `src/components/FieldPopover.tsx`, `src/components/Sidebar.tsx`, `src/components/idleModeButton.ts`, `src/components/V4OnboardingCard.tsx`, `src/components/FieldStatsStrip.tsx`, `src/components/EventChip.tsx`, `src/components/UpgradeIndicatorRail.tsx`, `src/hooks/useLowFxMode.ts`
 **Tests:** none (visual)
 **Key invariants:** `lg` breakpoint, not `xl`; grid/flex children carry `min-w-0`; HUD lives in the field card footer on mobile; fixed-position tooltips with viewport ref.
 
@@ -81,3 +81,9 @@ Established pattern: attach a `useRef<HTMLButtonElement>` to the anchor button; 
 - Do not flatten the surface into "no effect". Keep a static gradient / glow version so the visual identity remains intact even when motion is reduced for performance.
 
 The 4.0 click-acknowledge pulse follows this budget: clicking a node / live enemy / city core stamps a brief tick-driven ring (`FieldSvg.tsx` local `clickPulse` state, faded via `elapsedTicks`, no timers). Under `useLowFxMode` it renders a single static ring instead of the expanding animation — simplified, not removed.
+
+The 4.1.0 **worker "tasked" indicator** follows the same budget: while a worker carries an active `kind: "node"` suggestion (`agent.suggestedTarget`), `FieldSvg.tsx` draws a subtle cyan lead line from the worker to the suggested node plus a marker ring on the node. The ring pulses (tick-driven `sin`) only at full FX; under `useLowFxMode` it renders a static ring. Presence of the marker (whose node still exists) is the proxy for "active" — the sim clears it on arrival / expiry / node-gone.
+
+## Idle Mode Status Indicator (Sidebar)
+
+The sidebar "Idle Mode" control (`Sidebar.tsx`, the master autobuy all↔none quick-toggle) reads as a **lit/glowing status indicator** when idle mode is active (`game.upgradeAutoMaster === "all"`) and a normal muted button otherwise — it still toggles either way. The active treatment uses the existing `ready` (emerald) tone: a glowing emerald button (`shadow` + `ring`) with a leading status pip. No new colors. The styling and active-state logic are factored into pure, node-test-friendly helpers in `src/components/idleModeButton.ts` (`isIdleModeActive`, `idleModeButtonClass`, `idleModeDotClass`) so the tone-tracks-state contract is unit-tested without a DOM render.

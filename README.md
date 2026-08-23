@@ -2,7 +2,7 @@
 
 Nexus Drift is a sci-fi colony sim built with React, TypeScript, and Vite. Workers mine on their own, missile silos open every engagement at long range, turrets backfill the perimeter once the heavies arrive, and scout craft hunt corruption before it rots the economy. **As of 4.0 you are the colony's operator** — buy upgrades yourself, nudge workers by clicking nodes, flag threats by clicking enemies, and inspect any unit — or flip Idle Mode on and let it run itself, exactly as it always has.
 
-**Current release:** `4.0.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
+**Current release:** `4.1.0` &nbsp;|&nbsp; **Stack:** React · TypeScript · Vite · Tailwind
 
 ### [▶ Play Now](https://mdbook.github.io/nexus-drift/)
 
@@ -84,7 +84,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # type checking
-npm test            # unit tests (270 tests across src/game/__tests__/, src/sim/, and src/lib/)
+npm test            # unit tests (276 tests across src/game/__tests__/, src/sim/, and src/lib/)
 npm run lint
 npm run build
 npm run preview

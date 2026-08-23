@@ -5,6 +5,7 @@ import { StatTile, UpgradeTile } from "@/components/HudPrimitives";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
+import { idleModeButtonClass, idleModeDotClass, isIdleModeActive } from "@/components/idleModeButton";
 import { TICK_MS } from "@/game/constants";
 import { resourceDefs, upgradeDefs } from "@/game/data";
 import { purchaseFailReason } from "@/game/purchases";
@@ -115,21 +116,24 @@ export const Sidebar = memo(function Sidebar({
           <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">Autobuy</span>
           <div className="flex items-center gap-1.5">
             {/* 4.0 — Idle Mode quick-toggle: one tap flips master to All (the old
-                hands-off idle sim); tapping again while on returns to manual. */}
-            <button
-              type="button"
-              onClick={() => onSetAutoMaster(game.upgradeAutoMaster === "all" ? "none" : "all")}
-              aria-pressed={game.upgradeAutoMaster === "all"}
-              title="Idle Mode: autobuy everything (the classic hands-off sim)"
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors",
-                game.upgradeAutoMaster === "all"
-                  ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-100"
-                  : "border-white/10 bg-white/5 text-white/45 hover:text-white/75"
-              )}
-            >
-              Idle Mode
-            </button>
+                hands-off idle sim); tapping again while on returns to manual.
+                4.1.0 — when active it reads as a LIT status indicator (glowing
+                emerald + status pip), not just a button. Still toggles. */}
+            {(() => {
+              const idleActive = isIdleModeActive(game.upgradeAutoMaster);
+              return (
+                <button
+                  type="button"
+                  onClick={() => onSetAutoMaster(idleActive ? "none" : "all")}
+                  aria-pressed={idleActive}
+                  title="Idle Mode: autobuy everything (the classic hands-off sim)"
+                  className={idleModeButtonClass(idleActive)}
+                >
+                  <span className={idleModeDotClass(idleActive)} aria-hidden="true" />
+                  Idle Mode
+                </button>
+              );
+            })()}
             <div
               role="group"
               aria-label="Autobuy master switch"

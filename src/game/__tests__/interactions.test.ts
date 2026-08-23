@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { PRIORITY_MARK } from "@/game/balance";
+import { PRIORITY_MARK, WORKER_AI } from "@/game/balance";
 import { TICK_WRAP } from "@/game/constants";
+import { idleModeButtonClass, idleModeDotClass, isIdleModeActive } from "@/components/idleModeButton";
 import { createInitialGameState, spawnEnemy } from "@/game/factories";
 import { chooseWorkerTarget } from "@/game/ai/workerTargeting";
 import { stepWorkers } from "@/game/subsystems/movement";
@@ -69,7 +70,7 @@ describe("worker suggestion (4.0 phase 2)", () => {
     expect(miner.suggestedTarget).toBeTruthy();
   });
 
-  it("rejects and clears the suggestion when the path to it crosses threat", () => {
+  it("does not honor the suggestion across threat, but RETAINS it to retry (4.1.0)", () => {
     const state = baseState();
     const miner = soloMiner(state);
     const near = makeNode({ id: 8101, x: 260, y: 260, kind: "gold" });
@@ -80,14 +81,21 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.target = null;
 
     // Cluster of raiders straddling the path to the far node.
+    const blockers = [];
     for (let i = 0; i < 4; i++) {
-      addEnemy(state, { kind: "raider", x: 540 + i * 6, y: 260, hp: 30, role: "combat" });
+      blockers.push(addEnemy(state, { kind: "raider", x: 540 + i * 6, y: 260, hp: 30, role: "combat" }));
     }
 
     miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: state.timers.tick };
     const picked = chooseWorkerTarget(state, miner);
     expect(picked).not.toBe(far.id);
-    expect(miner.suggestedTarget).toBeUndefined();
+    // 4.1.0 — a transient unsafe path is a retry, not a drop: the nudge is retained.
+    expect(miner.suggestedTarget).toBeTruthy();
+
+    // Once the threat clears, the retained nudge is honored on the next retarget.
+    for (const enemy of blockers) enemy.hp = 0;
+    expect(chooseWorkerTarget(state, miner)).toBe(far.id);
+    expect(miner.suggestedTarget).toBeTruthy(); // still en route → kept
   });
 
   it("clears the suggestion on arrival at the node", () => {
@@ -113,10 +121,25 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.x = 300;
     miner.y = 260;
     miner.target = null;
-    state.timers.tick = 500;
+    state.timers.tick = 800;
 
-    // Created at tick 300 → 200 ticks elapsed, past the 120-tick expiry.
-    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: 300 };
+    // Created at tick 100 → 700 ticks elapsed, past the 600-tick expiry (4.1.0).
+    miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: 100 };
+    expect(chooseWorkerTarget(state, miner)).toBe(near.id);
+    expect(miner.suggestedTarget).toBeUndefined();
+  });
+
+  it("clears the suggestion when the target node no longer exists", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    const near = makeNode({ id: 8351, x: 260, y: 260 });
+    state.nodes = [near];
+    miner.x = 300;
+    miner.y = 260;
+    miner.target = null;
+
+    // Points at a node id that isn't in state.nodes → gone → cleared.
+    miner.suggestedTarget = { kind: "node", id: "999999", createdAt: state.timers.tick };
     expect(chooseWorkerTarget(state, miner)).toBe(near.id);
     expect(miner.suggestedTarget).toBeUndefined();
   });
@@ -142,9 +165,30 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.suggestedTarget = { kind: "node", id: String(aheadNode.id), createdAt: 0 };
     stepWorkers(state);
 
-    // The threatened ahead node never becomes the target; the nudge is rejected.
+    // The threatened ahead node never becomes the target; flee wins.
     expect(miner.target).not.toBe(aheadNode.id);
-    expect(miner.suggestedTarget).toBeUndefined();
+    // 4.1.0 — the nudge is retained (transient threat), not dropped.
+    expect(miner.suggestedTarget).toBeTruthy();
+  });
+
+  it("Fix 1(a): a fresh suggestion forces an immediate retarget (next tick, not 300+)", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    const near = makeNode({ id: 8701, x: 300, y: 260 });
+    const far = makeNode({ id: 8702, x: 760, y: 260 });
+    state.nodes = [near, far];
+    miner.x = 320;
+    miner.y = 260;
+    miner.target = near.id; // already settled on the near node...
+    state.timers.tick = 7; // ...and deliberately NOT on this worker's slow retarget cadence
+
+    // Nearest eligible worker to the far node is our solo miner.
+    expect(suggestWorkerToNode(state, far.id, { x: far.x, y: far.y })).toBe(true);
+    expect(miner.suggestedTarget).toMatchObject({ kind: "node", id: String(far.id) });
+
+    // A single sim tick is enough — no waiting ~330t for the cadence window.
+    stepWorkers(state);
+    expect(miner.target).toBe(far.id);
   });
 
   it("suggestWorkerToNode stamps the nearest eligible worker and skips fleeing/rebooting ones", () => {
@@ -168,17 +212,66 @@ describe("worker suggestion (4.0 phase 2)", () => {
   });
 });
 
-describe("worker send-home (4.0 phase 3)", () => {
-  it("drops the current target (and stamps no lingering marker) so the AI re-evaluates", () => {
+describe("worker forced send-home (4.1.0)", () => {
+  it("stamps a persistent home command marker and nulls the current target", () => {
     const state = baseState();
     const miner = soloMiner(state);
     miner.target = 1234;
     state.timers.tick = 100;
 
     expect(suggestWorkerHome(state, miner.id)).toBe(true);
-    // 4.0.1 — no inert "home" marker is left behind; nulling target is the effect.
-    expect(miner.suggestedTarget).toBeUndefined();
+    // 4.1.0 — a real, persistent forced-return marker (movement.ts routes it home).
+    expect(miner.suggestedTarget).toMatchObject({ kind: "home", createdAt: 100 });
     expect(miner.target).toBeNull();
+  });
+
+  it("routes the worker toward home, persists (no expiry), then clears on arrival", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    // A tempting node far from home so normal AI would keep the worker away.
+    state.nodes = [makeNode({ id: 8901, x: 760, y: 260 })];
+    miner.x = 700;
+    miner.y = 260;
+    miner.target = 8901;
+    const startDist = Math.hypot(miner.homeX - miner.x, miner.homeY - miner.y);
+    expect(startDist).toBeGreaterThan(WORKER_AI.suggestionArrivalRadius);
+
+    expect(suggestWorkerHome(state, miner.id)).toBe(true);
+
+    // A few ticks: the worker heads home and the marker persists.
+    for (let i = 0; i < 5; i++) stepWorkers(state);
+    expect(Math.hypot(miner.homeX - miner.x, miner.homeY - miner.y)).toBeLessThan(startDist);
+    expect(miner.suggestedTarget).toMatchObject({ kind: "home" });
+    expect(miner.task).toBe("Returning");
+
+    // Keep going until it arrives; the marker clears exactly on arrival.
+    let cleared = false;
+    for (let i = 0; i < 2000 && !cleared; i++) {
+      stepWorkers(state);
+      if (miner.suggestedTarget === undefined) cleared = true;
+    }
+    expect(cleared).toBe(true);
+    expect(Math.hypot(miner.homeX - miner.x, miner.homeY - miner.y)).toBeLessThanOrEqual(
+      WORKER_AI.suggestionArrivalRadius
+    );
+  });
+
+  it("still flees a real threat while returning home (flee wins, marker kept)", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    state.nodes = [makeNode({ id: 8951, x: 760, y: 260 })];
+    miner.x = 500;
+    miner.y = 260;
+    miner.target = 8951;
+
+    expect(suggestWorkerHome(state, miner.id)).toBe(true);
+    // Drop a brute on top of the worker to force evasion mid-return.
+    addEnemy(state, { kind: "brute", x: 512, y: 260, hp: 120, role: "combat" });
+    stepWorkers(state);
+
+    expect(miner.task).toBe("Evading");
+    // The forced-home command persists through the flee (cleared only on arrival).
+    expect(miner.suggestedTarget).toMatchObject({ kind: "home" });
   });
 
   it("leaves a fleeing / rebooting worker alone and returns false", () => {
@@ -193,6 +286,22 @@ describe("worker send-home (4.0 phase 3)", () => {
   it("returns false for an unknown worker id", () => {
     const state = baseState();
     expect(suggestWorkerHome(state, 999999)).toBe(false);
+  });
+});
+
+describe("idle mode status indicator (4.1.0)", () => {
+  it("active state tracks upgradeAutoMaster === 'all'", () => {
+    expect(isIdleModeActive("all")).toBe(true);
+    expect(isIdleModeActive("none")).toBe(false);
+    expect(isIdleModeActive("custom")).toBe(false);
+  });
+
+  it("applies the lit/glowing treatment only when active", () => {
+    expect(idleModeButtonClass(true)).toContain("shadow-");
+    expect(idleModeButtonClass(true)).toContain("emerald");
+    expect(idleModeButtonClass(false)).not.toContain("shadow-");
+    expect(idleModeDotClass(true)).toContain("shadow-");
+    expect(idleModeDotClass(false)).not.toContain("shadow-");
   });
 });
 
@@ -261,13 +370,13 @@ describe("wrap-safe expiry across TICK_WRAP (4.0.1)", () => {
     // Stamped 60 ticks before the counter wraps.
     miner.suggestedTarget = { kind: "node", id: String(far.id), createdAt: TICK_WRAP - 60 };
 
-    // 30 ticks past the wrap → 90 ticks elapsed (< 120): still honored & retained.
-    state.timers.tick = 30;
+    // 300 ticks past the wrap → 360 ticks elapsed (< 600): still honored & retained.
+    state.timers.tick = 300;
     expect(chooseWorkerTarget(state, miner)).toBe(far.id);
     expect(miner.suggestedTarget).toBeTruthy();
 
-    // 90 ticks past the wrap → 150 ticks elapsed (>= 120): expired + cleared.
-    state.timers.tick = 90;
+    // 600 ticks past the wrap → 660 ticks elapsed (>= 600): expired + cleared.
+    state.timers.tick = 600;
     expect(chooseWorkerTarget(state, miner)).toBe(near.id);
     expect(miner.suggestedTarget).toBeUndefined();
   });

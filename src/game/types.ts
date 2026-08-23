@@ -21,6 +21,7 @@ export type TaskState =
   | "Evading"
   | "Recovering"
   | "Traversing"
+  | "Returning"
   | "Working"
   | "Mining"
   | "Collecting"
@@ -173,15 +174,25 @@ export type Agent = {
    */
   spookedTicks: number;
   /**
-   * 4.0 — soft player nudge stamped by `suggestWorkerToNode`. When set and
-   * unexpired, `chooseWorkerTarget` prefers this target ONLY if it still passes
+   * 4.0 — soft player nudge stamped by `suggestWorkerToNode` (`kind: "node"`) or a
+   * forced Send-home command stamped by `suggestWorkerHome` (`kind: "home"`, 4.1.0).
+   *
+   * A `"node"` nudge is honored by `chooseWorkerTarget` ONLY while it still passes
    * the normal safety/eligibility filters (path-threat / corruption). It never
-   * bypasses those rules or the flee path, and is cleared on arrival, expiry, or
-   * rejection. Phase 2 only stamps `kind: "node"` (`id` = stringified node id).
-   * `createdAt` is the tick it was stamped; expiry is `elapsedTicks(now, createdAt)
-   * >= WORKER_AI.suggestionExpiryTicks`, wrap-safe across `TICK_WRAP`.
+   * bypasses those rules or the flee path. It is cleared on arrival or expiry; an
+   * unsafe path is a *transient* rejection (4.1.0) — the nudge is retained and
+   * retried each retarget rather than dropped, so it survives a brief threat.
+   * `id` = stringified node id; expiry is `elapsedTicks(now, createdAt) >=
+   * WORKER_AI.suggestionExpiryTicks`, wrap-safe across `TICK_WRAP`.
+   *
+   * A `"home"` command is a PERSISTENT forced return: `movement.ts` routes the
+   * worker to its `homeX/homeY` (flee still wins en route) and clears the marker
+   * only on arrival within `WORKER_AI.suggestionArrivalRadius`. It carries no `id`
+   * and does not time-expire. `chooseWorkerTarget` ignores it (only consumes
+   * `kind: "node"`), letting normal node scoring pick a fall-through target that
+   * the movement-layer home routing overrides.
    */
-  suggestedTarget?: { kind: "node" | "enemy"; id?: string; createdAt: number };
+  suggestedTarget?: { kind: "node" | "enemy" | "home"; id?: string; createdAt: number };
 };
 
 export type Turret = {

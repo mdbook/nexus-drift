@@ -69,22 +69,25 @@ export function suggestDefensePriority(state: GameState, enemyId: number): boole
 }
 
 /**
- * 4.0 Phase 3 — the worker popover's "Send home" soft suggestion. Drops the
- * worker's current target so `chooseWorkerTarget` re-evaluates from scratch on
- * its next retarget — a soft "stand down and pick something else" nudge, never a
- * hard command. The AI stays authoritative: it can immediately re-select any
- * eligible node, and every safety/flee rule still wins. No `suggestedTarget`
- * marker is stamped — `chooseWorkerTarget` only ever consumes `kind: "node"`
- * nudges, so a "home" marker was inert cruft; nulling `target` is the whole
- * functional effect. Returns true when a worker was found. A fleeing / rebooting
- * / disabled worker is left alone.
+ * 4.1.0 — the worker popover's "Send home" command. Stamps a PERSISTENT
+ * `suggestedTarget: { kind: "home" }` marker that `movement.ts` reads to route the
+ * worker back to its home pad (`homeX/homeY`). Unlike the soft 4.0 send-home (which
+ * just nulled `target` and let the AI immediately re-pick), this is a real forced
+ * return: the marker does not time-expire and is cleared only when the worker
+ * reaches home (within `WORKER_AI.suggestionArrivalRadius`), after which normal AI
+ * resumes. It is NOT a hard override of survival — the worker still flee-dodges real
+ * threats en route (movement's evade branch runs first). `chooseWorkerTarget` never
+ * consumes a "home" marker, so node scoring keeps producing a harmless fall-through
+ * `target` that the movement-layer home routing overrides. `target` is nulled so the
+ * home leg starts clean. Returns true when a worker was found. A fleeing / rebooting
+ * / disabled / corrupted worker is left alone.
  */
 export function suggestWorkerHome(state: GameState, agentId: number): boolean {
   const agent = state.agents.find((a) => a.id === agentId && a.active);
   if (!agent || agent.hp <= 0 || agent.corrupted) return false;
   if (agent.rebootTicks > 0 || agent.disabledTicks > 0 || agent.evadeTicks > 0) return false;
 
-  agent.suggestedTarget = undefined;
+  agent.suggestedTarget = { kind: "home", createdAt: state.timers.tick };
   agent.target = null;
   return true;
 }
