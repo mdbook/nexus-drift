@@ -1,0 +1,116 @@
+# Nexus Drift — Player Guide
+
+Welcome, operator. This is a friendly, no-spoilers guide to actually _playing_
+Nexus Drift — what the game is, how the loop works, and (most importantly) how
+you steer your colony. If you've ever tapped something and thought "did that do
+anything?", the **Guiding your colony** section below is for you.
+
+## What is Nexus Drift?
+
+Nexus Drift is a sci-fi **colony sim**. You've landed a small autonomous mining
+colony on a strange sector. Worker drones mine resources on their own, defenses
+hold off waves of hostiles that crawl out of the Drift, and your colony slowly
+grows in power — climbing through **tiers**, unlocking new workers, weapons, and
+enemies, and eventually **prestiging** to loop the sector for permanent bonuses.
+
+It runs as an **idle game** at heart: left completely alone, the colony mines,
+fights, and grows by itself. But as of the 4.x updates, **you are the colony's
+operator** — you can jump in and make the calls yourself whenever you want, then
+step back and let it run.
+
+## The core loop
+
+1. **Workers mine.** Your drones automatically seek out resource nodes and haul
+   in **gold** and **ore** (and later gems, energy, flux, and cores).
+2. **You spend to grow.** Resources buy **upgrades** — more workers, faster
+   mining, stronger weapons, a tougher city core.
+3. **Defenses hold the line.** Missile silos open fire at long range, turrets
+   backfill the perimeter, and scouts hunt corruption before it rots your
+   economy.
+4. **Score climbs, tiers unlock.** As your colony develops, its **score** rises
+   and pulls you up through **tiers** — each one unlocking new upgrades, tougher
+   enemies, and more of the map's story.
+5. **Prestige loops the sector.** Once you're dominant, you can prestige: reset
+   the run for a permanent bonus and climb again, faster each time.
+
+You win by getting stronger. There's no lose screen — a bad wave sets you back,
+it doesn't end the game.
+
+## Guiding your colony (read this!)
+
+Here's the part people miss. **The field is interactive — tap things on it.**
+Everything you tap gives you visible feedback so you know it worked.
+
+### Send a worker to mine a specific node — TAP THE NODE
+
+This is the big one. **Tap (or click) a resource node on the field, and the
+nearest free worker is sent to mine it.** You'll immediately see a **cyan line**
+drawn from that worker to the node, plus a marker ring on the node — that line is
+your proof the worker got the message and is on its way. The worker heads there
+on the very next moment, not "eventually."
+
+- Workers still dodge danger on the way — a nudge never marches a drone into
+  something that will kill it. Safety always wins.
+- If nothing happens and you see a "no eligible worker" note in the log, it means
+  every worker is busy fleeing or rebooting right now. Try again in a moment.
+
+### Inspect or recall a worker — TAP THE WORKER
+
+Tap a worker drone to open its **inspect popover**. It shows what the worker is
+doing right now — its current target and a one-line reason ("mining", "fleeing",
+"spooked", "returning") — plus its HP.
+
+- **Send home** button: a real, forced recall. The worker drops what it's doing
+  and returns to the home pad (still dodging threats en route), then goes back to
+  normal work once it arrives. Use it to pull a drone out of a hot zone.
+
+### Flag a threat — TAP THE ENEMY
+
+Tap a hostile to inspect it — its type, HP, shield, and threat level. Hit
+**Mark priority** and your weapons will _focus fire_ that enemy. A marked enemy
+gets a persistent **amber ring** so you can see exactly what you flagged. The
+mark now biases **every** weapon that can reach it — turrets, missile silos, and
+sentinels.
+
+- If the button is greyed out and reads **"No weapon can hit this,"** the enemy
+  is out of range or cloaked from everything you've got — the game is being
+  honest rather than letting you mark something nothing can shoot.
+
+### Buy upgrades — TAP THE TILES
+
+Upgrade tiles in the sidebar are clickable whenever you can afford them. Each
+tile's tooltip explains any gate or shortfall ("needs Tier 2", "need 40 more
+ore"). Buying is how you grow — early on, get miners and mining depth going so
+your economy snowballs.
+
+### Hands-off? Flip on Idle Mode
+
+Don't want to micromanage? Each upgrade has an **Auto** toggle, and the
+**Idle Mode** switch flips _everything_ to autobuy at once. When it's on it
+glows as a lit status indicator, and the colony buys, mines, and fights entirely
+on its own — the classic idle experience. Flip it off any time to take the
+controls back. It's a spectrum: fully manual, fully idle, or anywhere between.
+
+## The Field Archive (lore + secrets)
+
+Tap the **archive** button in the sidebar to open the **Field Archive** — the
+in-game codex. It catalogs every worker, enemy, resource, defense, and event,
+and it hides a **deep story layer**: the truth about the Nexus buried under your
+colony, the Drift that spawns the hostiles, and what prestige's loop really is.
+
+Many entries start **redacted** and unlock as you play — surviving long runs,
+hitting milestones, discovering all the enemy types, and stumbling onto a handful
+of well-hidden **easter eggs**. Poke around, play long, and watch the classified
+files fill in. (Reading the in-game patch notes might just unlock one of them.)
+
+## Quick tips
+
+- **Early game:** pour into miners and mining depth first — economy snowballs.
+- **See a cyan line?** Your worker got your node nudge. See an **amber ring**?
+  That enemy is marked for focus fire.
+- **On a tablet/phone:** everything is tuned for touch now — bigger tap targets,
+  tap-to-open tooltips, no accidental zoom. Play on iPad comfortably.
+- **Stuck or overwhelmed?** Flip on Idle Mode, watch a while, and learn the
+  rhythm before taking the wheel again.
+
+Good luck out there. The drift remembers.

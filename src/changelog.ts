@@ -16,11 +16,20 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "4.1.0",
-    badge: "Guidance Polish",
+    version: "4.2.0",
+    badge: "Operator Update",
     summary:
-      "Guidance polish from iPad playtest feedback: responsive worker suggestions + visible tasking, a forced Send-home command, and an Idle Mode status indicator. Tap-to-suggest now actually feels like it does something — the worker consults your nudge on the very next tick and shows a lead line to the tasked node — and Send-home is a real forced return that persists until the worker is home. None of it touches the sim spine: `suggestedTarget` is still written only by the UI, so the headless/replay path and every decision-trace neutrality proof are byte-unchanged.",
+      "The biggest fix in this release unsticks the early game: fresh colonies could get permanently pinned at Tier 0 — miners and drills frozen, no tier progress, prestige effectively unreachable — and now they climb. On top of that unblock, this update makes being the operator feel good: your worker nudges respond instantly and show where you sent them, Send-home is a real forced return, priority-marking an enemy now reads clearly and biases every weapon that can hit it, and the whole game is far friendlier to touch and iPad play. A deep Field Archive lore layer with hidden entries and easter eggs rounds it out. All of it is SAVE-SAFE — existing colonies load straight into the healthier economy with no reset.",
     sections: [
+      {
+        title: "Progression unblocked — the Tier-0 deadlock fix",
+        items: [
+          "Fresh colonies were getting stuck at Tier 0 forever. The trap: the miner/drill/bot slot-unlock upgrades charged a flux + cores surcharge, but flux and cores only drop from enemies that don't appear until Tier 1 — and the colony couldn't reach Tier 1 without the income those frozen upgrades would have provided. A closed loop: miners and drills hard-frozen at level 2, no tier progress, ore piling up unused. That's fixed — the slot-unlock cost is now paid in gold + ore (earnable from the first tick), so mining scales again and the colony climbs out of Tier 0.",
+          "Tiers arrive on a real timeline now: the score-per-tier divisor drops so Tier 1 lands in the first hour instead of never, which in turn opens the enemies that drop flux and cores. Extra worker slots also come earlier (the 2nd and 3rd mining slots were pulled way in), so your crew actually grows. Turrets unlock a tier sooner to meet the first real pressure. Validated over long simulated runs: colonies now reach Tier 5 with a healthy economy on every seed tested, where before they flatlined at Tier 0.",
+          "Prestige is reachable again. The gold requirement is cut, and — the real culprit — the auto-prestige enemy-count gate is loosened, since a busy late-game field never actually cleared down to the old threshold. First prestige now fires in a multi-hour window (~5.5 h in testing) instead of being effectively days out of reach.",
+          "Fully save-safe: these are balance tunings, not a save-format change, so existing colonies load cleanly and simply recompute onto the healthier curve. No migration, no reset.",
+        ],
+      },
       {
         title: "Responsive worker suggestions (Fix 1)",
         items: [
@@ -43,9 +52,35 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Clearer operator feedback + legibility",
+        items: [
+          "Marking an enemy priority now shows up: a persistent amber ring is drawn around any priority-marked enemy on the field, so you can see exactly what you flagged. It sits alongside the cyan worker lead-line and the touch hit-halos, and collapses to a static ring when effects are reduced.",
+          'Priority marks now reach every weapon that can hit the target, not just turrets — missile silos and sentinels bias toward the marked enemy too. And the mark is honest about it: if no live weapon can actually reach an enemy, the popover greys out the button and says "No weapon can hit this" instead of pretending the mark did something.',
+          "Actions that can't do anything now say so. Tapping a node with no eligible worker, or Send-home / Mark-priority when nothing can act, posts a short system cue in the log instead of silently doing nothing.",
+          'The worker inspect popover explains itself: it now shows the worker\'s current target plus a one-line reason for what it\'s doing ("fleeing", "spooked", "returning", etc.), so you can tell at a glance why a drone isn\'t mining.',
+        ],
+      },
+      {
+        title: "Touch & iPad friendliness",
+        items: [
+          "Field taps are much easier to land on touch. On coarse pointers (finger/stylus) the invisible hit-targets around workers, nodes, enemies, the tourist and the lost drone grow to roughly a 44px finger target, while desktop click precision is untouched — the entities themselves don't move or change size.",
+          "`touch-action: manipulation` across buttons and the field kills the double-tap-zoom and tap delay, and the field no longer text-selects when you drag on it.",
+          "Tooltips open on tap on touch/pen (and close when you tap away); mouse hover is unchanged. Sidebar and popover buttons — Buy, per-tile Auto, the All/None/Custom switch, Idle Mode, and the popover actions — are sized up to comfortable finger targets, and the popover closes on Escape and takes focus for keyboard/screen-reader use.",
+          "`prefers-reduced-motion` is respected: the documented pulses, worker bob, corruption shake, and node glow settle down for players who ask their device for less motion.",
+        ],
+      },
+      {
+        title: "Deep Field Archive lore + easter eggs",
+        items: [
+          "The Field Archive (the in-game codex) gains a real story layer: a coherent mythology of the Nexus, the Drift, the assimilated first shift, and what prestige's loop really is — woven through World Lore and hidden Classified dossiers.",
+          "Twenty-odd new entries unlock purely by playing — surviving long runs, first purge, first core kill, reaching prestige milestones, discovering all twelve enemies, and more. Locked entries show as redacted with a one-line hint until you earn them.",
+          "Hidden easter eggs reward the curious: a synthwave protocol, spotting the tourist, recovering the lost drone, catching a drift signal, reading these very patch notes, seeing all twelve enemy types, surviving a corruption outbreak or a four-hour run, and witnessing the rarest events. Unlocks ride existing save signals — no new save data, nothing to migrate.",
+        ],
+      },
+      {
         title: "Trace / neutrality",
         items: [
-          "Decision-trace neutrality preserved end to end: `suggestedTarget` (both `node` and `home`) is written ONLY by the UI helpers in `interactions.ts`, never on the headless/replay path, so the new immediate-retarget trigger and home routing are always inert there. `chooseWorkerTarget`/`chooseFleeDirectionTarget` keep their single `ctx.recordWorkerTarget` emit untouched (no early return, no new rng, no reorder); `trace.test.ts` byte-identical proof and all `runHeadless` invariants stay green.",
+          "Decision-trace neutrality preserved end to end: `suggestedTarget` (both `node` and `home`) and `priorityMarks` are written ONLY by the UI helpers in `interactions.ts`, never on the headless/replay path, so the new immediate-retarget trigger, home routing, and the wider silo/sentinel mark bias are always inert there. `chooseWorkerTarget`/`chooseFleeDirectionTarget` keep their single `ctx.recordWorkerTarget` emit untouched (no early return, no new rng, no reorder); `trace.test.ts` byte-identical proof and all `runHeadless` invariants stay green.",
         ],
       },
     ],
