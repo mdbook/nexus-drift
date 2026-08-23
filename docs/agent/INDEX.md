@@ -24,6 +24,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 | Headless sim runs / analysis harness / CLI / export                 | [sim-harness.md](sim-harness.md) + [architecture.md](architecture.md)                    |
 | Project structure / where does X live                               | [architecture.md](architecture.md)                                                       |
 | Cross-cutting save migration concerns                               | [persistence.md](persistence.md)                                                         |
+| Field Archive / codex / lore entries / hidden-entry unlocks         | [archive-lore.md](archive-lore.md) + [events-achievements.md](events-achievements.md)    |
 | What's left to do                                                   | [roadmap.md](roadmap.md)                                                                 |
 
 ## Shard Files
@@ -36,6 +37,7 @@ Always start at [`AGENTS.md`](../../AGENTS.md) (procedural rules: docs / commits
 - [economy.md](economy.md) — resources, mining, autobuy, prestige, city
 - [balance-log.md](balance-log.md) — audit trail of balance-constant changes (old→new, why, BEFORE/AFTER harness measurements)
 - [events-achievements.md](events-achievements.md) — random events, achievements, activity log, notifications, easter eggs, admin terminal
+- [archive-lore.md](archive-lore.md) — Field Archive codex, world-lore layer, hidden-entry unlock logic (derived, no save field)
 - [persistence.md](persistence.md) — save schema versions, migration checklist, entity spawn/death fields
 - [operations.md](operations.md) — local commands, CI, Docker, Pages mirror, beta build, test counts
 - [sim-harness.md](sim-harness.md) — headless sim runner, CLI, deterministic export (read-only analysis tooling)

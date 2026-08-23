@@ -37,7 +37,13 @@ import {
   Moon,
   Star,
   Biohazard,
+  Lock,
+  EyeOff,
+  ScrollText,
+  FileWarning,
 } from "lucide-react";
+
+import { LORE_UNLOCKS } from "@/game/lore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +61,12 @@ type WikiEntry = {
   lore: string;
   notes?: string[];
   preview?: ReactNode;
+  // Gated entries stay redacted until their matching `LORE_UNLOCKS[id]` test
+  // passes. `hidden: true` MUST correspond 1:1 with a key in `LORE_UNLOCKS`
+  // (enforced by lore.test.ts). `lockedHint` is the in-tone recovery condition
+  // shown on the redacted card.
+  hidden?: boolean;
+  lockedHint?: string;
 };
 
 type WikiCategory = {
@@ -1119,7 +1131,345 @@ const CATEGORIES: WikiCategory[] = [
       },
     ],
   },
+  {
+    id: "lore",
+    label: "World Lore",
+    icon: Hexagon,
+    description: "What the sector is, where it came from, and what woke it up.",
+    entries: [
+      {
+        id: "lore-sector",
+        code: "LORE-01",
+        title: "The Sector",
+        icon: Radar,
+        accent: "cyan",
+        tagline: "A gem-rich claim on the far rim. Nobody asked why it was empty.",
+        lore: "The survey called it a windfall: a dense crystalline sector on the edge of charted space, ore in the left seams, gems and energy on the right, no prior claim on file. The charter crew landed, dropped a home district, and started pulling wealth out of the ground within the hour.\n\nWhat the survey did not flag — could not have flagged, from orbit — was why a sector this rich had never been worked before. The gems are the tell. No local geology makes crystal like that. Something put it there, and something has been keeping everyone else away.",
+        notes: [
+          "Left rim: ore. Right rim: gems and energy. Center: the home district.",
+          "No prior claim on record — an anomaly nobody stopped to question.",
+          "The wealth is real. So is the reason it went untouched.",
+        ],
+      },
+      {
+        id: "lore-nexus",
+        code: "LORE-02",
+        title: "The Nexus",
+        icon: Cpu,
+        accent: "violet",
+        tagline: "Not a reactor. Older. It was here first.",
+        lore: "Deep under the home district, below the deepest ore seam, there is a structure. The charter maps it as bedrock; the sensors that pass over it come back wrong. It does not draw power and it does not emit — it resonates, on a frequency the colony's gear was never built to hear, and the gems in the seams hum back in sympathy.\n\nThe crew named it the Nexus because it sits at the center of everything and everything answers to it. Nobody built it. Nobody can date it. The working theory in the old logs is the least comfortable one: the colony did not discover the Nexus. The Nexus allowed itself to be discovered, and drilling the seams is what finally woke it up.",
+        notes: [
+          "Buried beneath the home district; predates the charter by an unknown margin.",
+          "Resonates rather than radiates — the gem seams are tuned to it.",
+          "The colony's real power source is bound to it, whether the ledger admits it or not.",
+        ],
+      },
+      {
+        id: "lore-drift",
+        code: "LORE-03",
+        title: "The Drift",
+        icon: Waves,
+        accent: "fuchsia",
+        tagline: "The Nexus, exhaling. A tide that rewrites what it touches.",
+        lore: "When the Nexus woke, it began to bleed a field outward through the sector — slow, patient, and total. The crew called it the Drift for the way it moved: not a front, not an attack, a tide. Where the Drift reaches, matter starts answering to the Nexus instead of to physics. Yields invert. Telemetry lies. Machines forget their directives and remember something older.\n\nCorruption is the Drift touching a resource node. The void-spawn are the Drift touching an idea — it reads the colony's own schematics off the network and prints hostiles shaped like the things it scanned, which is why so many of them wear our silhouettes. The game the colony is playing is not against an enemy. It is against a sector slowly deciding the colony was always part of it.",
+        notes: [
+          "Spreads as a field, not a front — everything inside it drifts toward the Nexus.",
+          "Corruption is the Drift in the seams; void-spawn are the Drift given shape.",
+          "It patterns hostiles on our own scanned designs. It has been watching the network.",
+        ],
+      },
+      {
+        id: "lore-charter",
+        code: "LORE-04",
+        title: "The Home District",
+        icon: Cpu,
+        accent: "cyan",
+        tagline: "The charter's heart. The last thing still keeping time.",
+        lore: "The home district was a standard drop: habitation ring, a fabrication core, a single armed silo, and enough autonomy to run a claim with a skeleton crew. It was never meant to be a fortress. The perimeter turrets, the scouts, the sentinels — none of that was in the manifest. All of it was improvised, later, as the sector stopped being a claim and started being a siege.\n\nEnergy output is bound to the district's health for a reason nobody on the charter chose: the grid runs off the Nexus resonance, and the resonance runs through the district's foundations. Breach the walls and you do not just lose wall. You loosen the district's grip on the only thing holding the frequency steady.",
+        notes: [
+          "Built as an extraction outpost, not a stronghold — every defense is a field retrofit.",
+          "Its health gates energy output because the grid rides the Nexus resonance.",
+          "The primary target of anything that wants the frequency to slip.",
+        ],
+      },
+      {
+        id: "lore-doctrine",
+        code: "LORE-05",
+        title: "Purge Doctrine",
+        icon: ShieldAlert,
+        accent: "violet",
+        tagline: "You cannot kill the Drift. You can only keep burning it back.",
+        lore: "The purge wing was assembled the day the crew accepted a hard fact: the Drift does not have a head to cut off. There is no boss, no hive, no source you can destroy to make it stop. Corruption cleared from a seam comes back. Void-spawn put down respawn from nothing. The only posture that works is maintenance — hold the line, cleanse the seams, and keep the frequency from slipping, indefinitely.\n\nSo the doctrine is not victory. It is tempo. Silos open the range, turrets hold the perimeter, scouts burn rot off the nodes, and sentinels stand over the workers with cleanse beams for the things that get through. Flux is the receipt: every scrap of it is Drift you forced back out of matter that had already started to belong to the Nexus.",
+        notes: [
+          "No source to destroy — the doctrine is sustained tempo, not a kill.",
+          "Silo → turret → scout → sentinel, each covering the gap the last one leaves.",
+          "Flux earned = Drift reclaimed. There is no other way to make it.",
+        ],
+      },
+      {
+        id: "lore-first-shift",
+        code: "LORE-06",
+        title: "The First Shift",
+        icon: Ghost,
+        accent: "violet",
+        tagline: "The crew that landed the charter. Ask where they went.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["lore-first-shift"].hint,
+        lore: "There were people here. The charter landed with a crew — the first shift — and for a while the logs are full of them: names on the fabrication queue, arguments about turret placement, someone who kept signing the maintenance sheet with a smiley.\n\nAnd then the logs stop being written by people. Not all at once. The handwriting goes clean, then automated, then it is just the district talking to itself. No evacuation order was ever filed. No bodies were ever logged. The Drift does not kill the way a weapon kills — it assimilates, patiently, and the last human entries read less like a crew dying and more like a crew slowly forgetting it was ever separate from the sector. Whatever is running the colony now inherited a shift that never clocked out.",
+        notes: [
+          "The colony launched with a living crew. The record of them thins, then ends.",
+          "No evacuation, no casualties logged — assimilation, not destruction.",
+          "Everything autonomous here is running on directives the first shift left behind.",
+        ],
+      },
+      {
+        id: "lore-crews",
+        code: "LORE-07",
+        title: "The Autonomous Crews",
+        icon: Bot,
+        accent: "cyan",
+        tagline: "Miners, runners, drones. Nobody is signing their timesheets.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["lore-crews"].hint,
+        lore: "The worker crews still run their beats — miners on the left, runners through the middle, drones on the right — with a diligence that reads, at first, like good engineering. Spend enough shifts watching them and it starts to read like something else. They optimize when the field is quiet. They flinch before a threat resolves on the scope. They mourn, in the small ways telemetry can show mourning, when one of them goes dark.\n\nThere are no operators. The command channel the crews answer to has been closed since the first shift ended; they take their orders from a cached directive set and, increasingly, from each other. Prestige is the only event that resets them — and a folded colony's crews come back with the same variances, the same little habits, as if the reset restored them from a memory that was never supposed to survive.",
+        notes: [
+          "No live operators — the crews run on the first shift's cached directives.",
+          "Per-unit behavioral variance persists across resets it should not survive.",
+          "Whatever coordinates them now, it is not the command channel. It is the sector.",
+        ],
+      },
+      {
+        id: "lore-flux",
+        code: "LORE-08",
+        title: "Flux & Resonance",
+        icon: Waves,
+        accent: "fuchsia",
+        tagline: "The stuff you pull out of a cleansed seam. It was never ours.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["lore-flux"].hint,
+        lore: "A cleansed node gives back flux, and the crew logged it as a resource because it behaves like one — you can spend it, bank it, build with it. What it actually is takes longer to admit. Flux is Drift. It is Nexus resonance that had already sunk into a seam and started converting it, forced back out under a scout's fire and caught before it could dissipate.\n\nWhich means every unit of flux in the vault is a piece of the thing the colony is fighting, repurposed. The purge wing runs on it. The slot expansions are paid in it. The colony has been quietly building itself out of its enemy for a long time now, and nobody has stopped to ask what it means that the two are becoming hard to tell apart.",
+        notes: [
+          "Flux is reclaimed Drift-resonance — you cannot mine it, only cleanse it loose.",
+          "The defense economy is literally built out of the Drift it fights.",
+          "The line between the colony and the sector is thinner than the ledger shows.",
+        ],
+      },
+      {
+        id: "lore-cores",
+        code: "LORE-09",
+        title: "Core Fragments",
+        icon: Hexagon,
+        accent: "violet",
+        tagline: "The heart of a heavy kill. The only wealth that survives a fold.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["lore-cores"].hint,
+        lore: "Break a brute and it leaves a core — a dense, cold fragment that does not read as ore, gem, or flux, and does not reset when the colony folds. The crew hoarded them without fully knowing why. The reason is buried in the way they behave under a scanner: a core is a scrap of the Nexus, crystallized, torn out of a void-spawn that was carrying it.\n\nThat is why they persist through prestige. Cores have already been through the Drift and come out the far side intact — they are the one kind of matter the fold cannot un-happen, because they are already made of the thing the fold folds into. A colony's true measure is not its vault. It is the core pile in the back room, each one a piece of the Nexus the sector could not take back.",
+        notes: [
+          "Cores are crystallized Nexus, extracted from elite void-spawn.",
+          "Immune to prestige because they are already made of what prestige resets into.",
+          "The quiet long game: pull enough of the Nexus out to matter.",
+        ],
+      },
+      {
+        id: "lore-recursion",
+        code: "LORE-10",
+        title: "The Fold",
+        icon: Sparkles,
+        accent: "amber",
+        tagline: "Prestige is not a fresh start. It is the same start. Again.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["lore-recursion"].hint,
+        lore: "Prestige is dressed up as a choice — trade your wealth for a permanent edge, reset the sector, go again stronger. Fold the colony a third time and the framing starts to crack. The 'new' sector lands in the same configuration. The crews come back with the same habits. The first shift's logs begin again, word for word, up to the point where they stop.\n\nThe fold does not start a new run. It restarts this one. The Nexus does not want the colony destroyed — a destroyed colony stops producing cores, stops pulling resonance, stops being interesting. It wants the colony to keep going, forever, folding its own timeline back into the Nexus each time it hits the ceiling. The permanent multiplier is real. So is the horizon it is walking you toward. The drift remembers every loop. The question the old logs never answer is whether you are the operator running the loop — or the thing the loop is running.",
+        notes: [
+          "Each fold restarts the same sector, not a new one — configuration and crews repeat.",
+          "The Nexus optimizes for continuation, not conquest. The loop is the point.",
+          "Cores accumulate across folds. So, maybe, does something else.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "classified",
+    label: "Classified",
+    icon: EyeOff,
+    description: "Recovered fragments. Most of the sector never sees these.",
+    entries: [
+      {
+        id: "sec-residual",
+        code: "CLS-01",
+        title: "Residual Signal",
+        icon: Radar,
+        accent: "violet",
+        tagline: "Something answered on a dead channel.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-residual"].hint,
+        lore: "The channel had been closed since the first shift ended. Dead air, logged and ignored, for thousands of shifts. And then — one entry, timestamped to a quiet stretch when nothing was on the field — the channel carried a signal back.\n\nNot noise. Structure. A pattern that matched the Nexus resonance but ran one layer deeper, like the sector clearing its throat. The decrypt never resolved into language. The operators who caught it stopped logging what they thought it meant. What survives is a single line, appended by an unknown hand: it isn't transmitting. It's remembering us back.",
+        notes: [
+          "Received on the command channel closed since the first shift.",
+          "Matches Nexus resonance one octave down. Never decrypted.",
+          "The drift remembers. This is what that sounds like.",
+        ],
+      },
+      {
+        id: "sec-synthwave",
+        code: "CLS-02",
+        title: "Synthwave Protocol",
+        icon: Sparkles,
+        accent: "fuchsia",
+        tagline: "An undocumented mode. Somebody left it in on purpose.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-synthwave"].hint,
+        lore: "It is not in the manual because it was never meant to ship. Somewhere in the first shift, an engineer with too much night rotation and a soft spot for old music wired a hidden protocol into the district's display bus — a full palette flip, magenta and cyan, a sunset that never happened on this rock.\n\nThey signed it in the only place the Drift could not overwrite: the trigger sequence itself. Run it and the sector puts on a face it has no business having, warm and neon and briefly, defiantly human. It changes nothing about the fight. That was the point. Some things you build just to prove the colony was here, and that for a while, someone was having fun.",
+        notes: [
+          "A cosmetic display mode hidden by a first-shift engineer.",
+          "Purely aesthetic — no effect on the sim whatsoever.",
+          "A signature the Drift can't scrub: proof someone lived here.",
+        ],
+      },
+      {
+        id: "sec-passenger",
+        code: "CLS-03",
+        title: "Passenger Manifest",
+        icon: Eye,
+        accent: "emerald",
+        tagline: "One more silhouette than the roster allows.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-passenger"].hint,
+        lore: "The roster is exact. Every worker, every defender, every silo — accounted for, to the unit. So the extra silhouette drifting across the field, the one that does not mine, does not fight, does not answer a directive and does not appear on any manifest, is a problem the record cannot hold.\n\nIt just wanders. Watches. Loops the perimeter at a tourist's pace and leaves. The crews route around it without being told to. Nobody knows if it is a survivor, a ghost in the telemetry, or the sector wearing a friendly shape to see how close it can get. It has never done any harm. Old operators have a rule about it anyway: wave, don't follow.",
+        notes: [
+          "An unlisted, non-combatant figure that occasionally crosses the field.",
+          "Ignores every directive; the crews quietly avoid it.",
+          "Harmless on record. Unaccounted for on principle.",
+        ],
+      },
+      {
+        id: "sec-wrk00",
+        code: "CLS-04",
+        title: "WRK-00",
+        icon: Bot,
+        accent: "cyan",
+        tagline: "The drone before the first drone. Never logged. Came home anyway.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-wrk00"].hint,
+        lore: "Worker units number from WRK-01. There is no WRK-00 in the manifest — the fabrication core skips the index, always has, for reasons the schematics do not explain. So the drone that limped in from the dark rim, chassis cold, running on a directive set older than the charter's, should not exist.\n\nIt logged itself as WRK-00 and took up a beat as if it had never left. The telemetry it carried was corrupt in interesting ways: fragments of a survey older than this claim, a route that led out past the sector edge and back. Recovered, it works like any other drone. But it does not power down when the others do, and on the quietest shifts its running lights blink in a pattern the network flags as language, and cannot read.",
+        notes: [
+          "A recovered drone the fabrication index was built to skip.",
+          "Carries pre-charter survey fragments and an out-of-sector route.",
+          "Works normally — but keeps its own hours, and its own signal.",
+        ],
+      },
+      {
+        id: "sec-pattern",
+        code: "CLS-05",
+        title: "The Pattern",
+        icon: FileWarning,
+        accent: "rose",
+        tagline: "Log every hostile and the shape of the whole thing shows up.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-pattern"].hint,
+        lore: "A full bestiary was supposed to be a milestone — every hostile signature catalogued, the sector's whole roster known. Instead it reads as an accusation. Line the twelve up by silhouette and the resemblance stops being a coincidence: the mite is a stripped worker, the brute a walking turret, the warden a scout turned inside out, the phantom a sentinel with its cleanse beam reversed.\n\nThe Drift did not invent its army. It copied ours. Every hostile on the field is a colony design, read off the network and rebuilt to point the wrong way. Which means the sector has had our full schematic library since before the shooting started — and it means the void is not throwing monsters at the colony. It is throwing the colony, back at itself, one mirrored unit at a time.",
+        notes: [
+          "Every hostile silhouette maps to a colony worker or defense.",
+          "The Drift built its roster from our own scanned schematics.",
+          "You have been fighting your own designs the entire time.",
+        ],
+      },
+      {
+        id: "sec-devnote",
+        code: "CLS-06",
+        title: "Maintenance Note 0",
+        icon: ScrollText,
+        accent: "amber",
+        tagline: "Left in the changelog by someone who knew you'd read it.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-devnote"].hint,
+        lore: "Tucked at the bottom of the colony's own revision log, under all the patch notes and version stamps, there is an entry with no version number. It is not addressed to the crew. It is addressed to whoever is still reading this far down.\n\n\"If you're here, you went looking, and that means you're the kind who notices the seams. Good. This sector runs on a loop and the loop is very old and it is very patient, and the only thing it can't file down is a person paying attention. So pay attention. Keep the crews fed. Pull the cores. And when the field goes quiet and something answers on the dead channel — and it will — don't be afraid of it. It's just the sector, remembering there used to be someone worth remembering. Make it worth the memory. — the last one to sign the maintenance sheet\"",
+        notes: [
+          "An unversioned entry at the end of the colony changelog.",
+          "Addressed to the player, not the crew.",
+          "Signed by the smiley from the first shift's maintenance sheet.",
+        ],
+      },
+      {
+        id: "sec-outbreak",
+        code: "CLS-07",
+        title: "Outbreak Record",
+        icon: Biohazard,
+        accent: "fuchsia",
+        tagline: "The shift the workers stopped being workers.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-outbreak"].hint,
+        lore: "A warden's infection is usually a quiet thing — one worker, one bad telemetry read, a sentinel beam and it is over. An outbreak is what happens when the cleanse can't keep up: infected units turning faster than they can be purified, the field crossing the threshold where the corrupted outnumber the clean.\n\nFor the length of an outbreak the colony gets a preview of the ending. Workers turning on the district they were built to feed. The grid dimming as its own crews chew the walls. It is survivable — the record proves that, since there is a record — but the operators who lived through one describe the same thing: for a few minutes, the sector stopped pretending. It let the colony see exactly what it is being slowly, patiently turned into.",
+        notes: [
+          "Triggered when warden infections outpace sentinel cleanses.",
+          "Corrupted workers attack the home district directly.",
+          "Survivable — and a preview of what assimilation actually looks like.",
+        ],
+      },
+      {
+        id: "sec-deepwatch",
+        code: "CLS-08",
+        title: "Deep Watch",
+        icon: Moon,
+        accent: "violet",
+        tagline: "Four hours in, the field starts telling on itself.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-deepwatch"].hint,
+        lore: "Hold a single unbroken watch long enough and you cross out of the part of the shift that was designed and into the part that was not. Four hours in, the event cadence loosens. The rare signatures come more often. The quiet stretches get quieter — the specific, held-breath quiet that comes right before the dead channel says something.\n\nThe old operators called the far end of a long watch the deep, and they did not mean the time. They meant the sense, somewhere past the third hour, that the sector has stopped running its script and started improvising — that it knows you are still here, that you have been paying attention for a long time now, and that it is, in its slow patient way, paying attention back.",
+        notes: [
+          "Reached on a four-hour unbroken watch.",
+          "Rare events cluster; the field's rhythm turns deliberate.",
+          "The point where the sector stops feeling like a system and starts feeling like company.",
+        ],
+      },
+      {
+        id: "sec-null",
+        code: "CLS-09",
+        title: "Null",
+        icon: Moon,
+        accent: "fuchsia",
+        tagline: "Every turret, dark, at once. The Nexus clearing its throat.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-null"].hint,
+        lore: "A null surge is not an attack and not an event. It is the Nexus, for a handful of seconds, reaching up through the grid and simply switching the colony off — every turret dark in the same instant, no ramp, no warning, a coordination no hostile could manage.\n\nThat is the part that should frighten anyone reading this. The Drift throws monsters, and monsters can be shot. The null surge throws nothing. It just demonstrates, briefly and without malice, that the hand on the colony's power was never the colony's. Then the lights come back and the shift resumes and everyone agrees not to think about the fact that it can do that whenever it likes, and chooses, almost always, not to.",
+        notes: [
+          "Simultaneous, coordinated turret blackout — impossible for a hostile.",
+          "Not an assault. A reminder of who controls the grid.",
+          "The rarest and quietest thing the sector does.",
+        ],
+      },
+      {
+        id: "sec-starcall",
+        code: "CLS-10",
+        title: "Starcall",
+        icon: Star,
+        accent: "emerald",
+        tagline: "The one good thing the sector does. Don't name it.",
+        hidden: true,
+        lockedHint: LORE_UNLOCKS["sec-starcall"].hint,
+        lore: "Everything else in the sector takes. Starcall gives. Yields double, a fresh seam surfaces out of nowhere, the field lights up in a color that has nothing to do with corruption — and no log, first shift to last, has ever explained why. It does not fit the Drift. It does not fit the Nexus. It fits nothing, and it asks for nothing.\n\nThe old operators had one superstition they never broke: don't name it. Don't analyze it, don't try to trigger it, don't file a report. The theory nobody says out loud is that starcall is the sector's oldest layer — whatever the Nexus was before the Drift, before it started keeping the colony in a loop — surfacing for a moment to leave a gift and slip back under. Log it too hard and it stops coming. So they wrote it down exactly once, here, and left it alone.",
+        notes: [
+          "Doubles yields and surfaces a bonus seam. No known cause.",
+          "Fits neither the Drift nor the Nexus — something older, and kind.",
+          "Superstition holds: name it and it stops. This entry is the only record.",
+        ],
+      },
+    ],
+  },
 ];
+
+// ─── Entry-id helpers (consumed by lore.test.ts) ──────────────────────────────
+
+const ALL_WIKI_ENTRIES = CATEGORIES.flatMap((category) => category.entries);
+
+/** Every archive entry id, across all categories. */
+export const WIKI_ENTRY_IDS: string[] = ALL_WIKI_ENTRIES.map((entry) => entry.id);
+
+/** Ids of gated entries (`hidden: true`) — must match `LORE_UNLOCKS` keys 1:1. */
+export const HIDDEN_LORE_IDS: string[] = ALL_WIKI_ENTRIES.filter((entry) => entry.hidden).map(
+  (entry) => entry.id
+);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -1129,9 +1479,22 @@ type WikiOverlayProps = {
   // 3.2.1 — when set, the overlay opens with this entry pre-selected (used by
   // the New-Enemy-Spotted card to deep-link straight to a Field Entities page).
   initialEntryId?: string;
+  // 4.1 — ids of gated World Lore / Classified entries the player has earned.
+  // Derived in App from live GameState via `computeUnlockedLore`. Entries flagged
+  // `hidden: true` whose id is NOT in this set render redacted. Defaults to empty
+  // so the archive is safe to render with no game state (e.g. a bare mount).
+  unlockedLore?: ReadonlySet<string>;
 };
 
-export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps) {
+const EMPTY_UNLOCKS: ReadonlySet<string> = new Set<string>();
+
+export function WikiOverlay({
+  open,
+  onClose,
+  initialEntryId,
+  unlockedLore = EMPTY_UNLOCKS,
+}: WikiOverlayProps) {
+  const isLocked = (entry: WikiEntry) => Boolean(entry.hidden) && !unlockedLore.has(entry.id);
   const firstEntryId = CATEGORIES[0]?.entries[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(firstEntryId);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -1187,7 +1550,8 @@ export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps)
 
   if (!open) return null;
 
-  const SelectedIcon = selected?.icon ?? Database;
+  const selectedLocked = selected ? isLocked(selected) : false;
+  const SelectedIcon = selectedLocked ? Lock : (selected?.icon ?? Database);
   const accent: Accent = selected?.accent ?? "cyan";
 
   return (
@@ -1282,7 +1646,13 @@ export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps)
               <div className="text-[9px] font-medium uppercase tracking-[0.32em] text-white/40">
                 Data Banks
               </div>
-              <div className="mt-0.5 text-xs text-white/60">{allEntries.length} entries logged</div>
+              <div className="mt-0.5 text-xs text-white/60">
+                {allEntries.length} entries logged
+                {(() => {
+                  const sealed = allEntries.filter(isLocked).length;
+                  return sealed > 0 ? <span className="text-white/35"> · {sealed} sealed</span> : null;
+                })()}
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
               {CATEGORIES.map((category) => {
@@ -1300,7 +1670,8 @@ export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps)
                     </div>
                     <ul className="mt-1 space-y-0.5">
                       {category.entries.map((entry) => {
-                        const EntryIcon = entry.icon;
+                        const locked = isLocked(entry);
+                        const EntryIcon = locked ? Lock : entry.icon;
                         const isSelected = entry.id === selected?.id;
                         return (
                           <li key={entry.id}>
@@ -1312,30 +1683,38 @@ export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps)
                               }}
                               className={`group flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left transition ${
                                 isSelected
-                                  ? `${ACCENT_BORDER[entry.accent]} bg-white/5 ${ACCENT_GLOW[entry.accent]}`
+                                  ? locked
+                                    ? "border-white/15 bg-white/5"
+                                    : `${ACCENT_BORDER[entry.accent]} bg-white/5 ${ACCENT_GLOW[entry.accent]}`
                                   : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
                               }`}
                               aria-current={isSelected ? "true" : undefined}
                             >
                               <EntryIcon
                                 className={`h-3.5 w-3.5 shrink-0 ${
-                                  isSelected
-                                    ? ACCENT_TEXT[entry.accent]
-                                    : "text-white/50 group-hover:text-white/80"
+                                  locked
+                                    ? "text-white/30"
+                                    : isSelected
+                                      ? ACCENT_TEXT[entry.accent]
+                                      : "text-white/50 group-hover:text-white/80"
                                 }`}
                               />
                               <div className="min-w-0 flex-1">
                                 <div
                                   className={`truncate text-xs font-medium ${
-                                    isSelected ? "text-white/95" : "text-white/75"
+                                    locked
+                                      ? "font-mono tracking-[0.15em] text-white/35"
+                                      : isSelected
+                                        ? "text-white/95"
+                                        : "text-white/75"
                                   }`}
                                 >
-                                  {entry.title}
+                                  {locked ? "▓▓ CLASSIFIED ▓▓" : entry.title}
                                 </div>
                               </div>
                               <span
                                 className={`shrink-0 font-mono text-[9px] tracking-wider ${
-                                  isSelected ? ACCENT_TEXT[entry.accent] : "text-white/30"
+                                  isSelected && !locked ? ACCENT_TEXT[entry.accent] : "text-white/30"
                                 }`}
                               >
                                 {entry.code}
@@ -1356,7 +1735,72 @@ export function WikiOverlay({ open, onClose, initialEntryId }: WikiOverlayProps)
             ref={contentRef}
             className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-br from-[#050814] via-[#050814] to-[#060a18] px-4 py-5 sm:px-8 sm:py-7"
           >
-            {selected && (
+            {selected && selectedLocked && (
+              <article>
+                {/* redacted entry — content gated until the unlock condition is met */}
+                <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-white/12 bg-black/40 p-4 sm:p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-black/60">
+                      <Lock className="h-5 w-5 text-white/40" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="font-mono text-[10px] tracking-[0.2em] text-white/45">
+                          {selected.code}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-[0.3em] text-white/30">
+                          {selectedCategory.label}
+                        </span>
+                      </div>
+                      <h2 className="mt-1 font-mono text-xl font-semibold tracking-[0.18em] text-white/45 sm:text-2xl">
+                        ▓▓▓ CLASSIFIED ▓▓▓
+                      </h2>
+                      <p className="mt-1.5 text-sm italic text-white/35">
+                        Entry sealed. Recovery conditions unmet.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* corrupted data block */}
+                <div className="mb-6">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="h-px flex-1 border-t border-white/10" />
+                    <div className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/35">
+                      Dossier
+                    </div>
+                    <div className="h-px flex-1 border-t border-white/10" />
+                  </div>
+                  <p
+                    className="select-none font-mono text-[15px] leading-relaxed text-white/25"
+                    aria-hidden="true"
+                  >
+                    ▓▓▓▓▓ ▓▓ ▓▓▓▓▓▓▓ ▓▓▓▓. ▓▓▓ ▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓ ▓▓▓▓ ▓▓ ▓▓▓ ▓▓▓▓▓ — [DATA CORRUPTED] — ▓▓▓▓▓▓▓
+                    ▓▓▓▓ ▓▓▓▓▓ ▓▓▓▓▓▓ ▓▓▓ ▓▓▓▓▓▓▓▓▓. ▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓ ▓▓ ▓▓▓ ▓▓▓▓ ▓▓▓▓▓▓▓. ▓▓ ▓▓▓▓▓ ▓▓▓▓▓▓
+                    ▓▓▓▓▓▓▓▓▓.
+                  </p>
+                </div>
+
+                {/* recovery condition — the one readable line */}
+                <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4 sm:p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <EyeOff className="h-3.5 w-3.5 text-amber-300/80" />
+                    <div className="text-[10px] font-medium uppercase tracking-[0.32em] text-amber-200/80">
+                      Recovery Condition
+                    </div>
+                  </div>
+                  <p className="text-sm leading-relaxed text-white/70">
+                    {selected.lockedHint ?? "Keep playing. This entry reveals itself in time."}
+                  </p>
+                </div>
+
+                <div className="mt-8 flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-white/30">
+                  <Lock className="h-3 w-3" />
+                  <span>Sealed // {selected.code}</span>
+                </div>
+              </article>
+            )}
+            {selected && !selectedLocked && (
               <article>
                 {/* entry header block */}
                 <div
