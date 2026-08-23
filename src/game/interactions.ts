@@ -1,5 +1,7 @@
-import { PRIORITY_MARK } from "@/game/balance";
-import type { GameState } from "@/game/types";
+import { MISSILE_SILO, PRIORITY_MARK } from "@/game/balance";
+import { isCloaked } from "@/game/enemyUtils";
+import { computeDerived } from "@/game/selectors";
+import type { Agent, GameState } from "@/game/types";
 import { dist, elapsedTicks } from "@/game/utils";
 
 /**
@@ -98,4 +100,64 @@ export function isPriorityMarked(state: GameState, enemyId: number): boolean {
     (mark) =>
       mark.enemyId === enemyId && elapsedTicks(state.timers.tick, mark.createdAt) < PRIORITY_MARK.expiryTicks
   );
+}
+
+/**
+ * 4.x — "can any live weapon currently act on this enemy?" Drives the honest
+ * "Mark priority" popover state so marking an enemy that no weapon can engage
+ * (cloaked, out of every weapon's range, or pre-any-weapon) reports the truth
+ * instead of silently no-op'ing after the popover said "marked". Mirrors the
+ * exact eligibility every mark-consuming weapon applies:
+ *   - corruptors are purge-wing targets — no turret / silo / sentinel scores them;
+ *   - a cloaked enemy is filtered out of every weapon's candidate set;
+ *   - sentinels chase any visible combat threat from ANYWHERE, so one live
+ *     sentinel means the mark is actionable;
+ *   - turrets fire from fixed emplacements up to their live per-tick `range`;
+ *   - silos fire up to a level-scaled range (same formula as stepMissileSilos).
+ * Pure read — no sim mutation.
+ */
+export function canWeaponActOnEnemy(state: GameState, enemyId: number): boolean {
+  const enemy = state.enemies.find((e) => e.id === enemyId && e.hp > 0);
+  if (!enemy) return false;
+  if (enemy.role === "corruptor") return false;
+  if (isCloaked(enemy)) return false;
+
+  const derived = computeDerived(state);
+  // Live sentinels acquire visible combat threats regardless of distance.
+  if (derived.activeSentinels > 0) return true;
+
+  // Turrets: fixed emplacements, live acquisition range stored on the entity.
+  for (let i = 0; i < derived.activeTurrets; i++) {
+    const t = state.turrets[i];
+    if (t && dist(enemy.x, enemy.y, t.x, t.y) <= t.range) return true;
+  }
+
+  // Silos: range scales with missileLauncher level (mirrors stepMissileSilos).
+  if (derived.activeMissileSilos > 0) {
+    const siloRange = MISSILE_SILO.rangeBase + state.upgrades.missileLauncher * MISSILE_SILO.rangePerLevel;
+    for (const silo of state.missileSilos) {
+      if (silo.active && dist(enemy.x, enemy.y, silo.x, silo.y) <= siloRange) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 4.x — a short, plain-English "why is this worker doing that" reason for the
+ * inspect popover, derived purely from agent locals the sim already maintains
+ * (no sim change). Priority mirrors the sim's own dominance order: an offline /
+ * fleeing state wins over a standing operator command, which wins over a passive
+ * spook. Returns null when the worker is just doing ordinary work (its `task`
+ * label already says what).
+ */
+export function describeWorkerReason(agent: Agent): string | null {
+  if (agent.corrupted) return "void-infested";
+  if (agent.disabledTicks > 0) return "disabled";
+  if (agent.rebootTicks > 0) return "rebooting";
+  if (agent.evadeTicks > 0) return "fleeing";
+  if (agent.suggestedTarget?.kind === "home") return "returning home";
+  if (agent.corruptingTicks > 0) return "under corruption";
+  if (agent.suggestedTarget?.kind === "node") return "tasked by you";
+  if (agent.spookedTicks > 0) return "avoiding a threat lane";
+  return null;
 }

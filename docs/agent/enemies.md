@@ -84,7 +84,7 @@ Wardens carry `permanentCloak: true` and are treated as fully cloaked by every s
 
 **Cloak rule**: cloak checks go through `isCloaked(enemy)` in `enemyUtils.ts`. Unit target-selection paths must keep calling `isCloaked(enemy)` (do not reimplement the check against `permanentCloak` directly, or latched wardens will stay invisible). Retaliation paths (worker contact during warden attach) intentionally do not consult cloak — do not add a cloak filter there or warden kill credit regresses.
 
-**4.0 defense priority marks do not override this filter.** The player's "mark priority" nudge (`state.priorityMarks`, applied in `getTurretTargetScore`) is a weight bias only; `stepTurrets` still runs the `!isCloaked(enemy)` eligibility filter _before_ scoring, so a marked cloaked enemy is never targetable. See [defenses.md § Defense priority marks](defenses.md).
+**Defense priority marks do not override this filter.** The player's "mark priority" nudge (`state.priorityMarks`) is a weight bias only, applied by all three mark-consuming weapons (4.x — turrets in `getTurretTargetScore`, silos in `stepMissileSilos`, sentinels in `pickSentinelTarget`); each still runs its own `!isCloaked(enemy)` (+ role / range) eligibility filter _before_ scoring, so a marked cloaked enemy is never targetable by any of them. See [defenses.md § Defense priority marks](defenses.md).
 
 ## Corruptors / Blight
 

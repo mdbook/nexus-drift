@@ -11,6 +11,7 @@ import { MISSILE_SILO, SCOUT_HP, SENTINEL, SENTINEL_HP } from "@/game/balance";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
+import { isPriorityMarked } from "@/game/interactions";
 import { useLowFxMode } from "@/hooks/useLowFxMode";
 import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { clamp, elapsedTicks } from "@/game/utils";
@@ -1527,6 +1528,38 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           <circle cx="17.5" cy="10.5" r="1.4" fill="rgba(226, 232, 240, 0.4)" />
         </g>
       )}
+
+      {/* 4.x — persistent amber priority-ring on any enemy carrying an unexpired
+          operator priority mark, drawn for the mark's whole lifetime. Pure UI read
+          of isPriorityMarked. This layer PRECEDES the enemy-body map so the ring
+          sits beneath the bodies (never occluding the threat/shield rings), and it
+          is fully independent of the 4.1.0 cyan worker→node lead-line (drawn in the
+          agents layer below) and the touch hit-halos (inside each enemy <g>) —
+          pointer-events are off so it never intercepts a hit-halo tap. Under
+          reduceFx it collapses to a single static dashed ring (no pulse, no glow
+          fill) per §Coarse-Pointer FX Budget. */}
+      {game.enemies.map((enemy) => {
+        if (enemy.hp <= 0 || !isPriorityMarked(game, enemy.id)) return null;
+        const markStyle = ENEMY_STYLE[enemy.kind as Exclude<typeof enemy.kind, "corruptor">];
+        const markR = (markStyle?.radius ?? 12) + 20;
+        const markPulse = reduceFx ? 0 : Math.sin(game.timers.tick / 7) * 2;
+        return (
+          <g key={`mark-${enemy.id}`} opacity={isCloaked(enemy) ? 0.35 : 1} style={{ pointerEvents: "none" }}>
+            {!reduceFx && (
+              <circle cx={enemy.x} cy={enemy.y} r={markR + markPulse} fill="rgba(251,191,36,0.06)" />
+            )}
+            <circle
+              cx={enemy.x}
+              cy={enemy.y}
+              r={markR + markPulse}
+              fill="none"
+              stroke="rgba(251,191,36,0.85)"
+              strokeWidth="2"
+              strokeDasharray="5 4"
+            />
+          </g>
+        );
+      })}
 
       {game.enemies.map((enemy) => {
         const hpPct = clamp((enemy.hp / enemy.maxHp) * 100, 0, 100);
