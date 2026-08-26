@@ -41,18 +41,16 @@ it doesn't end the game.
 Here's the part people miss. **The field is interactive — tap things on it.**
 Everything you tap gives you visible feedback so you know it worked.
 
-### Your commands run on ENERGY (and it's generous)
+### Your commands are FREE
 
 Your hands-on commands — nudging a worker to a node, marking a threat, recalling
-a worker, and herding crews with a lead-drag — spend a little **energy**. Energy
-refills on its own comfortably faster than normal play burns it, and you start
-every colony with a reserve, so **you'll basically never run dry just playing.**
-It only becomes a limit if you _mash_ commands — rapid-fire spamming will
-temporarily bottom out your energy, and a command with nothing left to spend is
-refused with a "Not enough energy" note in the log. Ease off for a moment and it
-tops right back up. (Your **idle / autobuy** colony spends **zero** energy —
-this only ever touches your own manual clicks.) Reactors boost energy income, so
-if you love hands-on play, a few reactors keep the tank full.
+a worker, and herding crews with a lead-drag — cost **nothing**. Command as much
+and as often as you like; there's no reserve to run dry and no "not enough energy"
+wall. (An earlier version charged energy for these and it got in the way of
+hands-on play, so it's gone.) The only reasons a command can still fail are the
+real ones — there's no free worker to send, or the enemy you tried to mark is
+already gone. **Energy** is still one of the resources you mine (a rare "leech"
+enemy can drain it), it just no longer has a price tag on your clicks.
 
 ### Send a worker to mine a specific node — TAP THE NODE
 
@@ -66,8 +64,7 @@ heading there — so it never points you at a lie.
 
 - **Click that node again to CANCEL.** Tapping a node a worker is already ordered
   to **calls the order off** and hands the worker back to normal AI — it's a
-  toggle. A cancel is free (no energy). You can also hit **Cancel order** on the
-  worker's inspect popover.
+  toggle. You can also hit **Cancel order** on the worker's inspect popover.
 - **Amber ring, no line?** Your order is registered but the worker isn't on that
   path this instant — it's dodging a threat, being lead-dragged, or (for a node
   only a miner will brave) still waiting on the right worker. The ring flips back
@@ -78,10 +75,9 @@ heading there — so it never points you at a lie.
   cancelled automatically rather than walking it into the rot.
 - On a **heavily corrupted node**, the order goes to the nearest **miner** (only
   miners will brave a corrupted node). If no miner is available, the tap is
-  refused and costs no energy.
-- If nothing happens and you see a "no eligible worker" note in the log, every
-  worker is busy fleeing or rebooting right now — try again in a moment. (A "Not
-  enough energy" note instead just means you've been spamming — see above.)
+  refused.
+- If nothing happens and you see a "no free worker" note in the log, every
+  worker is busy fleeing or rebooting right now — try again in a moment.
 
 ### Lead your workers around — PRESS AND HOLD, THEN DRAG
 
@@ -103,8 +99,9 @@ iPad).
   survival beats your finger. Hurt workers limping home to heal also sit it out.
 - Use it to bunch idle crews onto a fresh vein, walk them away from a hot corner,
   or just gather everyone for a beat before releasing them.
-- A held lead-drag slowly sips energy while you hold it; if you ever run the tank
-  fully dry mid-drag it just lets go on its own. In normal use you won't notice.
+- **Hold as long as you like** — the lead-drag is free and stays put until you
+  actually let go. (It used to cost energy and could blink out on you; not
+  anymore.)
 
 ### Inspect or recall a worker — TAP THE WORKER
 
@@ -116,8 +113,8 @@ doing right now — its current target and a one-line reason ("mining", "fleeing
   and returns to the home pad (still dodging threats en route), then goes back to
   normal work once it arrives. Use it to pull a drone out of a hot zone.
 - **Cancel order** button (shown only when this worker has a node order): calls off
-  the "go mine that node" order and returns the worker to normal AI. Free — no
-  energy. Same effect as clicking the ordered node again.
+  the "go mine that node" order and returns the worker to normal AI. Same effect as
+  clicking the ordered node again.
 
 ### Flag a threat — TAP THE ENEMY
 

@@ -11,19 +11,20 @@
 - Gold anchors the early economy.
 - Cores come from elite combat kills (brutes, phantoms).
 - Flux comes from anti-corruption play (purges, corruptor kills).
-- Gems fund a few mid/late upgrades (see Gem upgrade sinks below); energy funds manual operator actions (see below).
+- Gems fund a few mid/late upgrades (see Gem upgrade sinks below).
 - Upgrade costs can consume multiple resource types.
 
-## Operator-action energy economy (4.4.0)
+## Operator actions are FREE (4.5.1 — action-energy economy removed)
 
-Manual operator actions cost **energy**; idle and autobuy play are UNTOUCHED (autobuy never calls these helpers). Constants live in `OPERATOR_ACTIONS` (`balance.ts`).
+Operator commands cost **nothing**. The 4.4.0 action-energy economy (a flat energy cost on nudge / mark / send-home plus a per-tick drain on the drag-to-lead hold) was removed in 4.5.1: it fought hands-on play because the action-energy _was_ the mined `energy` resource, refilled only by mining energy nodes / purging enemies (no passive regen), so dragging workers around — which pulls them off mining — starved the very resource it spent, and at zero the drag-lead marker flickered (the drain cleared `state.leadPoint` every tick while the held pointer re-stamped it).
 
-- **Per-action energy cost** — the UI-called helpers in `interactions.ts` each spend a flat amount on success: `suggestWorkerToNode` (`nudgeWorkerCost`), `suggestDefensePriority` (`markThreatCost`), `suggestWorkerHome` (`sendHomeCost`). If the reserve can't cover it the action is **refused** (helper returns `false`), and `App.tsx` shows a "Not enough energy …" cue instead of the generic no-op cue.
-- **Drag-to-lead drain** — `stepLeadDrain` (`movement.ts`, wired into `advanceGame` right before `stepWorkers`) drains `leadDrainPerTick` energy each tick while the press-and-hold lead is held. It **auto-releases** the lead (clears `state.leadPoint`) when energy would hit 0, so a drag can never push energy negative.
-- **Starting reserve** — `createInitialGameState` seeds `OPERATOR_ACTIONS.startingEnergy` energy so the very first operator actions are never refused. Existing saves keep their stored energy (no migration / schema bump).
-- **Tuning is deliberately GENEROUS** — at baseline passive income (`ECONOMY.rates.energyBase`, bumped 0.03 → 0.15 in 4.4.0 ≈ 9/min before reactors/kills) a normal cadence of a few actions per minute stays net-positive; only rapid spam-clicking outruns income and hits the refusal wall. See [balance-log.md](balance-log.md) for the validation numbers.
+- **No per-action cost** — the UI-called helpers in `interactions.ts` (`suggestWorkerToNode`, `suggestDefensePriority`, `suggestWorkerHome`, `setLeadPoint`) spend no energy. They fail **only** for their real reasons (no eligible worker, no live enemy, a fleeing/rebooting worker), never for an empty reserve. The "Not enough energy …" cues in `App.tsx` are gone; the genuine "No free worker …" / "Target lost …" / "can't be recalled" cues stay.
+- **No drag-to-lead drain** — the old `stepLeadDrain` function and its `advanceGame` call were deleted. A held lead never bleeds energy and is **never auto-released** — the lead clears only on the real pointer-up (`clearLeadPoint`). This dissolves the flicker at the source: nothing floors energy, so nothing auto-clears `leadPoint`.
+- **`OPERATOR_ACTIONS` removed** — the whole constant object (`nudgeWorkerCost` / `markThreatCost` / `sendHomeCost` / `leadDrainPerTick` / `startingEnergy`) was deleted from `balance.ts`. The fresh-colony energy seed (25) is now an inline literal in `createInitialGameState` alongside the other mined-resource seeds; existing saves keep their stored energy (no migration / schema bump).
 
-**Trace-neutrality (invariant):** every energy deduction is on the UI path (`interactions.ts`) or gated on the UI-only `state.leadPoint` (`stepLeadDrain`), never on the headless/replay path. `trace.test.ts` and `runHeadless` stay byte-identical; no rng is added.
+**Energy is now a sink-less-for-the-player mined resource.** It is still one of the four mineable resources (nodes, mining, HUD display, city-integrity-modulated production all intact) and is still **drained by the leech enemy special** (`ENEMY_SPECIAL.leech.energyDrainPerTick`, `combat.ts`) and valued in the income score / autobuy reactor weighting. But nothing **player-controlled** spends it anymore, so absent a leech it just accumulates — acceptable by operator decision (like gems pre-4.4.0). A future energy sink can be added; do not invent one now.
+
+**Trace-neutrality (invariant):** all removed logic was UI-path only (`interactions.ts` helpers / the UI-only `state.leadPoint`), never on the headless/replay path, so this is a strict no-op there. `trace.test.ts` and `runHeadless` stay byte-identical; no rng is added.
 
 ### Gem upgrade sinks (4.4.0)
 

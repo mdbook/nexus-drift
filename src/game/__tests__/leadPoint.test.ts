@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cloneGameState, createInitialGameState, spawnEnemy } from "@/game/factories";
-import { OPERATOR_ACTIONS } from "@/game/balance";
 import { setLeadPoint, clearLeadPoint } from "@/game/interactions";
-import { stepLeadDrain, stepWorkers } from "@/game/subsystems/movement";
+import { stepWorkers } from "@/game/subsystems/movement";
+import { advanceGame } from "@/game/advanceGame";
 import type { Enemy, GameState, ResourceNode } from "@/game/types";
 import { dist } from "@/game/utils";
 
@@ -167,36 +167,46 @@ describe("press-and-hold lead point", () => {
   });
 });
 
-describe("drag-to-lead energy drain (4.4.0)", () => {
-  it("drains energy each tick while the lead is held", () => {
+describe("drag-to-lead is FREE (4.5.1 anti-flicker guarantee)", () => {
+  it("a held lead SURVIVES a full advanceGame tick at energy 0 (anti-flicker)", () => {
+    // 4.5.1 — operator actions are free, so a held lead is NEVER auto-released by
+    // an energy floor. Before, the drag-to-lead energy drain cleared
+    // `state.leadPoint` at 0 energy every tick while the held pointer re-stamped
+    // it → the lead-marker flicker. With the drain gone, the hold persists across
+    // a real sim tick even on an empty reserve.
     const state = baseState();
-    setLeadPoint(state, 500, 300);
-    state.resources.energy = 10;
+    state.nodes = [{ ...soloNode }];
+    state.resources.energy = 0; // empty reserve — the old drain would floor + clear
+    setLeadPoint(state, 900, 300);
 
-    stepLeadDrain(state);
-    expect(state.resources.energy).toBeCloseTo(10 - OPERATOR_ACTIONS.leadDrainPerTick, 6);
-    stepLeadDrain(state);
-    expect(state.resources.energy).toBeCloseTo(10 - 2 * OPERATOR_ACTIONS.leadDrainPerTick, 6);
-    // The lead is still held (energy comfortably above the per-tick cost).
-    expect(state.leadPoint).toBeDefined();
+    advanceGame(state);
+
+    // The lead point is STILL held (nothing auto-released it) and energy was never
+    // driven negative by an operator-action cost.
+    expect(state.leadPoint).toEqual({ x: 900, y: 300 });
+    expect(state.resources.energy).toBeGreaterThanOrEqual(0);
   });
 
-  it("auto-releases the lead at 0 and never goes negative", () => {
+  it("workers still follow a held lead at energy 0 (actions are free)", () => {
+    // The follow steer never gated on energy; prove it still pulls at zero.
     const state = baseState();
-    setLeadPoint(state, 500, 300);
-    // Just under one tick's drain — the next tick can't be covered.
-    state.resources.energy = OPERATOR_ACTIONS.leadDrainPerTick / 2;
+    state.nodes = [{ ...soloNode }];
+    const miner = state.agents.find((a) => a.kind === "miner" && a.active);
+    expect(miner).toBeTruthy();
+    if (!miner) return;
+    miner.x = 500;
+    miner.y = 300;
+    miner.target = null;
+    miner.evadeTicks = 0;
+    miner.damageTicks = 0;
 
-    stepLeadDrain(state);
-    expect(state.resources.energy).toBe(0); // floored, not negative
-    expect(state.leadPoint).toBeUndefined(); // lead auto-released
-  });
+    state.resources.energy = 0;
+    setLeadPoint(state, 900, 300);
+    stepWorkers(state);
 
-  it("is a strict no-op when no lead point is set (headless neutrality)", () => {
-    const state = baseState();
-    expect(state.leadPoint).toBeUndefined();
-    state.resources.energy = 42;
-    stepLeadDrain(state);
-    expect(state.resources.energy).toBe(42); // untouched on the headless path
+    const led = state.agents.find((a) => a.id === miner.id)!;
+    expect(led.task).toBe("Following");
+    expect(led.x).toBeGreaterThan(500); // stepped toward the lead (rightward)
+    expect(state.resources.energy).toBe(0); // free — the steer costs nothing
   });
 });

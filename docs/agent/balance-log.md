@@ -253,3 +253,50 @@ gate. Prestige gates (`goldGate`/`gemsGate`) untouched; gems stay far above
 - `trace.test.ts` (traced == untraced) and `runHeadless` same-seed determinism
   stay byte-identical; no `recordWorkerTarget`/`recordAutobuy`/autobuy change; no
   rng added. All four gates green, 319 tests (was 310; +9 for the new economy).
+
+---
+
+## 4.5.1 — Operator actions made FREE (action-energy economy removed)
+
+**Reversal of the 4.4.0 "Energy — manual operator actions cost energy" slice
+above** (operator decision). The action-energy economy fought hands-on play: the
+action-energy _was_ the mined `energy` resource, refilled only by mining energy
+nodes / purging enemies (no passive regen beyond `energyBase`), so dragging
+workers around — which pulls them off mining — starved the very resource it spent.
+The operator hit zero constantly, which both **refused** actions and produced a
+**lead-marker flicker** (at 0 energy `stepLeadDrain` cleared `state.leadPoint`
+every tick while the held pointer re-stamped it). Fix: make operator actions free,
+which also dissolves the flicker at the source (no drain → energy never floors →
+`leadPoint` never auto-cleared).
+
+**Removed:**
+
+- The per-action energy cost/refusal in `interactions.ts` — `suggestWorkerToNode`
+  (`nudgeWorkerCost`), `suggestDefensePriority` (`markThreatCost`),
+  `suggestWorkerHome` (`sendHomeCost`). They now fail only for their real reasons
+  (no eligible worker / no live enemy / fleeing worker), never for energy.
+- `stepLeadDrain` (`movement.ts`) and its `advanceGame` call — deleted entirely.
+  A held lead no longer drains energy and is never auto-released; only the real
+  pointer-up (`clearLeadPoint`) clears it.
+- The whole `OPERATOR_ACTIONS` object (`nudgeWorkerCost` / `markThreatCost` /
+  `sendHomeCost` / `leadDrainPerTick` / `startingEnergy`) from `balance.ts`. The
+  fresh-colony energy seed (25) is now an inline literal in
+  `createInitialGameState`, matching the other mined-resource seeds.
+- The "Not enough energy …" refusal cues in `App.tsx` (kept the real
+  "No free worker …" / "Target lost …" / "can't be recalled" cues).
+
+**Kept:** the `energy` resource itself (nodes, mining, HUD, city-integrity
+production scaling), the leech enemy energy drain
+(`ENEMY_SPECIAL.leech.energyDrainPerTick`, `combat.ts`), combat energy rewards,
+the `energyBase = 0.15` income rate, and the 4.4.0 **gem** upgrade sinks
+(`GEM_UPGRADE_COST` — unrelated). No prestige/gate change.
+
+**Sink-less note:** with operator spending gone, no **player-controlled** sink for
+energy remains — it accumulates unless a leech enemy drains it. Acceptable by
+operator decision (like gems pre-4.4.0); a future energy sink can be added.
+
+**Trace-neutrality:** all removed logic was UI-path only (`interactions.ts` /
+UI-only `state.leadPoint`), never on the headless/replay tick, so this is a strict
+no-op there — no rng, no trace change. `trace.test.ts` and `runHeadless` stay
+byte-identical. Tests: removed the 4.4.0 energy-cost/refusal tests, added
+free-action + anti-flicker tests (see [operations.md](operations.md) for counts).

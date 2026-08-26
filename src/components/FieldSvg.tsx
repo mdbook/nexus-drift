@@ -776,7 +776,7 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
   // element, a child swallowed the event, the hold-timer promoted AFTER the finger
   // already lifted, a tab switch, a window blur) could latch `leadActive` with no
   // terminating event — stranding `state.leadPoint` so every worker swarms a stale
-  // point and energy drains to 0. These window/document backstops force-clear any
+  // point indefinitely. These window/document backstops force-clear any
   // in-flight gesture (and clear the lead point via onLeadEnd) when the normal
   // terminating event is otherwise lost. Kept in a ref so the effect subscribes
   // once and never leaks listeners across interaction-prop changes.

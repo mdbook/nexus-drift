@@ -1144,36 +1144,6 @@ export const WORKER_LEAD = {
 } as const;
 
 /**
- * 4.4.0 — operator-action energy economy. Manual operator actions (the
- * UI-called interaction helpers in `interactions.ts`) cost ENERGY; idle and
- * autobuy play are UNTOUCHED (autobuy never calls these helpers, and none of
- * these deductions run on the sim/headless path). Tuned GENEROUS by operator
- * directive: at baseline passive energy income (`ECONOMY.rates.energyBase` =
- * 0.15/s ≈ 9/min, before reactors/kills add more) a normal cadence of a handful
- * of actions per minute stays net-positive; only rapid spam-clicking outruns
- * income and hits the refusal wall. All costs live here as named constants.
- *
- *  - `nudgeWorkerCost` / `markThreatCost` / `sendHomeCost` — flat per-action
- *    energy cost. When the reserve can't cover it the action is REFUSED
- *    (`interactions.ts` returns false → the UI shows a "Not enough energy" cue).
- *  - `leadDrainPerTick` — energy drained per tick while the press-and-hold
- *    drag-to-lead gesture is held (`stepLeadDrain` in movement.ts). Gated on the
- *    UI-only `state.leadPoint`, so it is a strict no-op on the headless/replay
- *    path (draws no rng, trace-neutral). ~0.25/tick ≈ 7.5/min held — a real
- *    but light drain that auto-releases the lead at 0 so it can never go
- *    negative.
- *  - `startingEnergy` — the fresh-colony energy reserve (createInitialGameState)
- *    so the very first operator actions are never refused before income accrues.
- */
-export const OPERATOR_ACTIONS = {
-  nudgeWorkerCost: 1,
-  markThreatCost: 1,
-  sendHomeCost: 1,
-  leadDrainPerTick: 0.25,
-  startingEnergy: 25,
-} as const;
-
-/**
  * 4.4.0 — gem sinks on a few high-value mid/late upgrades. Gems previously
  * piled up unused (income outruns their only sink, prestige's gemsGate=380), so
  * these base gem amounts are added to each upgrade's cost in `data.ts` and scale

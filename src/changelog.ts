@@ -16,6 +16,28 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.5.1",
+    badge: "Free Hands",
+    summary:
+      "Commanding your workers is FREE now. The 4.4.0 action-energy economy — where dragging to lead, nudging a worker to a node, marking a threat, or sending a worker home all cost energy — fought hands-on play: the action-energy WAS your mined energy, refilled only by mining energy nodes and purging enemies, so dragging workers around (which pulls them off mining) starved the very resource it spent. You'd hit zero, actions would refuse, and the lead-drag marker would flicker as the empty reserve auto-released the hold every tick. All of it is gone: operator actions cost nothing, and a press-and-hold lead stays held until you actually let go — no more flicker, no more 'not enough energy' on a command. Energy is still one of the four mined resources (a leech enemy can still drain it), it just no longer has a player-facing price tag.",
+    sections: [
+      {
+        title: "Operator actions are free",
+        items: [
+          "Removed the per-action energy cost from every operator command: drag-to-lead, nudge-worker-to-node, mark-threat, and send-home. These now only ever fail for their real reasons (no free worker to reroute, no live enemy to mark, a worker that's fleeing/rebooting) — never for an empty energy reserve. The 'Not enough energy…' cues are gone; the genuine 'No free worker to reroute there' / 'Target lost' / 'can't be recalled' cues stay.",
+          "Removed the drag-to-lead energy drain entirely. A held lead no longer bleeds energy and — the fix for the flicker — is no longer auto-released when energy hits 0. The lead is cleared only by your actual pointer-up, so the 'tasked' marker stays put while you hold instead of blinking off and back on every tick.",
+          "Energy stays a mined resource (gold / ore / gems / energy) with its nodes, mining, and display intact — only the operator-action spending of it was removed. With no player-facing sink left it can pile up (a leech enemy special still drains it in combat); a future sink can be added if wanted. Gem upgrade costs are unrelated and untouched.",
+        ],
+      },
+      {
+        title: "Neutrality preserved",
+        items: [
+          "All of the removed logic was UI-path only (`state.leadPoint` and the interaction helpers are never written on the headless/sim/replay tick), so this is a strict trace-neutral no-op for a headless run. The decision-trace deep-equal proof and `runHeadless` invariants stay green.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.5.0",
     badge: "Firm Orders",
     summary:

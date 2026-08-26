@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OPERATOR_ACTIONS, PRIORITY_MARK, WORKER_AI } from "@/game/balance";
+import { PRIORITY_MARK, WORKER_AI } from "@/game/balance";
 import { runHeadless } from "@/sim/runHeadless";
 import { TICK_WRAP } from "@/game/constants";
 import { idleModeButtonClass, idleModeDotClass, isIdleModeActive } from "@/components/idleModeButton";
@@ -260,17 +260,13 @@ describe("worker suggestion (4.0 phase 2)", () => {
     miner.x = node.x + 120; // farther, but the only eligible worker
     miner.y = node.y;
 
-    state.resources.energy = 10;
-
     expect(suggestWorkerToNode(state, node.id)).toBe(true);
     // The nudge landed on the eligible miner, not the nearer non-miner.
     expect(runner.suggestedTarget).toBeUndefined();
     expect(miner.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
-    // Energy charged exactly once.
-    expect(state.resources.energy).toBe(10 - OPERATOR_ACTIONS.nudgeWorkerCost);
   });
 
-  it("4.4.1: a corrupted node with ONLY a non-miner refuses and spends no energy", () => {
+  it("4.4.1: a corrupted node with ONLY a non-miner refuses (no eligible worker)", () => {
     const state = baseState();
     const node = makeNode({
       id: 8552,
@@ -288,12 +284,9 @@ describe("worker suggestion (4.0 phase 2)", () => {
     drone.x = node.x + 10;
     drone.y = node.y;
 
-    state.resources.energy = 10;
-
-    // No eligible (miner) worker → refused BEFORE charging energy.
+    // No eligible (miner) worker for a heavily-corrupted node → refused.
     expect(suggestWorkerToNode(state, node.id)).toBe(false);
     expect(drone.suggestedTarget).toBeUndefined();
-    expect(state.resources.energy).toBe(10); // untouched
   });
 
   it("4.4.1: a NON-corrupted node is unchanged — nearest-of-any-kind is nudged", () => {
@@ -880,65 +873,69 @@ describe("wrap-safe expiry across TICK_WRAP (4.0.1)", () => {
   });
 });
 
-describe("operator-action energy economy (4.4.0)", () => {
-  it("suggestWorkerToNode deducts energy on success", () => {
+describe("operator actions are FREE (4.5.1 — no action-energy economy)", () => {
+  it("a nudge succeeds and stamps at energy 0 (no energy spent, no refusal)", () => {
     const state = baseState();
     const node = makeNode({ id: 8600, x: 500, y: 300 });
     state.nodes = [node];
-    soloMiner(state);
-    state.resources.energy = 10;
+    const miner = soloMiner(state);
+    state.resources.energy = 0; // fully starved — used to be a hard refusal
 
     expect(suggestWorkerToNode(state, node.id)).toBe(true);
-    expect(state.resources.energy).toBe(10 - OPERATOR_ACTIONS.nudgeWorkerCost);
+    expect(miner.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
+    expect(state.resources.energy).toBe(0); // free: nothing deducted, never negative
   });
 
-  it("refuses (returns false) + spends nothing when energy is below the nudge cost", () => {
+  it("the no-eligible-worker refusal still fires for its REAL reason (not energy)", () => {
     const state = baseState();
     const node = makeNode({ id: 8601, x: 500, y: 300 });
     state.nodes = [node];
     const miner = soloMiner(state);
-    state.resources.energy = OPERATOR_ACTIONS.nudgeWorkerCost - 0.01;
+    miner.evadeTicks = 5; // actively fleeing → not an eligible nudge target
+    state.resources.energy = 999; // plenty of energy — the refusal is NOT about energy
 
     expect(suggestWorkerToNode(state, node.id)).toBe(false);
-    // No worker was tasked and no energy was drained.
     expect(miner.suggestedTarget).toBeUndefined();
-    expect(state.resources.energy).toBe(OPERATOR_ACTIONS.nudgeWorkerCost - 0.01);
   });
 
-  it("suggestDefensePriority deducts energy on success and refuses when starved", () => {
+  it("suggestDefensePriority succeeds at energy 0 and still refuses a dead target", () => {
     const state = baseState();
     const enemy = addEnemy(state, { kind: "raider", x: 520, y: 480, hp: 30, role: "combat" });
+    state.resources.energy = 0;
 
-    state.resources.energy = OPERATOR_ACTIONS.markThreatCost;
     expect(suggestDefensePriority(state, enemy.id)).toBe(true);
-    expect(state.resources.energy).toBe(0);
+    expect(state.priorityMarks.some((m) => m.enemyId === enemy.id)).toBe(true);
+    expect(state.resources.energy).toBe(0); // free
 
-    // Now starved: refused, and no mark churn.
-    expect(suggestDefensePriority(state, enemy.id)).toBe(false);
+    // Real refusal reason (no live enemy) still holds.
+    expect(suggestDefensePriority(state, 999_999)).toBe(false);
   });
 
-  it("suggestWorkerHome deducts energy on success and refuses when starved", () => {
+  it("suggestWorkerHome succeeds at energy 0 and still refuses a fleeing worker", () => {
     const state = baseState();
     const miner = soloMiner(state);
     miner.x = 400;
     miner.y = 200;
-
-    state.resources.energy = OPERATOR_ACTIONS.sendHomeCost + 5;
-    expect(suggestWorkerHome(state, miner.id)).toBe(true);
-    expect(state.resources.energy).toBe(5);
-
     state.resources.energy = 0;
+
+    expect(suggestWorkerHome(state, miner.id)).toBe(true);
+    expect(miner.suggestedTarget).toMatchObject({ kind: "home" });
+    expect(state.resources.energy).toBe(0); // free
+
+    // Real refusal reason (worker is fleeing) still holds.
     miner.suggestedTarget = undefined;
+    miner.evadeTicks = 5;
     expect(suggestWorkerHome(state, miner.id)).toBe(false);
     expect(miner.suggestedTarget).toBeUndefined();
   });
 
-  it("idle / autobuy play spends NO energy — energy only grows over a headless run", () => {
-    // A headless run never calls the UI interaction helpers or sets leadPoint,
-    // so the operator-action economy is invisible to it: energy is pure income.
+  it("energy is a plain mined resource on a headless run (no operator sink)", () => {
+    // Headless never calls the UI interaction helpers or sets leadPoint, so no
+    // operator-action spending exists on that path — energy behaves as ordinary
+    // mined income (a leech enemy special can still drain it in combat).
     const result = runHeadless({ seed: 99, ticks: 1500, snapshotAt: [0, 1500], include: ["state"] });
     const start = result.snapshots[0].state!.resources.energy;
     const end = result.snapshots[1].state!.resources.energy;
-    expect(end).toBeGreaterThan(start); // income accrued, nothing deducted it
+    expect(end).toBeGreaterThan(start); // income accrued over the run
   });
 });
