@@ -58,6 +58,8 @@ import { resourceDefs } from "@/game/data";
 import { computeUnlockedLore } from "@/game/lore";
 import { getEventDef } from "@/game/events/eventDefs";
 import {
+  cancelWorkerOrder,
+  cancelWorkerOrderToNode,
   clearLeadPoint,
   setLeadPoint,
   suggestDefensePriority,
@@ -492,6 +494,14 @@ export default function App() {
       // 4.0 Phase 2 — node click stays a DIRECT soft nudge (no popover for nodes).
       onNodeClick: (nodeId: number) => {
         mutateGame((next) => {
+          // 4.5.0 — order toggle: clicking a node a worker is already committed to
+          // CANCELS that order (returns it to normal AI) instead of re-stamping and
+          // re-charging energy. Checked first, so a re-click undoes rather than
+          // double-charges.
+          if (cancelWorkerOrderToNode(next, nodeId)) {
+            appendLog(next, "Order cancelled — worker back on normal duty.", "system");
+            return;
+          }
           // 4.x — feed the returned boolean back to the player: a failed nudge
           // (no eligible worker — all fleeing / rebooting / corrupted) now logs a
           // cue instead of silently no-op'ing, so "nothing happened" reads as
@@ -601,6 +611,17 @@ export default function App() {
               : "That worker can't be recalled right now.";
           appendLog(next, msg, "system");
         }
+      });
+    },
+    [mutateGame]
+  );
+
+  // 4.5.0 — popover "Cancel order": clear a specific worker's node order and
+  // return it to normal AI. No energy charged (a cancel, not an action).
+  const onPopoverCancelOrder = useCallback(
+    (agentId: number) => {
+      mutateGame((next) => {
+        cancelWorkerOrder(next, agentId);
       });
     },
     [mutateGame]
@@ -1029,6 +1050,7 @@ export default function App() {
           derived={derived}
           onClose={() => setPopover(null)}
           onSendHome={onPopoverSendHome}
+          onCancelOrder={onPopoverCancelOrder}
           onMarkPriority={onPopoverMarkPriority}
         />
       )}

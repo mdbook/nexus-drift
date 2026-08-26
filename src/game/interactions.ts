@@ -69,11 +69,54 @@ export function suggestWorkerToNode(
   if (state.resources.energy < OPERATOR_ACTIONS.nudgeWorkerCost) return false;
   state.resources.energy -= OPERATOR_ACTIONS.nudgeWorkerCost;
 
+  // 4.5.0 single-owner: enforce ONE owner per node. Clear any OTHER worker whose
+  // node-suggestion points at this same node before stamping the new owner, so a
+  // re-click (which can pick a different nearest worker) never leaves two workers
+  // tasked to one node with a stale "tasked" cue on the loser (A1).
+  for (const agent of state.agents) {
+    if (agent.id === best.id) continue;
+    if (agent.suggestedTarget?.kind === "node" && Number(agent.suggestedTarget.id) === nodeId) {
+      agent.suggestedTarget = undefined;
+    }
+  }
+
   best.suggestedTarget = {
     kind: "node",
     id: String(nodeId),
     createdAt: state.timers.tick,
   };
+  return true;
+}
+
+/**
+ * 4.5.0 — order toggle / cancel-at-node. If ANY worker already carries a
+ * `kind:"node"` suggestion pointing at this node, clear it (return that worker to
+ * normal AI) and report true — so clicking a tasked node TOGGLES the order off.
+ * No energy is charged for a cancel (the caller checks this first, before
+ * `suggestWorkerToNode`, so a re-click undoes rather than re-charges). UI-path
+ * only; trace-neutral (never called on the headless/replay tick).
+ */
+export function cancelWorkerOrderToNode(state: GameState, nodeId: number): boolean {
+  let cancelled = false;
+  for (const agent of state.agents) {
+    if (agent.suggestedTarget?.kind === "node" && Number(agent.suggestedTarget.id) === nodeId) {
+      agent.suggestedTarget = undefined;
+      cancelled = true;
+    }
+  }
+  return cancelled;
+}
+
+/**
+ * 4.5.0 — cancel a SPECIFIC worker's node order (the worker inspect popover's
+ * "Cancel order" action). Clears the worker's `kind:"node"` suggestion and returns
+ * it to normal AI. Returns false when the worker has no node order to cancel. No
+ * energy charged. UI-path only; trace-neutral.
+ */
+export function cancelWorkerOrder(state: GameState, agentId: number): boolean {
+  const agent = state.agents.find((a) => a.id === agentId);
+  if (!agent || agent.suggestedTarget?.kind !== "node") return false;
+  agent.suggestedTarget = undefined;
   return true;
 }
 
@@ -218,20 +261,27 @@ export function describeWorkerReason(agent: Agent): string | null {
 }
 
 /**
- * 4.4.2 — UI honesty predicate for the "tasked" lead line. A worker's node
- * suggestion is only *honored* when the sim is actually routing the worker to
- * it — i.e. `agent.target` equals the suggested node id. A stamped-but-rejected
- * nudge (corruption hard-block / pathThreat over budget) is retained-but-
- * unapplied, so the worker keeps its own scored target and this returns false.
- * The renderer draws the solid lead line ONLY when this is true, showing a
- * distinct "pending" cue otherwise, so the line never lies about a path.
- * Pure read of existing agent fields — no sim mutation, trace-neutral, and no
+ * 4.4.2 / 4.5.0 — UI honesty predicate for the "tasked" lead line. A worker's node
+ * order draws the solid cyan lead line ONLY when the sim is actually routing the
+ * worker to it — i.e. `agent.target` equals the ordered node id AND the worker is
+ * neither fleeing nor being lead-dragged. Under 4.5.0 firm-commit `agent.target`
+ * stays pinned to the ordered node even while the worker is dodging (evade branch)
+ * or being pulled by a press-and-hold lead, so a bare `target === suggested` check
+ * would draw a cyan line to a node the worker is actively moving AWAY from. The
+ * two extra reads keep the line honest:
+ *   - `agent.evadeTicks <= 0` — not currently evading a threat;
+ *   - `!leadActive` — no active `state.leadPoint` pulling this worker (the caller
+ *     passes `Boolean(state.leadPoint)`).
+ * During evade / lead-drag the renderer shows the amber pending ring (or nothing)
+ * instead. Pure read of existing fields — no sim mutation, trace-neutral, and no
  * new persisted state.
  */
-export function isSuggestionHonored(agent: Agent): boolean {
+export function isSuggestionHonored(agent: Agent, leadActive = false): boolean {
   return (
     agent.suggestedTarget?.kind === "node" &&
     agent.suggestedTarget.id != null &&
-    agent.target === Number(agent.suggestedTarget.id)
+    agent.target === Number(agent.suggestedTarget.id) &&
+    agent.evadeTicks <= 0 &&
+    !leadActive
   );
 }

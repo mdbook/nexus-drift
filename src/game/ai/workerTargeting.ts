@@ -1,4 +1,4 @@
-import { WORKER_ABILITIES, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
+import { MINING, WORKER_ABILITIES, WORKER_AI, WORKER_PERSONALITY, WORKER_REGIONS } from "@/game/balance";
 import { countThreats, threatAlongPath } from "@/game/subsystems/threatField";
 import type { SimTraceCtx, WorkerTargetTraceCandidate } from "@/game/trace";
 import type { Agent, Enemy, GameState, ResourceNode } from "@/game/types";
@@ -197,19 +197,26 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
     }
   }
 
-  // 4.0/4.1.0 — soft player suggestion. Applied AFTER sticky so a live nudge
-  // outranks sticky retarget, but it NEVER bypasses the safety filters: the
-  // suggested node still has to survive the same path-threat and corruption
-  // checks the scorer honors. Crucially this only overrides `chosenId` — it draws
-  // no rng, adds no candidate, and still flows through the single emit below.
+  // 4.0/4.1.0/4.5.0 — player order. Applied AFTER sticky so a live click outranks
+  // sticky retarget. Crucially this only overrides `chosenId` — it draws no rng,
+  // adds no candidate, and still flows through the single emit below.
   //
-  // 4.1.0 Fix 1(b): a node suggestion no longer silently expires unused. It is
-  // cleared only on arrival, true time-expiry, or the node being gone. An unsafe
-  // path/corruption is a TRANSIENT rejection — the nudge is RETAINED (this tick
-  // falls back to normal scoring) and retried on the next retarget until the path
-  // clears, the worker arrives, or it truly expires. `chooseWorkerTarget` only
-  // ever consumes `kind: "node"`; a `"home"` command is handled in movement.ts,
-  // so it falls through here to normal node scoring (and is left untouched).
+  // 4.5.0 FIRM COMMIT: a `kind:"node"` suggestion is now a HARD ORDER, not a soft
+  // suggestion. When the suggested node still exists we set `chosenId` to it
+  // FIRMLY — WITHOUT the per-tick pathThreat eligibility gate the 4.x soft nudge
+  // used. That gate re-litigated the order every tick: a pathThreat flip toggled
+  // the worker honored↔pending (the "flicker"), and when it rejected, the worker
+  // silently re-scored to a DIFFERENT node ("clicked gold A → worker went to gold
+  // B"). Both are gone: the worker COMMITS and stays committed.
+  //
+  // Safety is preserved NOT by refusing the order but by the EVADE branch in
+  // movement.ts, which runs independently on proximity/threat and pulls the worker
+  // off to dodge lethal danger; the order (target) persists so it RETURNS after
+  // dodging. The ONE retained safety carve-out is corruption: a node can BECOME
+  // heavily corrupted after commit (corruption spreads), and a non-miner must
+  // never be walked into it — so we CANCEL the order in that case and fall back to
+  // normal AI. `chooseWorkerTarget` only ever consumes `kind:"node"`; a `"home"`
+  // command is handled in movement.ts, so it falls through to normal node scoring.
   const suggestion = agent.suggestedTarget;
   if (suggestion && suggestion.kind === "node" && suggestion.id != null) {
     if (elapsedTicks(state.timers.tick, suggestion.createdAt) >= WORKER_AI.suggestionExpiryTicks) {
@@ -219,22 +226,27 @@ export function chooseWorkerTarget(state: GameState, agent: Agent, ctx?: SimTrac
       const suggestedNode = state.nodes.find((n) => n.id === suggestedId);
       if (suggestedNode == null) {
         agent.suggestedTarget = undefined; // node gone — clear
+      } else if (agent.kind !== "miner" && suggestedNode.corruption > WORKER_AI.corruptionHardAvoidAbove) {
+        // Corruption carve-out: the committed node became heavily corrupted and
+        // this worker isn't a miner — cancel the order rather than commit into it.
+        agent.suggestedTarget = undefined;
       } else {
-        const pathThreat =
-          liveEnemies.length > 0
-            ? threatAlongPath(agent.x, agent.y, suggestedNode.x, suggestedNode.y, liveEnemies)
-            : 0;
-        const corruptionBlocked =
-          agent.kind !== "miner" && suggestedNode.corruption > WORKER_AI.corruptionHardAvoidAbove;
-        const eligible = !corruptionBlocked && pathThreat <= WORKER_AI.suggestionMaxPathThreat;
-        if (eligible) {
-          chosenId = suggestedId;
-          stickyHeld = false;
-          if (dist(agent.x, agent.y, suggestedNode.x, suggestedNode.y) <= WORKER_AI.suggestionArrivalRadius) {
-            agent.suggestedTarget = undefined; // arrived — hand back to normal AI
-          }
+        // Firm commit — no pathThreat re-litigation. Evade (movement.ts) keeps the
+        // worker alive; the order persists so it returns to the node after dodging.
+        chosenId = suggestedId;
+        stickyHeld = false;
+        // Clear the order only once the worker is within the MINING contact radius
+        // for THIS node (i.e. "arrived" ⇒ "is actually mining it"), computed the
+        // same way stepMining does (mining.ts) so the two agree. The old
+        // `suggestionArrivalRadius=26` cleared ~2px before mining range, so the
+        // marker dropped, normal AI re-picked, and the worker walked off (A3).
+        const contactRadius = Math.max(
+          MINING.contactRadiusMin,
+          suggestedNode.size * MINING.contactRadiusRatio
+        );
+        if (dist(agent.x, agent.y, suggestedNode.x, suggestedNode.y) < contactRadius) {
+          agent.suggestedTarget = undefined; // arrived & mining — order fulfilled
         }
-        // else: transient unsafe — retain the nudge and retry on the next retarget.
       }
     }
   }

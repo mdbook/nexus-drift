@@ -57,25 +57,31 @@ if you love hands-on play, a few reactors keep the tank full.
 ### Send a worker to mine a specific node — TAP THE NODE
 
 This is the big one. **Tap (or click) a resource node on the field, and the
-nearest free worker is sent to mine it.** The **cyan line** drawn from a worker
-to the node is your proof that worker is actually on its way — it only ever
-appears when a worker is genuinely en route to the node you clicked, so it never
-points you at a lie. The worker heads there on the very next moment, not
-"eventually."
+nearest free worker is sent to mine it.** As of this version that's a **firm
+order**, not a gentle suggestion: the worker **commits** to the node you picked
+and stays on it — no more "I clicked that gold vein but it wandered off to a
+different one." The **cyan line** drawn from a worker to the node is your proof
+it's actually on its way, and it only appears when the worker is genuinely
+heading there — so it never points you at a lie.
 
-- **Amber ring, no line?** Your order registered but a worker can't reach that
-  node just yet (usually a corrupted node only a miner will brave, or a path
-  that's too dangerous this moment). The game keeps trying and sends a worker the
-  instant it can — and when it does, that amber ring becomes the real cyan line.
-- Workers still dodge danger on the way — a nudge never marches a drone into
-  something that will kill it. Safety always wins.
+- **Click that node again to CANCEL.** Tapping a node a worker is already ordered
+  to **calls the order off** and hands the worker back to normal AI — it's a
+  toggle. A cancel is free (no energy). You can also hit **Cancel order** on the
+  worker's inspect popover.
+- **Amber ring, no line?** Your order is registered but the worker isn't on that
+  path this instant — it's dodging a threat, being lead-dragged, or (for a node
+  only a miner will brave) still waiting on the right worker. The ring flips back
+  to the cyan line the moment the worker settles onto the node.
+- **Safety still wins.** A firmly-ordered worker still bolts from real danger
+  rather than marching into it — then **returns to finish the order** once it's
+  clear. And if the ordered node turns corrupted under a non-miner, the order is
+  cancelled automatically rather than walking it into the rot.
 - On a **heavily corrupted node**, the order goes to the nearest **miner** (only
-  miners will brave a corrupted node), not just the nearest worker — so the cyan
-  line always lands on a worker that will actually go. If no miner is available,
-  the tap is refused and costs no energy.
-- If nothing happens and you see a "no eligible worker" note in the log, it means
-  every worker is busy fleeing or rebooting right now. Try again in a moment. (A
-  "Not enough energy" note instead just means you've been spamming — see above.)
+  miners will brave a corrupted node). If no miner is available, the tap is
+  refused and costs no energy.
+- If nothing happens and you see a "no eligible worker" note in the log, every
+  worker is busy fleeing or rebooting right now — try again in a moment. (A "Not
+  enough energy" note instead just means you've been spamming — see above.)
 
 ### Lead your workers around — PRESS AND HOLD, THEN DRAG
 
@@ -86,9 +92,13 @@ like a magnet. Drag the ring around and your crews stream after it; **let go and
 they hand straight back to normal AI.** Works with a mouse or a finger (great on
 iPad).
 
-- A **quick tap** still does the normal thing (send a worker to a node, or open an
-  inspect popover) — you only enter "lead" mode once you've held briefly or started
-  dragging, so taps never get eaten.
+- A **quick tap** still does the normal thing (order a worker to a node, or open an
+  inspect popover) — you only enter "lead" mode once you've **held** a moment or
+  **dragged** a real distance, so ordinary taps (especially on touch) never get
+  eaten into an accidental drag anymore.
+- **It can't get stuck.** If a press ever loses track of your finger (you drag off
+  the screen, switch tabs, etc.), the lead lets go on its own — no more whole crew
+  frozen swarming a dead spot.
 - **Fleeing still wins.** A worker running from a real threat ignores the pull —
   survival beats your finger. Hurt workers limping home to heal also sit it out.
 - Use it to bunch idle crews onto a fresh vein, walk them away from a hot corner,
@@ -105,6 +115,9 @@ doing right now — its current target and a one-line reason ("mining", "fleeing
 - **Send home** button: a real, forced recall. The worker drops what it's doing
   and returns to the home pad (still dodging threats en route), then goes back to
   normal work once it arrives. Use it to pull a drone out of a hot zone.
+- **Cancel order** button (shown only when this worker has a node order): calls off
+  the "go mine that node" order and returns the worker to normal AI. Free — no
+  energy. Same effect as clicking the ordered node again.
 
 ### Flag a threat — TAP THE ENEMY
 

@@ -16,6 +16,43 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.5.0",
+    badge: "Firm Orders",
+    summary:
+      "Reworks how you command workers so it stops being flaky. Clicking a resource node is now a FIRM order, not a soft suggestion: the worker commits to the node you picked and stays committed — no more 'I clicked gold A but it wandered to gold B', and no more flicker between honored and pending as threats drift past. Safety still wins — a worker will still bolt from a real threat and then return to finish the order — and a non-miner still bails if the ordered node turns corrupted under it. Clicking a node a worker is already on now CANCELS the order (or use the new Cancel order button on the worker popover). Press-and-hold to lead your crew got much less twitchy: an ordinary tap no longer trips into a drag, and a lead that loses its release event (tab switch, finger off-screen) can't get stuck dragging your whole crew to a dead spot anymore.",
+    sections: [
+      {
+        title: "Clicking a node is a firm order now",
+        items: [
+          "`chooseWorkerTarget` (workerTargeting.ts) now COMMITS to a clicked node without re-litigating the path-threat every tick. Previously a live suggestion was only honored while its path stayed under a threat budget, and otherwise the worker silently re-scored onto a different node — that was the 'clicked gold A, worker went to gold B' bug and the honored↔pending flicker. Both are gone: the ordered node is a hard order the worker keeps.",
+          "Safety is preserved by the independent evade branch, not by refusing the order: a firmly-ordered worker still flees a lethal threat (movement.ts evade runs first and returns early) and the order persists so it RETURNS to the node after dodging. The one retained safety carve-out is corruption — if the ordered node becomes heavily corrupted under a non-miner (corruption spreads), the order is cancelled and the worker falls back to normal AI rather than walking into it.",
+          "The order now clears only once the worker is inside the actual MINING contact radius for that node (computed the same way `stepMining` does), not the old ~26px marker radius that dropped the order ~2px early and let normal AI walk the worker back off before it ever mined.",
+        ],
+      },
+      {
+        title: "Cancel / undo + single owner",
+        items: [
+          "Click a node a worker is already ordered to and the order TOGGLES OFF (worker returns to normal AI) instead of re-stamping and re-charging energy. A cancel costs nothing. The worker inspect popover also gains a 'Cancel order' action while that worker carries a node order.",
+          "One owner per node: re-clicking a node (which can pick a different nearest worker) now clears any other worker's stale order on that same node, so you can't end up with two workers cued to one node.",
+          "The dotted cyan 'tasked' line stays honest under firm-commit: because the order pins the worker's target even while it's dodging or being lead-dragged, the line now also hides during evade / lead-drag (showing the amber pending ring instead) so it never points at a node the worker is currently moving away from.",
+        ],
+      },
+      {
+        title: "Press-and-hold de-twitch + stuck-lead safety",
+        items: [
+          "Raised the lead-gesture thresholds (`LEAD_GESTURE`: hold 150ms→350ms, move 8px→14px) so an ordinary tap — especially on touch, where a fingerpress jitters a few px and lingers — no longer trips into a lead-drag that swallowed the intended node-order / inspect tap and lurched every worker to your finger.",
+          "Added a global safety release: if a press loses its terminating event (a child swallowed the pointerup, the finger left the field, a tab switch or window blur) the lead gesture and its lead point are force-cleared, so your whole crew can no longer get stranded swarming a dead spot while energy drains. Listeners are cleaned up on unmount.",
+        ],
+      },
+      {
+        title: "Neutrality preserved",
+        items: [
+          "All of the above is UI-path only. `Agent.suggestedTarget` and `state.leadPoint` are still written exclusively by the UI helpers, never on the headless/sim/replay tick, so the firm-commit and gesture changes are strict no-ops in a headless run. The decision-trace deep-equal neutrality proof and `runHeadless` invariants stay green.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.4.2",
     badge: "Honest Line",
     summary:

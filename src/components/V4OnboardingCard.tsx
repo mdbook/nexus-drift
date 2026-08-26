@@ -35,8 +35,9 @@ export function V4OnboardingCard({ onDismiss }: { onDismiss: () => void }) {
               Click upgrades to buy. Or flip Auto on and watch.
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/65">
-              The colony is yours to run. Buy upgrades yourself from the sidebar, nudge workers by clicking
-              resource nodes, and mark threats by clicking enemies. Prefer the old hands-off idle sim? Flip
+              The colony is yours to run. Buy upgrades yourself from the sidebar, order a worker to a node by
+              clicking it (click it again to cancel), and mark threats by clicking enemies. Prefer the old
+              hands-off idle sim? Flip
               <span className="font-medium text-white/85"> Auto</span> to
               <span className="font-medium text-white/85"> All</span> (or hit
               <span className="font-medium text-white/85"> Idle Mode</span>) and let it play itself.

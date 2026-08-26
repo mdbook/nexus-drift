@@ -1195,8 +1195,13 @@ export const GEM_UPGRADE_COST = {
  * click handlers unchanged. See `shouldEnterLeadMode` in `lib/leadGesture.ts`.
  */
 export const LEAD_GESTURE = {
-  holdMs: 150,
-  moveThresholdPx: 8,
+  // 4.5.0 — de-twitch. The 4.3.0 values (150ms / 8px) promoted ordinary taps —
+  // especially on touch, where a fingerpress jitters several px and lingers past
+  // 150ms — into lead-drags, swallowing the intended node-order / worker-inspect
+  // tap and lurching every worker to the finger. Raised so a deliberate hold or a
+  // real drag is required to enter lead mode; a normal tap stays a tap.
+  holdMs: 350,
+  moveThresholdPx: 14,
 } as const;
 
 /**

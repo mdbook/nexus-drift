@@ -30,6 +30,7 @@ type FieldPopoverProps = {
   derived: DerivedState;
   onClose: () => void;
   onSendHome: (agentId: number) => void;
+  onCancelOrder: (agentId: number) => void;
   onMarkPriority: (enemyId: number) => void;
 };
 
@@ -60,6 +61,7 @@ export function FieldPopover({
   derived,
   onClose,
   onSendHome,
+  onCancelOrder,
   onMarkPriority,
 }: FieldPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -110,7 +112,13 @@ export function FieldPopover({
         }}
       >
         {target.kind === "worker" && (
-          <WorkerBody game={game} agentId={target.id} onSendHome={onSendHome} onClose={onClose} />
+          <WorkerBody
+            game={game}
+            agentId={target.id}
+            onSendHome={onSendHome}
+            onCancelOrder={onCancelOrder}
+            onClose={onClose}
+          />
         )}
         {target.kind === "city" && <CityBody game={game} derived={derived} />}
         {target.kind === "enemy" && (
@@ -172,11 +180,13 @@ function WorkerBody({
   game,
   agentId,
   onSendHome,
+  onCancelOrder,
   onClose,
 }: {
   game: GameState;
   agentId: number;
   onSendHome: (id: number) => void;
+  onCancelOrder: (id: number) => void;
   onClose: () => void;
 }) {
   const agent = game.agents.find((a) => a.id === agentId);
@@ -219,6 +229,18 @@ function WorkerBody({
           </span>
         </div>
       </div>
+      {/* 4.5.0 — cancel a firm node order (only shown while this worker carries
+          one). Returns the worker to normal AI; no energy charged. */}
+      {agent.suggestedTarget?.kind === "node" && (
+        <ActionButton
+          label="Cancel order"
+          tone="amber"
+          onClick={() => {
+            onCancelOrder(agent.id);
+            onClose();
+          }}
+        />
+      )}
       <ActionButton
         label="Send home"
         onClick={() => {

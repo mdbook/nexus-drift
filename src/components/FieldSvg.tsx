@@ -1,5 +1,6 @@
 import {
   memo,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -768,6 +769,51 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
       holdTimerRef.current = null;
     }
   };
+
+  // 4.5.0 (B2) — stuck-lead safety release. Pointer capture is acquired only at
+  // promotion (`promoteToLead`), so a press released during the pre-promotion
+  // window whose pointerup/cancel never reaches the SVG (the pointer left the
+  // element, a child swallowed the event, the hold-timer promoted AFTER the finger
+  // already lifted, a tab switch, a window blur) could latch `leadActive` with no
+  // terminating event — stranding `state.leadPoint` so every worker swarms a stale
+  // point and energy drains to 0. These window/document backstops force-clear any
+  // in-flight gesture (and clear the lead point via onLeadEnd) when the normal
+  // terminating event is otherwise lost. Kept in a ref so the effect subscribes
+  // once and never leaks listeners across interaction-prop changes.
+  const onLeadEndRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    onLeadEndRef.current = interactions?.onLeadEnd;
+  });
+  useEffect(() => {
+    const forceRelease = () => {
+      const g = gestureRef.current;
+      clearHoldTimer();
+      if (!g) return;
+      gestureRef.current = null;
+      swallowClickRef.current = false;
+      if (g.leadActive) {
+        try {
+          g.svg.releasePointerCapture(g.pointerId);
+        } catch {
+          /* already released */
+        }
+        onLeadEndRef.current?.();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") forceRelease();
+    };
+    window.addEventListener("pointerup", forceRelease);
+    window.addEventListener("pointercancel", forceRelease);
+    window.addEventListener("blur", forceRelease);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pointerup", forceRelease);
+      window.removeEventListener("pointercancel", forceRelease);
+      window.removeEventListener("blur", forceRelease);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const clientToWorld = (svg: SVGSVGElement, clientX: number, clientY: number) => {
     const ctm = svg.getScreenCTM();
@@ -2411,7 +2457,11 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
             agent.suggestedTarget?.kind === "node" && agent.suggestedTarget.id != null
               ? game.nodes.find((n) => n.id === Number(agent.suggestedTarget!.id))
               : undefined;
-          const taskedNode = suggestedNode && isSuggestionHonored(agent) ? suggestedNode : undefined;
+          // 4.5.0: pass leadActive so the cyan line hides while a press-and-hold
+          // lead is pulling this worker (target stays pinned under firm-commit but
+          // the worker is moving to the finger, not the node).
+          const taskedNode =
+            suggestedNode && isSuggestionHonored(agent, Boolean(game.leadPoint)) ? suggestedNode : undefined;
           const pendingNode = suggestedNode && !taskedNode ? suggestedNode : undefined;
 
           // 4.0 Phase 3 — clicking a worker opens the inspect popover.
