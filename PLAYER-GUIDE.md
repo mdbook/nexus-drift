@@ -64,6 +64,10 @@ on the very next moment, not "eventually."
 
 - Workers still dodge danger on the way — a nudge never marches a drone into
   something that will kill it. Safety always wins.
+- On a **heavily corrupted node**, the order goes to the nearest **miner** (only
+  miners will brave a corrupted node), not just the nearest worker — so the cyan
+  line always lands on a worker that will actually go. If no miner is available,
+  the tap is refused and costs no energy.
 - If nothing happens and you see a "no eligible worker" note in the log, it means
   every worker is busy fleeing or rebooting right now. Try again in a moment. (A
   "Not enough energy" note instead just means you've been spamming — see above.)

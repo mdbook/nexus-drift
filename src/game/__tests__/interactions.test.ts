@@ -215,6 +215,97 @@ describe("worker suggestion (4.0 phase 2)", () => {
     expect(rebooting.suggestedTarget).toBeUndefined();
     expect(healthy.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
   });
+
+  it("4.4.1: a corrupted node nudges an eligible miner, NOT a nearer corruption-blocked non-miner", () => {
+    // Repro for the prod 4.4.0 bug: clicking a corrupted gem node stamped the
+    // nearest worker of ANY kind. When that was a non-miner, the sim's corruption
+    // hard-block refused the nudge every tick — the "tasked" lead-line drew while
+    // the worker kept mining and energy was still spent. The selection now mirrors
+    // the sim's eligibility, so the nudge lands on the miner that can accept it.
+    const state = baseState();
+    const node = makeNode({
+      id: 8551,
+      x: 500,
+      y: 300,
+      kind: "gems",
+      corruption: WORKER_AI.corruptionHardAvoidAbove + 5, // heavily corrupted
+    });
+    state.nodes = [node];
+    for (const a of state.agents) a.active = false;
+
+    const runner = state.agents.find((a) => a.kind === "runner")!;
+    runner.active = true;
+    runner.hp = runner.maxHp;
+    runner.x = node.x + 10; // NEAREST — but corruption-blocked for a non-miner
+    runner.y = node.y;
+
+    const miner = state.agents.find((a) => a.kind === "miner")!;
+    miner.active = true;
+    miner.hp = miner.maxHp;
+    miner.x = node.x + 120; // farther, but the only eligible worker
+    miner.y = node.y;
+
+    state.resources.energy = 10;
+
+    expect(suggestWorkerToNode(state, node.id)).toBe(true);
+    // The nudge landed on the eligible miner, not the nearer non-miner.
+    expect(runner.suggestedTarget).toBeUndefined();
+    expect(miner.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
+    // Energy charged exactly once.
+    expect(state.resources.energy).toBe(10 - OPERATOR_ACTIONS.nudgeWorkerCost);
+  });
+
+  it("4.4.1: a corrupted node with ONLY a non-miner refuses and spends no energy", () => {
+    const state = baseState();
+    const node = makeNode({
+      id: 8552,
+      x: 500,
+      y: 300,
+      kind: "gems",
+      corruption: WORKER_AI.corruptionHardAvoidAbove + 5,
+    });
+    state.nodes = [node];
+    for (const a of state.agents) a.active = false;
+
+    const drone = state.agents.find((a) => a.kind === "drone")!;
+    drone.active = true;
+    drone.hp = drone.maxHp;
+    drone.x = node.x + 10;
+    drone.y = node.y;
+
+    state.resources.energy = 10;
+
+    // No eligible (miner) worker → refused BEFORE charging energy.
+    expect(suggestWorkerToNode(state, node.id)).toBe(false);
+    expect(drone.suggestedTarget).toBeUndefined();
+    expect(state.resources.energy).toBe(10); // untouched
+  });
+
+  it("4.4.1: a NON-corrupted node is unchanged — nearest-of-any-kind is nudged", () => {
+    const state = baseState();
+    const node = makeNode({ id: 8553, x: 500, y: 300, kind: "gems", corruption: 0 });
+    state.nodes = [node];
+    for (const a of state.agents) a.active = false;
+
+    const runner = state.agents.find((a) => a.kind === "runner")!;
+    runner.active = true;
+    runner.hp = runner.maxHp;
+    runner.x = node.x + 10; // nearest non-miner — eligible on a clean node
+    runner.y = node.y;
+
+    const miner = state.agents.find((a) => a.kind === "miner")!;
+    miner.active = true;
+    miner.hp = miner.maxHp;
+    miner.x = node.x + 120; // farther
+    miner.y = node.y;
+
+    state.resources.energy = 10;
+
+    expect(suggestWorkerToNode(state, node.id)).toBe(true);
+    // Clean node → the nearer non-miner is nudged, exactly as before the fix.
+    expect(runner.suggestedTarget).toMatchObject({ kind: "node", id: String(node.id) });
+    expect(miner.suggestedTarget).toBeUndefined();
+  });
 });
 
 describe("worker forced send-home (4.1.0)", () => {

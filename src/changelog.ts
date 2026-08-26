@@ -16,6 +16,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.1",
+    badge: "Nudge Fix",
+    summary:
+      "Fixes a worker-nudge bug on corrupted resource nodes. Clicking a heavily-corrupted node (gems corrupt the most, so this bit hardest there) could stamp the 'go here' order on the nearest worker even when that worker was a runner or drone — and the simulation refuses to send a non-miner into a heavily-corrupted node. The result: the dotted 'tasked' line drew to the node while the worker just kept mining where it was, and the small nudge energy was spent for nothing. Now the order only lands on a worker that can actually take the job (a miner for a corrupted node; any worker for a clean one). If none can, the click is politely refused and costs no energy — same as any other action you can't afford. Clean nodes behave exactly as before.",
+    sections: [
+      {
+        title: "Worker nudge lands on an eligible worker",
+        items: [
+          "`suggestWorkerToNode` (src/game/interactions.ts) now applies the same corruption eligibility the sim uses: a non-miner is skipped as a nudge candidate when the node's corruption exceeds `WORKER_AI.corruptionHardAvoidAbove` (the exact `corruptionBlocked` rule from `workerTargeting.ts`). So the nudge is stamped on the nearest worker that can actually move to the node, not the nearest worker of any kind — killing the phantom 'tasked' lead-line that drew while a runner/drone kept mining its old node.",
+          "When no eligible worker exists (a corrupted node with only non-miners nearby), the action returns before charging energy, so the existing 'not enough / can't do that' refusal fires and no energy is silently wasted. Non-corrupted nodes are unchanged — nearest worker of any kind, as before. UI-path only: no change to the headless/replay sim or its decision-trace neutrality.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.4.0",
     badge: "Command Energy",
     summary:

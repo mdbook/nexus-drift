@@ -1,4 +1,4 @@
-import { MISSILE_SILO, OPERATOR_ACTIONS, PRIORITY_MARK } from "@/game/balance";
+import { MISSILE_SILO, OPERATOR_ACTIONS, PRIORITY_MARK, WORKER_AI } from "@/game/balance";
 import { WORLD_H, WORLD_W } from "@/game/constants";
 import { isCloaked } from "@/game/enemyUtils";
 import { computeDerived } from "@/game/selectors";
@@ -19,7 +19,12 @@ import { clamp, dist, elapsedTicks } from "@/game/utils";
  * Stamp a soft "go mine this node" nudge on the nearest eligible worker. Prefers
  * the worker closest to the click point (or the node when no click XY is given).
  * A fleeing / rebooting / disabled / corrupted worker is skipped so we never yank
- * a unit that AI is actively keeping alive. Returns true when a worker was nudged.
+ * a unit that AI is actively keeping alive. A non-miner is also skipped when the
+ * node is heavily corrupted (`corruption > WORKER_AI.corruptionHardAvoidAbove`),
+ * mirroring the sim's own corruption hard-block so we never stamp a worker the
+ * sim would refuse to move (which would draw a dead "tasked" lead-line and waste
+ * energy). Returns true when a worker was nudged; false (before charging energy)
+ * when no eligible worker exists.
  */
 export function suggestWorkerToNode(
   state: GameState,
@@ -30,12 +35,25 @@ export function suggestWorkerToNode(
   if (!node) return false;
 
   const anchor = clickXY ?? { x: node.x, y: node.y };
+  // 4.4.1 — match the sim's corruption eligibility so the nudge lands on a worker
+  // that can actually accept THIS node. `chooseWorkerTarget` (workerTargeting.ts)
+  // hard-blocks a non-miner from a heavily-corrupted suggested node
+  // (`corruptionBlocked = agent.kind !== "miner" && node.corruption > threshold`)
+  // and, when blocked, RETAINS the nudge without applying it — so stamping the
+  // nearest non-miner on a corrupted node draws the "tasked" lead-line while the
+  // worker never switches (and energy was still spent). Gate selection on the same
+  // rule: for a heavily-corrupted node only miners are eligible; for a clean node
+  // every kind is eligible (nearest-any, unchanged). Same threshold constant as
+  // the sim — never hardcoded. pathThreat is deliberately NOT mirrored: that
+  // rejection is transient/enemy-based and the retained-retry path handles it.
+  const nodeBlocksNonMiners = node.corruption > WORKER_AI.corruptionHardAvoidAbove;
   let best: GameState["agents"][number] | null = null;
   let bestDist = Infinity;
   for (const agent of state.agents) {
     if (!agent.active || agent.hp <= 0 || agent.corrupted) continue;
     if (agent.rebootTicks > 0 || agent.disabledTicks > 0) continue;
     if (agent.evadeTicks > 0) continue; // don't override an actively-fleeing worker
+    if (nodeBlocksNonMiners && agent.kind !== "miner") continue; // corruption-blocked for this node
     const d = dist(anchor.x, anchor.y, agent.x, agent.y);
     if (d < bestDist) {
       bestDist = d;
