@@ -14,6 +14,7 @@ import {
   canWeaponActOnEnemy,
   describeWorkerReason,
   isPriorityMarked,
+  isSuggestionHonored,
   suggestDefensePriority,
   suggestWorkerHome,
   suggestWorkerToNode,
@@ -629,6 +630,50 @@ describe("worker-why derivation (4.x)", () => {
     miner.evadeTicks = 5;
     miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
     expect(describeWorkerReason(miner)).toBe("void-infested");
+  });
+});
+
+describe("honest tasked-line gating (4.4.2)", () => {
+  it("honored when the worker's target matches the suggested node id", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
+    miner.target = 8001;
+    expect(isSuggestionHonored(miner)).toBe(true);
+  });
+
+  it("NOT honored when stamped but the worker is on a different target (rejected/pending nudge)", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    // Nudge stamped toward 8001, but the sim keeps the worker on its own node
+    // (e.g. corruption hard-block / path threat) — the line must NOT draw.
+    miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
+    miner.target = 8002;
+    expect(isSuggestionHonored(miner)).toBe(false);
+  });
+
+  it("NOT honored when stamped but the worker has no target yet", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = { kind: "node", id: "8001", createdAt: state.timers.tick };
+    miner.target = null;
+    expect(isSuggestionHonored(miner)).toBe(false);
+  });
+
+  it("NOT honored when there is no node suggestion at all", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = undefined;
+    miner.target = 8001;
+    expect(isSuggestionHonored(miner)).toBe(false);
+  });
+
+  it("NOT honored for a non-node ('home') suggestion even if target coincides", () => {
+    const state = baseState();
+    const miner = soloMiner(state);
+    miner.suggestedTarget = { kind: "home", createdAt: state.timers.tick };
+    miner.target = 8001;
+    expect(isSuggestionHonored(miner)).toBe(false);
   });
 });
 

@@ -16,6 +16,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.2",
+    badge: "Honest Line",
+    summary:
+      "Makes the dotted 'tasked' lead line tell the truth. Before, clicking a resource node drew the line to it the instant your click registered — even when the simulation then refused to send that worker (say you clicked an ore node but the worker stayed on its gems, or a corrupted node it couldn't safely reach). The line pointed one way while the worker went another. Now the line only ever draws when a worker is actually on its way to the node you clicked. When the order is registered but can't be honored yet, you get a distinct amber 'can't reach that yet' ring on the node instead of a phantom line — and the moment the path clears, the game sends a worker on its own and the ring becomes the real cyan line. Same soft-nudge behavior underneath; the UI just stopped lying.",
+    sections: [
+      {
+        title: "The tasked line only draws a real path",
+        items: [
+          "`FieldSvg.tsx` now gates the cyan lead line + target ring on `isSuggestionHonored(agent)` — a new pure predicate (src/game/interactions.ts) that is true only when the worker's actual current target (`agent.target`) matches the suggested node. A nudge the sim retains-but-rejects (a non-miner vs. a corrupted node, or a path over the threat budget) no longer draws a line to a node the worker isn't heading to.",
+          "New 'can't reach that yet' feedback: while a nudge is stamped but not yet honored, the target node shows a distinct amber, dashed 'pending' ring (no line) so the click still visibly registers without implying a path. When the sim's retained-retry finally sends a worker, the pending ring flips to the solid cyan en-route line automatically. Both cues respect the coarse-pointer FX budget (static rings under reduced motion). The hard-refusal cues (no free worker / not enough energy) are unchanged.",
+          "Presentation-honesty fix only: derived entirely from existing state (`agent.target` vs `agent.suggestedTarget`), so no new save field, no schema change, and no change to the worker-targeting sim or its headless/replay decision-trace neutrality.",
+        ],
+      },
+    ],
+  },
+  {
     version: "4.4.1",
     badge: "Nudge Fix",
     summary:

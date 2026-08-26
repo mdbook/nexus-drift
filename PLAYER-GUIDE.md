@@ -57,11 +57,16 @@ if you love hands-on play, a few reactors keep the tank full.
 ### Send a worker to mine a specific node — TAP THE NODE
 
 This is the big one. **Tap (or click) a resource node on the field, and the
-nearest free worker is sent to mine it.** You'll immediately see a **cyan line**
-drawn from that worker to the node, plus a marker ring on the node — that line is
-your proof the worker got the message and is on its way. The worker heads there
-on the very next moment, not "eventually."
+nearest free worker is sent to mine it.** The **cyan line** drawn from a worker
+to the node is your proof that worker is actually on its way — it only ever
+appears when a worker is genuinely en route to the node you clicked, so it never
+points you at a lie. The worker heads there on the very next moment, not
+"eventually."
 
+- **Amber ring, no line?** Your order registered but a worker can't reach that
+  node just yet (usually a corrupted node only a miner will brave, or a path
+  that's too dangerous this moment). The game keeps trying and sends a worker the
+  instant it can — and when it does, that amber ring becomes the real cyan line.
 - Workers still dodge danger on the way — a nudge never marches a drone into
   something that will kill it. Safety always wins.
 - On a **heavily corrupted node**, the order goes to the nearest **miner** (only
@@ -147,8 +152,10 @@ files fill in. (Reading the in-game patch notes might just unlock one of them.)
 ## Quick tips
 
 - **Early game:** pour into miners and mining depth first — economy snowballs.
-- **See a cyan line?** Your worker got your node nudge. See an **amber ring**?
-  That enemy is marked for focus fire.
+- **See a cyan line?** A worker is en route to the node you nudged. An **amber
+  ring on a node** means the order's registered but no worker can reach it yet
+  (it'll go the moment one can); an **amber ring on an enemy** means that enemy is
+  marked for focus fire.
 - **On a tablet/phone:** everything is tuned for touch now — bigger tap targets,
   tap-to-open tooltips, no accidental zoom. Play on iPad comfortably.
 - **Stuck or overwhelmed?** Flip on Idle Mode, watch a while, and learn the

@@ -216,3 +216,22 @@ export function describeWorkerReason(agent: Agent): string | null {
   if (agent.spookedTicks > 0) return "avoiding a threat lane";
   return null;
 }
+
+/**
+ * 4.4.2 — UI honesty predicate for the "tasked" lead line. A worker's node
+ * suggestion is only *honored* when the sim is actually routing the worker to
+ * it — i.e. `agent.target` equals the suggested node id. A stamped-but-rejected
+ * nudge (corruption hard-block / pathThreat over budget) is retained-but-
+ * unapplied, so the worker keeps its own scored target and this returns false.
+ * The renderer draws the solid lead line ONLY when this is true, showing a
+ * distinct "pending" cue otherwise, so the line never lies about a path.
+ * Pure read of existing agent fields — no sim mutation, trace-neutral, and no
+ * new persisted state.
+ */
+export function isSuggestionHonored(agent: Agent): boolean {
+  return (
+    agent.suggestedTarget?.kind === "node" &&
+    agent.suggestedTarget.id != null &&
+    agent.target === Number(agent.suggestedTarget.id)
+  );
+}

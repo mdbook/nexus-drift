@@ -14,7 +14,7 @@ import { shouldEnterLeadMode } from "@/lib/leadGesture";
 import { AGENT_STYLE, ENEMY_STYLE, NODE_STYLE } from "@/game/data";
 import type { DerivedState, GameState } from "@/game/types";
 import { isCloaked } from "@/game/enemyUtils";
-import { isPriorityMarked } from "@/game/interactions";
+import { isPriorityMarked, isSuggestionHonored } from "@/game/interactions";
 import { useLowFxMode } from "@/hooks/useLowFxMode";
 import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { clamp, elapsedTicks } from "@/game/utils";
@@ -2392,16 +2392,27 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
           // hexagon points helper — module-hoisted (hexPoints) to avoid per-render closure allocation.
           const hex = hexPoints;
 
-          // 4.1.0 Fix 1(c): while a worker carries an active `kind: "node"`
-          // suggestion, surface a subtle "tasked" line to the target node so the
-          // player SEES the nudge took. The sim clears the marker on arrival /
-          // expiry / node-gone, so a present marker whose node still exists is a
-          // good proxy for "active". Respects the coarse-pointer FX budget: the
-          // node marker pulses only when full FX are on, otherwise a static ring.
-          const taskedNode =
+          // 4.1.0 Fix 1(c) / 4.4.2 honest line: while a worker carries an active
+          // `kind: "node"` suggestion, surface a cue to the target node so the
+          // player SEES the nudge took. Two states, derived purely from existing
+          // state (no new field):
+          //  - HONORED (`isSuggestionHonored`: the sim is routing the worker to
+          //    the node, `agent.target === suggested id`) → the solid cyan lead
+          //    line + ring, which now only ever traces a REAL path.
+          //  - PENDING (stamped but the sim keeps rejecting it — corruption
+          //    hard-block / pathThreat — so the worker mines its own node) → a
+          //    distinct amber "can't reach that yet" ring on the target node and
+          //    deliberately NO line, so the line never lies about a path.
+          // The sim clears the marker on arrival / expiry / node-gone, so a
+          // present marker whose node still exists is a good proxy for "active".
+          // Respects the coarse-pointer FX budget: pulses only at full FX,
+          // static rings under reduceFx.
+          const suggestedNode =
             agent.suggestedTarget?.kind === "node" && agent.suggestedTarget.id != null
               ? game.nodes.find((n) => n.id === Number(agent.suggestedTarget!.id))
               : undefined;
+          const taskedNode = suggestedNode && isSuggestionHonored(agent) ? suggestedNode : undefined;
+          const pendingNode = suggestedNode && !taskedNode ? suggestedNode : undefined;
 
           // 4.0 Phase 3 — clicking a worker opens the inspect popover.
           const workerClick = (event: ReactMouseEvent<SVGElement> | ReactKeyboardEvent<SVGElement>) => {
@@ -2442,8 +2453,10 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                   fill="rgba(0,0,0,0.001)"
                 />
               )}
-              {/* 4.1.0 Fix 1(c): "tasked" nudge indicator — a subtle cyan lead
-                  line from the worker to its suggested node. */}
+              {/* 4.1.0 Fix 1(c) / 4.4.2: HONORED "tasked" nudge indicator — a
+                  subtle cyan lead line from the worker to its suggested node.
+                  Drawn only when the sim is actually routing the worker there
+                  (`isSuggestionHonored`), so the line always traces a real path. */}
               {taskedNode && (
                 <g style={{ pointerEvents: "none" }}>
                   <line
@@ -2463,6 +2476,26 @@ function FieldSvgInner({ game, derived, interactions }: FieldSvgProps) {
                     fill="none"
                     stroke="rgba(120,220,255,0.5)"
                     strokeWidth="1.5"
+                  />
+                </g>
+              )}
+              {/* 4.4.2: PENDING "can't reach that yet" cue — the nudge is stamped
+                  but the sim isn't routing this worker to the node yet (corruption
+                  hard-block / path threat). Amber, dashed, and NO lead line — so
+                  the click still visibly registers without drawing a phantom path.
+                  When the sim finally honors the nudge this flips to the cyan line
+                  above (the retained-retry auto-send). Gentle low-frequency pulse;
+                  static under reduceFx per §Coarse-Pointer FX Budget. */}
+              {pendingNode && (
+                <g style={{ pointerEvents: "none" }}>
+                  <circle
+                    cx={pendingNode.x}
+                    cy={pendingNode.y}
+                    r={reduceFx ? 13 : 12 + Math.sin(game.timers.tick / 14) * 2.5}
+                    fill="none"
+                    stroke="rgba(255,184,84,0.42)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 4"
                   />
                 </g>
               )}
