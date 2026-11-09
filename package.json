@@ -1,6 +1,7 @@
 {
   "name": "nexus-drift",
   "private": true,
+  "license": "GPL-3.0-only",
   "version": "4.5.1",
   "type": "module",
   "scripts": {

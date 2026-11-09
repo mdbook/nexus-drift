@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue" alt="License: GPL-3.0-only"></a>
   <a href="https://github.com/mdbook/nexus-drift/actions/workflows/pages.yml"><img src="https://github.com/mdbook/nexus-drift/actions/workflows/pages.yml/badge.svg" alt="Pages deploy"></a>
   <img src="https://img.shields.io/badge/node-20%2B-339933" alt="Node 20+">
   <img src="https://img.shields.io/badge/TypeScript-React%20%2B%20Vite-3178C6" alt="TypeScript, React and Vite">
@@ -80,4 +81,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: `npm ci`, make your chang
 
 ## License
 
-No license file has been added to this repository yet, so all rights are reserved until one is.
+Nexus Drift is released under the GNU General Public License v3.0 only (GPL-3.0-only), see [LICENSE](LICENSE).
