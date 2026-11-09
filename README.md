@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/TypeScript-React%20%2B%20Vite-3178C6" alt="TypeScript, React and Vite">
 </p>
 
-![Nexus Drift: an active field with perimeter defense and a purge wing (from an older build)](public/og-image.png)
+![Nexus Drift: a mid-game colony with workers mining, turrets and silos defending, and a purge wing online](docs/screenshots/colony.jpg)
 
 Nexus Drift is a colony sim built with React, TypeScript and Vite. Your drones mine gold, ore and more on their own, missile silos open every fight at long range, turrets cover the perimeter, and scouts hunt corruption before it rots your economy. You are the colony's operator: buy upgrades, nudge workers, flag threats, inspect any unit. Or flip on Idle Mode and watch it play itself, even overnight. It runs entirely in the browser, with no server and no account.
 
