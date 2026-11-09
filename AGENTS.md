@@ -95,7 +95,7 @@ If the user does not ask for release work, keep the suggestion advisory only.
 
 ## Test Count References
 
-The total test count is quoted in two places: `README.md` under `## Testing`, and [`docs/agent/operations.md`](docs/agent/operations.md) under `## Test Coverage`. When you add or remove tests, update both in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
+The total test count is quoted in two places: `docs/development.md` under `## Testing`, and [`docs/agent/operations.md`](docs/agent/operations.md) under `## Test Coverage`. When you add or remove tests, update both in the same pass — stale counts are easy to miss because nothing fails if they drift. Re-run `npx vitest run` to get the authoritative count (the summary line prints `Tests N passed`); don't estimate from `git diff`.
 
 ## Where To Look
 

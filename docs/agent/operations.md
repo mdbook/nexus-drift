@@ -91,13 +91,13 @@ Because the Pages mirror lives at a subpath, any asset reference that assumes th
 
 ## Beta Build Indicator
 
-`src/lib/isBetaBuild.ts` is the single gate: returns true when `import.meta.env.DEV === true` (local dev server) or `window.location.hostname` starts with `nexus-drift-beta` (CI-built beta deploys at `nexus-drift-beta.mdbook.me` / `nexus-drift-beta.*.mdbook.one`). When true:
+`src/lib/isBetaBuild.ts` is the single gate: returns true when `import.meta.env.DEV === true` (local dev server) or `window.location.hostname` starts with `nexus-drift-beta` (CI-built beta deploys on hosts named `nexus-drift-beta...`). When true:
 
 - Renders an amber `BETA` pill next to the version button in `App.tsx`.
 - Swaps only the `<link rel*="icon" type="image/svg+xml">` href in `main.tsx` from `nexus-drift.svg` → `nexus-drift-dev.svg` (raster icons stay pointed at production assets; SVG-capable browsers render the tinted icon and older browsers fall back to the prod raster icon).
 - Prefixes the document title with `[BETA]`.
 
-Production builds at `nexus-drift.mdbook.me` / `nexus-drift.*.mdbook.one` are unaffected. To ship fully-branded raster dev icons in the future, add `-dev` variants alongside each raster asset and widen the regex to match them.
+Production builds on other hosts are unaffected. To ship fully-branded raster dev icons in the future, add `-dev` variants alongside each raster asset and widen the regex to match them.
 
 ## Favicons & Embeds
 
@@ -115,4 +115,4 @@ ESLint intentionally ignores `.claude/` so local agent configuration and auxilia
 
 ## Deferred Follow-Ups
 
-Deferred follow-ups for the current release line are listed in the README "Known Deferred Work" section with matching `TODO(<version>)` comments in-source. Do not silently close these out as trivia — each has its own reason it was left for a later release.
+Deferred follow-ups for the current release line are listed in [`docs/known-work.md`](../known-work.md) with matching `TODO(<version>)` comments in-source. Do not silently close these out as trivia — each has its own reason it was left for a later release.
