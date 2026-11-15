@@ -1,3 +1,8 @@
+include:
+  - project: mikayla/ci-templates
+    ref: main
+    file: image-hygiene.yml
+
 variables:
   FF_NETWORK_PER_BUILD: "true"
 
@@ -74,8 +79,6 @@ build:
       --dockerfile "$CI_PROJECT_DIR/Dockerfile"
       $IMAGE_DESTINATIONS
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-      when: never
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_BRANCH == "dev"'
 
